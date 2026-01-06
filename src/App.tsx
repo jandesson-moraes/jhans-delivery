@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  MapPin, Navigation, Package, Clock, 
+  MapPin, Navigation, Clock, 
   X, Search, Users, Bike, 
   TrendingUp, Utensils, Plus, LogOut, CheckSquare,
-  MessageCircle, DollarSign, Link as LinkIcon, Database, Loader2, Crosshair, Map as MapIcon
+  MessageCircle, DollarSign, Link as Database, Loader2, Map as MapIcon
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
