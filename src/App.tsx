@@ -3,8 +3,8 @@ import {
   MapPin, Navigation, Package, Clock, 
   X, Search, Users, Bike, 
   TrendingUp, Utensils, Plus, LogOut, CheckSquare,
-  MessageCircle, DollarSign, Link as LinkIcon, Database, Loader2, Crosshair, Map as MapIcon,
-  Lock, KeyRound, Smartphone, Menu, ChevronRight
+  MessageCircle, DollarSign, Link as LinkIcon, Loader2, Crosshair,
+  Lock, KeyRound, ChevronRight
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -21,8 +21,7 @@ import {
   updateDoc, 
   doc, 
   onSnapshot, 
-  serverTimestamp,
-  Timestamp
+  serverTimestamp
 } from "firebase/firestore";
 
 // --- CONFIGURAÇÃO FIREBASE ---
@@ -70,9 +69,10 @@ interface Order {
   status: 'pending' | 'assigned' | 'completed';
   amount: string;
   value: number; 
+  time?: string; // Adicionado para corrigir erro TS2339
   createdAt: any; 
-  assignedAt?: any; // Hora que o motoboy pegou
-  completedAt?: any; // Hora que entregou
+  assignedAt?: any; 
+  completedAt?: any; 
 }
 
 // --- UTILITÁRIOS ---
@@ -92,7 +92,6 @@ const calcDuration = (start: any, end: any) => {
 export default function App() {
   const [user, setUser] = useState<any>(null);
   
-  // ESTADO PERSISTENTE (Lê do localStorage ao iniciar)
   const [viewMode, setViewMode] = useState<UserType>(() => {
     return (localStorage.getItem('jhans_viewMode') as UserType) || 'landing';
   });
@@ -104,13 +103,11 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Persistir estado sempre que mudar
   useEffect(() => {
     localStorage.setItem('jhans_viewMode', viewMode);
     if (currentDriverId) localStorage.setItem('jhans_driverId', currentDriverId);
   }, [viewMode, currentDriverId]);
 
-  // Auth Anônima (Para manter conexão com Firestore)
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       if (u) setUser(u);
@@ -119,7 +116,6 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  // Sync de Dados
   useEffect(() => {
     if (!user) return;
     const unsubDrivers = onSnapshot(collection(db, 'drivers'), (snap) => {
@@ -127,7 +123,6 @@ export default function App() {
     });
     const unsubOrders = onSnapshot(collection(db, 'orders'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
-      // Ordenar: Pendentes primeiro, depois por data
       data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setOrders(data);
       setLoading(false);
@@ -135,7 +130,6 @@ export default function App() {
     return () => { unsubDrivers(); unsubOrders(); };
   }, [user]);
 
-  // CSS Fix
   useEffect(() => {
     if (!document.getElementById('tailwind-cdn')) {
       const s = document.createElement('script');
@@ -145,7 +139,6 @@ export default function App() {
     }
   }, []);
 
-  // --- AÇÕES ---
   const createOrder = async (data: any) => {
     if(!user) return;
     await addDoc(collection(db, 'orders'), {
@@ -188,21 +181,20 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('jhans_viewMode');
     localStorage.removeItem('jhans_driverId');
-    localStorage.removeItem('jhans_admin_auth'); // Remove token de admin
+    localStorage.removeItem('jhans_admin_auth');
     setViewMode('landing');
     setCurrentDriverId(null);
   };
 
-  // --- RENDERIZAÇÃO ---
   if (loading && !user) return <div className="h-screen flex items-center justify-center bg-slate-900 text-white"><Loader2 className="animate-spin mr-2"/> Carregando sistema...</div>;
 
   if (viewMode === 'landing') {
-    return <LandingPage onSelectMode={(m, id) => { if(id) setCurrentDriverId(id); setViewMode(m); }} hasDrivers={drivers.length > 0} />;
+    return <LandingPage onSelectMode={(m: UserType, id?: string) => { if(id) setCurrentDriverId(id); setViewMode(m); }} hasDrivers={drivers.length > 0} />;
   }
 
   if (viewMode === 'driver') {
     if (currentDriverId === 'select') {
-      return <DriverSelection drivers={drivers} onSelect={(id) => setCurrentDriverId(id)} onBack={handleLogout} />;
+      return <DriverSelection drivers={drivers} onSelect={(id: string) => setCurrentDriverId(id)} onBack={handleLogout} />;
     }
     const driver = drivers.find(d => d.id === currentDriverId);
     if (!driver) return <div className="p-10 text-center"><p>Motorista não encontrado.</p><button onClick={handleLogout}>Sair</button></div>;
@@ -210,12 +202,11 @@ export default function App() {
     return <DriverApp driver={driver} orders={orders} onToggleStatus={() => toggleStatus(driver.id)} onCompleteOrder={() => completeOrder(driver.id)} onLogout={handleLogout} />;
   }
 
-  // Admin Panel (Protegido internamente)
   return <AdminPanel drivers={drivers} orders={orders} onAssignOrder={assignOrder} onCreateDriver={createDriver} onCreateOrder={createOrder} onLogout={handleLogout} />;
 }
 
 // ==========================================
-// PÁGINA INICIAL (LANDING)
+// PÁGINA INICIAL
 // ==========================================
 function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType, id?: string) => void, hasDrivers: boolean }) {
   return (
@@ -226,32 +217,23 @@ function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType,
             <Utensils className="w-12 h-12 text-white" />
           </div>
         </div>
-        
         <div>
           <h1 className="text-4xl font-extrabold text-white tracking-tight mb-2">Jhans <span className="text-orange-500">Delivery</span></h1>
           <p className="text-slate-400">Sistema Profissional de Logística</p>
         </div>
-
         <div className="space-y-4">
           <button onClick={() => onSelectMode('admin')} className="w-full group relative flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all">
             <div className="flex items-center gap-4">
               <div className="bg-blue-500/20 p-2 rounded-lg"><TrendingUp className="text-blue-400" size={24}/></div>
-              <div className="text-left">
-                <span className="block font-bold text-white">Sou Gerente</span>
-                <span className="text-xs text-slate-400">Acesso Administrativo</span>
-              </div>
+              <div className="text-left"><span className="block font-bold text-white">Sou Gerente</span><span className="text-xs text-slate-400">Acesso Administrativo</span></div>
             </div>
             <ChevronRight className="text-slate-500 group-hover:text-white" />
           </button>
-
           {hasDrivers ? (
             <button onClick={() => onSelectMode('driver', 'select')} className="w-full group relative flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all">
               <div className="flex items-center gap-4">
                 <div className="bg-emerald-500/20 p-2 rounded-lg"><Bike className="text-emerald-400" size={24}/></div>
-                <div className="text-left">
-                  <span className="block font-bold text-white">Sou Motoboy</span>
-                  <span className="text-xs text-slate-400">App de Entregas</span>
-                </div>
+                <div className="text-left"><span className="block font-bold text-white">Sou Motoboy</span><span className="text-xs text-slate-400">App de Entregas</span></div>
               </div>
               <ChevronRight className="text-slate-500 group-hover:text-white" />
             </button>
@@ -276,10 +258,7 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
           {drivers.map((d: Driver) => (
             <button key={d.id} onClick={() => onSelect(d.id)} className="w-full flex items-center gap-4 p-3 border border-slate-100 rounded-xl hover:bg-orange-50 hover:border-orange-200 transition-all">
               <img src={d.avatar} className="w-12 h-12 rounded-full bg-slate-100 shadow-sm"/>
-              <div className="text-left">
-                <span className="font-bold text-slate-700 block">{d.name}</span>
-                <span className="text-xs text-slate-400 uppercase font-semibold">{d.vehicle}</span>
-              </div>
+              <div className="text-left"><span className="font-bold text-slate-700 block">{d.name}</span><span className="text-xs text-slate-400 uppercase font-semibold">{d.vehicle}</span></div>
             </button>
           ))}
         </div>
@@ -290,18 +269,16 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
 }
 
 // ==========================================
-// APP DO MOTOBOY (COM GPS REAL)
+// APP DO MOTOBOY
 // ==========================================
 function DriverApp({ driver, orders, onToggleStatus, onCompleteOrder, onLogout }: any) {
   const activeOrder = orders.find((o: Order) => o.id === driver.currentOrderId);
   
-  // --- GPS WATCHER ---
   useEffect(() => {
     let watchId: number;
     if (driver.status !== 'offline' && 'geolocation' in navigator) {
       watchId = navigator.geolocation.watchPosition(
         async (position) => {
-          // Atualiza Firestore a cada movimento
           const driverDoc = doc(db, 'drivers', driver.id);
           await updateDoc(driverDoc, {
             lat: position.coords.latitude,
@@ -320,34 +297,23 @@ function DriverApp({ driver, orders, onToggleStatus, onCompleteOrder, onLogout }
 
   return (
     <div className="bg-slate-50 min-h-screen flex flex-col">
-      {/* Header */}
       <div className="bg-slate-900 text-white p-5 pb-8 rounded-b-[2rem] shadow-lg relative z-10">
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-3">
             <img src={driver.avatar} className="w-14 h-14 rounded-full border-4 border-slate-800 bg-white" />
             <div>
               <h2 className="font-bold text-xl">{driver.name}</h2>
-              <div className="flex items-center gap-2 text-slate-400 text-xs font-medium">
-                <span className="bg-slate-800 px-2 py-0.5 rounded">{driver.vehicle}</span>
-                <span className="text-amber-400">★ {driver.rating}</span>
-              </div>
+              <div className="flex items-center gap-2 text-slate-400 text-xs font-medium"><span className="bg-slate-800 px-2 py-0.5 rounded">{driver.vehicle}</span><span className="text-amber-400">★ {driver.rating}</span></div>
             </div>
           </div>
           <button onClick={onLogout} className="p-2 bg-white/10 rounded-full hover:bg-white/20"><LogOut size={20}/></button>
         </div>
-        
-        {/* Status Card */}
         <div className="bg-white rounded-xl p-1 flex items-center justify-between shadow-lg transform translate-y-4">
            <div className="flex-1 text-center py-2">
-              <span className={`text-xs font-bold uppercase block ${driver.status==='offline'?'text-slate-400':'text-emerald-500'}`}>
-                {driver.status === 'offline' ? 'Offline' : 'Online'}
-              </span>
+              <span className={`text-xs font-bold uppercase block ${driver.status==='offline'?'text-slate-400':'text-emerald-500'}`}>{driver.status === 'offline' ? 'Offline' : 'Online'}</span>
               <span className="text-[10px] text-slate-400">Status Atual</span>
            </div>
-           <button 
-             onClick={onToggleStatus}
-             className={`flex-1 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-all ${driver.status==='offline' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'}`}
-           >
+           <button onClick={onToggleStatus} className={`flex-1 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-all ${driver.status==='offline' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
              {driver.status === 'offline' ? 'Ficar Online' : 'Pausar'}
            </button>
         </div>
@@ -357,58 +323,27 @@ function DriverApp({ driver, orders, onToggleStatus, onCompleteOrder, onLogout }
         {driver.status === 'delivering' && activeOrder ? (
            <div className="bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
                <div className="bg-orange-50 p-4 border-b border-orange-100 flex justify-between items-center">
-                  <div>
-                    <span className="inline-block text-[10px] font-bold text-white bg-orange-500 px-2 py-0.5 rounded-full mb-1">EM ROTA</span>
-                    <h3 className="font-bold text-lg text-slate-800 leading-none">{activeOrder.customer}</h3>
-                  </div>
-                  <div className="text-right">
-                     <p className="text-xs text-slate-500">A cobrar</p>
-                     <p className="font-bold text-xl text-slate-800">{activeOrder.amount}</p>
-                  </div>
+                  <div><span className="inline-block text-[10px] font-bold text-white bg-orange-500 px-2 py-0.5 rounded-full mb-1">EM ROTA</span><h3 className="font-bold text-lg text-slate-800 leading-none">{activeOrder.customer}</h3></div>
+                  <div className="text-right"><p className="text-xs text-slate-500">A cobrar</p><p className="font-bold text-xl text-slate-800">{activeOrder.amount}</p></div>
                </div>
-               
                <div className="p-5 space-y-6">
                  <div>
                     <div className="flex items-start gap-3">
                        <MapPin className="text-orange-500 mt-1 shrink-0" size={20}/>
-                       <div>
-                          <p className="text-xs text-slate-400 font-bold uppercase">Entrega</p>
-                          <p className="text-slate-700 font-medium">{activeOrder.address}</p>
-                       </div>
+                       <div><p className="text-xs text-slate-400 font-bold uppercase">Entrega</p><p className="text-slate-700 font-medium">{activeOrder.address}</p></div>
                     </div>
-                    
                     <div className="grid grid-cols-2 gap-3 mt-4">
-                       <button 
-                         onClick={() => openApp(activeOrder.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeOrder.address)}`)} 
-                         className="flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-blue-200 active:scale-95 transition-transform"
-                       >
-                          <Navigation size={18}/> Waze / Maps
-                       </button>
-                       <button 
-                         onClick={() => openApp(`https://wa.me/55${activeOrder.phone.replace(/\D/g, '')}`)}
-                         className="flex items-center justify-center gap-2 bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-emerald-200 active:scale-95 transition-transform"
-                       >
-                          <MessageCircle size={18}/> WhatsApp
-                       </button>
+                       <button onClick={() => openApp(activeOrder.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeOrder.address)}`)} className="flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-blue-200 active:scale-95 transition-transform"><Navigation size={18}/> Waze / Maps</button>
+                       <button onClick={() => openApp(`https://wa.me/55${activeOrder.phone.replace(/\D/g, '')}`)} className="flex items-center justify-center gap-2 bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-emerald-200 active:scale-95 transition-transform"><MessageCircle size={18}/> WhatsApp</button>
                     </div>
                  </div>
-
-                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                    <p className="text-xs text-slate-400 font-bold uppercase mb-2">Detalhes do Pedido</p>
-                    <p className="text-slate-600 text-sm whitespace-pre-wrap">{activeOrder.items}</p>
-                 </div>
-
-                 <button onClick={onCompleteOrder} className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                   <CheckSquare size={20} className="text-emerald-400"/> Confirmar Entrega
-                 </button>
+                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100"><p className="text-xs text-slate-400 font-bold uppercase mb-2">Detalhes do Pedido</p><p className="text-slate-600 text-sm whitespace-pre-wrap">{activeOrder.items}</p></div>
+                 <button onClick={onCompleteOrder} className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform"><CheckSquare size={20} className="text-emerald-400"/> Confirmar Entrega</button>
                </div>
            </div>
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-center opacity-50 pb-20">
-             <div className="relative mb-6">
-                <span className="absolute inset-0 bg-orange-400 rounded-full animate-ping opacity-20"></span>
-                <div className="bg-white p-6 rounded-full shadow-lg relative z-10"><Search size={40} className="text-orange-500"/></div>
-             </div>
+             <div className="relative mb-6"><span className="absolute inset-0 bg-orange-400 rounded-full animate-ping opacity-20"></span><div className="bg-white p-6 rounded-full shadow-lg relative z-10"><Search size={40} className="text-orange-500"/></div></div>
              <h3 className="text-xl font-bold text-slate-700">Aguardando...</h3>
              <p className="text-sm text-slate-400 max-w-[200px]">Mantenha o app aberto para receber pedidos.</p>
           </div>
@@ -419,43 +354,31 @@ function DriverApp({ driver, orders, onToggleStatus, onCompleteOrder, onLogout }
 }
 
 // ==========================================
-// ADMIN PANEL (COM LOGIN & RESPONSIVIDADE)
+// ADMIN PANEL
 // ==========================================
 function AdminPanel(props: any) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('jhans_admin_auth'));
   const [password, setPassword] = useState('');
   
-  // LOGIN SCREEN
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl">
           <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4 text-orange-500">
-              <Lock size={32}/>
-            </div>
+            <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4 text-orange-500"><Lock size={32}/></div>
             <h2 className="text-2xl font-bold text-slate-800">Acesso Gerente</h2>
             <p className="text-sm text-slate-500">Digite sua senha ou PIN de acesso</p>
           </div>
           <form onSubmit={(e) => {
             e.preventDefault();
-            if (password === '1234') { // SENHA SIMPLES PARA DEMO
+            if (password === '1234') { 
               localStorage.setItem('jhans_admin_auth', 'true');
               setIsAuthenticated(true);
             } else {
               alert("Senha incorreta! Tente 1234");
             }
           }} className="space-y-4">
-            <div className="relative">
-              <KeyRound className="absolute left-3 top-3 text-slate-400" size={20}/>
-              <input 
-                type="password" 
-                className="w-full pl-10 pr-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-orange-500 bg-slate-50"
-                placeholder="Senha (1234)"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-              />
-            </div>
+            <div className="relative"><KeyRound className="absolute left-3 top-3 text-slate-400" size={20}/><input type="password" className="w-full pl-10 pr-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-orange-500 bg-slate-50" placeholder="Senha (1234)" value={password} onChange={e => setPassword(e.target.value)}/></div>
             <button className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-xl transition-colors">Entrar no Painel</button>
           </form>
           <button onClick={props.onLogout} className="w-full mt-4 text-slate-400 text-sm hover:underline">Voltar</button>
@@ -463,19 +386,15 @@ function AdminPanel(props: any) {
       </div>
     )
   }
-
   return <Dashboard {...props} />;
 }
 
-// DASHBOARD INTERNO
 function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrder, onLogout }: any) {
   const [view, setView] = useState<'map' | 'list' | 'history'>('map');
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [modal, setModal] = useState<'driver' | 'order' | null>(null);
-  const [mobileMenu, setMobileMenu] = useState(false);
 
   const delivered = orders.filter((o: Order) => o.status === 'completed');
-  // Ordenar histórico por data de conclusão (mais recente primeiro)
   const sortedHistory = [...delivered].sort((a,b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
 
   const trackDriver = (driver: Driver) => {
@@ -489,12 +408,8 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrd
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
-      {/* Sidebar Desktop */}
       <aside className="hidden md:flex w-64 bg-slate-900 text-white flex-col z-20 shadow-xl">
-        <div className="p-6 border-b border-slate-700/50 flex items-center gap-3">
-          <div className="bg-orange-600 p-2 rounded-lg"><Utensils size={20}/></div>
-          <span className="font-bold text-lg tracking-wide">Jhans Admin</span>
-        </div>
+        <div className="p-6 border-b border-slate-700/50 flex items-center gap-3"><div className="bg-orange-600 p-2 rounded-lg"><Utensils size={20}/></div><span className="font-bold text-lg tracking-wide">Jhans Admin</span></div>
         <nav className="flex-1 p-4 space-y-2">
           <SidebarBtn icon={<MapPin/>} label="Monitoramento" active={view==='map'} onClick={()=>setView('map')}/>
           <SidebarBtn icon={<Users/>} label="Equipe & Motoboys" active={view==='list'} onClick={()=>setView('list')}/>
@@ -502,13 +417,10 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrd
           <SidebarBtn icon={<Plus/>} label="Novo Pedido" onClick={()=>setModal('order')} highlight/>
           <SidebarBtn icon={<Clock/>} label="Relatórios & Histórico" active={view==='history'} onClick={()=>setView('history')}/>
         </nav>
-        <button onClick={onLogout} className="m-4 p-3 bg-slate-800 rounded-xl flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
-          <LogOut size={18}/> <span className="text-sm font-bold">Sair</span>
-        </button>
+        <button onClick={onLogout} className="m-4 p-3 bg-slate-800 rounded-xl flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"><LogOut size={18}/> <span className="text-sm font-bold">Sair</span></button>
       </aside>
 
-      {/* Menu Mobile */}
-      <div className={`md:hidden fixed bottom-0 left-0 w-full bg-slate-900 text-white p-2 flex justify-around z-50 border-t border-slate-800 ${mobileMenu ? 'translate-y-0' : 'translate-y-0'}`}>
+      <div className={`md:hidden fixed bottom-0 left-0 w-full bg-slate-900 text-white p-2 flex justify-around z-50 border-t border-slate-800 translate-y-0`}>
          <button onClick={()=>setView('map')} className={`p-2 rounded-lg flex flex-col items-center ${view==='map'?'text-orange-500':'text-slate-400'}`}><MapPin size={24}/><span className="text-[10px]">Mapa</span></button>
          <button onClick={()=>setView('list')} className={`p-2 rounded-lg flex flex-col items-center ${view==='list'?'text-orange-500':'text-slate-400'}`}><Users size={24}/><span className="text-[10px]">Equipe</span></button>
          <button onClick={()=>setModal('order')} className="p-3 -mt-8 bg-orange-600 rounded-full shadow-lg border-4 border-slate-50"><Plus size={28} className="text-white"/></button>
@@ -517,56 +429,40 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrd
       </div>
 
       <main className="flex-1 flex flex-col relative overflow-hidden">
-        {/* Header Responsivo */}
         <header className="h-16 bg-white border-b px-4 md:px-8 flex items-center justify-between shadow-sm z-10">
            <h1 className="text-lg md:text-xl font-bold text-slate-800">{view === 'map' ? 'Visão Geral em Tempo Real' : view === 'list' ? 'Gestão de Equipe' : 'Relatório de Vendas'}</h1>
            <div className="hidden md:flex text-xs font-bold bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Sistema Online</div>
         </header>
 
         <div className="flex-1 overflow-hidden relative flex flex-col md:flex-row">
-          
-          {/* MAPA */}
           {view === 'map' && (
              <div className="flex-1 bg-slate-200 relative overflow-hidden">
                 <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-                
-                {/* Lista de Pedidos Pendentes Flutuante */}
                 <div className="absolute top-4 left-4 z-20 space-y-2 max-h-[80%] overflow-y-auto w-64 hidden md:block">
                    {orders.filter((o: Order) => o.status === 'pending').map((o: Order) => (
                       <div key={o.id} className="bg-white p-3 rounded-lg shadow-lg border-l-4 border-orange-500 animate-in slide-in-from-left">
-                         <div className="flex justify-between items-start">
-                            <span className="font-bold text-sm text-slate-800">{o.customer}</span>
-                            <span className="text-xs font-bold bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">{o.time}</span>
-                         </div>
+                         <div className="flex justify-between items-start"><span className="font-bold text-sm text-slate-800">{o.customer}</span><span className="text-xs font-bold bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">{o.time}</span></div>
                          <p className="text-xs text-slate-500 truncate mt-1">{o.address}</p>
                          <p className="text-sm font-bold text-emerald-600 mt-1">{o.amount}</p>
                       </div>
                    ))}
                 </div>
-
-                {/* Pin Motoboys */}
                 {drivers.map((d: Driver) => (
                    <div key={d.id} onClick={() => setSelectedDriver(d)} className="absolute z-30 hover:scale-110 transition-transform cursor-pointer" style={{top: `50%`, left: `50%`, transform: `translate(${(Math.random()-0.5)*200}px, ${(Math.random()-0.5)*200}px)`}}>
                       <div className="relative group">
                          <div className={`w-12 h-12 rounded-full border-4 shadow-xl overflow-hidden ${d.status==='delivering' ? 'border-orange-500' : d.status==='available' ? 'border-emerald-500' : 'border-slate-400'}`}>
                             <img src={d.avatar} className="w-full h-full bg-slate-100 object-cover"/>
                          </div>
-                         <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity pointer-events-none">
-                            {d.name}
-                         </div>
+                         <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity pointer-events-none">{d.name}</div>
                       </div>
                    </div>
                 ))}
              </div>
           )}
 
-          {/* LISTA */}
           {view === 'list' && (
              <div className="flex-1 bg-white p-4 md:p-8 overflow-auto pb-24 md:pb-8">
-                <div className="flex justify-between items-center mb-6">
-                   <h2 className="font-bold text-lg">Frota ({drivers.length})</h2>
-                   <button onClick={()=>setModal('driver')} className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold flex gap-2"><Plus size={16}/> Novo</button>
-                </div>
+                <div className="flex justify-between items-center mb-6"><h2 className="font-bold text-lg">Frota ({drivers.length})</h2><button onClick={()=>setModal('driver')} className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold flex gap-2"><Plus size={16}/> Novo</button></div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                    {drivers.map((d: Driver) => (
                       <div key={d.id} onClick={()=>setSelectedDriver(d)} className="border p-4 rounded-xl hover:shadow-md cursor-pointer bg-white transition-all">
@@ -584,27 +480,18 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrd
              </div>
           )}
 
-          {/* HISTÓRICO */}
           {view === 'history' && (
              <div className="flex-1 bg-white p-4 md:p-8 overflow-auto pb-24 md:pb-8">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                   <StatBox label="Faturamento" value={`R$ ${delivered.reduce((acc, c)=>acc+(c.value||0),0).toFixed(2)}`} icon={<DollarSign/>} color="bg-emerald-50 text-emerald-600"/>
+                   <StatBox label="Faturamento" value={`R$ ${delivered.reduce((acc: number, c: Order)=>acc+(c.value||0),0).toFixed(2)}`} icon={<DollarSign/>} color="bg-emerald-50 text-emerald-600"/>
                    <StatBox label="Entregas" value={delivered.length} icon={<CheckSquare/>} color="bg-blue-50 text-blue-600"/>
                 </div>
-                
                 <h3 className="font-bold text-lg mb-4 text-slate-800">Relatório Completo</h3>
                 <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
                    <div className="overflow-x-auto">
                      <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50 border-b text-slate-500 font-semibold uppercase text-xs">
-                           <tr>
-                              <th className="p-4">Cliente</th>
-                              <th className="p-4">Valor</th>
-                              <th className="p-4 hidden md:table-cell">Início</th>
-                              <th className="p-4 hidden md:table-cell">Fim</th>
-                              <th className="p-4">Duração</th>
-                              <th className="p-4">Status</th>
-                           </tr>
+                           <tr><th className="p-4">Cliente</th><th className="p-4">Valor</th><th className="p-4 hidden md:table-cell">Início</th><th className="p-4 hidden md:table-cell">Fim</th><th className="p-4">Duração</th><th className="p-4">Status</th></tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                            {sortedHistory.map((o: Order) => (
@@ -625,16 +512,11 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrd
              </div>
           )}
 
-          {/* PAINEL LATERAL DE DETALHES (DESKTOP) */}
           {(view === 'map' || selectedDriver) && (
              <aside className={`fixed md:relative inset-y-0 right-0 w-full md:w-80 bg-white shadow-2xl p-6 overflow-y-auto z-40 transition-transform duration-300 ${selectedDriver ? 'translate-x-0' : 'translate-x-full md:translate-x-0 md:border-l'}`}>
                 {selectedDriver ? (
                    <div className="h-full flex flex-col">
-                      <div className="flex justify-between items-start mb-6">
-                         <h3 className="font-bold text-slate-800 text-lg">Detalhes do Motoboy</h3>
-                         <button onClick={()=>setSelectedDriver(null)} className="p-1 hover:bg-slate-100 rounded"><X size={20}/></button>
-                      </div>
-                      
+                      <div className="flex justify-between items-start mb-6"><h3 className="font-bold text-slate-800 text-lg">Detalhes do Motoboy</h3><button onClick={()=>setSelectedDriver(null)} className="p-1 hover:bg-slate-100 rounded"><X size={20}/></button></div>
                       <div className="flex flex-col items-center mb-6">
                          <div className="relative">
                             <img src={selectedDriver.avatar} className="w-24 h-24 rounded-full border-4 border-slate-50 shadow-md"/>
@@ -642,42 +524,21 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrd
                          </div>
                          <h2 className="font-bold text-xl mt-3">{selectedDriver.name}</h2>
                          <p className="text-sm text-slate-500">{selectedDriver.vehicle} • {selectedDriver.phone}</p>
-                         
-                         {/* BOTÃO RASTREAMENTO REAL */}
-                         <button 
-                            onClick={() => trackDriver(selectedDriver)}
-                            className="mt-4 w-full bg-blue-50 text-blue-600 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors border border-blue-200"
-                         >
-                            <Crosshair size={18} /> Rastrear GPS em Tempo Real
-                         </button>
-                         {selectedDriver.lastUpdate && (
-                            <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-1">
-                               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                               Atualizado às {formatTime(selectedDriver.lastUpdate)}
-                            </p>
-                         )}
+                         <button onClick={() => trackDriver(selectedDriver)} className="mt-4 w-full bg-blue-50 text-blue-600 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors border border-blue-200"><Crosshair size={18} /> Rastrear GPS em Tempo Real</button>
+                         {selectedDriver.lastUpdate && <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Atualizado às {formatTime(selectedDriver.lastUpdate)}</p>}
                       </div>
-
                       <div className="flex-1 overflow-y-auto">
                          <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Atribuir Pedido</h4>
                          <div className="space-y-3 pb-20">
                             {orders.filter((o: Order) => o.status === 'pending').map((o: Order) => (
                                <div key={o.id} className="border border-slate-200 p-4 rounded-xl hover:border-orange-500 transition-colors bg-white shadow-sm">
-                                  <div className="flex justify-between items-start mb-2">
-                                     <span className="font-bold text-slate-800">{o.customer}</span>
-                                     <span className="text-emerald-600 font-bold">{o.amount}</span>
-                                  </div>
+                                  <div className="flex justify-between items-start mb-2"><span className="font-bold text-slate-800">{o.customer}</span><span className="text-emerald-600 font-bold">{o.amount}</span></div>
                                   <p className="text-xs text-slate-500 mb-3 line-clamp-2">{o.address}</p>
-                                  <button onClick={()=>{onAssignOrder(o.id, selectedDriver.id); setSelectedDriver(null);}} className="w-full bg-slate-900 text-white text-xs font-bold py-2.5 rounded-lg hover:bg-slate-800 transition-colors">
-                                     Enviar Entrega
-                                  </button>
+                                  <button onClick={()=>{onAssignOrder(o.id, selectedDriver.id); setSelectedDriver(null);}} className="w-full bg-slate-900 text-white text-xs font-bold py-2.5 rounded-lg hover:bg-slate-800 transition-colors">Enviar Entrega</button>
                                </div>
                             ))}
                             {orders.filter((o: Order) => o.status === 'pending').length === 0 && (
-                               <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                                  <Package className="mx-auto text-slate-300 mb-2"/>
-                                  <p className="text-sm text-slate-400">Sem pedidos pendentes</p>
-                               </div>
+                               <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200"><Package className="mx-auto text-slate-300 mb-2"/><p className="text-sm text-slate-400">Sem pedidos pendentes</p></div>
                             )}
                          </div>
                       </div>
@@ -693,14 +554,11 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrd
         </div>
       </main>
 
-      {/* MODAIS */}
       {modal === 'order' && <NewOrderModal onClose={()=>setModal(null)} onSave={onCreateOrder} />}
       {modal === 'driver' && <NewDriverModal onClose={()=>setModal(null)} onSave={onCreateDriver} />}
     </div>
   )
 }
-
-// --- COMPONENTES UI ---
 
 function SidebarBtn({ icon, label, active, onClick, highlight }: any) {
   return (
