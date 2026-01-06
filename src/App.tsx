@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   MapPin, Navigation, Package, Clock, 
   X, Search, Users, Bike, 
-  TrendingUp, Utensils, Plus, Save, LogOut, CheckSquare,
-  MessageCircle, Map, DollarSign, Calendar
+  TrendingUp, Utensils, Plus, LogOut, CheckSquare,
+  MessageCircle, DollarSign
 } from 'lucide-react';
 
 // --- Tipos e Interfaces ---
@@ -258,7 +258,7 @@ function DriverApp({ driver, allDrivers, orders, onToggleStatus, onCompleteOrder
 
         {/* Debug Switcher (Escondido em produção) */}
         <select className="absolute top-2 right-2 opacity-0 w-4 h-4 z-50" value={driver.id} onChange={(e) => onSwitchDriver(e.target.value)}>
-           {allDrivers.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+           {allDrivers.map((d: Driver) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
 
         {/* Área Rolável */}
@@ -537,7 +537,7 @@ function AdminPanel({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOr
                       {selectedDriver.status === 'available' && (
                          <div className="space-y-3">
                             <p className="text-xs font-bold text-slate-400 uppercase">Atribuir Pedido Pendente</p>
-                            {orders.filter(o => o.status === 'pending').map(order => (
+                            {orders.filter((o: Order) => o.status === 'pending').map((order: Order) => (
                                <div key={order.id} onClick={() => onAssignOrder(order.id, selectedDriver.id)} className="bg-white border border-slate-200 p-3 rounded-lg hover:border-orange-500 cursor-pointer group shadow-sm">
                                   <div className="flex justify-between font-bold text-sm text-slate-800">
                                      <span>{order.customer}</span>
@@ -547,7 +547,7 @@ function AdminPanel({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOr
                                   <button className="w-full mt-2 bg-orange-600 text-white text-xs font-bold py-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">Enviar para Motoboy</button>
                                </div>
                             ))}
-                            {orders.filter(o => o.status === 'pending').length === 0 && <p className="text-sm text-slate-400 text-center italic">Sem pedidos pendentes</p>}
+                            {orders.filter((o: Order) => o.status === 'pending').length === 0 && <p className="text-sm text-slate-400 text-center italic">Sem pedidos pendentes</p>}
                          </div>
                       )}
                    </div>
