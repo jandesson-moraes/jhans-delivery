@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  MapPin, Navigation,Clock, 
+  MapPin, Navigation, Package, Clock, 
   X, Search, Users, Bike, 
   TrendingUp, Utensils, Plus, LogOut, CheckSquare,
-  MessageCircle, DollarSign, Link as Database, Loader2, Map as MapIcon
+  MessageCircle, DollarSign, Link as LinkIcon, Database, Loader2, Crosshair, Map as MapIcon
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -190,7 +190,7 @@ export default function App() {
   if (loading && !user) return <div className="h-screen flex items-center justify-center bg-slate-900 text-white"><Loader2 className="animate-spin mr-2"/> Conectando ao Banco de Dados...</div>;
 
   if (viewMode === 'landing') {
-    return <LandingPage onSelectMode={(m, id) => { if(id) setCurrentDriverId(id); setViewMode(m); }} hasDrivers={drivers.length > 0} />;
+    return <LandingPage onSelectMode={(m: UserType, id?: string) => { if(id) setCurrentDriverId(id); setViewMode(m); }} hasDrivers={drivers.length > 0} />;
   }
 
   if (viewMode === 'driver') {
@@ -562,7 +562,7 @@ function NewOrderModal({ onClose, onSave }: any) {
    )
 }
 
-function NewDriverModal({ onClose, onSave, driversCount }: any) {
+function NewDriverModal({ onClose, onSave }: any) {
    const [form, setForm] = useState({ name: '', phone: '', vehicle: '' });
    const submit = (e: React.FormEvent) => {
       e.preventDefault();
