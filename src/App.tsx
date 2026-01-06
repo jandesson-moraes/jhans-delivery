@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  MapPin, Navigation, Package, Phone, Clock, CheckCircle, 
-  AlertCircle, Menu, X, Search, BarChart3, Users, Bike, 
-  TrendingUp, Utensils, Plus, Save, ArrowLeft, LogOut, CheckSquare,
-  Download // Adicionado ícone de download
+  MapPin, Navigation, Package, Clock, 
+  X, Search, Users, Bike, 
+  TrendingUp, Utensils, Plus, Save, LogOut, CheckSquare
 } from 'lucide-react';
 
 // --- Tipos e Interfaces ---
@@ -349,7 +348,7 @@ function DriverApp({ driver, allDrivers, orders, onToggleStatus, onCompleteOrder
 function AdminPanel({ drivers, orders, onAssignOrder, onCreateDriver, onLogout }: any) {
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [view, setView] = useState<'map' | 'list'>('map');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen] = useState(true); // Corrigido: Removido setIsSidebarOpen pois não era usado
   const [isAddDriverModalOpen, setIsAddDriverModalOpen] = useState(false);
   
   // States para formulário
