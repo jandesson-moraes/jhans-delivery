@@ -22,7 +22,6 @@ import {
   onSnapshot, 
   serverTimestamp
 } from "firebase/firestore";
-import { cadastrarMotoboy, atualizarPosicaoMotoboy } from './services/motoboyService';
 
 // --- SUA CONFIGURAÇÃO DO FIREBASE (Jhans Delivery Base) ---
 const firebaseConfig = {
@@ -214,21 +213,6 @@ function LandingPage({ onSelectMode, hasDrivers }: any) {
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 relative overflow-hidden">
       <div className="max-w-4xl w-full grid md:grid-cols-2 gap-12 items-center relative z-10 text-white">
         <div className="space-y-6 text-center md:text-left">
-          <div style={{ padding: 20, border: '1px solid red' }}>
-            <h3>Painel de Teste de GPS</h3>
-            
-            <button onClick={() => cadastrarMotoboy("moto_01", "Jhan Motoboy")}>
-              1. Criar Motoboy Teste
-            </button>
-
-            <button onClick={() => atualizarPosicaoMotoboy("moto_01", -23.55052, -46.63330)}>
-              2. Mover para Centro SP
-            </button>
-            
-            <button onClick={() => atualizarPosicaoMotoboy("moto_01", -23.5615, -46.6559)}>
-              3. Mover para Av Paulista
-            </button>
-          </div>
           <div className="inline-flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-4 py-1.5 rounded-full border border-emerald-500/20 text-sm font-bold">
             <Database size={14}/> Online
           </div>
