@@ -3,7 +3,7 @@ import {
   MapPin, Navigation, Package, Clock, 
   X, Search, Users, Bike, 
   TrendingUp, Utensils, Plus, LogOut, CheckSquare,
-  MessageCircle, DollarSign
+  MessageCircle, DollarSign, Link as LinkIcon
 } from 'lucide-react';
 
 // --- Tipos e Interfaces ---
@@ -28,14 +28,18 @@ interface Driver {
 interface Order {
   id: string;
   customer: string;
-  phone: string; // Novo: Telefone do cliente para WhatsApp
+  phone: string; 
   address: string;
+  
+  // MUDANÇA: Link direto em vez de lat/lng manual
+  mapsLink?: string; 
+
   items: string; 
   status: 'pending' | 'assigned' | 'completed';
   amount: string;
-  value: number; // Novo: Valor numérico para cálculos
+  value: number; 
   time: string;
-  lat: number;
+  lat: number; 
   lng: number;
   createdAt: Date;
 }
@@ -47,8 +51,7 @@ const INITIAL_DRIVERS: Driver[] = [
 ];
 
 const INITIAL_ORDERS: Order[] = [
-  { id: 'o101', customer: 'João Silva', phone: '11999999999', address: 'Rua das Palmeiras, 45', items: '2x X-Salada + Fritas', status: 'pending', amount: 'R$ 45,90', value: 45.90, time: '5 min', lat: 25, lng: 35, createdAt: new Date() },
-  { id: 'o102', customer: 'Maria Oliveira', phone: '11988888888', address: 'Av. Brasil, 1200', items: 'Combo Família', status: 'pending', amount: 'R$ 112,50', value: 112.50, time: '15 min', lat: 62, lng: 72, createdAt: new Date() },
+  { id: 'o101', customer: 'João Silva', phone: '11999999999', address: 'Rua das Palmeiras, 45', mapsLink: 'https://goo.gl/maps/exemplo', items: '2x X-Salada + Fritas', status: 'pending', amount: 'R$ 45,90', value: 45.90, time: '5 min', lat: 25, lng: 35, createdAt: new Date() },
 ];
 
 // --- COMPONENTE PRINCIPAL ---
@@ -58,9 +61,7 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
   const [currentDriverId, setCurrentDriverId] = useState<string | null>(null);
 
-  // --- CORREÇÃO DE LAYOUT AUTOMÁTICA ---
-  // Injeta o script do Tailwind CSS via CDN se ele não estiver configurado no projeto.
-  // Isso garante que o visual funcione no Vercel mesmo sem configuração de build.
+  // --- CORREÇÃO DE LAYOUT AUTOMÁTICA (CDN) ---
   useEffect(() => {
     const scriptId = 'tailwind-cdn-loader';
     if (!document.getElementById(scriptId)) {
@@ -70,9 +71,8 @@ export default function App() {
       document.head.appendChild(script);
     }
   }, []);
-  // --------------------------------------
 
-  // Simulação de GPS Global
+  // Simulação de GPS Global (Visual do Painel)
   useEffect(() => {
     const interval = setInterval(() => {
       setDrivers(prev => prev.map(d => {
@@ -93,7 +93,7 @@ export default function App() {
       id: `o${Date.now()}`,
       ...newOrderData,
       status: 'pending',
-      lat: 50 + (Math.random() - 0.5) * 40, // Posição aleatória no mapa simulado
+      lat: 50 + (Math.random() - 0.5) * 40,
       lng: 50 + (Math.random() - 0.5) * 40,
       createdAt: new Date(),
       time: 'Agora'
@@ -140,7 +140,7 @@ export default function App() {
     return (
       <DriverApp 
         driver={driver} 
-        allDrivers={drivers} // Apenas para debug/troca rápida
+        allDrivers={drivers} 
         orders={orders} 
         onToggleStatus={() => toggleDriverStatus(driver.id)}
         onCompleteOrder={() => completeOrder(driver.id)}
@@ -168,7 +168,6 @@ export default function App() {
 function LandingPage({ onSelectMode }: { onSelectMode: (mode: UserType, id?: string) => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-900 p-6 relative overflow-hidden">
-      {/* Background Decorativo */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-orange-600 rounded-full blur-[120px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-600 rounded-full blur-[120px]"></div>
@@ -177,13 +176,13 @@ function LandingPage({ onSelectMode }: { onSelectMode: (mode: UserType, id?: str
       <div className="max-w-4xl w-full grid md:grid-cols-2 gap-12 items-center relative z-10">
         <div className="text-center md:text-left space-y-6">
           <div className="inline-flex items-center gap-2 bg-orange-500/10 text-orange-500 px-4 py-1.5 rounded-full border border-orange-500/20 font-medium text-sm animate-in slide-in-from-left duration-700">
-            <Utensils size={14} /> Sistema de Gestão v2.0
+            <Utensils size={14} /> Sistema de Gestão v2.2
           </div>
           <h1 className="text-5xl md:text-6xl font-bold text-white tracking-tight">
             Jhans <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">Delivery</span>
           </h1>
           <p className="text-slate-400 text-lg leading-relaxed max-w-md mx-auto md:mx-0">
-            A solução completa para sua hamburgueria. Gerencie pedidos, acompanhe motoboys em tempo real e otimize suas entregas.
+            Gestão profissional de entregas. Cole o link do Google Maps e envie a rota exata para seu motoboy.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 pt-4 justify-center md:justify-start">
              <button 
@@ -193,32 +192,26 @@ function LandingPage({ onSelectMode }: { onSelectMode: (mode: UserType, id?: str
               <TrendingUp size={20} /> Painel do Gerente
             </button>
              <button 
-              onClick={() => onSelectMode('driver', 'd1')} // Login automático como driver d1 para teste
+              onClick={() => onSelectMode('driver', 'd1')}
               className="px-8 py-4 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-xl font-bold flex items-center justify-center gap-2 transition-all hover:scale-105"
             >
               <Bike size={20} /> Sou Motoboy
             </button>
           </div>
         </div>
-
-        {/* Card Visual Ilustrativo */}
         <div className="hidden md:block relative">
            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl rotate-3 hover:rotate-0 transition-transform duration-500">
               <div className="flex items-center gap-4 mb-6 border-b border-white/10 pb-4">
                  <div className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold text-xl">J</div>
                  <div>
                     <h3 className="text-white font-bold">Jhans Burger</h3>
-                    <p className="text-slate-400 text-xs">Status: Loja Aberta</p>
+                    <p className="text-slate-400 text-xs">Status: GPS via Link</p>
                  </div>
               </div>
               <div className="space-y-3">
                  <div className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center">
                     <span className="text-slate-300 text-sm">Entregas Hoje</span>
                     <span className="text-white font-bold">24</span>
-                 </div>
-                 <div className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center">
-                    <span className="text-slate-300 text-sm">Motoboys Online</span>
-                    <span className="text-emerald-400 font-bold">5</span>
                  </div>
               </div>
            </div>
@@ -242,25 +235,28 @@ function DriverApp({ driver, allDrivers, orders, onToggleStatus, onCompleteOrder
 }) {
   const activeOrder = orders.find((o: Order) => o.id === driver.currentOrderId);
 
-  // Função para abrir GPS
-  const openWaze = (address: string) => {
-    // Tenta abrir Waze, fallback para Google Maps
-    const encoded = encodeURIComponent(address);
-    window.open(`https://waze.com/ul?q=${encoded}`, '_blank');
+  // --- LÓGICA DE GPS VIA LINK ---
+  const openGps = (order: Order) => {
+    if (order.mapsLink && order.mapsLink.trim() !== '') {
+       // Se tem link, abre o link direto (Google Maps, Waze se for link do Waze, etc)
+       window.open(order.mapsLink, '_blank');
+    } else {
+       // Se não tem link, pesquisa pelo endereço no Google Maps
+       const encoded = encodeURIComponent(order.address);
+       window.open(`https://www.google.com/maps/search/?api=1&query=${encoded}`, '_blank');
+    }
   };
 
-  // Função para abrir WhatsApp
   const openWhatsApp = (phone: string) => {
-     // Remove caracteres não numéricos
      const cleanPhone = phone.replace(/\D/g, '');
      window.open(`https://wa.me/55${cleanPhone}`, '_blank');
   };
 
   return (
     <div className="flex justify-center bg-slate-900 min-h-screen">
-      <div className="w-full max-w-md bg-white shadow-2xl flex flex-col h-[100dvh]"> {/* 100dvh para mobile real */}
+      <div className="w-full max-w-md bg-white shadow-2xl flex flex-col h-[100dvh]">
         
-        {/* Header Compacto */}
+        {/* Header */}
         <div className="bg-slate-900 text-white p-4 pt-6 pb-6 rounded-b-3xl z-10 shadow-lg shrink-0">
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-3">
@@ -278,22 +274,20 @@ function DriverApp({ driver, allDrivers, orders, onToggleStatus, onCompleteOrder
           </div>
         </div>
 
-        {/* Debug Switcher (Escondido em produção) */}
+        {/* Debug Switcher */}
         <select className="absolute top-2 right-2 opacity-0 w-4 h-4 z-50" value={driver.id} onChange={(e) => onSwitchDriver(e.target.value)}>
            {allDrivers.map((d: Driver) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
 
         {/* Área Rolável */}
         <div className="flex-1 overflow-y-auto bg-slate-50 p-4">
-          
-          {/* Status Bar */}
           <div className={`mb-6 p-4 rounded-xl border flex items-center justify-between shadow-sm transition-colors ${driver.status === 'offline' ? 'bg-white border-slate-200' : 'bg-emerald-50 border-emerald-100'}`}>
              <div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Seu Status</p>
                 <div className="flex items-center gap-2">
                    <div className={`w-2.5 h-2.5 rounded-full ${driver.status === 'offline' ? 'bg-slate-400' : 'bg-emerald-500 animate-pulse'}`}></div>
                    <span className={`font-bold ${driver.status === 'offline' ? 'text-slate-600' : 'text-emerald-700'}`}>
-                      {driver.status === 'offline' ? 'Offline' : 'Online e Disponível'}
+                      {driver.status === 'offline' ? 'Offline' : 'Online'}
                    </span>
                 </div>
              </div>
@@ -309,35 +303,38 @@ function DriverApp({ driver, allDrivers, orders, onToggleStatus, onCompleteOrder
              </button>
           </div>
 
-          {/* CARD DE ENTREGA ATIVA (O MAIS IMPORTANTE) */}
+          {/* CARD DE ENTREGA ATIVA */}
           {driver.status === 'delivering' && activeOrder ? (
              <div className="animate-in slide-in-from-bottom-5 fade-in duration-500">
                <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 overflow-hidden">
                  
-                 {/* Cabeçalho do Pedido */}
                  <div className="bg-orange-50 p-4 border-b border-orange-100 flex justify-between items-center">
                     <div>
-                       <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wide bg-orange-100 px-2 py-1 rounded-full">Pedido #{activeOrder.id}</span>
+                       <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wide bg-orange-100 px-2 py-1 rounded-full">Pedido #{activeOrder.id.slice(-4)}</span>
                        <h3 className="font-bold text-lg text-slate-800 mt-1">{activeOrder.customer}</h3>
                     </div>
                     <div className="text-right">
-                       <p className="text-xs text-slate-500">Valor a cobrar</p>
+                       <p className="text-xs text-slate-500">Valor</p>
                        <p className="font-bold text-lg text-slate-800">{activeOrder.amount}</p>
                     </div>
                  </div>
 
                  <div className="p-5 space-y-6">
-                   {/* Endereço e Navegação */}
                    <div>
                       <div className="flex items-start gap-3 mb-3">
                          <div className="bg-blue-50 p-2 rounded-lg text-blue-600 mt-1"><MapPin size={20} /></div>
                          <div>
                             <p className="text-xs text-slate-400 font-bold uppercase">Entrega em</p>
                             <p className="text-slate-700 font-medium leading-snug">{activeOrder.address}</p>
+                            {activeOrder.mapsLink && (
+                               <p className="text-[10px] text-blue-600 flex items-center gap-1 mt-1 font-bold">
+                                  <LinkIcon size={10} /> Localização via Link
+                               </p>
+                            )}
                          </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
-                         <button onClick={() => openWaze(activeOrder.address)} className="flex items-center justify-center gap-2 bg-blue-100 text-blue-700 py-2.5 rounded-lg font-bold text-sm hover:bg-blue-200 transition-colors">
+                         <button onClick={() => openGps(activeOrder)} className="flex items-center justify-center gap-2 bg-blue-100 text-blue-700 py-2.5 rounded-lg font-bold text-sm hover:bg-blue-200 transition-colors">
                             <Navigation size={16} /> Abrir GPS
                          </button>
                          <button onClick={() => openWhatsApp(activeOrder.phone)} className="flex items-center justify-center gap-2 bg-emerald-100 text-emerald-700 py-2.5 rounded-lg font-bold text-sm hover:bg-emerald-200 transition-colors">
@@ -348,16 +345,14 @@ function DriverApp({ driver, allDrivers, orders, onToggleStatus, onCompleteOrder
 
                    <hr className="border-slate-100" />
 
-                   {/* Itens */}
                    <div className="flex items-start gap-3">
                       <div className="bg-orange-50 p-2 rounded-lg text-orange-600 mt-1"><Package size={20} /></div>
                       <div>
-                         <p className="text-xs text-slate-400 font-bold uppercase">Itens do Pedido</p>
+                         <p className="text-xs text-slate-400 font-bold uppercase">Itens</p>
                          <p className="text-slate-600 text-sm">{activeOrder.items}</p>
                       </div>
                    </div>
 
-                   {/* Botão Finalizar */}
                    <button 
                      onClick={onCompleteOrder}
                      className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all mt-4"
@@ -369,7 +364,6 @@ function DriverApp({ driver, allDrivers, orders, onToggleStatus, onCompleteOrder
                </div>
              </div>
           ) : (
-            // Estado Vazio
             driver.status !== 'offline' && (
               <div className="flex flex-col items-center justify-center py-12 text-center space-y-4 opacity-60">
                  <div className="relative">
@@ -380,7 +374,7 @@ function DriverApp({ driver, allDrivers, orders, onToggleStatus, onCompleteOrder
                  </div>
                  <div>
                     <h3 className="font-bold text-slate-700">Procurando pedidos...</h3>
-                    <p className="text-sm text-slate-400">Fique atento, o chamado tocará aqui.</p>
+                    <p className="text-sm text-slate-400">Aguarde o chamado da loja.</p>
                  </div>
               </div>
             )
@@ -404,12 +398,9 @@ function AdminPanel({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOr
 }) {
   const [view, setView] = useState<'map' | 'list' | 'history'>('map');
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
-  
-  // Modais
   const [isDriverModalOpen, setDriverModalOpen] = useState(false);
   const [isOrderModalOpen, setOrderModalOpen] = useState(false);
 
-  // Stats
   const deliveredOrders = orders.filter((o:Order) => o.status === 'completed');
   const todayTotal = deliveredOrders.reduce((acc: number, curr: Order) => acc + (curr.value || 0), 0);
 
@@ -546,7 +537,7 @@ function AdminPanel({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOr
              </div>
           )}
 
-          {/* SIDEBAR DETALHES (Sempre visível no mapa) */}
+          {/* SIDEBAR DETALHES */}
           {view === 'map' && (
              <aside className="w-80 bg-white border-l border-slate-200 shadow-xl overflow-y-auto z-30 p-6">
                 {selectedDriver ? (
@@ -573,6 +564,7 @@ function AdminPanel({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOr
                                      <span className="text-emerald-600">{order.amount}</span>
                                   </div>
                                   <p className="text-xs text-slate-500 mt-1 truncate">{order.address}</p>
+                                  {order.mapsLink && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold">Localização GPS</span>}
                                   <button className="w-full mt-2 bg-orange-600 text-white text-xs font-bold py-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">Enviar para Motoboy</button>
                                </div>
                             ))}
@@ -591,14 +583,9 @@ function AdminPanel({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOr
         </div>
       </main>
 
-      {/* MODAL: NOVO PEDIDO */}
-      {isOrderModalOpen && (
-         <NewOrderModal onClose={() => setOrderModalOpen(false)} onSave={onCreateOrder} />
-      )}
-      {/* MODAL: NOVO MOTOBOY */}
-      {isDriverModalOpen && (
-         <NewDriverModal onClose={() => setDriverModalOpen(false)} onSave={onCreateDriver} driversCount={drivers.length} />
-      )}
+      {/* Modais */}
+      {isOrderModalOpen && <NewOrderModal onClose={() => setOrderModalOpen(false)} onSave={onCreateOrder} />}
+      {isDriverModalOpen && <NewDriverModal onClose={() => setDriverModalOpen(false)} onSave={onCreateDriver} driversCount={drivers.length} />}
     </div>
   );
 }
@@ -627,11 +614,13 @@ function StatBox({label, value, icon}: any) {
 }
 
 function NewOrderModal({ onClose, onSave }: any) {
-   const [formData, setFormData] = useState({ customer: '', phone: '', address: '', items: '', amount: '' });
+   const [formData, setFormData] = useState({ 
+      customer: '', phone: '', address: '', items: '', amount: '', 
+      mapsLink: ''
+   });
    
    const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      // Converte valor string R$ para number simples
       const numValue = parseFloat(formData.amount.replace('R$', '').replace(',', '.').trim()) || 0;
       onSave({ ...formData, value: numValue });
       onClose();
@@ -644,7 +633,7 @@ function NewOrderModal({ onClose, onSave }: any) {
                <h3 className="font-bold flex items-center gap-2"><Plus size={18}/> Novo Pedido</h3>
                <button onClick={onClose}><X size={18}/></button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[80vh]">
                <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">Nome do Cliente</label>
                   <input required className="w-full border rounded-lg p-2" placeholder="Ex: João da Silva" 
@@ -667,6 +656,17 @@ function NewOrderModal({ onClose, onSave }: any) {
                   <input required className="w-full border rounded-lg p-2" placeholder="Rua, Número, Bairro" 
                      value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
                </div>
+               
+               {/* ÁREA DE LOCALIZAÇÃO POR LINK */}
+               <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                  <p className="text-xs font-bold text-blue-800 mb-2 flex items-center gap-1"><LinkIcon size={12}/> Link de Localização (Maps)</p>
+                  <input className="w-full border border-blue-200 rounded p-2 text-xs" placeholder="Cole aqui o link do Google Maps" 
+                     value={formData.mapsLink} onChange={e => setFormData({...formData, mapsLink: e.target.value})} />
+                  <p className="text-[10px] text-blue-600 mt-1">
+                     * O motoboy abrirá exatamente este link no GPS dele.
+                  </p>
+               </div>
+
                <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">Itens do Pedido</label>
                   <textarea required className="w-full border rounded-lg p-2 h-20" placeholder="Ex: 2x X-Burger..." 
