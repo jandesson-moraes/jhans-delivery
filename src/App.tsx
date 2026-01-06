@@ -217,7 +217,15 @@ function LandingPage({ onSelectMode }: { onSelectMode: (mode: UserType, id?: str
 // ==========================================
 // 2. APP DO MOTOBOY (MOBILE)
 // ==========================================
-function DriverApp({ driver, allDrivers, orders, onToggleStatus, onCompleteOrder, onLogout, onSwitchDriver }: any) {
+function DriverApp({ driver, allDrivers, orders, onToggleStatus, onCompleteOrder, onLogout, onSwitchDriver }: {
+  driver: Driver;
+  allDrivers: Driver[];
+  orders: Order[];
+  onToggleStatus: () => void;
+  onCompleteOrder: () => void;
+  onLogout: () => void;
+  onSwitchDriver: (id: string) => void;
+}) {
   const activeOrder = orders.find((o: Order) => o.id === driver.currentOrderId);
 
   // Função para abrir GPS
@@ -372,7 +380,14 @@ function DriverApp({ driver, allDrivers, orders, onToggleStatus, onCompleteOrder
 // ==========================================
 // 3. PAINEL DO GERENTE (ADMIN)
 // ==========================================
-function AdminPanel({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrder, onLogout }: any) {
+function AdminPanel({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrder, onLogout }: {
+  drivers: Driver[];
+  orders: Order[];
+  onAssignOrder: (orderId: string, driverId: string) => void;
+  onCreateDriver: (driver: Driver) => void;
+  onCreateOrder: (order: any) => void;
+  onLogout: () => void;
+}) {
   const [view, setView] = useState<'map' | 'list' | 'history'>('map');
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   
@@ -506,7 +521,7 @@ function AdminPanel({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOr
                                <td className="p-4 font-medium text-slate-800">{o.customer}</td>
                                <td className="p-4 text-emerald-600 font-bold">{o.amount}</td>
                                <td className="p-4 flex items-center gap-2">
-                                  {drivers.find(d => d.currentOrderId === o.id)?.name || 'Entregador'}
+                                  {drivers.find((d: Driver) => d.currentOrderId === o.id)?.name || 'Entregador'}
                                </td>
                                <td className="p-4"><span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-xs font-bold">Concluído</span></td>
                             </tr>
