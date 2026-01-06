@@ -58,6 +58,20 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
   const [currentDriverId, setCurrentDriverId] = useState<string | null>(null);
 
+  // --- CORREÇÃO DE LAYOUT AUTOMÁTICA ---
+  // Injeta o script do Tailwind CSS via CDN se ele não estiver configurado no projeto.
+  // Isso garante que o visual funcione no Vercel mesmo sem configuração de build.
+  useEffect(() => {
+    const scriptId = 'tailwind-cdn-loader';
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = 'https://cdn.tailwindcss.com';
+      document.head.appendChild(script);
+    }
+  }, []);
+  // --------------------------------------
+
   // Simulação de GPS Global
   useEffect(() => {
     const interval = setInterval(() => {
