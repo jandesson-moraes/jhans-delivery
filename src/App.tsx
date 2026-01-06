@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   MapPin, Navigation, Package, Clock, 
   X, Search, Users, Bike, 
-  TrendingUp, Utensils, Plus, Save, LogOut, CheckSquare
+  TrendingUp, Utensils, Plus, Save, LogOut, CheckSquare,
+  MessageCircle, Map, DollarSign, Calendar
 } from 'lucide-react';
 
 // --- Tipos e Interfaces ---
@@ -21,39 +22,43 @@ interface Driver {
   currentOrderId?: string;
   avatar: string;
   rating: number;
+  totalDeliveries: number;
 }
 
 interface Order {
   id: string;
   customer: string;
+  phone: string; // Novo: Telefone do cliente para WhatsApp
   address: string;
   items: string; 
   status: 'pending' | 'assigned' | 'completed';
   amount: string;
+  value: number; // Novo: Valor numérico para cálculos
   time: string;
   lat: number;
   lng: number;
+  createdAt: Date;
 }
 
-// --- Dados Iniciais ---
+// --- Dados Iniciais (Simulação) ---
 const INITIAL_DRIVERS: Driver[] = [
-  { id: 'd1', name: 'Marcos Motoboy', status: 'available', lat: 48, lng: 52, battery: 92, vehicle: 'Honda CG 160', phone: '(11) 99999-1111', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Marcos', rating: 4.9 },
-  { id: 'd2', name: 'Ana Entregas', status: 'offline', lat: 60, lng: 70, battery: 42, vehicle: 'Honda Biz', phone: '(11) 99999-2222', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ana', rating: 5.0 },
+  { id: 'd1', name: 'Marcos Motoboy', status: 'available', lat: 48, lng: 52, battery: 92, vehicle: 'Honda CG 160', phone: '(11) 99999-1111', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Marcos', rating: 4.9, totalDeliveries: 12 },
+  { id: 'd2', name: 'Ana Entregas', status: 'offline', lat: 60, lng: 70, battery: 42, vehicle: 'Honda Biz', phone: '(11) 99999-2222', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ana', rating: 5.0, totalDeliveries: 8 },
 ];
 
 const INITIAL_ORDERS: Order[] = [
-  { id: 'o101', customer: 'João Silva', address: 'Rua das Palmeiras, 45', items: '2x X-Salada + Fritas', status: 'pending', amount: 'R$ 45,90', time: '5 min', lat: 25, lng: 35 },
-  { id: 'o102', customer: 'Maria Oliveira', address: 'Av. Brasil, 1200', items: 'Combo Família', status: 'pending', amount: 'R$ 112,50', time: '15 min', lat: 62, lng: 72 },
+  { id: 'o101', customer: 'João Silva', phone: '11999999999', address: 'Rua das Palmeiras, 45', items: '2x X-Salada + Fritas', status: 'pending', amount: 'R$ 45,90', value: 45.90, time: '5 min', lat: 25, lng: 35, createdAt: new Date() },
+  { id: 'o102', customer: 'Maria Oliveira', phone: '11988888888', address: 'Av. Brasil, 1200', items: 'Combo Família', status: 'pending', amount: 'R$ 112,50', value: 112.50, time: '15 min', lat: 62, lng: 72, createdAt: new Date() },
 ];
 
-// --- COMPONENTE PRINCIPAL (Gerenciador de Estado Global) ---
+// --- COMPONENTE PRINCIPAL ---
 export default function App() {
   const [viewMode, setViewMode] = useState<UserType>('landing');
   const [drivers, setDrivers] = useState<Driver[]>(INITIAL_DRIVERS);
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
   const [currentDriverId, setCurrentDriverId] = useState<string | null>(null);
 
-  // Simulação de GPS Global (Move apenas quem não está offline)
+  // Simulação de GPS Global
   useEffect(() => {
     const interval = setInterval(() => {
       setDrivers(prev => prev.map(d => {
@@ -67,7 +72,21 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Ações do Sistema
+  // --- Ações de Negócio ---
+
+  const createOrder = (newOrderData: any) => {
+    const newOrder: Order = {
+      id: `o${Date.now()}`,
+      ...newOrderData,
+      status: 'pending',
+      lat: 50 + (Math.random() - 0.5) * 40, // Posição aleatória no mapa simulado
+      lng: 50 + (Math.random() - 0.5) * 40,
+      createdAt: new Date(),
+      time: 'Agora'
+    };
+    setOrders([...orders, newOrder]);
+  };
+
   const assignOrder = (orderId: string, driverId: string) => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'assigned' } : o));
     setDrivers(prev => prev.map(d => d.id === driverId ? { ...d, status: 'delivering', currentOrderId: orderId } : d));
@@ -77,15 +96,14 @@ export default function App() {
     const driver = drivers.find(d => d.id === driverId);
     if (driver && driver.currentOrderId) {
       setOrders(prev => prev.map(o => o.id === driver.currentOrderId ? { ...o, status: 'completed' } : o));
-      setDrivers(prev => prev.map(d => d.id === driverId ? { ...d, status: 'available', currentOrderId: undefined } : d));
+      setDrivers(prev => prev.map(d => d.id === driverId ? { ...d, status: 'available', currentOrderId: undefined, totalDeliveries: d.totalDeliveries + 1 } : d));
     }
   };
 
   const toggleDriverStatus = (driverId: string) => {
     setDrivers(prev => prev.map(d => {
       if (d.id !== driverId) return d;
-      const newStatus = d.status === 'offline' ? 'available' : 'offline';
-      return { ...d, status: newStatus };
+      return { ...d, status: d.status === 'offline' ? 'available' : 'offline' };
     }));
   };
 
@@ -93,75 +111,27 @@ export default function App() {
     setDrivers([...drivers, driver]);
   };
 
-  // --- Roteamento Simples ---
+  // --- Roteamento ---
   if (viewMode === 'landing') {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-900 p-4">
-        <div className="max-w-md w-full space-y-8 text-center">
-          <div className="flex justify-center mb-6">
-            <div className="bg-orange-600 p-4 rounded-2xl shadow-lg shadow-orange-500/20">
-              <Utensils className="w-12 h-12 text-white" />
-            </div>
-          </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Jhans Delivery</h1>
-          <p className="text-slate-400">Escolha como deseja acessar o sistema</p>
-          
-          <div className="grid grid-cols-1 gap-4 mt-8">
-            <button 
-              onClick={() => setViewMode('admin')}
-              className="group relative flex items-center justify-center gap-3 p-6 bg-white rounded-xl hover:bg-orange-50 transition-all duration-200 border-2 border-transparent hover:border-orange-500"
-            >
-              <div className="bg-orange-100 p-3 rounded-full group-hover:bg-orange-200 transition-colors">
-                 <TrendingUp className="w-6 h-6 text-orange-700" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-bold text-slate-900 text-lg">Gerente da Loja</h3>
-                <p className="text-slate-500 text-sm">Acessar Painel de Controle</p>
-              </div>
-            </button>
-
-            <button 
-              onClick={() => {
-                // Simula login do primeiro motoboy ou cria um menu de seleção
-                setCurrentDriverId('d1'); 
-                setViewMode('driver');
-              }}
-              className="group relative flex items-center justify-center gap-3 p-6 bg-slate-800 rounded-xl hover:bg-slate-700 transition-all duration-200 border-2 border-slate-700 hover:border-slate-600"
-            >
-              <div className="bg-slate-700 p-3 rounded-full group-hover:bg-slate-600 transition-colors">
-                 <Bike className="w-6 h-6 text-white" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-bold text-white text-lg">Sou Motoboy</h3>
-                <p className="text-slate-400 text-sm">Acessar App de Entregas</p>
-              </div>
-            </button>
-            
-             <div className="text-xs text-slate-500 mt-4">
-                * Em produção, isso seriam dois apps diferentes.
-             </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <LandingPage onSelectMode={(mode, id) => {
+      if(id) setCurrentDriverId(id);
+      setViewMode(mode);
+    }} />;
   }
 
   if (viewMode === 'driver' && currentDriverId) {
     const driver = drivers.find(d => d.id === currentDriverId);
-    if (!driver) return <div>Erro: Motorista não encontrado</div>;
+    if (!driver) return <div className="p-10 text-center">Erro: Motorista não encontrado. <button onClick={() => setViewMode('landing')} className="text-blue-500 underline">Voltar</button></div>;
     
-    // Filtra lista de motoboys para login simplificado
-    const switchDriver = (id: string) => setCurrentDriverId(id);
-
     return (
       <DriverApp 
         driver={driver} 
-        allDrivers={drivers}
+        allDrivers={drivers} // Apenas para debug/troca rápida
         orders={orders} 
         onToggleStatus={() => toggleDriverStatus(driver.id)}
         onCompleteOrder={() => completeOrder(driver.id)}
         onLogout={() => setViewMode('landing')}
-        onSwitchDriver={switchDriver}
+        onSwitchDriver={(id: string) => setCurrentDriverId(id)}
       />
     );
   }
@@ -172,170 +142,226 @@ export default function App() {
       orders={orders} 
       onAssignOrder={assignOrder}
       onCreateDriver={createDriver}
+      onCreateOrder={createOrder}
       onLogout={() => setViewMode('landing')}
     />
   );
 }
 
-// --- COMPONENTE 2: APP DO MOTOBOY (MOBILE UI) ---
+// ==========================================
+// 1. TELA INICIAL (LANDING)
+// ==========================================
+function LandingPage({ onSelectMode }: { onSelectMode: (mode: UserType, id?: string) => void }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-900 p-6 relative overflow-hidden">
+      {/* Background Decorativo */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-orange-600 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-600 rounded-full blur-[120px]"></div>
+      </div>
+
+      <div className="max-w-4xl w-full grid md:grid-cols-2 gap-12 items-center relative z-10">
+        <div className="text-center md:text-left space-y-6">
+          <div className="inline-flex items-center gap-2 bg-orange-500/10 text-orange-500 px-4 py-1.5 rounded-full border border-orange-500/20 font-medium text-sm animate-in slide-in-from-left duration-700">
+            <Utensils size={14} /> Sistema de Gestão v2.0
+          </div>
+          <h1 className="text-5xl md:text-6xl font-bold text-white tracking-tight">
+            Jhans <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">Delivery</span>
+          </h1>
+          <p className="text-slate-400 text-lg leading-relaxed max-w-md mx-auto md:mx-0">
+            A solução completa para sua hamburgueria. Gerencie pedidos, acompanhe motoboys em tempo real e otimize suas entregas.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 pt-4 justify-center md:justify-start">
+             <button 
+              onClick={() => onSelectMode('admin')}
+              className="px-8 py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-orange-900/20 hover:scale-105"
+            >
+              <TrendingUp size={20} /> Painel do Gerente
+            </button>
+             <button 
+              onClick={() => onSelectMode('driver', 'd1')} // Login automático como driver d1 para teste
+              className="px-8 py-4 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-xl font-bold flex items-center justify-center gap-2 transition-all hover:scale-105"
+            >
+              <Bike size={20} /> Sou Motoboy
+            </button>
+          </div>
+        </div>
+
+        {/* Card Visual Ilustrativo */}
+        <div className="hidden md:block relative">
+           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl rotate-3 hover:rotate-0 transition-transform duration-500">
+              <div className="flex items-center gap-4 mb-6 border-b border-white/10 pb-4">
+                 <div className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold text-xl">J</div>
+                 <div>
+                    <h3 className="text-white font-bold">Jhans Burger</h3>
+                    <p className="text-slate-400 text-xs">Status: Loja Aberta</p>
+                 </div>
+              </div>
+              <div className="space-y-3">
+                 <div className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center">
+                    <span className="text-slate-300 text-sm">Entregas Hoje</span>
+                    <span className="text-white font-bold">24</span>
+                 </div>
+                 <div className="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center">
+                    <span className="text-slate-300 text-sm">Motoboys Online</span>
+                    <span className="text-emerald-400 font-bold">5</span>
+                 </div>
+              </div>
+           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 2. APP DO MOTOBOY (MOBILE)
+// ==========================================
 function DriverApp({ driver, allDrivers, orders, onToggleStatus, onCompleteOrder, onLogout, onSwitchDriver }: any) {
   const activeOrder = orders.find((o: Order) => o.id === driver.currentOrderId);
-  const [showInstallBanner, setShowInstallBanner] = useState(true);
+
+  // Função para abrir GPS
+  const openWaze = (address: string) => {
+    // Tenta abrir Waze, fallback para Google Maps
+    const encoded = encodeURIComponent(address);
+    window.open(`https://waze.com/ul?q=${encoded}`, '_blank');
+  };
+
+  // Função para abrir WhatsApp
+  const openWhatsApp = (phone: string) => {
+     // Remove caracteres não numéricos
+     const cleanPhone = phone.replace(/\D/g, '');
+     window.open(`https://wa.me/55${cleanPhone}`, '_blank');
+  };
 
   return (
-    <div className="flex justify-center bg-slate-900 h-screen">
-      <div className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col relative overflow-hidden">
+    <div className="flex justify-center bg-slate-900 min-h-screen">
+      <div className="w-full max-w-md bg-white shadow-2xl flex flex-col h-[100dvh]"> {/* 100dvh para mobile real */}
         
-        {/* Banner de Instalação (Simulação do Chrome) */}
-        {showInstallBanner && (
-          <div className="bg-slate-800 text-white px-4 py-3 flex justify-between items-center text-xs z-50 animate-in slide-in-from-top duration-500 shadow-xl border-b border-slate-700">
+        {/* Header Compacto */}
+        <div className="bg-slate-900 text-white p-4 pt-6 pb-6 rounded-b-3xl z-10 shadow-lg shrink-0">
+          <div className="flex justify-between items-start">
             <div className="flex items-center gap-3">
-              <div className="bg-orange-600 p-1.5 rounded-lg shrink-0">
-                <Utensils size={14} className="text-white" />
-              </div>
+              <img src={driver.avatar} className="w-12 h-12 rounded-full border-2 border-orange-500 bg-slate-800" />
               <div>
-                <p className="font-bold text-orange-50">Instalar Jhans Delivery</p>
-                <p className="text-slate-400 text-[10px]">Adicionar à tela inicial</p>
+                <h2 className="font-bold text-lg leading-tight">{driver.name}</h2>
+                <div className="flex items-center gap-2 text-slate-400 text-xs">
+                   <span>{driver.vehicle}</span> • <span className="text-amber-400">★ {driver.rating}</span>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => {
-                   alert("INSTRUÇÕES PARA O MOTOBOY:\n\n1. Clique nos 3 pontinhos do navegador.\n2. Selecione 'Adicionar à Tela Inicial'.\n\nO ícone aparecerá no celular dele!");
-                   setShowInstallBanner(false);
-                }}
-                className="bg-white text-slate-900 px-3 py-1.5 rounded-full font-bold hover:bg-slate-100 active:scale-95 transition-transform"
-              >
-                Instalar
-              </button>
-              <button onClick={() => setShowInstallBanner(false)} className="p-1 text-slate-400 hover:text-white"><X size={16}/></button>
-            </div>
-          </div>
-        )}
-
-        {/* Header Mobile */}
-        <div className="bg-slate-900 text-white p-4 pb-8 rounded-b-3xl z-10 shadow-lg relative">
-          <div className="flex justify-between items-center mb-6">
-            <button onClick={onLogout} className="p-2 bg-white/10 rounded-full hover:bg-white/20">
-              <LogOut size={18} />
+            <button onClick={onLogout} className="p-2 bg-white/10 rounded-full hover:bg-white/20 text-slate-300">
+              <LogOut size={16} />
             </button>
-            <span className="font-bold tracking-wider text-orange-500">JHANS DRIVER</span>
-            <div className="w-8"></div> {/* Spacer */}
-          </div>
-          
-          <div className="flex items-center gap-4 px-2">
-            <img src={driver.avatar} className="w-16 h-16 rounded-full border-4 border-slate-700 bg-slate-800" />
-            <div className="flex-1">
-              <h2 className="font-bold text-xl">{driver.name}</h2>
-              <p className="text-slate-400 text-sm">{driver.vehicle}</p>
-            </div>
-            <div className="flex flex-col items-end">
-               <span className="text-2xl font-bold text-amber-400">★ {driver.rating}</span>
-            </div>
           </div>
         </div>
 
-        {/* Simulador de troca de motoboy (apenas para teste) */}
-        <div className="absolute top-24 right-4 z-50">
-            <select 
-                className="bg-slate-800 text-white text-xs p-1 rounded border border-slate-600 opacity-50 hover:opacity-100 transition-opacity"
-                value={driver.id}
-                onChange={(e) => onSwitchDriver(e.target.value)}
-            >
-                {allDrivers.map((d: Driver) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-            </select>
-        </div>
+        {/* Debug Switcher (Escondido em produção) */}
+        <select className="absolute top-2 right-2 opacity-0 w-4 h-4 z-50" value={driver.id} onChange={(e) => onSwitchDriver(e.target.value)}>
+           {allDrivers.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
 
-        {/* Conteúdo Principal */}
-        <div className="flex-1 p-6 -mt-4 bg-slate-50 overflow-y-auto rounded-t-3xl z-20">
+        {/* Área Rolável */}
+        <div className="flex-1 overflow-y-auto bg-slate-50 p-4">
           
-          {/* Status Toggle */}
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${driver.status === 'offline' ? 'bg-red-500' : 'bg-emerald-500'} animate-pulse`}></div>
-              <span className="font-bold text-slate-700">
-                {driver.status === 'offline' ? 'Você está Offline' : 'Disponível para entregas'}
-              </span>
-            </div>
-            <button 
-              onClick={onToggleStatus}
-              className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${
-                driver.status === 'offline' 
-                ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' 
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {driver.status === 'offline' ? 'Ficar Online' : 'Ficar Offline'}
-            </button>
+          {/* Status Bar */}
+          <div className={`mb-6 p-4 rounded-xl border flex items-center justify-between shadow-sm transition-colors ${driver.status === 'offline' ? 'bg-white border-slate-200' : 'bg-emerald-50 border-emerald-100'}`}>
+             <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Seu Status</p>
+                <div className="flex items-center gap-2">
+                   <div className={`w-2.5 h-2.5 rounded-full ${driver.status === 'offline' ? 'bg-slate-400' : 'bg-emerald-500 animate-pulse'}`}></div>
+                   <span className={`font-bold ${driver.status === 'offline' ? 'text-slate-600' : 'text-emerald-700'}`}>
+                      {driver.status === 'offline' ? 'Offline' : 'Online e Disponível'}
+                   </span>
+                </div>
+             </div>
+             <button 
+               onClick={onToggleStatus}
+               className={`px-4 py-2 rounded-lg font-bold text-sm transition-all active:scale-95 ${
+                 driver.status === 'offline' 
+                 ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' 
+                 : 'bg-white border border-slate-200 text-slate-600'
+               }`}
+             >
+               {driver.status === 'offline' ? 'Ficar Online' : 'Pausar'}
+             </button>
           </div>
 
-          {/* Estado: Entregando */}
+          {/* CARD DE ENTREGA ATIVA (O MAIS IMPORTANTE) */}
           {driver.status === 'delivering' && activeOrder ? (
-             <div className="animate-in slide-in-from-bottom-10 duration-500">
-               <div className="bg-white p-5 rounded-2xl shadow-lg border-l-4 border-orange-500 mb-6">
-                 <div className="flex justify-between items-start mb-4">
-                   <div>
-                     <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide">Pedido em Rota</span>
-                     <h3 className="font-bold text-xl text-slate-900 mt-1">{activeOrder.customer}</h3>
-                   </div>
-                   <div className="bg-slate-100 p-2 rounded-lg">
-                      <Navigation className="text-blue-600" />
-                   </div>
-                 </div>
+             <div className="animate-in slide-in-from-bottom-5 fade-in duration-500">
+               <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 overflow-hidden">
                  
-                 <div className="space-y-4 mb-6">
-                   <div className="flex items-start gap-3">
-                     <MapPin className="text-slate-400 mt-1 shrink-0" size={18} />
-                     <div>
-                       <p className="text-sm font-bold text-slate-700">Endereço de Entrega</p>
-                       <p className="text-sm text-slate-500">{activeOrder.address}</p>
-                     </div>
-                   </div>
-                   <div className="flex items-start gap-3">
-                     <Package className="text-slate-400 mt-1 shrink-0" size={18} />
-                     <div>
-                       <p className="text-sm font-bold text-slate-700">Itens</p>
-                       <p className="text-sm text-slate-500">{activeOrder.items}</p>
-                     </div>
-                   </div>
-                   <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-lg">
-                     <Clock className="text-slate-400" size={18} />
-                     <span className="text-sm font-medium text-slate-600">Previsão: {activeOrder.time}</span>
-                   </div>
+                 {/* Cabeçalho do Pedido */}
+                 <div className="bg-orange-50 p-4 border-b border-orange-100 flex justify-between items-center">
+                    <div>
+                       <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wide bg-orange-100 px-2 py-1 rounded-full">Pedido #{activeOrder.id}</span>
+                       <h3 className="font-bold text-lg text-slate-800 mt-1">{activeOrder.customer}</h3>
+                    </div>
+                    <div className="text-right">
+                       <p className="text-xs text-slate-500">Valor a cobrar</p>
+                       <p className="font-bold text-lg text-slate-800">{activeOrder.amount}</p>
+                    </div>
                  </div>
 
-                 <button 
-                   onClick={onCompleteOrder}
-                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-200 transition-all active:scale-95"
-                 >
-                   <CheckSquare size={20} />
-                   Confirmar Entrega
-                 </button>
+                 <div className="p-5 space-y-6">
+                   {/* Endereço e Navegação */}
+                   <div>
+                      <div className="flex items-start gap-3 mb-3">
+                         <div className="bg-blue-50 p-2 rounded-lg text-blue-600 mt-1"><MapPin size={20} /></div>
+                         <div>
+                            <p className="text-xs text-slate-400 font-bold uppercase">Entrega em</p>
+                            <p className="text-slate-700 font-medium leading-snug">{activeOrder.address}</p>
+                         </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                         <button onClick={() => openWaze(activeOrder.address)} className="flex items-center justify-center gap-2 bg-blue-100 text-blue-700 py-2.5 rounded-lg font-bold text-sm hover:bg-blue-200 transition-colors">
+                            <Navigation size={16} /> Abrir GPS
+                         </button>
+                         <button onClick={() => openWhatsApp(activeOrder.phone)} className="flex items-center justify-center gap-2 bg-emerald-100 text-emerald-700 py-2.5 rounded-lg font-bold text-sm hover:bg-emerald-200 transition-colors">
+                            <MessageCircle size={16} /> WhatsApp
+                         </button>
+                      </div>
+                   </div>
+
+                   <hr className="border-slate-100" />
+
+                   {/* Itens */}
+                   <div className="flex items-start gap-3">
+                      <div className="bg-orange-50 p-2 rounded-lg text-orange-600 mt-1"><Package size={20} /></div>
+                      <div>
+                         <p className="text-xs text-slate-400 font-bold uppercase">Itens do Pedido</p>
+                         <p className="text-slate-600 text-sm">{activeOrder.items}</p>
+                      </div>
+                   </div>
+
+                   {/* Botão Finalizar */}
+                   <button 
+                     onClick={onCompleteOrder}
+                     className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all mt-4"
+                   >
+                     <CheckSquare size={20} className="text-emerald-400" />
+                     Finalizar Entrega
+                   </button>
+                 </div>
                </div>
              </div>
-          ) : null}
-
-          {/* Estado: Aguardando ou Offline */}
-          {driver.status !== 'delivering' && (
-             <div className="text-center py-12 opacity-50">
-                {driver.status === 'offline' ? (
-                  <>
-                    <Bike size={48} className="mx-auto text-slate-300 mb-4" />
-                    <p>Fique Online para receber pedidos</p>
-                  </>
-                ) : (
-                  <>
-                    <div className="relative inline-block">
-                        <span className="absolute inset-0 bg-orange-400 rounded-full animate-ping opacity-20"></span>
-                        <Search size={48} className="mx-auto text-orange-400 mb-4 relative z-10" />
+          ) : (
+            // Estado Vazio
+            driver.status !== 'offline' && (
+              <div className="flex flex-col items-center justify-center py-12 text-center space-y-4 opacity-60">
+                 <div className="relative">
+                    <span className="absolute inset-0 bg-orange-400 rounded-full animate-ping opacity-20"></span>
+                    <div className="bg-white p-4 rounded-full shadow-md relative z-10">
+                       <Search size={32} className="text-orange-500" />
                     </div>
-                    <p className="font-medium text-slate-600">Procurando pedidos...</p>
-                    <p className="text-sm text-slate-400 mt-2">Mantenha o app aberto</p>
-                  </>
-                )}
-             </div>
+                 </div>
+                 <div>
+                    <h3 className="font-bold text-slate-700">Procurando pedidos...</h3>
+                    <p className="text-sm text-slate-400">Fique atento, o chamado tocará aqui.</p>
+                 </div>
+              </div>
+            )
           )}
         </div>
       </div>
@@ -343,239 +369,318 @@ function DriverApp({ driver, allDrivers, orders, onToggleStatus, onCompleteOrder
   );
 }
 
-// --- COMPONENTE 3: PAINEL DA LOJA (ADMIN) ---
-// (Este é o código anterior encapsulado)
-function AdminPanel({ drivers, orders, onAssignOrder, onCreateDriver, onLogout }: any) {
+// ==========================================
+// 3. PAINEL DO GERENTE (ADMIN)
+// ==========================================
+function AdminPanel({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrder, onLogout }: any) {
+  const [view, setView] = useState<'map' | 'list' | 'history'>('map');
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
-  const [view, setView] = useState<'map' | 'list'>('map');
-  const [isSidebarOpen] = useState(true); // Corrigido: Removido setIsSidebarOpen pois não era usado
-  const [isAddDriverModalOpen, setIsAddDriverModalOpen] = useState(false);
   
-  // States para formulário
-  const [newDriverName, setNewDriverName] = useState('');
-  const [newDriverPhone, setNewDriverPhone] = useState('');
-  const [newDriverVehicle, setNewDriverVehicle] = useState('');
+  // Modais
+  const [isDriverModalOpen, setDriverModalOpen] = useState(false);
+  const [isOrderModalOpen, setOrderModalOpen] = useState(false);
 
-  const handleAddDriver = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newId = `d${drivers.length + 1}`;
-    onCreateDriver({
-      id: newId,
-      name: newDriverName,
-      phone: newDriverPhone,
-      vehicle: newDriverVehicle,
-      status: 'offline',
-      lat: 50, lng: 50,
-      battery: 100,
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${newDriverName}`,
-      rating: 5.0
-    });
-    setIsAddDriverModalOpen(false);
-    setNewDriverName(''); setNewDriverPhone(''); setNewDriverVehicle('');
-    setView('list');
-  };
-
-  const getStatusColor = (status: DriverStatus) => {
-    switch(status) {
-      case 'available': return 'bg-emerald-500';
-      case 'delivering': return 'bg-orange-500';
-      case 'offline': return 'bg-slate-400';
-      default: return 'bg-slate-400';
-    }
-  };
+  // Stats
+  const deliveredOrders = orders.filter((o:Order) => o.status === 'completed');
+  const todayTotal = deliveredOrders.reduce((acc: number, curr: Order) => acc + (curr.value || 0), 0);
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden relative">
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
       
-      {/* Modal Cadastro */}
-      {isAddDriverModalOpen && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="bg-slate-900 px-6 py-4 flex justify-between items-center">
-              <h3 className="text-white font-bold text-lg flex items-center gap-2">
-                <Bike className="text-orange-500" /> Novo Motoboy
-              </h3>
-              <button onClick={() => setIsAddDriverModalOpen(false)} className="text-slate-400 hover:text-white">
-                <X size={20} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleAddDriver} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Nome Completo</label>
-                <input required type="text" value={newDriverName} onChange={(e) => setNewDriverName(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Ex: Carlos Silva" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Telefone</label>
-                <input required type="tel" value={newDriverPhone} onChange={(e) => setNewDriverPhone(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-orange-500 outline-none" placeholder="(00) 00000-0000" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Veículo</label>
-                <input required type="text" value={newDriverVehicle} onChange={(e) => setNewDriverVehicle(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Ex: Honda CG 160" />
-              </div>
-              <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setIsAddDriverModalOpen(false)} className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-medium">Cancelar</button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-bold flex items-center justify-center gap-2"><Save size={18} /> Salvar</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Sidebar */}
-      <aside className={`bg-slate-900 text-white transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-20'} flex flex-col shadow-xl z-20`}>
-        <div className="p-4 flex items-center justify-between border-b border-slate-700/50">
-          <div className={`flex items-center gap-3 ${!isSidebarOpen && 'justify-center w-full'}`}>
-            <div className="bg-orange-600 p-2 rounded-lg"><Utensils className="w-6 h-6 text-white" /></div>
-            {isSidebarOpen && <span className="font-bold text-lg tracking-tight text-orange-50">Jhans Delivery</span>}
-          </div>
+      <aside className="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-20">
+        <div className="p-5 border-b border-slate-700/50 flex items-center gap-3">
+           <div className="bg-orange-600 p-2 rounded-lg"><Utensils size={20} /></div>
+           <span className="font-bold text-lg">Jhans Admin</span>
         </div>
-        <nav className="flex-1 py-6 space-y-2 px-2">
-          <SidebarItem icon={<MapPin />} label="Mapa Ao Vivo" active={view === 'map'} onClick={() => setView('map')} collapsed={!isSidebarOpen} />
-          <SidebarItem icon={<Users />} label="Motoboys" active={view === 'list'} onClick={() => setView('list')} collapsed={!isSidebarOpen} />
-          <SidebarItem icon={<Package />} label="Pedidos Pendentes" count={orders.filter((o:Order) => o.status === 'pending').length} collapsed={!isSidebarOpen} />
+        
+        <nav className="flex-1 p-4 space-y-2">
+          <SidebarBtn icon={<MapPin />} label="Mapa Ao Vivo" active={view === 'map'} onClick={() => setView('map')} />
+          <SidebarBtn icon={<Users />} label="Motoboys" active={view === 'list'} onClick={() => setView('list')} />
+          <div className="pt-4 pb-2 text-xs font-bold text-slate-500 uppercase px-3">Gestão</div>
+          <SidebarBtn icon={<Plus />} label="Novo Pedido" active={false} onClick={() => setOrderModalOpen(true)} highlight />
+          <SidebarBtn icon={<Clock />} label="Histórico" active={view === 'history'} onClick={() => setView('history')} />
         </nav>
-        <div className="p-4 border-t border-slate-700/50 space-y-2">
-           <button onClick={onLogout} className="w-full flex items-center gap-3 p-2 text-red-400 hover:bg-slate-800 hover:text-red-300 rounded-lg transition-colors">
-             <LogOut size={20} className={!isSidebarOpen ? "mx-auto" : ""} />
-             {isSidebarOpen && <span className="font-bold text-sm">Sair do Painel</span>}
+
+        <div className="p-4 border-t border-slate-700/50">
+           <button onClick={onLogout} className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium p-2 w-full rounded-lg hover:bg-slate-800">
+             <LogOut size={16} /> Sair do Painel
            </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col h-full relative">
-        <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shadow-sm z-10">
-          <h1 className="text-xl font-semibold text-slate-800">{view === 'map' ? 'Gestão de Entregas' : 'Equipe'}</h1>
-          <div className="flex items-center gap-4">
-             <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-700 font-bold border border-orange-200">J</div>
-          </div>
+      {/* Main */}
+      <main className="flex-1 flex flex-col relative">
+        <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shadow-sm">
+           <h1 className="text-xl font-bold text-slate-800">
+             {view === 'map' && 'Visão Geral da Operação'}
+             {view === 'list' && 'Gerenciar Equipe'}
+             {view === 'history' && 'Histórico de Vendas'}
+           </h1>
+           <div className="flex items-center gap-4">
+              <div className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold border border-emerald-100 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Sistema Online
+              </div>
+           </div>
         </header>
 
         <div className="flex-1 overflow-hidden relative flex">
+          
+          {/* VIEW: MAPA */}
           {view === 'map' && (
-            <div className="flex-1 bg-slate-200 relative overflow-hidden group">
-              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(#64748b 1px, transparent 1px), linear-gradient(90deg, #64748b 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
-              
-              {orders.filter((o:Order) => o.status === 'pending').map((order:Order) => (
-                <div key={order.id} className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10 hover:scale-110 transition-transform" style={{ top: `${order.lat}%`, left: `${order.lng}%` }}>
-                  <div className="relative group/pin">
-                    <div className="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center text-white shadow-lg border-2 border-white"><Utensils size={14} /></div>
-                  </div>
-                </div>
-              ))}
+             <div className="flex-1 bg-slate-200 relative group overflow-hidden">
+                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(#64748b 1px, transparent 1px), linear-gradient(90deg, #64748b 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+                
+                {/* Renderizar Pedidos Pendentes */}
+                {orders.filter((o:Order) => o.status === 'pending').map((o:Order) => (
+                   <div key={o.id} className="absolute z-10 cursor-pointer hover:scale-110 transition-transform" style={{top: `${o.lat}%`, left: `${o.lng}%`}}>
+                      <div className="w-8 h-8 bg-orange-600 rounded-full border-2 border-white shadow-lg flex items-center justify-center text-white"><Utensils size={14}/></div>
+                      <div className="absolute top-full mt-1 bg-white px-2 py-1 rounded shadow text-[10px] font-bold whitespace-nowrap">{o.customer}</div>
+                   </div>
+                ))}
 
-              {drivers.map((driver:Driver) => (
-                <div key={driver.id} className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-20 transition-all duration-[2000ms] ease-linear" style={{ top: `${driver.lat}%`, left: `${driver.lng}%` }} onClick={() => setSelectedDriver(driver)}>
-                  <div className="relative flex flex-col items-center">
-                    {driver.status === 'available' && <span className="absolute w-full h-full rounded-full bg-emerald-400 opacity-20 animate-ping"></span>}
-                    <div className={`w-10 h-10 rounded-full border-2 border-white shadow-lg overflow-hidden ${selectedDriver?.id === driver.id ? 'ring-2 ring-orange-500 scale-110' : ''}`}>
-                      <img src={driver.avatar} className="w-full h-full object-cover bg-slate-100" />
-                    </div>
-                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${getStatusColor(driver.status)}`}></div>
-                    <div className="absolute top-full mt-1 bg-white/90 backdrop-blur px-2 py-0.5 rounded text-[10px] font-bold shadow-sm whitespace-nowrap">{driver.name}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                {/* Renderizar Motoboys */}
+                {drivers.map((d:Driver) => (
+                   <div key={d.id} onClick={() => setSelectedDriver(d)} className="absolute z-20 cursor-pointer transition-all duration-[2000ms] ease-linear" style={{top: `${d.lat}%`, left: `${d.lng}%`}}>
+                      <div className={`relative flex flex-col items-center ${selectedDriver?.id === d.id ? 'scale-110' : ''}`}>
+                         <img src={d.avatar} className="w-10 h-10 rounded-full border-2 border-white shadow-md bg-slate-100" />
+                         <span className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border border-white ${d.status === 'offline' ? 'bg-slate-400' : d.status === 'available' ? 'bg-emerald-500' : 'bg-orange-500'}`}></span>
+                      </div>
+                   </div>
+                ))}
+             </div>
           )}
 
-          {/* List View */}
+          {/* VIEW: LISTA */}
           {view === 'list' && (
-             <div className="flex-1 bg-white overflow-auto p-6">
+             <div className="flex-1 bg-white p-8 overflow-auto">
                 <div className="flex justify-between items-center mb-6">
-                   <h2 className="text-xl font-bold text-slate-800">Sua Frota</h2>
-                   <button onClick={() => setIsAddDriverModalOpen(true)} className="bg-orange-600 text-white px-4 py-2 rounded-lg font-medium flex gap-2"><Plus size={20} /> Novo Motoboy</button>
+                   <h2 className="font-bold text-lg">Todos os Motoboys</h2>
+                   <button onClick={() => setDriverModalOpen(true)} className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold flex gap-2 items-center"><Plus size={16}/> Adicionar</button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {drivers.map((driver:Driver) => (
-                    <div key={driver.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm cursor-pointer" onClick={() => setSelectedDriver(driver)}>
-                        <div className="flex items-center gap-3 mb-2">
-                           <img src={driver.avatar} className="w-12 h-12 rounded-full" />
-                           <div>
-                              <h3 className="font-bold">{driver.name}</h3>
-                              <span className={`text-xs px-2 py-0.5 rounded-full text-white ${getStatusColor(driver.status)}`}>
-                                 {driver.status === 'offline' ? 'Offline' : driver.status === 'available' ? 'Disponível' : 'Entregando'}
-                              </span>
-                           </div>
-                        </div>
-                    </div>
-                  ))}
+                   {drivers.map((d:Driver) => (
+                      <div key={d.id} onClick={() => setSelectedDriver(d)} className="border border-slate-200 p-4 rounded-xl cursor-pointer hover:shadow-md transition-shadow bg-white">
+                         <div className="flex items-center gap-3">
+                            <img src={d.avatar} className="w-12 h-12 rounded-full" />
+                            <div>
+                               <h3 className="font-bold text-slate-800">{d.name}</h3>
+                               <p className="text-xs text-slate-500">{d.phone}</p>
+                            </div>
+                         </div>
+                         <div className="mt-4 flex gap-2 text-xs">
+                            <span className="bg-slate-100 px-2 py-1 rounded">Entregas: {d.totalDeliveries}</span>
+                            <span className="bg-amber-50 text-amber-700 px-2 py-1 rounded">★ {d.rating}</span>
+                         </div>
+                      </div>
+                   ))}
                 </div>
              </div>
           )}
 
-          {/* Sidebar de Detalhes */}
-          <aside className="w-80 bg-white border-l border-slate-200 shadow-xl overflow-y-auto z-30">
-            <div className="p-6">
-               <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><TrendingUp size={18} className="text-orange-600" /> Painel da Loja</h2>
-               <div className="grid grid-cols-2 gap-3 mb-6">
-                 <StatCard label="Online" value={drivers.filter((d:Driver) => d.status !== 'offline').length} color="bg-emerald-50 text-emerald-700" />
-                 <StatCard label="Em rota" value={drivers.filter((d:Driver) => d.status === 'delivering').length} color="bg-orange-50 text-orange-700" />
-               </div>
+          {/* VIEW: HISTÓRICO */}
+          {view === 'history' && (
+             <div className="flex-1 bg-white p-8 overflow-auto">
+                <div className="grid grid-cols-3 gap-4 mb-8">
+                   <StatBox label="Faturamento Hoje" value={`R$ ${todayTotal.toFixed(2)}`} icon={<DollarSign size={20} className="text-emerald-500"/>} />
+                   <StatBox label="Entregas Realizadas" value={deliveredOrders.length} icon={<CheckSquare size={20} className="text-blue-500"/>} />
+                   <StatBox label="Ticket Médio" value={`R$ ${(todayTotal / (deliveredOrders.length || 1)).toFixed(2)}`} icon={<TrendingUp size={20} className="text-orange-500"/>} />
+                </div>
+                
+                <h3 className="font-bold text-lg mb-4">Últimas Entregas</h3>
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                   <table className="w-full text-sm text-left">
+                      <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
+                         <tr>
+                            <th className="p-4">Cliente</th>
+                            <th className="p-4">Valor</th>
+                            <th className="p-4">Motoboy</th>
+                            <th className="p-4">Status</th>
+                         </tr>
+                      </thead>
+                      <tbody>
+                         {deliveredOrders.length === 0 ? (
+                            <tr><td colSpan={4} className="p-8 text-center text-slate-400">Nenhuma entrega finalizada hoje.</td></tr>
+                         ) : deliveredOrders.map((o:Order) => (
+                            <tr key={o.id} className="border-b border-slate-100 hover:bg-slate-50">
+                               <td className="p-4 font-medium text-slate-800">{o.customer}</td>
+                               <td className="p-4 text-emerald-600 font-bold">{o.amount}</td>
+                               <td className="p-4 flex items-center gap-2">
+                                  {drivers.find(d => d.currentOrderId === o.id)?.name || 'Entregador'}
+                               </td>
+                               <td className="p-4"><span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-xs font-bold">Concluído</span></td>
+                            </tr>
+                         ))}
+                      </tbody>
+                   </table>
+                </div>
+             </div>
+          )}
 
-               {selectedDriver ? (
-                 <div className="bg-white border border-slate-200 rounded-xl p-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                    <div className="flex justify-between items-start mb-4">
-                       <h3 className="font-bold text-slate-700">Detalhes</h3>
-                       <button onClick={() => setSelectedDriver(null)}><X size={16}/></button>
-                    </div>
-                    <div className="flex flex-col items-center mb-4">
-                       <img src={selectedDriver.avatar} className="w-20 h-20 rounded-full border-4 border-slate-50 mb-2 shadow-sm" />
-                       <h4 className="font-bold text-lg">{selectedDriver.name}</h4>
-                    </div>
+          {/* SIDEBAR DETALHES (Sempre visível no mapa) */}
+          {view === 'map' && (
+             <aside className="w-80 bg-white border-l border-slate-200 shadow-xl overflow-y-auto z-30 p-6">
+                {selectedDriver ? (
+                   <div className="animate-in slide-in-from-right-4 duration-300">
+                      <div className="flex justify-between items-start mb-4">
+                         <h3 className="font-bold text-slate-700">Detalhes</h3>
+                         <button onClick={() => setSelectedDriver(null)} className="text-slate-400"><X size={18}/></button>
+                      </div>
+                      <div className="text-center mb-6">
+                         <img src={selectedDriver.avatar} className="w-20 h-20 rounded-full mx-auto mb-2 border-4 border-slate-50"/>
+                         <h2 className="font-bold text-lg">{selectedDriver.name}</h2>
+                         <p className={`text-sm font-medium ${selectedDriver.status === 'offline' ? 'text-red-500' : selectedDriver.status === 'available' ? 'text-emerald-500' : 'text-orange-500'}`}>
+                            {selectedDriver.status === 'offline' ? 'Offline' : selectedDriver.status === 'available' ? 'Disponível' : 'Em Entrega'}
+                         </p>
+                      </div>
 
-                    {selectedDriver.status === 'available' && (
-                       <div className="mt-4">
-                          <p className="text-xs font-bold text-slate-400 uppercase mb-2">Pedidos Pendentes</p>
-                          <div className="space-y-2">
-                             {orders.filter((o:Order) => o.status === 'pending').map((order:Order) => (
-                                <div key={order.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100 cursor-pointer group hover:border-orange-300"
-                                     onClick={() => onAssignOrder(order.id, selectedDriver.id)}>
-                                   <div className="flex justify-between mb-1"><span className="font-bold text-sm">{order.customer}</span></div>
-                                   <p className="text-xs text-slate-600 mb-2">{order.items}</p>
-                                   <button className="w-full bg-orange-600 text-white text-xs py-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">Enviar Entrega</button>
-                                </div>
-                             ))}
-                             {orders.filter((o:Order) => o.status === 'pending').length === 0 && <p className="text-xs text-center text-slate-400">Sem pedidos</p>}
-                          </div>
-                       </div>
-                    )}
-                    {selectedDriver.status === 'delivering' && (
-                       <div className="bg-orange-50 p-3 rounded-lg border border-orange-100">
-                          <p className="text-xs font-bold text-orange-800 flex gap-1"><Clock size={12}/> Entregando agora</p>
-                          <p className="text-sm mt-1">{orders.find((o:Order) => o.id === selectedDriver.currentOrderId)?.customer}</p>
-                       </div>
-                    )}
-                 </div>
-               ) : (
-                  <div className="text-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                     <p className="text-sm text-slate-500">Selecione um motoboy</p>
-                  </div>
-               )}
-            </div>
-          </aside>
+                      {selectedDriver.status === 'available' && (
+                         <div className="space-y-3">
+                            <p className="text-xs font-bold text-slate-400 uppercase">Atribuir Pedido Pendente</p>
+                            {orders.filter(o => o.status === 'pending').map(order => (
+                               <div key={order.id} onClick={() => onAssignOrder(order.id, selectedDriver.id)} className="bg-white border border-slate-200 p-3 rounded-lg hover:border-orange-500 cursor-pointer group shadow-sm">
+                                  <div className="flex justify-between font-bold text-sm text-slate-800">
+                                     <span>{order.customer}</span>
+                                     <span className="text-emerald-600">{order.amount}</span>
+                                  </div>
+                                  <p className="text-xs text-slate-500 mt-1 truncate">{order.address}</p>
+                                  <button className="w-full mt-2 bg-orange-600 text-white text-xs font-bold py-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">Enviar para Motoboy</button>
+                               </div>
+                            ))}
+                            {orders.filter(o => o.status === 'pending').length === 0 && <p className="text-sm text-slate-400 text-center italic">Sem pedidos pendentes</p>}
+                         </div>
+                      )}
+                   </div>
+                ) : (
+                   <div className="text-center py-10 opacity-50">
+                      <Users size={40} className="mx-auto mb-2"/>
+                      <p>Selecione um motoboy no mapa</p>
+                   </div>
+                )}
+             </aside>
+          )}
         </div>
       </main>
+
+      {/* MODAL: NOVO PEDIDO */}
+      {isOrderModalOpen && (
+         <NewOrderModal onClose={() => setOrderModalOpen(false)} onSave={onCreateOrder} />
+      )}
+      {/* MODAL: NOVO MOTOBOY */}
+      {isDriverModalOpen && (
+         <NewDriverModal onClose={() => setDriverModalOpen(false)} onSave={onCreateDriver} driversCount={drivers.length} />
+      )}
     </div>
   );
 }
 
-// Subcomponentes auxiliares
-function SidebarItem({ icon, label, active, onClick, count, collapsed }: any) {
+// --- Subcomponentes Auxiliares ---
+
+function SidebarBtn({ icon, label, active, onClick, highlight }: any) {
   return (
-    <button onClick={onClick} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200 group relative ${active ? 'bg-orange-600 text-white shadow-lg shadow-orange-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'} ${collapsed ? 'justify-center' : ''}`}>
-      <div className={`${active ? 'text-white' : 'text-slate-400 group-hover:text-white'}`}>{icon}</div>
-      {!collapsed && <span className="font-medium text-sm">{label}</span>}
-      {!collapsed && count > 0 && <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{count}</span>}
+    <button onClick={onClick} className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${active ? 'bg-orange-600 text-white shadow-lg' : highlight ? 'bg-white/10 text-white hover:bg-white/20 border border-white/10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+      <div className={active ? 'text-white' : highlight ? 'text-orange-400' : 'text-current'}>{icon}</div>
+      <span className="font-medium text-sm">{label}</span>
     </button>
   );
 }
-function StatCard({ label, value, color }: any) {
-  return (
-    <div className={`p-3 rounded-lg ${color} flex flex-col items-center justify-center border border-current/10`}>
-      <span className="text-2xl font-bold tracking-tight">{value}</span>
-      <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">{label}</span>
-    </div>
-  );
+
+function StatBox({label, value, icon}: any) {
+   return (
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+         <div className="p-3 bg-slate-50 rounded-lg">{icon}</div>
+         <div>
+            <p className="text-xs text-slate-500 uppercase font-bold">{label}</p>
+            <p className="text-xl font-bold text-slate-800">{value}</p>
+         </div>
+      </div>
+   )
+}
+
+function NewOrderModal({ onClose, onSave }: any) {
+   const [formData, setFormData] = useState({ customer: '', phone: '', address: '', items: '', amount: '' });
+   
+   const handleSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      // Converte valor string R$ para number simples
+      const numValue = parseFloat(formData.amount.replace('R$', '').replace(',', '.').trim()) || 0;
+      onSave({ ...formData, value: numValue });
+      onClose();
+   };
+
+   return (
+      <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+         <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-200">
+            <div className="bg-slate-900 p-4 flex justify-between items-center text-white">
+               <h3 className="font-bold flex items-center gap-2"><Plus size={18}/> Novo Pedido</h3>
+               <button onClick={onClose}><X size={18}/></button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+               <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Nome do Cliente</label>
+                  <input required className="w-full border rounded-lg p-2" placeholder="Ex: João da Silva" 
+                     value={formData.customer} onChange={e => setFormData({...formData, customer: e.target.value})} />
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                  <div>
+                     <label className="block text-xs font-bold text-slate-500 mb-1">Telefone (WhatsApp)</label>
+                     <input required className="w-full border rounded-lg p-2" placeholder="11999999999" 
+                        value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                  </div>
+                  <div>
+                     <label className="block text-xs font-bold text-slate-500 mb-1">Valor (R$)</label>
+                     <input required className="w-full border rounded-lg p-2" placeholder="Ex: 45.90" 
+                        value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} />
+                  </div>
+               </div>
+               <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Endereço Completo</label>
+                  <input required className="w-full border rounded-lg p-2" placeholder="Rua, Número, Bairro" 
+                     value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+               </div>
+               <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Itens do Pedido</label>
+                  <textarea required className="w-full border rounded-lg p-2 h-20" placeholder="Ex: 2x X-Burger..." 
+                     value={formData.items} onChange={e => setFormData({...formData, items: e.target.value})} />
+               </div>
+               <button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg">Salvar Pedido</button>
+            </form>
+         </div>
+      </div>
+   )
+}
+
+function NewDriverModal({ onClose, onSave, driversCount }: any) {
+   const [name, setName] = useState('');
+   const [phone, setPhone] = useState('');
+   const [vehicle, setVehicle] = useState('');
+
+   const handleSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      onSave({
+         id: `d${driversCount + 1}`,
+         name, phone, vehicle,
+         status: 'offline', lat: 50, lng: 50, battery: 100,
+         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
+         rating: 5.0, totalDeliveries: 0
+      });
+      onClose();
+   };
+
+   return (
+      <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+         <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in duration-200">
+            <div className="bg-slate-900 p-4 flex justify-between items-center text-white">
+               <h3 className="font-bold flex items-center gap-2"><Bike size={18}/> Cadastrar Motoboy</h3>
+               <button onClick={onClose}><X size={18}/></button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+               <input required className="w-full border rounded-lg p-2" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} />
+               <input required className="w-full border rounded-lg p-2" placeholder="Telefone" value={phone} onChange={e => setPhone(e.target.value)} />
+               <input required className="w-full border rounded-lg p-2" placeholder="Veículo (Ex: Honda Titan)" value={vehicle} onChange={e => setVehicle(e.target.value)} />
+               <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg">Cadastrar</button>
+            </form>
+         </div>
+      </div>
+   )
 }
