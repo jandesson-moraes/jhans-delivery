@@ -3,10 +3,11 @@ import {
   MapPin, Navigation, Package, Clock, 
   X, Search, Users, Bike, 
   TrendingUp, Utensils, Plus, LogOut, CheckSquare,
-  MessageCircle, DollarSign, Loader2, 
+  MessageCircle, DollarSign, Loader2,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
   Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
-  Camera, LayoutDashboard, Map as MapIcon } from 'lucide-react';
+  Camera, LayoutDashboard, Map as MapIcon, ShieldAlert, CheckCircle2
+} from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
 import { initializeApp } from "firebase/app";
@@ -127,7 +128,7 @@ const BrandLogo = ({ size = 'normal', dark = false }: { size?: 'small'|'normal'|
 
     return (
         <div className={`flex items-center gap-3 font-extrabold tracking-tight ${sizeClasses[size]} ${dark ? 'text-slate-800' : 'text-white'}`}>
-            <div className={`bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-md shadow-orange-500/20 ${size === 'small' ? 'p-1.5' : 'p-2'}`}>
+            <div className={`bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-md shadow-orange-500/20 ${size === 'small' ? 'p-1.5' : 'p-2.5'}`}>
                 <Utensils size={iconSize[size]} className="text-white" />
             </div>
             <span>
@@ -152,6 +153,7 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [vales, setVales] = useState<Vale[]>([]); 
   const [loading, setLoading] = useState(true);
+  const [permissionError, setPermissionError] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('jhans_viewMode', viewMode);
@@ -169,25 +171,29 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     
+    const handleSnapshotError = (error: any) => {
+        console.error("Erro no Banco de Dados:", error);
+        if (error.code === 'permission-denied') {
+            setPermissionError(true);
+        }
+    };
+
     const unsubDrivers = onSnapshot(collection(db, 'drivers'), (snap) => {
       setDrivers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Driver)));
-    }, (error) => console.error("Erro Drivers:", error));
+    }, handleSnapshotError);
     
     const unsubOrders = onSnapshot(collection(db, 'orders'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
       data.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
       setOrders(data);
-    }, (error) => console.error("Erro Orders:", error));
+    }, handleSnapshotError);
 
     const unsubVales = onSnapshot(collection(db, 'vales'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Vale));
       data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setVales(data);
       setLoading(false);
-    }, (error) => {
-        console.error("Erro Vales:", error);
-        setLoading(false);
-    });
+    }, handleSnapshotError);
 
     return () => { unsubDrivers(); unsubOrders(); unsubVales(); };
   }, [user]);
@@ -198,6 +204,39 @@ export default function App() {
       s.id = 'tailwind-cdn';
       s.src = 'https://cdn.tailwindcss.com';
       document.head.appendChild(s);
+    }
+    
+    // INJETAR ESTILOS PARA SCROLLBAR
+    if (!document.getElementById('custom-scrollbars')) {
+        const style = document.createElement('style');
+        style.id = 'custom-scrollbars';
+        style.innerHTML = `
+          /* Scrollbar Fina e Elegante para listas */
+          .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+          }
+          
+          /* Scrollbar Oculta para Modais (Clean) */
+          .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+          }
+          .hide-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+          }
+        `;
+        document.head.appendChild(style);
     }
   }, []);
 
@@ -212,28 +251,43 @@ export default function App() {
             createdAt: serverTimestamp()
         });
     } catch (error: any) {
-        alert("Erro ao salvar: " + error.message);
+        if (error.code === 'permission-denied') setPermissionError(true);
+        else alert("Erro ao salvar: " + error.message);
     }
   };
 
   const createDriver = async (data: any) => {
     if(!user) return;
-    await addDoc(collection(db, 'drivers'), data);
+    try {
+        await addDoc(collection(db, 'drivers'), data);
+    } catch (error: any) {
+        if (error.code === 'permission-denied') setPermissionError(true);
+        else alert("Erro ao salvar: " + error.message);
+        throw error;
+    }
   };
 
   const updateDriver = async (id: string, data: any) => {
     if(!user) return;
-    await updateDoc(doc(db, 'drivers', id), data);
+    try {
+        await updateDoc(doc(db, 'drivers', id), data);
+    } catch (error: any) {
+        if (error.code === 'permission-denied') setPermissionError(true);
+        throw error;
+    }
   };
 
   const deleteDriver = async (id: string) => {
     if(!user) return;
     if (window.confirm("Tem certeza? O histórico financeiro será mantido, mas o acesso será revogado.")) {
-      await deleteDoc(doc(db, 'drivers', id));
+      try {
+        await deleteDoc(doc(db, 'drivers', id));
+      } catch (error: any) {
+        if (error.code === 'permission-denied') setPermissionError(true);
+      }
     }
   };
 
-  // DELETAR PEDIDO
   const deleteOrder = async (id: string) => {
       if(!user) return;
       if (window.confirm("Tem certeza que deseja EXCLUIR este pedido do histórico?")) {
@@ -248,7 +302,11 @@ export default function App() {
 
   const createVale = async (data: any) => {
     if(!user) return;
-    await addDoc(collection(db, 'vales'), { ...data, createdAt: serverTimestamp() });
+    try {
+        await addDoc(collection(db, 'vales'), { ...data, createdAt: serverTimestamp() });
+    } catch (error: any) {
+        if (error.code === 'permission-denied') setPermissionError(true);
+    }
   };
 
   const assignOrder = async (orderId: string, driverId: string) => {
@@ -289,7 +347,22 @@ export default function App() {
     setCurrentDriverId(null);
   };
 
-  if (loading && !user) return <div className="h-screen flex flex-col items-center justify-center bg-slate-900 text-white"><Loader2 className="animate-spin w-10 h-10 text-orange-500 mb-4"/> <span className="font-medium animate-pulse">Carregando Sistema...</span></div>;
+  if (permissionError) {
+      return (
+          <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-900 text-white p-6">
+              <div className="bg-white text-slate-800 p-8 rounded-2xl max-w-lg shadow-2xl">
+                  <div className="flex items-center gap-3 mb-4 text-red-600">
+                      <ShieldAlert size={40} />
+                      <h1 className="text-2xl font-bold">Acesso Bloqueado</h1>
+                  </div>
+                  <p className="text-slate-600 mb-6">Verifique as Regras de Segurança do Firebase.</p>
+                  <button onClick={() => window.location.reload()} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors">Tentar novamente</button>
+              </div>
+          </div>
+      )
+  }
+
+  if (loading && !user) return <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-900 text-white"><Loader2 className="animate-spin w-10 h-10 text-orange-500 mb-4"/> <span className="font-medium animate-pulse">Carregando Sistema...</span></div>;
 
   if (viewMode === 'landing') {
     return <LandingPage onSelectMode={(m: UserType, id?: string) => { if(id) setCurrentDriverId(id); setViewMode(m); }} hasDrivers={drivers.length > 0} />;
@@ -313,7 +386,7 @@ export default function App() {
 // ==========================================
 function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType, id?: string) => void, hasDrivers: boolean }) {
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen w-screen bg-slate-950 flex flex-col items-center justify-center p-6 relative overflow-hidden">
       <div className="z-10 text-center space-y-8 max-w-md w-full animate-in fade-in duration-700 slide-in-from-bottom-4">
         <div className="flex justify-center scale-125 mb-4">
             <BrandLogo size="large" />
@@ -341,7 +414,7 @@ function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType,
           )}
         </div>
       </div>
-      <p className="absolute bottom-6 text-slate-700 text-xs">Versão 7.5 • Jhans Delivery System</p>
+      <p className="absolute bottom-6 text-slate-700 text-xs">Versão 8.7 • Jhans Delivery System</p>
     </div>
   );
 }
@@ -364,7 +437,7 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
   if (selectedId) {
       const driver = drivers.find((d: Driver) => d.id === selectedId);
       return (
-        <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+        <div className="min-h-screen w-screen bg-slate-100 flex items-center justify-center p-4">
            <div className="bg-white rounded-3xl shadow-xl p-8 w-full max-w-sm animate-in zoom-in-95 duration-300">
                <div className="text-center mb-6">
                    <div className="w-20 h-20 rounded-full mx-auto mb-4 border-4 border-slate-100 shadow-md overflow-hidden relative">
@@ -373,7 +446,7 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
                    <h3 className="font-bold text-xl text-slate-800">Olá, {driver?.name}!</h3>
                </div>
                <form onSubmit={handleLogin} className="space-y-4">
-                   <input type="password" autoFocus className="w-full border-2 border-slate-100 rounded-xl p-3 text-center text-lg outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all tracking-widest placeholder:tracking-normal bg-slate-50" placeholder="••••" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} />
+                   <input type="password" autoFocus className="w-full border-2 border-slate-200 rounded-xl p-3 text-center text-lg font-normal text-slate-800 outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all tracking-widest placeholder:tracking-normal bg-white placeholder:text-slate-400" placeholder="••••" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} />
                    {error && <p className="text-red-500 text-sm text-center font-bold animate-pulse">{error}</p>}
                    <button className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-orange-200">Acessar Painel</button>
                </form>
@@ -384,12 +457,12 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+    <div className="min-h-screen w-screen bg-slate-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-xl p-6 w-full max-w-md max-h-[85vh] flex flex-col">
         <h2 className="text-xl font-bold mb-6 text-slate-800 text-center">Quem é você?</h2>
         <div className="space-y-2 flex-1 overflow-y-auto pr-1 custom-scrollbar">
           {drivers.map((d: Driver) => (
-            <button key={d.id} onClick={() => setSelectedId(d.id)} className="w-full flex items-center gap-4 p-3 border border-slate-100 rounded-xl hover:bg-orange-50 hover:border-orange-200 transition-all group bg-slate-50/50">
+            <button key={d.id} onClick={() => setSelectedId(d.id)} className="w-full flex items-center gap-4 p-3 border border-slate-100 rounded-xl hover:bg-orange-50 hover:border-orange-200 transition-all group bg-white hover:shadow-md">
               <img src={d.avatar} className="w-10 h-10 rounded-full bg-white shadow-sm object-cover"/>
               <div className="text-left flex-1">
                 <span className="font-bold text-slate-700 block">{d.name}</span>
@@ -445,7 +518,7 @@ function DriverApp({ driver, orders, vales, onToggleStatus, onAcceptOrder, onCom
   const openApp = (url: string) => window.open(url, '_blank');
 
   return (
-    <div className="bg-slate-50 min-h-screen flex flex-col">
+    <div className="bg-slate-50 min-h-screen w-screen flex flex-col">
       <div className="bg-slate-900 text-white p-5 pb-10 rounded-b-[2rem] shadow-xl relative z-10">
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-3">
@@ -575,7 +648,7 @@ function AdminPanel(props: any) {
   
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="min-h-screen w-screen bg-slate-900 flex items-center justify-center p-4">
         <div className="bg-white rounded-3xl p-10 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-300">
           <div className="text-center mb-8">
              <div className="flex justify-center mb-6 scale-125">
@@ -595,7 +668,7 @@ function AdminPanel(props: any) {
           }} className="space-y-6">
             <div className="relative">
                 <KeyRound className="absolute left-4 top-4 text-slate-400" size={20}/>
-                <input type="password" className="w-full pl-12 pr-4 py-4 border-2 border-slate-100 rounded-2xl outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all bg-slate-50" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)}/>
+                <input type="password" className="w-full pl-12 pr-4 py-4 border-2 border-slate-100 rounded-2xl outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all bg-slate-50 font-normal placeholder:text-slate-400" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)}/>
             </div>
             <button className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-orange-200 transform hover:scale-[1.02]">Entrar</button>
           </form>
@@ -649,8 +722,8 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
-      <aside className="hidden md:flex w-72 bg-slate-900 text-white flex-col z-20 shadow-2xl">
+    <div className="flex h-screen w-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+      <aside className="hidden md:flex w-72 bg-slate-900 text-white flex-col z-20 shadow-2xl h-full">
         <div className="p-8 border-b border-slate-700/50"><BrandLogo size="normal" /></div>
         <nav className="flex-1 p-6 space-y-3">
           <SidebarBtn icon={<LayoutDashboard/>} label="Monitoramento" active={view==='map'} onClick={()=>setView('map')}/>
@@ -670,21 +743,30 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
          <button onClick={onLogout} className="p-3 text-slate-400 flex flex-col items-center gap-1"><LogOut size={24}/><span className="text-[10px] font-bold">Sair</span></button>
       </div>
 
-      <main className="flex-1 flex flex-col relative overflow-hidden">
-        <header className="h-16 md:h-20 bg-white border-b px-4 md:px-10 flex items-center justify-between shadow-sm z-10">
+      <main className="flex-1 flex flex-col relative overflow-hidden w-full h-full">
+        <header className="h-16 md:h-20 bg-white border-b px-4 md:px-10 flex items-center justify-between shadow-sm z-10 w-full">
            <h1 className="text-lg md:text-2xl font-extrabold text-slate-800 tracking-tight">{view === 'map' ? 'Visão Geral' : view === 'list' ? 'Gestão de Equipe' : 'Relatório de Vendas'}</h1>
            <div className="hidden md:flex text-xs font-bold bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full items-center gap-2 border border-emerald-200 shadow-sm"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> Sistema Online</div>
         </header>
 
-        <div className="flex-1 overflow-hidden relative flex flex-col md:flex-row">
+        <div className="flex-1 overflow-hidden relative w-full h-full">
           {view === 'map' && (
-             <div className="flex-1 bg-slate-100 relative overflow-hidden">
-                <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+             <div className="absolute inset-0 bg-slate-200 overflow-hidden w-full h-full">
+                {/* GRID PATTERN DE FUNDO */}
+                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#94a3b8 1px, transparent 1px), linear-gradient(90deg, #94a3b8 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
                 
-                {/* Lista Pedidos Flutuante */}
+                {/* PLACAR FLUTUANTE DE STATUS */}
+                <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
+                     <div className="bg-white/90 backdrop-blur p-3 rounded-lg shadow border border-slate-200 flex gap-4 text-xs font-bold text-slate-600">
+                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> {drivers.filter((d: Driver)=>d.status!=='offline').length} Online</div>
+                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400"></span> {drivers.filter((d: Driver)=>d.status==='offline').length} Offline</div>
+                     </div>
+                </div>
+
+                {/* LISTA DE PEDIDOS PENDENTES */}
                 <div className="absolute top-6 left-6 z-20 space-y-3 max-h-[85%] overflow-y-auto w-72 hidden md:block pr-2 custom-scrollbar">
                    {orders.filter((o: Order) => o.status === 'pending').map((o: Order) => (
-                      <div key={o.id} className="bg-white p-4 rounded-xl shadow-lg border-l-4 border-orange-500 animate-in slide-in-from-left hover:shadow-xl transition-shadow cursor-pointer relative group">
+                      <div key={o.id} className="bg-white/95 backdrop-blur-md p-4 rounded-xl shadow-lg border-l-4 border-orange-500 animate-in slide-in-from-left hover:shadow-xl transition-shadow cursor-pointer relative group">
                          <div className="flex justify-between items-start mb-1">
                             <span className="font-bold text-sm text-slate-800">{o.customer}</span>
                             <span className="text-[10px] font-bold bg-slate-100 px-2 py-1 rounded text-slate-500">{o.time || 'Agora'}</span>
@@ -698,26 +780,42 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
                       </div>
                    ))}
                    {orders.filter((o: Order) => o.status === 'pending').length === 0 && (
-                       <div className="bg-white/80 backdrop-blur p-6 rounded-xl border border-slate-200 text-center"><Package className="mx-auto text-slate-300 mb-2" size={32}/><p className="text-sm text-slate-500 font-medium">Tudo tranquilo.</p></div>
+                       <div className="bg-white/80 backdrop-blur p-4 rounded-xl border border-slate-200 text-center shadow-sm">
+                           <p className="text-xs text-slate-500 font-bold">Sem pedidos na fila</p>
+                       </div>
                    )}
                 </div>
-                
-                {/* Mapa Mock */}
-                {drivers.map((d: Driver) => (
-                   <div key={d.id} onClick={() => setSelectedDriver(d)} className="absolute z-30 hover:scale-110 transition-transform cursor-pointer" style={{top: `50%`, left: `50%`, transform: `translate(${(Math.random()-0.5)*300}px, ${(Math.random()-0.5)*300}px)`}}>
-                      <div className="relative group">
-                         <div className={`w-14 h-14 rounded-full border-4 shadow-2xl overflow-hidden bg-white transition-colors ${d.status==='delivering' ? 'border-orange-500' : d.status==='available' ? 'border-emerald-500' : 'border-slate-400'}`}>
-                            <img src={d.avatar} className="w-full h-full object-cover"/>
-                         </div>
-                         <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-full opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity pointer-events-none shadow-lg">{d.name}</div>
-                      </div>
-                   </div>
-                ))}
+
+                {/* MOTOS NO MAPA */}
+                <div className="w-full h-full relative">
+                    {drivers.map((d: Driver, index: number) => {
+                       const seed = d.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                       const visualTop = (seed * 137) % 80 + 10; 
+                       const visualLeft = (seed * 93) % 80 + 10; 
+                       
+                       return (
+                           <div key={d.id} onClick={(e) => { e.stopPropagation(); setSelectedDriver(d); }} className="absolute z-30 hover:scale-110 transition-all duration-700 cursor-pointer" 
+                                style={{
+                                    top: `${visualTop}%`, 
+                                    left: `${visualLeft}%`
+                                }}>
+                              <div className="relative group flex flex-col items-center">
+                                 <div className={`w-14 h-14 md:w-16 md:h-16 rounded-full border-4 shadow-2xl overflow-hidden bg-white transition-colors ${d.status==='delivering' ? 'border-orange-500' : d.status==='available' ? 'border-emerald-500' : 'border-slate-400'}`}>
+                                    <img src={d.avatar} className="w-full h-full object-cover"/>
+                                 </div>
+                                 <div className="mt-1 bg-slate-900/80 backdrop-blur text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg">
+                                    {d.name}
+                                 </div>
+                              </div>
+                           </div>
+                       )
+                    })}
+                </div>
              </div>
           )}
 
           {view === 'list' && (
-             <div className="flex-1 bg-slate-50 p-6 md:p-10 overflow-auto pb-32 md:pb-10">
+             <div className="flex-1 bg-slate-50 p-6 md:p-10 overflow-auto pb-32 md:pb-10 w-full h-full">
                 <div className="flex justify-between items-center mb-8">
                    <h2 className="font-bold text-2xl text-slate-800">Frota Ativa ({drivers.length})</h2>
                    <button onClick={()=>setModal('driver')} className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-xl text-sm font-bold flex gap-2 shadow-lg hover:scale-105 transition-all"><Plus size={18}/> Cadastrar</button>
@@ -746,7 +844,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
 
           {/* RELATÓRIO COMPACTO E LIMPO */}
           {view === 'history' && (
-             <div className="flex-1 bg-white p-4 md:p-8 overflow-auto pb-32 md:pb-10 w-full max-w-7xl mx-auto">
+             <div className="flex-1 bg-white p-4 md:p-8 overflow-auto pb-32 md:pb-10 w-full">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <div><h3 className="font-bold text-2xl text-slate-800">Histórico de Vendas</h3><p className="text-sm text-slate-400">Visão detalhada das entregas</p></div>
                     <button onClick={copyReport} className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg"><ClipboardCopy size={18}/> Relatório WhatsApp</button>
@@ -757,7 +855,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
                    <StatBox label="Entregas" value={delivered.length} icon={<CheckSquare/>} color="bg-blue-50 text-blue-600"/>
                 </div>
                 
-                <div className="rounded-xl border border-slate-100 overflow-hidden">
+                <div className="rounded-xl border border-slate-100 overflow-hidden w-full">
                    <div className="overflow-x-auto">
                      <table className="w-full text-xs md:text-sm text-left">
                         <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider border-b border-slate-100">
@@ -800,7 +898,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
           )}
 
           {/* PAINEL LATERAL DESLIZANTE (Agora oculto por padrão no modo mapa para "Visão Ampla") */}
-          <aside className={`fixed inset-y-0 right-0 w-full md:w-96 bg-white shadow-2xl p-0 overflow-y-auto z-40 transition-transform duration-300 border-l border-slate-100 ${selectedDriver ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
+          <aside className={`fixed inset-y-0 right-0 w-full md:w-96 bg-white shadow-2xl p-0 overflow-y-auto z-50 transition-transform duration-300 border-l border-slate-100 ${selectedDriver ? 'translate-x-0' : 'translate-x-full'}`}>
              {selectedDriver && (
                <div className="h-full flex flex-col bg-slate-50">
                   <div className="bg-white p-6 border-b border-slate-100 sticky top-0 z-10">
@@ -837,39 +935,9 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
 
       {/* MODAL PEDIDO */}
       {modal === 'order' && <NewOrderModal onClose={()=>setModal(null)} onSave={onCreateOrder} />}
-      
-      {/* MODAL MOTORISTA (CRIAR/EDITAR) */}
-      {modal === 'driver' && (
-         <NewDriverModal 
-            onClose={()=>{setModal(null); setDriverToEdit(null);}} 
-            onSave={driverToEdit ? (data: any) => onUpdateDriver(driverToEdit.id, data) : onCreateDriver}
-            initialData={driverToEdit} 
-         />
-      )}
-
-      {/* MODAL VALE */}
-      {modal === 'vale' && driverToEdit && (
-         <NewValeModal 
-            driver={driverToEdit}
-            onClose={() => { setModal(null); setDriverToEdit(null); }}
-            onSave={onCreateVale} 
-         />
-      )}
-
-      {/* MODAL RELATÓRIO FINANCEIRO DO MOTORISTA */}
-      {driverReportId && (
-         <DriverReportModal 
-            driverId={driverReportId} 
-            drivers={drivers} 
-            orders={orders} 
-            vales={vales}
-            onClose={() => setDriverReportId(null)} 
-            onNewVale={() => {
-                const drv = drivers.find((d: Driver) => d.id === driverReportId);
-                if (drv) { setDriverToEdit(drv); setModal('vale'); }
-            }}
-         />
-      )}
+      {modal === 'driver' && <NewDriverModal onClose={()=>{setModal(null); setDriverToEdit(null);}} onSave={driverToEdit ? (data: any) => onUpdateDriver(driverToEdit.id, data) : onCreateDriver} initialData={driverToEdit} />}
+      {modal === 'vale' && driverToEdit && <NewValeModal driver={driverToEdit} onClose={() => { setModal(null); setDriverToEdit(null); }} onSave={onCreateVale} />}
+      {driverReportId && <DriverReportModal driverId={driverReportId} drivers={drivers} orders={orders} vales={vales} onClose={() => setDriverReportId(null)} onNewVale={() => { const drv = drivers.find((d: Driver) => d.id === driverReportId); if (drv) { setDriverToEdit(drv); setModal('vale'); } }} />}
     </div>
   )
 }
@@ -939,7 +1007,7 @@ function NewOrderModal({ onClose, onSave }: any) {
                <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors"><X size={20} className="text-slate-500"/></button>
             </div>
 
-            <div className="p-6 overflow-y-auto custom-scrollbar">
+            <div className="p-6 overflow-y-auto custom-scrollbar hide-scrollbar">
                 {pasteArea ? (
                    <div className="space-y-4 animate-in slide-in-from-right">
                       <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl">
@@ -958,16 +1026,16 @@ function NewOrderModal({ onClose, onSave }: any) {
                        </button>
 
                        <div className="space-y-4">
-                           <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Cliente</label><input required className="w-full border-2 border-slate-100 rounded-xl p-3.5 focus:border-orange-500 focus:ring-4 focus:ring-orange-50 outline-none transition-all font-medium text-slate-700" placeholder="Nome do Cliente" value={form.customer} onChange={e=>setForm({...form, customer: e.target.value})} /></div>
+                           <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Cliente</label><input required className="w-full border-2 border-slate-300 rounded-xl p-3.5 focus:border-orange-500 focus:ring-4 focus:ring-orange-50 outline-none transition-all font-normal text-slate-600 placeholder:text-slate-400" placeholder="Nome do Cliente" value={form.customer} onChange={e=>setForm({...form, customer: e.target.value})} /></div>
                            <div className="grid grid-cols-2 gap-4">
-                              <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Telefone</label><input required className="w-full border-2 border-slate-100 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-medium text-slate-700" placeholder="(00) 00000-0000" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} /></div>
-                              <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Valor</label><input required className="w-full border-2 border-slate-100 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-medium text-slate-700" placeholder="R$ 0,00" value={form.amount} onChange={e=>setForm({...form, amount: e.target.value})} /></div>
+                              <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Telefone</label><input required className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-600 placeholder:text-slate-400" placeholder="(00) 00000-0000" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} /></div>
+                              <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Valor</label><input required className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-600 placeholder:text-slate-400" placeholder="R$ 0,00" value={form.amount} onChange={e=>setForm({...form, amount: e.target.value})} /></div>
                            </div>
-                           <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Pagamento</label><input className="w-full border-2 border-slate-100 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-medium text-slate-700" placeholder="PIX, Dinheiro..." value={form.paymentMethod} onChange={e=>setForm({...form, paymentMethod: e.target.value})} /></div>
-                           <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Endereço</label><input required className="w-full border-2 border-slate-100 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-medium text-slate-700" placeholder="Rua, Número, Bairro" value={form.address} onChange={e=>setForm({...form, address: e.target.value})} /></div>
-                           <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Link GPS (Opcional)</label><input className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-blue-600 outline-none focus:bg-white transition-all" placeholder="https://maps.google.com/..." value={form.mapsLink} onChange={e=>setForm({...form, mapsLink: e.target.value})} /></div>
-                           <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Itens</label><textarea required className="w-full border-2 border-slate-100 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-medium text-slate-700 min-h-[80px]" placeholder="Descrição do pedido..." value={form.items} onChange={e=>setForm({...form, items: e.target.value})} /></div>
-                           <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Obs</label><input className="w-full border-2 border-slate-100 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-medium text-slate-700" placeholder="Ex: Troco para 50" value={form.obs} onChange={e=>setForm({...form, obs: e.target.value})} /></div>
+                           <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Pagamento</label><input className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-600 placeholder:text-slate-400" placeholder="PIX, Dinheiro..." value={form.paymentMethod} onChange={e=>setForm({...form, paymentMethod: e.target.value})} /></div>
+                           <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Endereço</label><input required className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-600 placeholder:text-slate-400" placeholder="Rua, Número, Bairro" value={form.address} onChange={e=>setForm({...form, address: e.target.value})} /></div>
+                           <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Link GPS (Opcional)</label><input className="w-full bg-white border-2 border-slate-300 rounded-xl p-3 text-xs text-blue-600 outline-none focus:bg-white transition-all font-medium placeholder:text-slate-400" placeholder="https://maps.google.com/..." value={form.mapsLink} onChange={e=>setForm({...form, mapsLink: e.target.value})} /></div>
+                           <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Itens</label><textarea required className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-600 placeholder:text-slate-400 min-h-[80px]" placeholder="Descrição do pedido..." value={form.items} onChange={e=>setForm({...form, items: e.target.value})} /></div>
+                           <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Obs</label><input className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-600 placeholder:text-slate-400" placeholder="Ex: Troco para 50" value={form.obs} onChange={e=>setForm({...form, obs: e.target.value})} /></div>
                        </div>
                        
                        <button className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-4 rounded-2xl shadow-xl shadow-orange-200 transition-all transform hover:scale-[1.02] active:scale-95 text-lg">Salvar Pedido</button>
@@ -1015,7 +1083,7 @@ function NewDriverModal({ onClose, onSave, initialData }: any) {
         await onSave(driverData);
         onClose();
       } catch (error) {
-        console.error(error);
+        // Erro já tratado no onSave
       } finally {
         setLoading(false);
       }
@@ -1028,15 +1096,15 @@ function NewDriverModal({ onClose, onSave, initialData }: any) {
                <h3 className="font-bold text-xl text-slate-800">{initialData ? 'Editar Perfil' : 'Novo Motoboy'}</h3>
             </div>
             <form onSubmit={submit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-               <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Nome</label><input required className="w-full border-2 border-slate-100 rounded-xl p-3 outline-none focus:border-emerald-500 transition-all" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} /></div>
-               <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Senha</label><input required type="text" className="w-full border-2 border-slate-100 rounded-xl p-3 outline-none bg-yellow-50 focus:border-yellow-400 transition-all" value={form.password} onChange={e=>setForm({...form, password: e.target.value})} /></div>
+               <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Nome</label><input required className="w-full border-2 border-slate-100 rounded-xl p-3 outline-none focus:border-emerald-500 transition-all font-normal text-slate-700 placeholder:text-slate-400" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} /></div>
+               <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Senha</label><input required type="text" className="w-full border-2 border-slate-100 rounded-xl p-3 outline-none bg-yellow-50 focus:border-yellow-400 transition-all font-normal text-slate-700 placeholder:text-slate-400" value={form.password} onChange={e=>setForm({...form, password: e.target.value})} /></div>
                <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Telefone</label><input required className="w-full border-2 border-slate-100 rounded-xl p-3 outline-none" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} /></div>
-                  <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">CPF</label><input className="w-full border-2 border-slate-100 rounded-xl p-3 outline-none" value={form.cpf} onChange={e=>setForm({...form, cpf: e.target.value})} /></div>
+                  <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Telefone</label><input required className="w-full border-2 border-slate-100 rounded-xl p-3 outline-none font-normal text-slate-700 placeholder:text-slate-400" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} /></div>
+                  <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">CPF</label><input className="w-full border-2 border-slate-100 rounded-xl p-3 outline-none font-normal text-slate-700 placeholder:text-slate-400" value={form.cpf} onChange={e=>setForm({...form, cpf: e.target.value})} /></div>
                </div>
                <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Veículo</label><input required className="w-full border-2 border-slate-100 rounded-xl p-3 outline-none" value={form.vehicle} onChange={e=>setForm({...form, vehicle: e.target.value})} /></div>
-                  <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Placa</label><input className="w-full border-2 border-slate-100 rounded-xl p-3 outline-none" value={form.plate} onChange={e=>setForm({...form, plate: e.target.value})} /></div>
+                  <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Veículo</label><input required className="w-full border-2 border-slate-100 rounded-xl p-3 outline-none font-normal text-slate-700 placeholder:text-slate-400" value={form.vehicle} onChange={e=>setForm({...form, vehicle: e.target.value})} /></div>
+                  <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Placa</label><input className="w-full border-2 border-slate-100 rounded-xl p-3 outline-none font-normal text-slate-700 placeholder:text-slate-400" value={form.plate} onChange={e=>setForm({...form, plate: e.target.value})} /></div>
                </div>
                
                {/* Upload Foto */}
@@ -1084,8 +1152,8 @@ function NewValeModal({ driver, onClose, onSave }: any) {
                 <h3 className="font-bold text-xl mb-4 text-slate-800 flex items-center gap-2"><MinusCircle className="text-red-500"/> Novo Vale</h3>
                 <p className="text-sm text-slate-500 mb-6">Desconto para <strong>{driver.name}</strong></p>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Valor (R$)</label><input required autoFocus className="w-full border-2 border-slate-100 rounded-xl p-4 text-2xl font-bold text-slate-800 outline-none focus:border-red-500" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} /></div>
-                    <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Motivo</label><input required className="w-full border-2 border-slate-100 rounded-xl p-3 outline-none" placeholder="Ex: Gasolina, Adiantamento" value={desc} onChange={e => setDesc(e.target.value)} /></div>
+                    <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Valor (R$)</label><input required autoFocus className="w-full border-2 border-slate-100 rounded-xl p-4 text-2xl font-bold text-slate-800 outline-none focus:border-red-500 font-normal placeholder:text-slate-400" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} /></div>
+                    <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Motivo</label><input required className="w-full border-2 border-slate-100 rounded-xl p-3 outline-none font-normal text-slate-800 placeholder:text-slate-400" placeholder="Ex: Gasolina, Adiantamento" value={desc} onChange={e => setDesc(e.target.value)} /></div>
                     <div className="flex gap-3 pt-4">
                         <button type="button" onClick={onClose} className="flex-1 border border-slate-200 rounded-xl py-3 font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
                         <button className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl py-3 font-bold shadow-lg shadow-red-200">Confirmar</button>
