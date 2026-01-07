@@ -770,7 +770,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
             vales={vales}
             onClose={() => setDriverReportId(null)} 
             onNewVale={() => {
-                const drv = drivers.find((d: Driver) => d.id === driverReportId);
+                const drv = drivers.find((d:Driver) => d.id === driverReportId);
                 if (drv) { setDriverToEdit(drv); setModal('vale'); }
             }}
          />
