@@ -6,7 +6,7 @@ import {
   MessageCircle, DollarSign, Loader2,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
   Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
-  Camera, LayoutDashboard, Map as MapIcon, ShieldAlert
+  Camera, LayoutDashboard, Map as MapIcon, ShieldAlert, Link as LinkIcon
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
