@@ -757,7 +757,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
          <NewValeModal 
             driver={driverToEdit}
             onClose={() => { setModal(null); setDriverToEdit(null); }}
-            onSave={createVale}
+            onSave={onCreateVale} // CORREÇÃO AQUI
          />
       )}
 
