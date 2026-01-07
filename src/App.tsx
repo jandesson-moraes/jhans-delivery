@@ -6,7 +6,7 @@ import {
   MessageCircle, DollarSign, Loader2,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
   Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
-  Camera, LayoutDashboard, Map as MapIcon, ShieldAlert, CheckCircle2
+  Camera, LayoutDashboard, Map as MapIcon, CheckCircle2, AlertCircle
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -128,7 +128,7 @@ const BrandLogo = ({ size = 'normal', dark = false }: { size?: 'small'|'normal'|
 
     return (
         <div className={`flex items-center gap-3 font-extrabold tracking-tight ${sizeClasses[size]} ${dark ? 'text-slate-800' : 'text-white'}`}>
-            <div className={`bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/30 ${size === 'small' ? 'p-1.5' : 'p-2.5'}`}>
+            <div className={`bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-md shadow-orange-500/20 ${size === 'small' ? 'p-1.5' : 'p-2'}`}>
                 <Utensils size={iconSize[size]} className="text-white" />
             </div>
             <span>
@@ -153,7 +153,6 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [vales, setVales] = useState<Vale[]>([]); 
   const [loading, setLoading] = useState(true);
-  const [permissionError, setPermissionError] = useState(false); // Novo estado de erro
 
   useEffect(() => {
     localStorage.setItem('jhans_viewMode', viewMode);
@@ -171,30 +170,25 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     
-    // Tratamento de erro de permissão no Snapshot
-    const handleSnapshotError = (error: any) => {
-        console.error("Erro no Banco de Dados:", error);
-        if (error.code === 'permission-denied') {
-            setPermissionError(true);
-        }
-    };
-
     const unsubDrivers = onSnapshot(collection(db, 'drivers'), (snap) => {
       setDrivers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Driver)));
-    }, handleSnapshotError);
+    }, (error) => console.error("Erro Drivers:", error));
     
     const unsubOrders = onSnapshot(collection(db, 'orders'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
       data.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
       setOrders(data);
-    }, handleSnapshotError);
+    }, (error) => console.error("Erro Orders:", error));
 
     const unsubVales = onSnapshot(collection(db, 'vales'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Vale));
       data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setVales(data);
       setLoading(false);
-    }, handleSnapshotError);
+    }, (error) => {
+        console.error("Erro Vales:", error);
+        setLoading(false);
+    });
 
     return () => { unsubDrivers(); unsubOrders(); unsubVales(); };
   }, [user]);
@@ -208,6 +202,8 @@ export default function App() {
     }
   }, []);
 
+  // --- AÇÕES ---
+
   const createOrder = async (data: any) => {
     if(!user) return;
     try {
@@ -217,58 +213,43 @@ export default function App() {
             createdAt: serverTimestamp()
         });
     } catch (error: any) {
-        console.error("Erro ao criar pedido:", error);
-        if (error.code === 'permission-denied') setPermissionError(true);
-        else alert("Erro ao salvar: " + error.message);
+        alert("Erro ao salvar: " + error.message);
     }
   };
 
   const createDriver = async (data: any) => {
     if(!user) return;
-    try {
-        await addDoc(collection(db, 'drivers'), data);
-    } catch (error: any) {
-        console.error("Erro ao criar motorista:", error);
-        if (error.code === 'permission-denied') setPermissionError(true);
-        else alert("Erro ao salvar: " + error.message);
-        throw error;
-    }
+    await addDoc(collection(db, 'drivers'), data);
   };
 
   const updateDriver = async (id: string, data: any) => {
     if(!user) return;
-    try {
-        await updateDoc(doc(db, 'drivers', id), data);
-    } catch (error: any) {
-        console.error("Erro ao atualizar:", error);
-        if (error.code === 'permission-denied') setPermissionError(true);
-        throw error;
-    }
+    await updateDoc(doc(db, 'drivers', id), data);
   };
 
   const deleteDriver = async (id: string) => {
     if(!user) return;
     if (window.confirm("Tem certeza? O histórico financeiro será mantido, mas o acesso será revogado.")) {
-      try {
-        await deleteDoc(doc(db, 'drivers', id));
-      } catch (error: any) {
-        console.error("Erro ao excluir:", error);
-        if (error.code === 'permission-denied') setPermissionError(true);
-      }
+      await deleteDoc(doc(db, 'drivers', id));
     }
+  };
+
+  // NOVA FUNÇÃO: DELETAR PEDIDO
+  const deleteOrder = async (id: string) => {
+      if(!user) return;
+      if (window.confirm("Tem certeza que deseja EXCLUIR este pedido do histórico?")) {
+          try {
+              await deleteDoc(doc(db, 'orders', id));
+          } catch(e) {
+              console.error(e);
+              alert("Erro ao excluir pedido.");
+          }
+      }
   };
 
   const createVale = async (data: any) => {
     if(!user) return;
-    try {
-        await addDoc(collection(db, 'vales'), {
-            ...data,
-            createdAt: serverTimestamp()
-        });
-    } catch (error: any) {
-        console.error("Erro ao lançar vale:", error);
-        if (error.code === 'permission-denied') setPermissionError(true);
-    }
+    await addDoc(collection(db, 'vales'), { ...data, createdAt: serverTimestamp() });
   };
 
   const assignOrder = async (orderId: string, driverId: string) => {
@@ -309,49 +290,7 @@ export default function App() {
     setCurrentDriverId(null);
   };
 
-  // --- TELA DE ERRO DE PERMISSÃO ---
-  if (permissionError) {
-      return (
-          <div className="h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-6">
-              <div className="bg-white text-slate-800 p-8 rounded-2xl max-w-lg shadow-2xl">
-                  <div className="flex items-center gap-3 mb-4 text-red-600">
-                      <ShieldAlert size={40} />
-                      <h1 className="text-2xl font-bold">Acesso Bloqueado pelo Banco de Dados</h1>
-                  </div>
-                  <p className="text-slate-600 mb-6">
-                      O Firebase está recusando a gravação dos dados. Isso acontece quando as "Regras de Segurança" não estão configuradas para modo de teste.
-                  </p>
-                  
-                  <div className="bg-slate-100 p-4 rounded-xl mb-6 text-sm border border-slate-200">
-                      <p className="font-bold mb-2">Siga estes passos para corrigir:</p>
-                      <ol className="list-decimal pl-4 space-y-2 text-slate-700">
-                          <li>Acesse o <strong>Console do Firebase</strong>.</li>
-                          <li>Vá em <strong>Firestore Database</strong> &gt; Aba <strong>Regras</strong>.</li>
-                          <li>Apague tudo o que estiver lá e cole este código:</li>
-                      </ol>
-                      <div className="bg-slate-800 text-green-400 p-3 rounded mt-3 font-mono text-xs">
-                          allow read, write: if true;
-                      </div>
-                      <p className="mt-3 text-slate-500 text-xs">*Depois clique em "Publicar".</p>
-                  </div>
-                  
-                  <div className="bg-slate-100 p-4 rounded-xl text-sm border border-slate-200">
-                       <p className="font-bold mb-2">Também verifique:</p>
-                       <ul className="list-disc pl-4 space-y-1 text-slate-700">
-                           <li>Vá em <strong>Authentication</strong> &gt; <strong>Sign-in method</strong>.</li>
-                           <li>Garanta que o provedor <strong>Anônimo</strong> esteja "Ativado".</li>
-                       </ul>
-                  </div>
-
-                  <button onClick={() => window.location.reload()} className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors">
-                      Já fiz isso, tentar novamente
-                  </button>
-              </div>
-          </div>
-      )
-  }
-
-  if (loading && !user) return <div className="h-screen flex flex-col items-center justify-center bg-slate-900 text-white"><Loader2 className="animate-spin w-12 h-12 text-orange-500 mb-4"/> <span className="font-bold text-lg animate-pulse">Carregando Sistema...</span></div>;
+  if (loading && !user) return <div className="h-screen flex flex-col items-center justify-center bg-slate-900 text-white"><Loader2 className="animate-spin w-10 h-10 text-orange-500 mb-4"/> <span className="font-medium animate-pulse">Carregando Sistema...</span></div>;
 
   if (viewMode === 'landing') {
     return <LandingPage onSelectMode={(m: UserType, id?: string) => { if(id) setCurrentDriverId(id); setViewMode(m); }} hasDrivers={drivers.length > 0} />;
@@ -367,7 +306,7 @@ export default function App() {
     return <DriverApp driver={driver} orders={orders} vales={vales} onToggleStatus={() => toggleStatus(driver.id)} onAcceptOrder={acceptOrder} onCompleteOrder={() => completeOrder(driver.id)} onLogout={handleLogout} />;
   }
 
-  return <AdminPanel drivers={drivers} orders={orders} vales={vales} onAssignOrder={assignOrder} onCreateDriver={createDriver} onUpdateDriver={updateDriver} onDeleteDriver={deleteDriver} onCreateOrder={createOrder} onCreateVale={createVale} onLogout={handleLogout} />;
+  return <AdminPanel drivers={drivers} orders={orders} vales={vales} onAssignOrder={assignOrder} onCreateDriver={createDriver} onUpdateDriver={updateDriver} onDeleteDriver={deleteDriver} onCreateOrder={createOrder} onDeleteOrder={deleteOrder} onCreateVale={createVale} onLogout={handleLogout} />;
 }
 
 // ==========================================
@@ -375,52 +314,41 @@ export default function App() {
 // ==========================================
 function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType, id?: string) => void, hasDrivers: boolean }) {
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Background Effect */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-[20%] -left-[10%] w-[600px] h-[600px] bg-orange-600/20 rounded-full blur-[100px]"></div>
-        <div className="absolute -bottom-[20%] -right-[10%] w-[600px] h-[600px] bg-blue-600/20 rounded-full blur-[100px]"></div>
-      </div>
-
-      <div className="z-10 text-center space-y-10 max-w-md w-full animate-in fade-in duration-700 slide-in-from-bottom-8">
-        <div className="flex justify-center transform scale-110">
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      <div className="z-10 text-center space-y-8 max-w-md w-full animate-in fade-in duration-700 slide-in-from-bottom-4">
+        <div className="flex justify-center scale-125 mb-4">
             <BrandLogo size="large" />
         </div>
         
-        <div className="space-y-2">
-          <h2 className="text-xl text-slate-300 font-light">Selecione seu perfil de acesso</h2>
-        </div>
-
-        <div className="space-y-4">
-          <button onClick={() => onSelectMode('admin')} className="w-full group relative flex items-center justify-between p-5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-orange-900/20 hover:border-orange-500/30">
-            <div className="flex items-center gap-5">
-              <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-3 rounded-xl shadow-lg"><TrendingUp className="text-white" size={24}/></div>
+        <div className="space-y-3">
+          <button onClick={() => onSelectMode('admin')} className="w-full group relative flex items-center justify-between p-5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl transition-all hover:border-orange-500/30">
+            <div className="flex items-center gap-4">
+              <div className="bg-blue-600/20 p-3 rounded-xl text-blue-400"><TrendingUp size={20}/></div>
               <div className="text-left"><span className="block font-bold text-white text-lg">Sou Gerente</span><span className="text-xs text-slate-400">Painel Administrativo</span></div>
             </div>
             <ChevronRight className="text-slate-500 group-hover:text-white transition-colors" />
           </button>
           
           {hasDrivers ? (
-            <button onClick={() => onSelectMode('driver', 'select')} className="w-full group relative flex items-center justify-between p-5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-emerald-900/20 hover:border-emerald-500/30">
-              <div className="flex items-center gap-5">
-                <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 p-3 rounded-xl shadow-lg"><Bike className="text-white" size={24}/></div>
+            <button onClick={() => onSelectMode('driver', 'select')} className="w-full group relative flex items-center justify-between p-5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl transition-all hover:border-emerald-500/30">
+              <div className="flex items-center gap-4">
+                <div className="bg-emerald-500/20 p-3 rounded-xl text-emerald-400"><Bike size={20}/></div>
                 <div className="text-left"><span className="block font-bold text-white text-lg">Sou Motoboy</span><span className="text-xs text-slate-400">App de Entregas</span></div>
               </div>
               <ChevronRight className="text-slate-500 group-hover:text-white transition-colors" />
             </button>
           ) : (
-            <div className="p-4 bg-slate-800/50 rounded-xl text-xs text-slate-500 text-center border border-slate-700">Nenhum motoboy cadastrado ainda.</div>
+            <div className="p-4 bg-slate-900/50 rounded-xl text-xs text-slate-500 text-center border border-slate-800">Nenhum motoboy cadastrado ainda.</div>
           )}
         </div>
       </div>
-      
-      <p className="absolute bottom-6 text-slate-600 text-xs">Versão 6.5 • Jhans Delivery System</p>
+      <p className="absolute bottom-6 text-slate-700 text-xs">Versão 7.0 • Jhans Delivery System</p>
     </div>
   );
 }
 
 // ==========================================
-// SELEÇÃO DE MOTORISTA (COM SENHA)
+// SELEÇÃO DE MOTORISTA
 // ==========================================
 function DriverSelection({ drivers, onSelect, onBack }: any) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -438,30 +366,19 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
       const driver = drivers.find((d: Driver) => d.id === selectedId);
       return (
         <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-           <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm animate-in zoom-in-95 duration-300">
-               <div className="text-center mb-8">
-                   <div className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-slate-100 shadow-md overflow-hidden relative">
+           <div className="bg-white rounded-3xl shadow-xl p-8 w-full max-w-sm animate-in zoom-in-95 duration-300">
+               <div className="text-center mb-6">
+                   <div className="w-20 h-20 rounded-full mx-auto mb-4 border-4 border-slate-100 shadow-md overflow-hidden relative">
                        <img src={driver?.avatar} className="w-full h-full object-cover" />
                    </div>
-                   <h3 className="font-bold text-2xl text-slate-800">Olá, {driver?.name}!</h3>
-                   <p className="text-slate-400 text-sm">Digite sua senha para acessar</p>
+                   <h3 className="font-bold text-xl text-slate-800">Olá, {driver?.name}!</h3>
                </div>
-               
-               <form onSubmit={handleLogin} className="space-y-6">
-                   <div>
-                       <input 
-                           type="password" 
-                           autoFocus
-                           className="w-full border-2 border-slate-100 rounded-2xl p-4 text-center text-xl outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all tracking-widest placeholder:tracking-normal bg-slate-50" 
-                           placeholder="••••"
-                           value={password}
-                           onChange={e => { setPassword(e.target.value); setError(''); }}
-                       />
-                       {error && <p className="text-red-500 text-sm text-center mt-2 font-bold animate-pulse">{error}</p>}
-                   </div>
-                   <button className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 rounded-2xl transition-all transform hover:scale-[1.02] shadow-lg shadow-orange-200">Acessar Painel</button>
+               <form onSubmit={handleLogin} className="space-y-4">
+                   <input type="password" autoFocus className="w-full border-2 border-slate-100 rounded-xl p-3 text-center text-lg outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all tracking-widest placeholder:tracking-normal bg-slate-50" placeholder="••••" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} />
+                   {error && <p className="text-red-500 text-sm text-center font-bold animate-pulse">{error}</p>}
+                   <button className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-orange-200">Acessar Painel</button>
                </form>
-               <button onClick={() => { setSelectedId(null); setPassword(''); setError(''); }} className="w-full mt-6 text-slate-400 text-sm hover:text-orange-600 transition-colors">← Trocar de Usuário</button>
+               <button onClick={() => { setSelectedId(null); setPassword(''); setError(''); }} className="w-full mt-4 text-slate-400 text-sm hover:text-orange-600 transition-colors">← Trocar de Usuário</button>
            </div>
         </div>
       );
@@ -469,24 +386,21 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-xl p-8 w-full max-w-md max-h-[85vh] flex flex-col">
-        <h2 className="text-2xl font-bold mb-8 text-slate-800 text-center">Quem é você?</h2>
-        <div className="space-y-3 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+      <div className="bg-white rounded-3xl shadow-xl p-6 w-full max-w-md max-h-[85vh] flex flex-col">
+        <h2 className="text-xl font-bold mb-6 text-slate-800 text-center">Quem é você?</h2>
+        <div className="space-y-2 flex-1 overflow-y-auto pr-1 custom-scrollbar">
           {drivers.map((d: Driver) => (
-            <button key={d.id} onClick={() => setSelectedId(d.id)} className="w-full flex items-center gap-4 p-4 border border-slate-100 rounded-2xl hover:bg-orange-50 hover:border-orange-200 transition-all group bg-slate-50/50">
-              <img src={d.avatar} className="w-12 h-12 rounded-full bg-white shadow-sm object-cover group-hover:scale-110 transition-transform"/>
+            <button key={d.id} onClick={() => setSelectedId(d.id)} className="w-full flex items-center gap-4 p-3 border border-slate-100 rounded-xl hover:bg-orange-50 hover:border-orange-200 transition-all group bg-slate-50/50">
+              <img src={d.avatar} className="w-10 h-10 rounded-full bg-white shadow-sm object-cover"/>
               <div className="text-left flex-1">
-                <span className="font-bold text-slate-700 block text-lg">{d.name}</span>
-                <span className="text-xs text-slate-400 uppercase font-semibold flex items-center gap-1">
-                    {d.plate && <span className="bg-slate-200 px-1.5 rounded">{d.plate}</span>}
-                    {d.vehicle}
-                </span>
+                <span className="font-bold text-slate-700 block">{d.name}</span>
+                <span className="text-xs text-slate-400 uppercase font-semibold">{d.vehicle}</span>
               </div>
-              {d.password && <Lock size={16} className="text-slate-300 group-hover:text-orange-400" />}
+              {d.password && <Lock size={14} className="text-slate-300 group-hover:text-orange-400" />}
             </button>
           ))}
         </div>
-        <button onClick={onBack} className="mt-8 w-full py-3 text-slate-500 text-sm hover:bg-slate-50 rounded-xl font-medium transition-colors">Voltar para Início</button>
+        <button onClick={onBack} className="mt-6 w-full py-3 text-slate-400 text-sm hover:bg-slate-50 rounded-xl font-medium transition-colors">Voltar</button>
       </div>
     </div>
   )
@@ -523,8 +437,7 @@ function DriverApp({ driver, orders, vales, onToggleStatus, onAcceptOrder, onCom
             lastUpdate: serverTimestamp()
           }).catch(e => console.error(e));
         },
-        null,
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        null, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
     return () => { if (watchId) navigator.geolocation.clearWatch(watchId); };
@@ -534,124 +447,109 @@ function DriverApp({ driver, orders, vales, onToggleStatus, onAcceptOrder, onCom
 
   return (
     <div className="bg-slate-50 min-h-screen flex flex-col">
-      <div className="bg-slate-900 text-white p-6 pb-12 rounded-b-[2.5rem] shadow-xl relative z-10">
-        <div className="flex justify-between items-start mb-6">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-                <img src={driver.avatar} className="w-16 h-16 rounded-full border-4 border-slate-700 bg-white object-cover" />
-                <span className={`absolute bottom-0 right-0 w-4 h-4 border-2 border-slate-900 rounded-full ${driver.status==='offline'?'bg-slate-400':'bg-emerald-500'}`}></span>
-            </div>
+      <div className="bg-slate-900 text-white p-5 pb-10 rounded-b-[2rem] shadow-xl relative z-10">
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex items-center gap-3">
+            <img src={driver.avatar} className="w-14 h-14 rounded-full border-2 border-slate-700 bg-white object-cover" />
             <div>
-              <h2 className="font-bold text-xl">{driver.name}</h2>
-              <div className="flex items-center gap-2 text-slate-400 text-xs font-medium bg-slate-800 px-3 py-1 rounded-full w-fit mt-1">
+              <h2 className="font-bold text-lg">{driver.name}</h2>
+              <div className="flex items-center gap-2 text-slate-400 text-xs font-medium bg-slate-800 px-2 py-0.5 rounded-full w-fit">
                  <span>{driver.plate || driver.vehicle}</span>
                  <span className="text-amber-400">★ {driver.rating}</span>
               </div>
             </div>
           </div>
-          <button onClick={onLogout} className="p-3 bg-white/10 rounded-xl hover:bg-white/20 transition-colors"><LogOut size={20}/></button>
+          <button onClick={onLogout} className="p-2 bg-white/10 rounded-xl hover:bg-white/20 transition-colors"><LogOut size={18}/></button>
         </div>
-        
-        <div className="flex bg-slate-800/80 p-1.5 rounded-xl backdrop-blur-sm">
-           <button onClick={() => setActiveTab('home')} className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab==='home' ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>Minhas Entregas</button>
-           <button onClick={() => setActiveTab('wallet')} className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab==='wallet' ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>Financeiro</button>
+        <div className="flex bg-slate-800/80 p-1 rounded-lg backdrop-blur-sm">
+           <button onClick={() => setActiveTab('home')} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${activeTab==='home' ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>Entregas</button>
+           <button onClick={() => setActiveTab('wallet')} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${activeTab==='wallet' ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>Financeiro</button>
         </div>
       </div>
 
       <div className="flex-1 px-4 -mt-6 pb-4 overflow-y-auto z-20">
         {activeTab === 'home' ? (
           <div className="space-y-4">
-            <div className={`p-5 rounded-2xl border shadow-lg flex items-center justify-between transition-all ${driver.status === 'offline' ? 'bg-white border-slate-200' : 'bg-emerald-50 border-emerald-200'}`}>
+            <div className={`p-4 rounded-xl border shadow-lg flex items-center justify-between transition-all ${driver.status === 'offline' ? 'bg-white border-slate-200' : 'bg-emerald-50 border-emerald-200'}`}>
                <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Status Atual</p>
-                  <div className="flex items-center gap-2">
-                     <span className={`font-bold text-lg ${driver.status === 'offline' ? 'text-slate-700' : 'text-emerald-700'}`}>{driver.status === 'offline' ? 'Você está Offline' : 'Online e Disponível'}</span>
-                  </div>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Status</p>
+                  <span className={`font-bold text-sm ${driver.status === 'offline' ? 'text-slate-700' : 'text-emerald-700'}`}>{driver.status === 'offline' ? 'Você está Offline' : 'Online e Disponível'}</span>
                </div>
-               <button onClick={onToggleStatus} className={`px-5 py-3 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95 ${driver.status === 'offline' ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-white border border-slate-200 text-slate-600'}`}>
+               <button onClick={onToggleStatus} className={`px-4 py-2 rounded-lg font-bold text-xs shadow-md transition-all active:scale-95 ${driver.status === 'offline' ? 'bg-emerald-600 text-white' : 'bg-white border border-slate-200 text-slate-600'}`}>
                  {driver.status === 'offline' ? 'Ficar Online' : 'Pausar'}
                </button>
             </div>
 
             {driver.status === 'delivering' && activeOrder ? (
-               <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
-                   <div className={`p-6 border-b flex justify-between items-center ${activeOrder.status === 'assigned' ? 'bg-amber-50 border-amber-100' : 'bg-gradient-to-r from-orange-50 to-orange-100 border-orange-100'}`}>
+               <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
+                   <div className={`p-4 border-b flex justify-between items-center ${activeOrder.status === 'assigned' ? 'bg-amber-50 border-amber-100' : 'bg-gradient-to-r from-orange-50 to-orange-100 border-orange-100'}`}>
                       <div>
-                        {activeOrder.status === 'assigned' ? 
-                            <span className="inline-block text-[10px] font-bold text-white bg-amber-500 px-2 py-0.5 rounded-full mb-1 animate-pulse">NOVA CORRIDA</span> : 
-                            <span className="inline-block text-[10px] font-bold text-white bg-orange-500 px-2 py-0.5 rounded-full mb-1">EM ROTA</span>
-                        }
-                        <h3 className="font-bold text-xl text-slate-800 leading-tight">{activeOrder.customer}</h3>
+                        {activeOrder.status === 'assigned' ? <span className="inline-block text-[10px] font-bold text-white bg-amber-500 px-2 py-0.5 rounded-full mb-1 animate-pulse">NOVA</span> : <span className="inline-block text-[10px] font-bold text-white bg-orange-500 px-2 py-0.5 rounded-full mb-1">EM ROTA</span>}
+                        <h3 className="font-bold text-lg text-slate-800 leading-tight">{activeOrder.customer}</h3>
                       </div>
-                      <div className="text-right">
-                          <p className="text-xs text-slate-500 font-bold uppercase">A cobrar</p>
-                          <p className="font-extrabold text-2xl text-slate-800">{activeOrder.amount}</p>
-                      </div>
+                      <div className="text-right"><p className="text-[10px] text-slate-500 font-bold uppercase">A cobrar</p><p className="font-extrabold text-xl text-slate-800">{activeOrder.amount}</p></div>
                    </div>
                    
                    {activeOrder.status === 'assigned' ? (
-                       <div className="p-8 text-center space-y-6">
-                           <div className="relative inline-block">
-                                <div className="absolute inset-0 bg-amber-200 rounded-full animate-ping opacity-50"></div>
-                                <BellRing className="w-20 h-20 text-amber-500 relative z-10"/>
-                           </div>
-                           <div><h3 className="text-2xl font-bold text-slate-800 mb-2">Nova entrega!</h3><p className="text-slate-500">Confirme para ver o endereço e iniciar.</p></div>
-                           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-left"><p className="text-xs text-slate-400 font-bold uppercase mb-1">Itens</p><p className="font-medium text-slate-700">{activeOrder.items}</p></div>
-                           <button onClick={() => onAcceptOrder(activeOrder.id)} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-extrabold py-5 rounded-2xl shadow-xl shadow-amber-200 text-lg transition-transform active:scale-95">ACEITAR CORRIDA</button>
+                       <div className="p-6 text-center space-y-4">
+                           <div className="relative inline-block"><div className="absolute inset-0 bg-amber-200 rounded-full animate-ping opacity-50"></div><BellRing className="w-16 h-16 text-amber-500 relative z-10"/></div>
+                           <div><h3 className="text-xl font-bold text-slate-800 mb-1">Nova entrega!</h3><p className="text-slate-500 text-sm">Confirme para iniciar.</p></div>
+                           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-left"><p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Itens</p><p className="font-medium text-sm text-slate-700">{activeOrder.items}</p></div>
+                           <button onClick={() => onAcceptOrder(activeOrder.id)} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-extrabold py-4 rounded-xl shadow-lg shadow-amber-200 text-base transition-transform active:scale-95">ACEITAR</button>
                        </div>
                    ) : (
-                       <div className="p-6 space-y-6">
+                       <div className="p-5 space-y-4">
                          <div>
-                            <div className="flex items-start gap-4 mb-6">
-                               <div className="bg-orange-100 p-3 rounded-full text-orange-600"><MapPin size={24}/></div>
-                               <div><p className="text-xs text-slate-400 font-bold uppercase">Endereço de Entrega</p><p className="text-lg text-slate-800 font-medium leading-snug">{activeOrder.address}</p></div>
+                            <div className="flex items-start gap-3 mb-4">
+                               <div className="bg-orange-100 p-2 rounded-full text-orange-600"><MapPin size={20}/></div>
+                               <div><p className="text-[10px] text-slate-400 font-bold uppercase">Endereço</p><p className="text-base text-slate-800 font-medium leading-snug">{activeOrder.address}</p></div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                               <button onClick={() => openApp(activeOrder.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeOrder.address)}`)} className="flex flex-col items-center justify-center gap-1 bg-blue-600 text-white py-4 rounded-2xl font-bold text-sm shadow-lg shadow-blue-200 active:scale-95 transition-transform"><Navigation size={24}/> Waze / Maps</button>
-                               <button onClick={() => openApp(`https://wa.me/55${activeOrder.phone.replace(/\D/g, '')}`)} className="flex flex-col items-center justify-center gap-1 bg-emerald-500 text-white py-4 rounded-2xl font-bold text-sm shadow-lg shadow-emerald-200 active:scale-95 transition-transform"><MessageCircle size={24}/> WhatsApp</button>
+                            <div className="grid grid-cols-2 gap-3">
+                               <button onClick={() => openApp(activeOrder.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeOrder.address)}`)} className="flex flex-col items-center justify-center gap-1 bg-blue-600 text-white py-3 rounded-xl font-bold text-xs shadow-lg active:scale-95 transition-transform"><Navigation size={20}/> GPS</button>
+                               <button onClick={() => openApp(`https://wa.me/55${activeOrder.phone.replace(/\D/g, '')}`)} className="flex flex-col items-center justify-center gap-1 bg-emerald-500 text-white py-3 rounded-xl font-bold text-xs shadow-lg active:scale-95 transition-transform"><MessageCircle size={20}/> WhatsApp</button>
                             </div>
                          </div>
-                         <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
-                            <div><p className="text-xs text-slate-400 font-bold uppercase">Itens do Pedido</p><p className="text-slate-700 font-medium">{activeOrder.items}</p></div>
-                            {activeOrder.obs && <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100"><p className="text-xs text-yellow-700 font-bold uppercase">Observação</p><p className="text-yellow-900 font-bold">{activeOrder.obs}</p></div>}
-                            {activeOrder.paymentMethod && <div className="flex items-center gap-2 pt-2 border-t border-slate-200"><DollarSign size={16} className="text-slate-400"/><span className="text-sm font-bold text-slate-700">Pagamento: {activeOrder.paymentMethod}</span></div>}
+                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
+                            <div><p className="text-[10px] text-slate-400 font-bold uppercase">Itens</p><p className="text-slate-700 font-medium text-sm">{activeOrder.items}</p></div>
+                            {activeOrder.obs && <div className="bg-yellow-50 p-2 rounded-lg border border-yellow-100"><p className="text-[10px] text-yellow-700 font-bold uppercase">Obs</p><p className="text-yellow-900 font-bold text-sm">{activeOrder.obs}</p></div>}
+                            {activeOrder.paymentMethod && <div className="flex items-center gap-2 pt-2 border-t border-slate-200"><DollarSign size={14} className="text-slate-400"/><span className="text-sm font-bold text-slate-700">Pag: {activeOrder.paymentMethod}</span></div>}
                          </div>
-                         <button onClick={onCompleteOrder} className="w-full bg-slate-900 text-white font-bold py-5 rounded-2xl flex items-center justify-center gap-3 text-lg shadow-xl active:scale-95 transition-transform"><CheckSquare size={24} className="text-emerald-400"/> Finalizar Entrega</button>
+                         <button onClick={onCompleteOrder} className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 text-base shadow-xl active:scale-95 transition-transform"><CheckSquare size={20} className="text-emerald-400"/> Finalizar</button>
                        </div>
                    )}
                </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-center opacity-60">
-                 <div className="bg-white p-6 rounded-full shadow-md mb-6"><Search size={48} className="text-slate-300"/></div>
-                 <h3 className="text-xl font-bold text-slate-700">Aguardando pedidos...</h3>
-                 <p className="text-sm text-slate-500 mt-2 max-w-[200px]">Fique atento, seu celular irá tocar quando chegar um pedido.</p>
+                 <div className="bg-white p-6 rounded-full shadow-md mb-4"><Search size={40} className="text-slate-300"/></div>
+                 <h3 className="text-lg font-bold text-slate-700">Aguardando...</h3>
+                 <p className="text-xs text-slate-500 mt-1 max-w-[200px]">Fique atento para novos pedidos.</p>
               </div>
             )}
           </div>
         ) : (
-          <div className="space-y-6 pt-2">
-             <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white p-8 rounded-3xl shadow-xl">
-                <p className="text-slate-400 text-sm font-medium mb-1">Saldo a Receber</p>
-                <h3 className={`text-5xl font-bold tracking-tight ${finalBalance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>R$ {finalBalance.toFixed(2)}</h3>
-                <div className="flex justify-between text-xs text-slate-400 mt-6 pt-4 border-t border-slate-700/50">
-                    <span className="flex items-center gap-1"><ArrowUpCircle size={14} className="text-emerald-500"/> Entregas: +R$ {totalEarnings.toFixed(2)}</span>
-                    <span className="flex items-center gap-1"><ArrowDownCircle size={14} className="text-red-500"/> Vales: -R$ {totalDeductions.toFixed(2)}</span>
+          <div className="space-y-4 pt-2">
+             <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white p-6 rounded-2xl shadow-xl">
+                <p className="text-slate-400 text-xs font-medium mb-1">Saldo a Receber</p>
+                <h3 className={`text-4xl font-bold tracking-tight ${finalBalance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>R$ {finalBalance.toFixed(2)}</h3>
+                <div className="flex justify-between text-[10px] text-slate-400 mt-4 pt-3 border-t border-slate-700/50">
+                    <span className="flex items-center gap-1"><ArrowUpCircle size={12} className="text-emerald-500"/> Entregas: +R$ {totalEarnings.toFixed(2)}</span>
+                    <span className="flex items-center gap-1"><ArrowDownCircle size={12} className="text-red-500"/> Vales: -R$ {totalDeductions.toFixed(2)}</span>
                 </div>
              </div>
              
              <div>
-                <h4 className="font-bold text-slate-800 mb-4 px-1">Extrato de Atividades</h4>
-                <div className="space-y-3 pb-20">
+                <h4 className="font-bold text-slate-800 mb-3 px-1 text-sm">Extrato</h4>
+                <div className="space-y-2 pb-20">
                     {history.map((item: any) => (
-                    <div key={item.id} className={`bg-white p-4 rounded-2xl border flex justify-between items-center shadow-sm ${item.type === 'vale' ? 'border-red-100' : 'border-emerald-50'}`}>
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-full ${item.type === 'vale' ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-500'}`}>
-                                {item.type === 'vale' ? <MinusCircle size={20}/> : <Bike size={20}/>}
+                    <div key={item.id} className={`bg-white p-3 rounded-xl border flex justify-between items-center shadow-sm ${item.type === 'vale' ? 'border-red-100' : 'border-emerald-50'}`}>
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-full ${item.type === 'vale' ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-500'}`}>
+                                {item.type === 'vale' ? <MinusCircle size={16}/> : <Bike size={16}/>}
                             </div>
                             <div>
-                                <p className="font-bold text-slate-800 text-sm">{item.type === 'vale' ? 'Vale / Adiantamento' : 'Entrega Realizada'}</p>
-                                <p className="text-xs text-slate-400 mb-0.5">{item.desc || 'Sem descrição'}</p>
-                                <p className="text-[10px] text-slate-400 font-mono">{formatDate({seconds: item.date?.seconds})} • {formatTime({seconds: item.date?.seconds})}</p>
+                                <p className="font-bold text-slate-800 text-sm">{item.type === 'vale' ? 'Vale' : 'Entrega'}</p>
+                                <p className="text-[10px] text-slate-400 mb-0.5">{item.desc || '-'}</p>
+                                <p className="text-[10px] text-slate-400 font-mono">{formatTime({seconds: item.date?.seconds})}</p>
                             </div>
                         </div>
                         <span className={`text-sm font-bold ${item.type === 'vale' ? 'text-red-600' : 'text-emerald-600'}`}>
@@ -659,7 +557,7 @@ function DriverApp({ driver, orders, vales, onToggleStatus, onAcceptOrder, onCom
                         </span>
                     </div>
                     ))}
-                    {history.length === 0 && <p className="text-center text-slate-400 py-10 text-sm">Nenhum registro financeiro encontrado.</p>}
+                    {history.length === 0 && <p className="text-center text-slate-400 py-10 text-xs">Sem registros.</p>}
                 </div>
              </div>
           </div>
@@ -698,17 +596,11 @@ function AdminPanel(props: any) {
           }} className="space-y-6">
             <div className="relative">
                 <KeyRound className="absolute left-4 top-4 text-slate-400" size={20}/>
-                <input 
-                    type="password" 
-                    className="w-full pl-12 pr-4 py-4 border-2 border-slate-100 rounded-2xl outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all bg-slate-50" 
-                    placeholder="Senha de Acesso" 
-                    value={password} 
-                    onChange={e => setPassword(e.target.value)}
-                />
+                <input type="password" className="w-full pl-12 pr-4 py-4 border-2 border-slate-100 rounded-2xl outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all bg-slate-50" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)}/>
             </div>
-            <button className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-orange-200 transform hover:scale-[1.02]">Entrar no Painel</button>
+            <button className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-orange-200 transform hover:scale-[1.02]">Entrar</button>
           </form>
-          <button onClick={props.onLogout} className="w-full mt-6 text-slate-400 text-sm hover:text-orange-600 transition-colors">← Voltar ao Início</button>
+          <button onClick={props.onLogout} className="w-full mt-6 text-slate-400 text-sm hover:text-orange-600 transition-colors">Voltar</button>
         </div>
       </div>
     )
@@ -716,7 +608,7 @@ function AdminPanel(props: any) {
   return <Dashboard {...props} />;
 }
 
-function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUpdateDriver, onDeleteDriver, onCreateOrder, onCreateVale, onLogout }: any) {
+function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUpdateDriver, onDeleteDriver, onDeleteOrder, onCreateOrder, onCreateVale, onLogout }: any) {
   const [view, setView] = useState<'map' | 'list' | 'history'>('map');
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [modal, setModal] = useState<'driver' | 'order' | 'vale' | null>(null);
@@ -731,7 +623,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
           const url = `https://www.google.com/maps/search/?api=1&query=${driver.lat},${driver.lng}`;
           window.open(url, '_blank');
       } else {
-          alert("Aguardando sinal de GPS do motoboy...");
+          alert("Aguardando sinal de GPS...");
       }
   };
 
@@ -759,11 +651,8 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
-      {/* Sidebar Desktop */}
       <aside className="hidden md:flex w-72 bg-slate-900 text-white flex-col z-20 shadow-2xl">
-        <div className="p-8 border-b border-slate-700/50">
-            <BrandLogo size="normal" />
-        </div>
+        <div className="p-8 border-b border-slate-700/50"><BrandLogo size="normal" /></div>
         <nav className="flex-1 p-6 space-y-3">
           <SidebarBtn icon={<LayoutDashboard/>} label="Monitoramento" active={view==='map'} onClick={()=>setView('map')}/>
           <SidebarBtn icon={<Users/>} label="Equipe & Motoboys" active={view==='list'} onClick={()=>setView('list')}/>
@@ -771,14 +660,9 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
           <SidebarBtn icon={<Plus/>} label="Novo Pedido" onClick={()=>setModal('order')} highlight/>
           <SidebarBtn icon={<Clock/>} label="Relatórios & Histórico" active={view==='history'} onClick={()=>setView('history')}/>
         </nav>
-        <div className="p-6">
-            <button onClick={onLogout} className="w-full p-4 bg-slate-800 rounded-2xl flex items-center justify-center gap-3 text-slate-400 hover:text-white hover:bg-slate-700 transition-all font-bold">
-                <LogOut size={20}/> Sair
-            </button>
-        </div>
+        <div className="p-6"><button onClick={onLogout} className="w-full p-4 bg-slate-800 rounded-2xl flex items-center justify-center gap-3 text-slate-400 hover:text-white hover:bg-slate-700 transition-all font-bold"><LogOut size={20}/> Sair</button></div>
       </aside>
 
-      {/* Menu Mobile */}
       <div className="md:hidden fixed bottom-0 left-0 w-full bg-slate-900/90 backdrop-blur-md text-white p-2 pb-6 flex justify-around z-50 border-t border-slate-800 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
          <button onClick={()=>setView('map')} className={`p-3 rounded-2xl flex flex-col items-center gap-1 transition-all ${view==='map'?'text-orange-500 bg-white/10':'text-slate-400'}`}><MapPin size={24}/><span className="text-[10px] font-bold">Mapa</span></button>
          <button onClick={()=>setView('list')} className={`p-3 rounded-2xl flex flex-col items-center gap-1 transition-all ${view==='list'?'text-orange-500 bg-white/10':'text-slate-400'}`}><Users size={24}/><span className="text-[10px] font-bold">Equipe</span></button>
@@ -788,8 +672,8 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
       </div>
 
       <main className="flex-1 flex flex-col relative overflow-hidden">
-        <header className="h-20 bg-white border-b px-6 md:px-10 flex items-center justify-between shadow-sm z-10">
-           <h1 className="text-xl md:text-2xl font-extrabold text-slate-800 tracking-tight">{view === 'map' ? 'Visão Geral' : view === 'list' ? 'Gestão de Equipe' : 'Relatório de Vendas'}</h1>
+        <header className="h-16 md:h-20 bg-white border-b px-4 md:px-10 flex items-center justify-between shadow-sm z-10">
+           <h1 className="text-lg md:text-2xl font-extrabold text-slate-800 tracking-tight">{view === 'map' ? 'Visão Geral' : view === 'list' ? 'Gestão de Equipe' : 'Relatório de Vendas'}</h1>
            <div className="hidden md:flex text-xs font-bold bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full items-center gap-2 border border-emerald-200 shadow-sm"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> Sistema Online</div>
         </header>
 
@@ -801,7 +685,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
                 {/* Lista Pedidos Flutuante */}
                 <div className="absolute top-6 left-6 z-20 space-y-3 max-h-[85%] overflow-y-auto w-72 hidden md:block pr-2 custom-scrollbar">
                    {orders.filter((o: Order) => o.status === 'pending').map((o: Order) => (
-                      <div key={o.id} className="bg-white p-4 rounded-xl shadow-lg border-l-4 border-orange-500 animate-in slide-in-from-left hover:shadow-xl transition-shadow cursor-pointer">
+                      <div key={o.id} className="bg-white p-4 rounded-xl shadow-lg border-l-4 border-orange-500 animate-in slide-in-from-left hover:shadow-xl transition-shadow cursor-pointer relative group">
                          <div className="flex justify-between items-start mb-1">
                             <span className="font-bold text-sm text-slate-800">{o.customer}</span>
                             <span className="text-[10px] font-bold bg-slate-100 px-2 py-1 rounded text-slate-500">{o.time || 'Agora'}</span>
@@ -811,26 +695,21 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
                              <span className="text-sm font-bold text-emerald-600">{o.amount}</span>
                              <span className="text-[10px] bg-orange-50 text-orange-600 px-2 py-0.5 rounded font-bold">Pendente</span>
                          </div>
+                         <button onClick={(e) => { e.stopPropagation(); onDeleteOrder(o.id); }} className="absolute -right-2 -top-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-md"><Trash2 size={12}/></button>
                       </div>
                    ))}
                    {orders.filter((o: Order) => o.status === 'pending').length === 0 && (
-                       <div className="bg-white/80 backdrop-blur p-6 rounded-xl border border-slate-200 text-center">
-                           <Package className="mx-auto text-slate-300 mb-2" size={32}/>
-                           <p className="text-sm text-slate-500 font-medium">Tudo tranquilo por aqui.</p>
-                       </div>
+                       <div className="bg-white/80 backdrop-blur p-6 rounded-xl border border-slate-200 text-center"><Package className="mx-auto text-slate-300 mb-2" size={32}/><p className="text-sm text-slate-500 font-medium">Tudo tranquilo.</p></div>
                    )}
                 </div>
                 
-                {/* Mapa Mock */}
                 {drivers.map((d: Driver) => (
                    <div key={d.id} onClick={() => setSelectedDriver(d)} className="absolute z-30 hover:scale-110 transition-transform cursor-pointer" style={{top: `50%`, left: `50%`, transform: `translate(${(Math.random()-0.5)*300}px, ${(Math.random()-0.5)*300}px)`}}>
                       <div className="relative group">
                          <div className={`w-14 h-14 rounded-full border-4 shadow-2xl overflow-hidden bg-white transition-colors ${d.status==='delivering' ? 'border-orange-500' : d.status==='available' ? 'border-emerald-500' : 'border-slate-400'}`}>
                             <img src={d.avatar} className="w-full h-full object-cover"/>
                          </div>
-                         <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-full opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity pointer-events-none shadow-lg">
-                            {d.name}
-                         </div>
+                         <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-full opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity pointer-events-none shadow-lg">{d.name}</div>
                       </div>
                    </div>
                 ))}
@@ -865,17 +744,11 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
              </div>
           )}
 
-          {/* RELATÓRIO COMPACTO E LIMPO */}
           {view === 'history' && (
-             <div className="flex-1 bg-white p-6 md:p-10 overflow-auto pb-32 md:pb-10">
+             <div className="flex-1 bg-white p-4 md:p-8 overflow-auto pb-32 md:pb-10 w-full max-w-7xl mx-auto">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                    <div>
-                        <h3 className="font-bold text-2xl text-slate-800">Histórico de Vendas</h3>
-                        <p className="text-sm text-slate-400">Visão detalhada das entregas concluídas</p>
-                    </div>
-                    <button onClick={copyReport} className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg">
-                        <ClipboardCopy size={18}/> Relatório WhatsApp
-                    </button>
+                    <div><h3 className="font-bold text-2xl text-slate-800">Histórico de Vendas</h3><p className="text-sm text-slate-400">Visão detalhada das entregas</p></div>
+                    <button onClick={copyReport} className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg"><ClipboardCopy size={18}/> Relatório WhatsApp</button>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4 mb-8">
@@ -888,19 +761,19 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
                      <table className="w-full text-xs md:text-sm text-left">
                         <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider border-b border-slate-100">
                            <tr>
-                               <th className="p-4">Cliente</th>
-                               <th className="p-4 hidden md:table-cell">Entregador</th>
-                               <th className="p-4">Valor</th>
-                               <th className="p-4 hidden sm:table-cell">Pagamento</th>
-                               <th className="p-4 hidden lg:table-cell">Tempo</th>
-                               <th className="p-4 text-right">Status</th>
+                               <th className="p-3">Cliente</th>
+                               <th className="p-3 hidden md:table-cell">Entregador</th>
+                               <th className="p-3">Valor</th>
+                               <th className="p-3 hidden sm:table-cell">Pagamento</th>
+                               <th className="p-3 hidden lg:table-cell">Tempo</th>
+                               <th className="p-3 text-right">Ação</th>
                            </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                            {sortedHistory.map((o: Order) => (
                               <tr key={o.id} className="hover:bg-slate-50/50 transition-colors">
-                                 <td className="p-4 font-medium text-slate-700">{o.customer}</td>
-                                 <td className="p-4 hidden md:table-cell">
+                                 <td className="p-3 font-medium text-slate-700">{o.customer}</td>
+                                 <td className="p-3 hidden md:table-cell">
                                      <div className="flex items-center gap-2">
                                          {drivers.find((d: Driver) => d.id === o.driverId) ? (
                                             <>
@@ -910,17 +783,14 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
                                          ) : <span className="text-slate-400 italic">Desconhecido</span>}
                                      </div>
                                  </td>
-                                 <td className="p-4 font-bold text-emerald-600">{o.amount}</td>
-                                 <td className="p-4 text-slate-500 hidden sm:table-cell">{o.paymentMethod || '-'}</td>
-                                 <td className="p-4 text-slate-400 hidden lg:table-cell font-mono">{calcDuration(o.assignedAt, o.completedAt)}</td>
-                                 <td className="p-4 text-right">
-                                     <div className="inline-flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-1 rounded text-[10px] font-bold uppercase">
-                                         <CheckCircle2 size={12}/> Concluído
-                                     </div>
+                                 <td className="p-3 font-bold text-emerald-600">{o.amount}</td>
+                                 <td className="p-3 text-slate-500 hidden sm:table-cell">{o.paymentMethod || '-'}</td>
+                                 <td className="p-3 text-slate-400 hidden lg:table-cell font-mono">{calcDuration(o.assignedAt, o.completedAt)}</td>
+                                 <td className="p-3 text-right">
+                                     <button onClick={() => onDeleteOrder(o.id)} className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50"><Trash2 size={16}/></button>
                                  </td>
                               </tr>
                            ))}
-                           {sortedHistory.length === 0 && <tr><td colSpan={6} className="p-10 text-center text-slate-400">Nenhum dado encontrado hoje.</td></tr>}
                         </tbody>
                      </table>
                    </div>
@@ -933,51 +803,28 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
                 {selectedDriver ? (
                    <div className="h-full flex flex-col bg-slate-50">
                       <div className="bg-white p-6 border-b border-slate-100 sticky top-0 z-10">
-                          <div className="flex justify-between items-start mb-6">
-                              <h3 className="font-bold text-slate-800 text-lg">Perfil do Motoboy</h3>
-                              <button onClick={()=>setSelectedDriver(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={20} className="text-slate-500"/></button>
-                          </div>
-                          
+                          <div className="flex justify-between items-start mb-6"><h3 className="font-bold text-slate-800 text-lg">Perfil do Motoboy</h3><button onClick={()=>setSelectedDriver(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={20} className="text-slate-500"/></button></div>
                           <div className="flex flex-col items-center">
-                             <div className="relative mb-3">
-                                <img src={selectedDriver.avatar} className="w-24 h-24 rounded-full border-4 border-slate-50 shadow-lg object-cover"/>
-                                <span className={`absolute bottom-1 right-1 w-6 h-6 rounded-full border-4 border-white ${selectedDriver.status==='offline'?'bg-slate-400':selectedDriver.status==='available'?'bg-emerald-500':'bg-orange-500'}`}></span>
-                             </div>
+                             <div className="relative mb-3"><img src={selectedDriver.avatar} className="w-24 h-24 rounded-full border-4 border-slate-50 shadow-lg object-cover"/><span className={`absolute bottom-1 right-1 w-6 h-6 rounded-full border-4 border-white ${selectedDriver.status==='offline'?'bg-slate-400':selectedDriver.status==='available'?'bg-emerald-500':'bg-orange-500'}`}></span></div>
                              <h2 className="font-bold text-2xl text-slate-800">{selectedDriver.name}</h2>
-                             <div className="flex items-center gap-2 mt-1">
-                                <span className="text-xs font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded">{selectedDriver.plate}</span>
-                                <span className="text-sm text-slate-500">{selectedDriver.vehicle}</span>
-                             </div>
-                             
-                             <button onClick={() => trackDriver(selectedDriver)} className="mt-5 w-full bg-blue-50 text-blue-600 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors border border-blue-200 hover:shadow-md">
-                                <MapIcon size={18} /> Rastrear Posição Real
-                             </button>
+                             <div className="flex items-center gap-2 mt-1"><span className="text-xs font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded">{selectedDriver.plate}</span><span className="text-sm text-slate-500">{selectedDriver.vehicle}</span></div>
+                             <button onClick={() => trackDriver(selectedDriver)} className="mt-5 w-full bg-blue-50 text-blue-600 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors border border-blue-200 hover:shadow-md"><MapIcon size={18} /> Rastrear Posição Real</button>
                              {selectedDriver.lastUpdate && <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Sinal GPS: {formatTime(selectedDriver.lastUpdate)}</p>}
-                             
-                             <button onClick={() => { setDriverToEdit(selectedDriver); setModal('vale'); }} className="mt-3 w-full border border-red-200 text-red-600 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-50 transition-colors">
-                                <MinusCircle size={16} /> Lançar Desconto / Vale
-                             </button>
+                             <button onClick={() => { setDriverToEdit(selectedDriver); setModal('vale'); }} className="mt-3 w-full border border-red-200 text-red-600 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"><MinusCircle size={16} /> Lançar Desconto / Vale</button>
                           </div>
                       </div>
-
                       <div className="flex-1 overflow-y-auto p-6">
                          <h4 className="text-xs font-bold text-slate-400 uppercase mb-4 tracking-wider">Atribuir Entrega Pendente</h4>
                          <div className="space-y-3 pb-20">
                             {orders.filter((o: Order) => o.status === 'pending').map((o: Order) => (
                                <div key={o.id} onClick={()=>onAssignOrder(o.id, selectedDriver.id)} className="border border-slate-200 p-4 rounded-xl hover:border-orange-500 hover:shadow-md transition-all bg-white cursor-pointer group">
-                                  <div className="flex justify-between items-start mb-2">
-                                      <span className="font-bold text-slate-800">{o.customer}</span>
-                                      <span className="text-emerald-600 font-extrabold">{o.amount}</span>
-                                  </div>
+                                  <div className="flex justify-between items-start mb-2"><span className="font-bold text-slate-800">{o.customer}</span><span className="text-emerald-600 font-extrabold">{o.amount}</span></div>
                                   <p className="text-xs text-slate-500 mb-3 line-clamp-2 leading-relaxed">{o.address}</p>
                                   <button className="w-full bg-slate-900 text-white text-xs font-bold py-3 rounded-lg group-hover:bg-orange-600 transition-colors">Enviar para Motoboy</button>
                                </div>
                             ))}
                             {orders.filter((o: Order) => o.status === 'pending').length === 0 && (
-                               <div className="text-center py-10 bg-white rounded-xl border border-dashed border-slate-200">
-                                   <Package className="mx-auto text-slate-300 mb-3" size={32}/>
-                                   <p className="text-sm text-slate-400 font-medium">Sem pedidos na fila.</p>
-                               </div>
+                               <div className="text-center py-10 bg-white rounded-xl border border-dashed border-slate-200"><Package className="mx-auto text-slate-300 mb-3" size={32}/><p className="text-sm text-slate-400 font-medium">Sem pedidos na fila.</p></div>
                             )}
                          </div>
                       </div>
@@ -994,41 +841,10 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
         </div>
       </main>
 
-      {/* MODAL PEDIDO */}
       {modal === 'order' && <NewOrderModal onClose={()=>setModal(null)} onSave={onCreateOrder} />}
-      
-      {/* MODAL MOTORISTA (CRIAR/EDITAR) */}
-      {modal === 'driver' && (
-         <NewDriverModal 
-            onClose={()=>{setModal(null); setDriverToEdit(null);}} 
-            onSave={driverToEdit ? (data: any) => onUpdateDriver(driverToEdit.id, data) : onCreateDriver}
-            initialData={driverToEdit} 
-         />
-      )}
-
-      {/* MODAL VALE */}
-      {modal === 'vale' && driverToEdit && (
-         <NewValeModal 
-            driver={driverToEdit}
-            onClose={() => { setModal(null); setDriverToEdit(null); }}
-            onSave={onCreateVale} 
-         />
-      )}
-
-      {/* MODAL RELATÓRIO FINANCEIRO DO MOTORISTA */}
-      {driverReportId && (
-         <DriverReportModal 
-            driverId={driverReportId} 
-            drivers={drivers} 
-            orders={orders} 
-            vales={vales}
-            onClose={() => setDriverReportId(null)} 
-            onNewVale={() => {
-                const drv = drivers.find((d: Driver) => d.id === driverReportId);
-                if (drv) { setDriverToEdit(drv); setModal('vale'); }
-            }}
-         />
-      )}
+      {modal === 'driver' && <NewDriverModal onClose={()=>{setModal(null); setDriverToEdit(null);}} onSave={driverToEdit ? (data: any) => onUpdateDriver(driverToEdit.id, data) : onCreateDriver} initialData={driverToEdit} />}
+      {modal === 'vale' && driverToEdit && <NewValeModal driver={driverToEdit} onClose={() => { setModal(null); setDriverToEdit(null); }} onSave={onCreateVale} />}
+      {driverReportId && <DriverReportModal driverId={driverReportId} drivers={drivers} orders={orders} vales={vales} onClose={() => setDriverReportId(null)} onNewVale={() => { const drv = drivers.find((d: Driver) => d.id === driverReportId); if (drv) { setDriverToEdit(drv); setModal('vale'); } }} />}
     </div>
   )
 }
