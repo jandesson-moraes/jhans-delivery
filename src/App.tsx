@@ -6,7 +6,7 @@ import {
   MessageCircle, DollarSign, Link as LinkIcon, Loader2, Crosshair,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
   Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
-  Camera
+  Camera, Upload
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -337,7 +337,7 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
            <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
                <div className="text-center mb-6">
-                   <img src={driver?.avatar} className="w-20 h-20 rounded-full mx-auto mb-3 border-4 border-slate-100 shadow-sm" />
+                   <img src={driver?.avatar} className="w-20 h-20 rounded-full mx-auto mb-3 border-4 border-slate-100 shadow-sm object-cover" />
                    <h3 className="font-bold text-xl text-slate-800">Olá, {driver?.name}!</h3>
                    <p className="text-slate-400 text-sm">Confirme sua senha para entrar</p>
                </div>
@@ -976,6 +976,18 @@ function DriverModal({ onClose, onSave, initialData }: any) {
        avatar: initialData?.avatar || '' 
    });
    
+   // Nova função para upload de arquivo
+   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              setForm(prev => ({ ...prev, avatar: reader.result as string }));
+          };
+          reader.readAsDataURL(file);
+      }
+   };
+   
    const submit = (e: React.FormEvent) => {
       e.preventDefault();
       const driverData = {
@@ -1026,12 +1038,32 @@ function DriverModal({ onClose, onSave, initialData }: any) {
                   </div>
                </div>
                <div>
-                  <label className="text-xs font-bold text-slate-500 ml-1">Foto (URL)</label>
-                  <div className="flex gap-2">
-                     <div className="bg-slate-100 p-3 rounded-xl"><Camera size={20} className="text-slate-400"/></div>
-                     <input className="flex-1 border border-slate-200 rounded-xl p-3 outline-none text-sm" placeholder="Cole o link da foto aqui (Opcional)" value={form.avatar} onChange={e=>setForm({...form, avatar: e.target.value})} />
+                  <label className="text-xs font-bold text-slate-500 ml-1">Foto do Perfil</label>
+                  <div className="flex items-center gap-4 mt-2">
+                      <div className="relative w-20 h-20 rounded-full bg-slate-100 overflow-hidden border-2 border-slate-200 shrink-0">
+                          {form.avatar ? (
+                              <img src={form.avatar} className="w-full h-full object-cover" alt="Preview" />
+                          ) : (
+                              <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                  <Camera size={32}/>
+                              </div>
+                          )}
+                      </div>
+                      <div className="flex-1">
+                          <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors w-fit mb-2">
+                              <Camera size={16}/>
+                              Escolher Foto
+                              <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                          </label>
+                          <p className="text-[10px] text-slate-400">Ou cole uma URL abaixo:</p>
+                          <input 
+                              className="w-full border border-slate-200 rounded-xl p-2 outline-none text-xs mt-1" 
+                              placeholder="https://..." 
+                              value={form.avatar} 
+                              onChange={e=>setForm({...form, avatar: e.target.value})} 
+                          />
+                      </div>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1 ml-1">* Se deixar em branco, usaremos um avatar automático.</p>
                </div>
 
                <div className="flex gap-3 pt-2">
