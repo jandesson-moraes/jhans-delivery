@@ -3,10 +3,10 @@ import {
   MapPin, Navigation, Package, Clock, 
   X, Search, Users, Bike, 
   TrendingUp, Utensils, Plus, LogOut, CheckSquare,
-  MessageCircle, DollarSign, Loader2, 
+  MessageCircle, DollarSign, Loader2, Crosshair,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
   Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
-  Camera, LayoutDashboard, Map as MapIcon
+  Camera, LayoutDashboard, Map as MapIcon, Link as LinkIcon
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -342,7 +342,7 @@ function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType,
           )}
         </div>
       </div>
-      <p className="absolute bottom-6 text-slate-700 text-xs">Versão 7.4 • Jhans Delivery System</p>
+      <p className="absolute bottom-6 text-slate-700 text-xs">Versão 7.5 • Jhans Delivery System</p>
     </div>
   );
 }
@@ -682,37 +682,38 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
              <div className="flex-1 bg-slate-100 relative overflow-hidden">
                 <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
                 
-                {/* Lista Pedidos Flutuante - Agora no canto direito superior e com fundo transparente no mobile */}
-                 <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
-                     <div className="bg-white/90 backdrop-blur p-3 rounded-lg shadow border border-slate-200 flex gap-4 text-xs font-bold text-slate-600">
-                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> {drivers.filter((d: Driver)=>d.status!=='offline').length} Online</div>
-                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400"></span> {drivers.filter((d: Driver)=>d.status==='offline').length} Offline</div>
-                     </div>
-                 </div>
-
-                {/* Mapa Mock */}
-                {/* Aqui poderíamos integrar um mapa real como Leaflet ou Google Maps Embed futuramente. 
-                    Por enquanto, mantemos a visualização abstrata com os ícones dos motoboys */}
-                <div className="w-full h-full relative">
-                    {drivers.map((d: Driver) => (
-                       <div key={d.id} onClick={(e) => { e.stopPropagation(); setSelectedDriver(d); }} className="absolute z-30 hover:scale-110 transition-transform cursor-pointer" 
-                            style={{
-                                top: `${50 + (Math.sin(d.name.length) * 20)}%`, 
-                                left: `${50 + (Math.cos(d.name.length) * 20)}%`,
-                                transition: 'all 1s ease-in-out' // Simula movimento suave
-                            }}>
-                          <div className="relative group flex flex-col items-center">
-                             <div className={`w-12 h-12 md:w-16 md:h-16 rounded-full border-4 shadow-2xl overflow-hidden bg-white transition-colors ${d.status==='delivering' ? 'border-orange-500' : d.status==='available' ? 'border-emerald-500' : 'border-slate-400'}`}>
-                                <img src={d.avatar} className="w-full h-full object-cover"/>
-                             </div>
-                             {/* Label do nome sempre visível no mobile para facilitar */}
-                             <div className="mt-1 bg-slate-900/80 backdrop-blur text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg">
-                                {d.name}
-                             </div>
-                          </div>
-                       </div>
-                    ))}
+                {/* Lista Pedidos Flutuante */}
+                <div className="absolute top-6 left-6 z-20 space-y-3 max-h-[85%] overflow-y-auto w-72 hidden md:block pr-2 custom-scrollbar">
+                   {orders.filter((o: Order) => o.status === 'pending').map((o: Order) => (
+                      <div key={o.id} className="bg-white p-4 rounded-xl shadow-lg border-l-4 border-orange-500 animate-in slide-in-from-left hover:shadow-xl transition-shadow cursor-pointer relative group">
+                         <div className="flex justify-between items-start mb-1">
+                            <span className="font-bold text-sm text-slate-800">{o.customer}</span>
+                            <span className="text-[10px] font-bold bg-slate-100 px-2 py-1 rounded text-slate-500">{o.time || 'Agora'}</span>
+                         </div>
+                         <p className="text-xs text-slate-500 truncate">{o.address}</p>
+                         <div className="flex justify-between items-center mt-2">
+                             <span className="text-sm font-bold text-emerald-600">{o.amount}</span>
+                             <span className="text-[10px] bg-orange-50 text-orange-600 px-2 py-0.5 rounded font-bold">Pendente</span>
+                         </div>
+                         <button onClick={(e) => { e.stopPropagation(); onDeleteOrder(o.id); }} className="absolute -right-2 -top-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-md"><Trash2 size={12}/></button>
+                      </div>
+                   ))}
+                   {orders.filter((o: Order) => o.status === 'pending').length === 0 && (
+                       <div className="bg-white/80 backdrop-blur p-6 rounded-xl border border-slate-200 text-center"><Package className="mx-auto text-slate-300 mb-2" size={32}/><p className="text-sm text-slate-500 font-medium">Tudo tranquilo.</p></div>
+                   )}
                 </div>
+                
+                {/* Mapa Mock */}
+                {drivers.map((d: Driver) => (
+                   <div key={d.id} onClick={() => setSelectedDriver(d)} className="absolute z-30 hover:scale-110 transition-transform cursor-pointer" style={{top: `50%`, left: `50%`, transform: `translate(${(Math.random()-0.5)*300}px, ${(Math.random()-0.5)*300}px)`}}>
+                      <div className="relative group">
+                         <div className={`w-14 h-14 rounded-full border-4 shadow-2xl overflow-hidden bg-white transition-colors ${d.status==='delivering' ? 'border-orange-500' : d.status==='available' ? 'border-emerald-500' : 'border-slate-400'}`}>
+                            <img src={d.avatar} className="w-full h-full object-cover"/>
+                         </div>
+                         <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-full opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity pointer-events-none shadow-lg">{d.name}</div>
+                      </div>
+                   </div>
+                ))}
              </div>
           )}
 
@@ -800,7 +801,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
           )}
 
           {/* PAINEL LATERAL DESLIZANTE (Agora oculto por padrão no modo mapa para "Visão Ampla") */}
-          <aside className={`fixed inset-y-0 right-0 w-full md:w-96 bg-white shadow-2xl p-0 overflow-y-auto z-40 transition-transform duration-300 border-l border-slate-100 ${selectedDriver ? 'translate-x-0' : 'translate-x-full'}`}>
+          <aside className={`fixed inset-y-0 right-0 w-full md:w-96 bg-white shadow-2xl p-0 overflow-y-auto z-40 transition-transform duration-300 border-l border-slate-100 ${selectedDriver ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
              {selectedDriver && (
                <div className="h-full flex flex-col bg-slate-50">
                   <div className="bg-white p-6 border-b border-slate-100 sticky top-0 z-10">
