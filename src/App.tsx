@@ -3,10 +3,10 @@ import {
   MapPin, Navigation, Package, Clock, 
   X, Search, Users, Bike, 
   TrendingUp, Utensils, Plus, LogOut, CheckSquare,
-  MessageCircle, DollarSign, Loader2,
+  MessageCircle, DollarSign, Loader2, Crosshair,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
   Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
-  Camera, LayoutDashboard, Map as MapIcon, ShieldAlert
+  Camera, LayoutDashboard, Map as MapIcon, ShieldAlert, CheckCircle2
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -207,35 +207,16 @@ export default function App() {
       document.head.appendChild(s);
     }
     
-    // INJETAR ESTILOS PARA SCROLLBAR
     if (!document.getElementById('custom-scrollbars')) {
         const style = document.createElement('style');
         style.id = 'custom-scrollbars';
         style.innerHTML = `
-          /* Scrollbar Fina e Elegante para listas */
-          .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 10px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-          }
-          
-          /* Scrollbar Oculta para Modais (Clean) */
-          .hide-scrollbar::-webkit-scrollbar {
-            display: none;
-          }
-          .hide-scrollbar {
-            -ms-overflow-style: none;  /* IE and Edge */
-            scrollbar-width: none;  /* Firefox */
-          }
+          .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+          .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+          .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+          .hide-scrollbar::-webkit-scrollbar { display: none; }
+          .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         `;
         document.head.appendChild(style);
     }
@@ -321,17 +302,24 @@ export default function App() {
     await updateDoc(doc(db, 'orders', orderId), { status: 'accepted' });
   };
 
-  const completeOrder = async (driverId: string) => {
+  const completeOrder = async (orderId: string, driverId: string) => {
     if(!user) return;
     const driver = drivers.find(d => d.id === driverId);
-    if (!driver?.currentOrderId) return;
-
-    await updateDoc(doc(db, 'orders', driver.currentOrderId), { status: 'completed', completedAt: serverTimestamp() });
-    await updateDoc(doc(db, 'drivers', driverId), { 
-      status: 'available', 
-      currentOrderId: null, 
-      totalDeliveries: (driver.totalDeliveries || 0) + 1 
-    });
+    
+    await updateDoc(doc(db, 'orders', orderId), { status: 'completed', completedAt: serverTimestamp() });
+    
+    // Se era o "atual", limpa, senão mantém (suporte a múltiplos pedidos)
+    if (driver?.currentOrderId === orderId) {
+        await updateDoc(doc(db, 'drivers', driverId), { 
+          status: 'available', 
+          currentOrderId: null, 
+          totalDeliveries: (driver.totalDeliveries || 0) + 1 
+        });
+    } else {
+        await updateDoc(doc(db, 'drivers', driverId), { 
+           totalDeliveries: (driver?.totalDeliveries || 0) + 1 
+        });
+    }
   };
 
   const toggleStatus = async (driverId: string) => {
@@ -376,15 +364,13 @@ export default function App() {
     const driver = drivers.find(d => d.id === currentDriverId);
     if (!driver) return <div className="p-10 text-center"><p>Motorista não encontrado.</p><button onClick={handleLogout}>Sair</button></div>;
     
-    return <DriverApp driver={driver} orders={orders} vales={vales} onToggleStatus={() => toggleStatus(driver.id)} onAcceptOrder={acceptOrder} onCompleteOrder={() => completeOrder(driver.id)} onLogout={handleLogout} />;
+    return <DriverApp driver={driver} orders={orders} vales={vales} onToggleStatus={() => toggleStatus(driver.id)} onAcceptOrder={acceptOrder} onCompleteOrder={completeOrder} onLogout={handleLogout} />;
   }
 
   return <AdminPanel drivers={drivers} orders={orders} vales={vales} onAssignOrder={assignOrder} onCreateDriver={createDriver} onUpdateDriver={updateDriver} onDeleteDriver={deleteDriver} onCreateOrder={createOrder} onDeleteOrder={deleteOrder} onCreateVale={createVale} onLogout={handleLogout} />;
 }
 
-// ==========================================
-// PÁGINA INICIAL
-// ==========================================
+// ... (LandingPage, DriverSelection permanecem iguais)
 function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType, id?: string) => void, hasDrivers: boolean }) {
   return (
     <div className="min-h-screen w-screen bg-slate-950 flex flex-col items-center justify-center p-6 relative overflow-hidden">
@@ -415,14 +401,11 @@ function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType,
           )}
         </div>
       </div>
-      <p className="absolute bottom-6 text-slate-700 text-xs">Versão 9.2 • Jhans Delivery System</p>
+      <p className="absolute bottom-6 text-slate-700 text-xs">Versão 9.3 • Jhans Delivery System</p>
     </div>
   );
 }
 
-// ==========================================
-// SELEÇÃO DE MOTORISTA
-// ==========================================
 function DriverSelection({ drivers, onSelect, onBack }: any) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [password, setPassword] = useState('');
@@ -480,11 +463,17 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
 }
 
 // ==========================================
-// APP DO MOTOBOY
+// APP DO MOTOBOY (ATUALIZADO PARA LISTA)
 // ==========================================
 function DriverApp({ driver, orders, vales, onToggleStatus, onAcceptOrder, onCompleteOrder, onLogout }: any) {
   const [activeTab, setActiveTab] = useState<'home' | 'wallet'>('home');
-  const activeOrder = orders.find((o: Order) => o.id === driver.currentOrderId);
+  
+  // 🔥 MUDANÇA PRINCIPAL: Filtrar todos os pedidos ativos do motorista
+  const activeOrders = orders.filter((o: Order) => 
+     o.driverId === driver.id && 
+     o.status !== 'completed' && 
+     o.status !== 'pending'
+  );
   
   const myDeliveries = orders.filter((o: Order) => o.status === 'completed' && o.driverId === driver.id);
   const myVales = vales.filter((v: Vale) => v.driverId === driver.id);
@@ -553,43 +542,48 @@ function DriverApp({ driver, orders, vales, onToggleStatus, onAcceptOrder, onCom
                </button>
             </div>
 
-            {driver.status === 'delivering' && activeOrder ? (
-               <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
-                   <div className={`p-4 border-b flex justify-between items-center ${activeOrder.status === 'assigned' ? 'bg-amber-50 border-amber-100' : 'bg-gradient-to-r from-orange-50 to-orange-100 border-orange-100'}`}>
-                      <div>
-                        {activeOrder.status === 'assigned' ? <span className="inline-block text-[10px] font-bold text-white bg-amber-500 px-2 py-0.5 rounded-full mb-1 animate-pulse">NOVA</span> : <span className="inline-block text-[10px] font-bold text-white bg-orange-500 px-2 py-0.5 rounded-full mb-1">EM ROTA</span>}
-                        <h3 className="font-bold text-lg text-slate-800 leading-tight">{activeOrder.customer}</h3>
-                      </div>
-                      <div className="text-right"><p className="text-[10px] text-slate-500 font-bold uppercase">A cobrar</p><p className="font-extrabold text-xl text-slate-800">{activeOrder.amount}</p></div>
-                   </div>
-                   
-                   {activeOrder.status === 'assigned' ? (
-                       <div className="p-8 text-center space-y-6">
-                           <div className="relative inline-block"><div className="absolute inset-0 bg-amber-200 rounded-full animate-ping opacity-50"></div><BellRing className="w-16 h-16 text-amber-500 relative z-10"/></div>
-                           <div><h3 className="text-xl font-bold text-slate-800 mb-1">Nova entrega!</h3><p className="text-slate-500 text-sm">Confirme para ver o endereço e iniciar.</p></div>
-                           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-left"><p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Itens</p><p className="font-medium text-sm text-slate-700">{activeOrder.items}</p></div>
-                           <button onClick={() => onAcceptOrder(activeOrder.id)} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-extrabold py-4 rounded-xl shadow-lg shadow-amber-200 text-base transition-transform active:scale-95">ACEITAR</button>
+            {/* LISTA DE PEDIDOS ATIVOS */}
+            {driver.status === 'delivering' && activeOrders.length > 0 ? (
+               <div className="space-y-4 pb-10">
+                   {activeOrders.map((order: Order) => (
+                       <div key={order.id} className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
+                           <div className={`p-4 border-b flex justify-between items-center ${order.status === 'assigned' ? 'bg-amber-50 border-amber-100' : 'bg-gradient-to-r from-orange-50 to-orange-100 border-orange-100'}`}>
+                              <div>
+                                {order.status === 'assigned' ? <span className="inline-block text-[10px] font-bold text-white bg-amber-500 px-2 py-0.5 rounded-full mb-1 animate-pulse">NOVA</span> : <span className="inline-block text-[10px] font-bold text-white bg-orange-500 px-2 py-0.5 rounded-full mb-1">EM ROTA</span>}
+                                <h3 className="font-bold text-lg text-slate-800 leading-tight">{order.customer}</h3>
+                              </div>
+                              <div className="text-right"><p className="text-[10px] text-slate-500 font-bold uppercase">A cobrar</p><p className="font-extrabold text-xl text-slate-800">{order.amount}</p></div>
+                           </div>
+                           
+                           {order.status === 'assigned' ? (
+                               <div className="p-8 text-center space-y-6">
+                                   <div className="relative inline-block"><div className="absolute inset-0 bg-amber-200 rounded-full animate-ping opacity-50"></div><BellRing className="w-16 h-16 text-amber-500 relative z-10"/></div>
+                                   <div><h3 className="text-xl font-bold text-slate-800 mb-1">Nova entrega!</h3><p className="text-slate-500 text-sm">Confirme para ver o endereço e iniciar.</p></div>
+                                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-left"><p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Itens</p><p className="font-medium text-sm text-slate-700">{order.items}</p></div>
+                                   <button onClick={() => onAcceptOrder(order.id)} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-extrabold py-4 rounded-xl shadow-lg shadow-amber-200 text-base transition-transform active:scale-95">ACEITAR</button>
+                               </div>
+                           ) : (
+                               <div className="p-5 space-y-4">
+                                 <div>
+                                    <div className="flex items-start gap-3 mb-4">
+                                       <div className="bg-orange-100 p-2 rounded-full text-orange-600"><MapPin size={20}/></div>
+                                       <div><p className="text-[10px] text-slate-400 font-bold uppercase">Endereço</p><p className="text-base text-slate-800 font-medium leading-snug">{order.address}</p></div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                       <button onClick={() => openApp(order.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.address)}`)} className="flex flex-col items-center justify-center gap-1 bg-blue-600 text-white py-3 rounded-xl font-bold text-xs shadow-lg active:scale-95 transition-transform"><Navigation size={20}/> GPS</button>
+                                       <button onClick={() => openApp(`https://wa.me/55${order.phone.replace(/\D/g, '')}`)} className="flex flex-col items-center justify-center gap-1 bg-emerald-500 text-white py-3 rounded-xl font-bold text-xs shadow-lg active:scale-95 transition-transform"><MessageCircle size={20}/> WhatsApp</button>
+                                    </div>
+                                 </div>
+                                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
+                                    <div><p className="text-[10px] text-slate-400 font-bold uppercase">Itens</p><p className="text-slate-700 font-medium text-sm">{order.items}</p></div>
+                                    {order.obs && <div className="bg-yellow-50 p-2 rounded-lg border border-yellow-100"><p className="text-[10px] text-yellow-700 font-bold uppercase">Obs</p><p className="text-yellow-900 font-bold text-sm">{order.obs}</p></div>}
+                                    {order.paymentMethod && <div className="flex items-center gap-2 pt-2 border-t border-slate-200"><DollarSign size={14} className="text-slate-400"/><span className="text-sm font-bold text-slate-700">Pag: {order.paymentMethod}</span></div>}
+                                 </div>
+                                 <button onClick={() => onCompleteOrder(order.id, driver.id)} className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 text-base shadow-xl active:scale-95 transition-transform"><CheckSquare size={20} className="text-emerald-400"/> Finalizar</button>
+                               </div>
+                           )}
                        </div>
-                   ) : (
-                       <div className="p-5 space-y-4">
-                         <div>
-                            <div className="flex items-start gap-3 mb-4">
-                               <div className="bg-orange-100 p-2 rounded-full text-orange-600"><MapPin size={20}/></div>
-                               <div><p className="text-[10px] text-slate-400 font-bold uppercase">Endereço</p><p className="text-base text-slate-800 font-medium leading-snug">{activeOrder.address}</p></div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                               <button onClick={() => openApp(activeOrder.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeOrder.address)}`)} className="flex flex-col items-center justify-center gap-1 bg-blue-600 text-white py-3 rounded-xl font-bold text-xs shadow-lg active:scale-95 transition-transform"><Navigation size={20}/> GPS</button>
-                               <button onClick={() => openApp(`https://wa.me/55${activeOrder.phone.replace(/\D/g, '')}`)} className="flex flex-col items-center justify-center gap-1 bg-emerald-500 text-white py-3 rounded-xl font-bold text-xs shadow-lg active:scale-95 transition-transform"><MessageCircle size={20}/> WhatsApp</button>
-                            </div>
-                         </div>
-                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
-                            <div><p className="text-[10px] text-slate-400 font-bold uppercase">Itens</p><p className="text-slate-700 font-medium text-sm">{activeOrder.items}</p></div>
-                            {activeOrder.obs && <div className="bg-yellow-50 p-2 rounded-lg border border-yellow-100"><p className="text-[10px] text-yellow-700 font-bold uppercase">Obs</p><p className="text-yellow-900 font-bold text-sm">{activeOrder.obs}</p></div>}
-                            {activeOrder.paymentMethod && <div className="flex items-center gap-2 pt-2 border-t border-slate-200"><DollarSign size={14} className="text-slate-400"/><span className="text-sm font-bold text-slate-700">Pag: {activeOrder.paymentMethod}</span></div>}
-                         </div>
-                         <button onClick={onCompleteOrder} className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 text-base shadow-xl active:scale-95 transition-transform"><CheckSquare size={20} className="text-emerald-400"/> Finalizar</button>
-                       </div>
-                   )}
+                   ))}
                </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-center opacity-60">
@@ -640,9 +634,7 @@ function DriverApp({ driver, orders, vales, onToggleStatus, onAcceptOrder, onCom
   )
 }
 
-// ==========================================
-// ADMIN PANEL
-// ==========================================
+// ... (Restante do código AdminPanel e outros componentes permanecem iguais)
 function AdminPanel(props: any) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('jhans_admin_auth'));
   const [password, setPassword] = useState('');
@@ -789,7 +781,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
 
                 {/* MOTOS NO MAPA */}
                 <div className="w-full h-full relative">
-                    {drivers.map((d: Driver) => {
+                    {drivers.map((d: Driver, index: number) => {
                        const seed = d.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
                        const visualTop = (seed * 137) % 80 + 10; 
                        const visualLeft = (seed * 93) % 80 + 10; 
