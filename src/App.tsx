@@ -554,7 +554,9 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
     const today = new Date().toLocaleDateString('pt-BR');
     let text = `🛵 *RELATÓRIO DE ENTREGAS - JHAN'S BURGERS*\n📅 Data: ${today}\n--- ENTREGAS ---\n\n`;
     sortedHistory.forEach((o: Order, i: number) => {
+       const driverName = drivers.find((d: Driver) => d.id === o.driverId)?.name || 'Não identificado';
        text += `✅ ENTREGA ${sortedHistory.length - i} (${o.paymentMethod || 'PAGO'})\n`;
+       text += `🏍 Entregador: ${driverName}\n`;
        text += `👤 Cliente: ${o.customer}\n`;
        text += `📞 Telefone: ${o.phone}\n`;
        text += `🏠 Endereço: ${o.address}\n`;
@@ -668,19 +670,31 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
                    <div className="overflow-x-auto">
                      <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50 border-b text-slate-500 font-semibold uppercase text-xs">
-                           <tr><th className="p-4">Cliente</th><th className="p-4">Valor</th><th className="p-4">Pagamento</th><th className="p-4 hidden md:table-cell">Início</th><th className="p-4 hidden md:table-cell">Fim</th><th className="p-4">Status</th></tr>
+                           <tr>
+                              <th className="p-4">Cliente</th>
+                              <th className="p-4">Entregador</th>
+                              <th className="p-4">Valor</th>
+                              <th className="p-4">Pagamento</th>
+                              <th className="p-4 hidden md:table-cell">Início</th>
+                              <th className="p-4 hidden md:table-cell">Fim</th>
+                              <th className="p-4">Duração</th>
+                              <th className="p-4">Status</th>
+                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                            {sortedHistory.map((o: Order) => (
                               <tr key={o.id} className="hover:bg-slate-50 transition-colors">
                                  <td className="p-4 font-medium text-slate-800">{o.customer}</td>
+                                 <td className="p-4 text-slate-600 font-medium">{drivers.find((d: Driver) => d.id === o.driverId)?.name || 'Não atribuído'}</td>
                                  <td className="p-4 font-bold text-emerald-600">{o.amount}</td>
                                  <td className="p-4 text-slate-500 text-xs">{o.paymentMethod || '-'}</td>
                                  <td className="p-4 text-slate-500 hidden md:table-cell">{formatTime(o.assignedAt)}</td>
                                  <td className="p-4 text-slate-500 hidden md:table-cell">{formatTime(o.completedAt)}</td>
+                                 <td className="p-4 font-bold text-slate-700">{calcDuration(o.assignedAt, o.completedAt)}</td>
                                  <td className="p-4"><span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold">Concluído</span></td>
                               </tr>
                            ))}
+                           {sortedHistory.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">Nenhum dado encontrado</td></tr>}
                         </tbody>
                      </table>
                    </div>
@@ -757,7 +771,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
          <NewValeModal 
             driver={driverToEdit}
             onClose={() => { setModal(null); setDriverToEdit(null); }}
-            onSave={onCreateVale} // CORREÇÃO AQUI
+            onSave={onCreateVale} 
          />
       )}
 
@@ -770,7 +784,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
             vales={vales}
             onClose={() => setDriverReportId(null)} 
             onNewVale={() => {
-                const drv = drivers.find((d:Driver) => d.id === driverReportId);
+                const drv = drivers.find((d: Driver) => d.id === driverReportId);
                 if (drv) { setDriverToEdit(drv); setModal('vale'); }
             }}
          />
