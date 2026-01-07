@@ -6,7 +6,8 @@ import {
   MessageCircle, DollarSign, Loader2,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
   Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
-  Camera, LayoutDashboard, Map as MapIcon, } from 'lucide-react';
+  Camera, LayoutDashboard, Map as MapIcon, Link as LinkIcon
+} from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
 import { initializeApp } from "firebase/app";
@@ -341,7 +342,7 @@ function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType,
           )}
         </div>
       </div>
-      <p className="absolute bottom-6 text-slate-700 text-xs">Versão 7.0 • Jhans Delivery System</p>
+      <p className="absolute bottom-6 text-slate-700 text-xs">Versão 7.2 • Jhans Delivery System</p>
     </div>
   );
 }
@@ -490,9 +491,9 @@ function DriverApp({ driver, orders, vales, onToggleStatus, onAcceptOrder, onCom
                    </div>
                    
                    {activeOrder.status === 'assigned' ? (
-                       <div className="p-6 text-center space-y-4">
+                       <div className="p-8 text-center space-y-6">
                            <div className="relative inline-block"><div className="absolute inset-0 bg-amber-200 rounded-full animate-ping opacity-50"></div><BellRing className="w-16 h-16 text-amber-500 relative z-10"/></div>
-                           <div><h3 className="text-xl font-bold text-slate-800 mb-1">Nova entrega!</h3><p className="text-slate-500 text-sm">Confirme para iniciar.</p></div>
+                           <div><h3 className="text-xl font-bold text-slate-800 mb-1">Nova entrega!</h3><p className="text-slate-500 text-sm">Confirme para ver o endereço e iniciar.</p></div>
                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-left"><p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Itens</p><p className="font-medium text-sm text-slate-700">{activeOrder.items}</p></div>
                            <button onClick={() => onAcceptOrder(activeOrder.id)} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-extrabold py-4 rounded-xl shadow-lg shadow-amber-200 text-base transition-transform active:scale-95">ACEITAR</button>
                        </div>
@@ -599,7 +600,7 @@ function AdminPanel(props: any) {
             </div>
             <button className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-orange-200 transform hover:scale-[1.02]">Entrar</button>
           </form>
-          <button onClick={props.onLogout} className="w-full mt-6 text-slate-400 text-sm hover:text-orange-600 transition-colors">Voltar</button>
+          <button onClick={props.onLogout} className="w-full mt-6 text-slate-400 text-sm hover:text-orange-600 transition-colors">← Voltar ao Início</button>
         </div>
       </div>
     )
@@ -681,37 +682,37 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
              <div className="flex-1 bg-slate-100 relative overflow-hidden">
                 <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
                 
-                {/* Lista Pedidos Flutuante */}
-                <div className="absolute top-6 left-6 z-20 space-y-3 max-h-[85%] overflow-y-auto w-72 hidden md:block pr-2 custom-scrollbar">
-                   {orders.filter((o: Order) => o.status === 'pending').map((o: Order) => (
-                      <div key={o.id} className="bg-white p-4 rounded-xl shadow-lg border-l-4 border-orange-500 animate-in slide-in-from-left hover:shadow-xl transition-shadow cursor-pointer relative group">
-                         <div className="flex justify-between items-start mb-1">
-                            <span className="font-bold text-sm text-slate-800">{o.customer}</span>
-                            <span className="text-[10px] font-bold bg-slate-100 px-2 py-1 rounded text-slate-500">{o.time || 'Agora'}</span>
-                         </div>
-                         <p className="text-xs text-slate-500 truncate">{o.address}</p>
-                         <div className="flex justify-between items-center mt-2">
-                             <span className="text-sm font-bold text-emerald-600">{o.amount}</span>
-                             <span className="text-[10px] bg-orange-50 text-orange-600 px-2 py-0.5 rounded font-bold">Pendente</span>
-                         </div>
-                         <button onClick={(e) => { e.stopPropagation(); onDeleteOrder(o.id); }} className="absolute -right-2 -top-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-md"><Trash2 size={12}/></button>
-                      </div>
-                   ))}
-                   {orders.filter((o: Order) => o.status === 'pending').length === 0 && (
-                       <div className="bg-white/80 backdrop-blur p-6 rounded-xl border border-slate-200 text-center"><Package className="mx-auto text-slate-300 mb-2" size={32}/><p className="text-sm text-slate-500 font-medium">Tudo tranquilo.</p></div>
-                   )}
+                {/* Lista Pedidos Flutuante - Agora no canto direito superior e com fundo transparente no mobile */}
+                 <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
+                     <div className="bg-white/90 backdrop-blur p-3 rounded-lg shadow border border-slate-200 flex gap-4 text-xs font-bold text-slate-600">
+                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> {drivers.filter(d=>d.status!=='offline').length} Online</div>
+                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400"></span> {drivers.filter(d=>d.status==='offline').length} Offline</div>
+                     </div>
+                 </div>
+
+                {/* Mapa Mock */}
+                {/* Aqui poderíamos integrar um mapa real como Leaflet ou Google Maps Embed futuramente. 
+                    Por enquanto, mantemos a visualização abstrata com os ícones dos motoboys */}
+                <div className="w-full h-full relative">
+                    {drivers.map((d: Driver) => (
+                       <div key={d.id} onClick={(e) => { e.stopPropagation(); setSelectedDriver(d); }} className="absolute z-30 hover:scale-110 transition-transform cursor-pointer" 
+                            style={{
+                                top: `${50 + (Math.sin(d.name.length) * 20)}%`, 
+                                left: `${50 + (Math.cos(d.name.length) * 20)}%`,
+                                transition: 'all 1s ease-in-out' // Simula movimento suave
+                            }}>
+                          <div className="relative group flex flex-col items-center">
+                             <div className={`w-12 h-12 md:w-16 md:h-16 rounded-full border-4 shadow-2xl overflow-hidden bg-white transition-colors ${d.status==='delivering' ? 'border-orange-500' : d.status==='available' ? 'border-emerald-500' : 'border-slate-400'}`}>
+                                <img src={d.avatar} className="w-full h-full object-cover"/>
+                             </div>
+                             {/* Label do nome sempre visível no mobile para facilitar */}
+                             <div className="mt-1 bg-slate-900/80 backdrop-blur text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg">
+                                {d.name}
+                             </div>
+                          </div>
+                       </div>
+                    ))}
                 </div>
-                
-                {drivers.map((d: Driver) => (
-                   <div key={d.id} onClick={() => setSelectedDriver(d)} className="absolute z-30 hover:scale-110 transition-transform cursor-pointer" style={{top: `50%`, left: `50%`, transform: `translate(${(Math.random()-0.5)*300}px, ${(Math.random()-0.5)*300}px)`}}>
-                      <div className="relative group">
-                         <div className={`w-14 h-14 rounded-full border-4 shadow-2xl overflow-hidden bg-white transition-colors ${d.status==='delivering' ? 'border-orange-500' : d.status==='available' ? 'border-emerald-500' : 'border-slate-400'}`}>
-                            <img src={d.avatar} className="w-full h-full object-cover"/>
-                         </div>
-                         <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-full opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity pointer-events-none shadow-lg">{d.name}</div>
-                      </div>
-                   </div>
-                ))}
              </div>
           )}
 
@@ -743,6 +744,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
              </div>
           )}
 
+          {/* RELATÓRIO COMPACTO E LIMPO */}
           {view === 'history' && (
              <div className="flex-1 bg-white p-4 md:p-8 overflow-auto pb-32 md:pb-10 w-full max-w-7xl mx-auto">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -797,53 +799,77 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
              </div>
           )}
 
-          {(view === 'map' || selectedDriver) && (
-             <aside className={`fixed md:relative inset-y-0 right-0 w-full md:w-96 bg-white shadow-2xl p-0 overflow-y-auto z-40 transition-transform duration-300 border-l border-slate-100 ${selectedDriver ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
-                {selectedDriver ? (
-                   <div className="h-full flex flex-col bg-slate-50">
-                      <div className="bg-white p-6 border-b border-slate-100 sticky top-0 z-10">
-                          <div className="flex justify-between items-start mb-6"><h3 className="font-bold text-slate-800 text-lg">Perfil do Motoboy</h3><button onClick={()=>setSelectedDriver(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={20} className="text-slate-500"/></button></div>
-                          <div className="flex flex-col items-center">
-                             <div className="relative mb-3"><img src={selectedDriver.avatar} className="w-24 h-24 rounded-full border-4 border-slate-50 shadow-lg object-cover"/><span className={`absolute bottom-1 right-1 w-6 h-6 rounded-full border-4 border-white ${selectedDriver.status==='offline'?'bg-slate-400':selectedDriver.status==='available'?'bg-emerald-500':'bg-orange-500'}`}></span></div>
-                             <h2 className="font-bold text-2xl text-slate-800">{selectedDriver.name}</h2>
-                             <div className="flex items-center gap-2 mt-1"><span className="text-xs font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded">{selectedDriver.plate}</span><span className="text-sm text-slate-500">{selectedDriver.vehicle}</span></div>
-                             <button onClick={() => trackDriver(selectedDriver)} className="mt-5 w-full bg-blue-50 text-blue-600 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors border border-blue-200 hover:shadow-md"><MapIcon size={18} /> Rastrear Posição Real</button>
-                             {selectedDriver.lastUpdate && <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Sinal GPS: {formatTime(selectedDriver.lastUpdate)}</p>}
-                             <button onClick={() => { setDriverToEdit(selectedDriver); setModal('vale'); }} className="mt-3 w-full border border-red-200 text-red-600 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"><MinusCircle size={16} /> Lançar Desconto / Vale</button>
-                          </div>
+          {/* PAINEL LATERAL DESLIZANTE (Agora oculto por padrão no modo mapa para "Visão Ampla") */}
+          <aside className={`fixed inset-y-0 right-0 w-full md:w-96 bg-white shadow-2xl p-0 overflow-y-auto z-50 transition-transform duration-300 border-l border-slate-100 ${selectedDriver ? 'translate-x-0' : 'translate-x-full'}`}>
+             {selectedDriver && (
+               <div className="h-full flex flex-col bg-slate-50">
+                  <div className="bg-white p-6 border-b border-slate-100 sticky top-0 z-10">
+                      <div className="flex justify-between items-start mb-6"><h3 className="font-bold text-slate-800 text-lg">Perfil do Motoboy</h3><button onClick={()=>setSelectedDriver(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={20} className="text-slate-500"/></button></div>
+                      <div className="flex flex-col items-center">
+                         <div className="relative mb-3"><img src={selectedDriver.avatar} className="w-24 h-24 rounded-full border-4 border-slate-50 shadow-lg object-cover"/><span className={`absolute bottom-1 right-1 w-6 h-6 rounded-full border-4 border-white ${selectedDriver.status==='offline'?'bg-slate-400':selectedDriver.status==='available'?'bg-emerald-500':'bg-orange-500'}`}></span></div>
+                         <h2 className="font-bold text-2xl text-slate-800">{selectedDriver.name}</h2>
+                         <div className="flex items-center gap-2 mt-1"><span className="text-xs font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded">{selectedDriver.plate}</span><span className="text-sm text-slate-500">{selectedDriver.vehicle}</span></div>
+                         <button onClick={() => trackDriver(selectedDriver)} className="mt-5 w-full bg-blue-50 text-blue-600 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors border border-blue-200 hover:shadow-md"><MapIcon size={18} /> Rastrear Posição Real</button>
+                         {selectedDriver.lastUpdate && <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Sinal GPS: {formatTime(selectedDriver.lastUpdate)}</p>}
+                         <button onClick={() => { setDriverToEdit(selectedDriver); setModal('vale'); }} className="mt-3 w-full border border-red-200 text-red-600 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"><MinusCircle size={16} /> Lançar Desconto / Vale</button>
                       </div>
-                      <div className="flex-1 overflow-y-auto p-6">
-                         <h4 className="text-xs font-bold text-slate-400 uppercase mb-4 tracking-wider">Atribuir Entrega Pendente</h4>
-                         <div className="space-y-3 pb-20">
-                            {orders.filter((o: Order) => o.status === 'pending').map((o: Order) => (
-                               <div key={o.id} onClick={()=>onAssignOrder(o.id, selectedDriver.id)} className="border border-slate-200 p-4 rounded-xl hover:border-orange-500 hover:shadow-md transition-all bg-white cursor-pointer group">
-                                  <div className="flex justify-between items-start mb-2"><span className="font-bold text-slate-800">{o.customer}</span><span className="text-emerald-600 font-extrabold">{o.amount}</span></div>
-                                  <p className="text-xs text-slate-500 mb-3 line-clamp-2 leading-relaxed">{o.address}</p>
-                                  <button className="w-full bg-slate-900 text-white text-xs font-bold py-3 rounded-lg group-hover:bg-orange-600 transition-colors">Enviar para Motoboy</button>
-                               </div>
-                            ))}
-                            {orders.filter((o: Order) => o.status === 'pending').length === 0 && (
-                               <div className="text-center py-10 bg-white rounded-xl border border-dashed border-slate-200"><Package className="mx-auto text-slate-300 mb-3" size={32}/><p className="text-sm text-slate-400 font-medium">Sem pedidos na fila.</p></div>
-                            )}
-                         </div>
-                      </div>
-                   </div>
-                ) : (
-                   <div className="h-full flex flex-col items-center justify-center text-center opacity-40 bg-slate-50 p-10">
-                      <div className="bg-white p-6 rounded-full mb-4 shadow-sm"><Users size={40} className="text-slate-400"/></div>
-                      <h3 className="text-lg font-bold text-slate-600">Nenhum motoboy selecionado</h3>
-                      <p className="text-sm text-slate-500 max-w-[200px] mt-2">Clique em um motoboy no mapa ou na lista para gerenciar.</p>
-                   </div>
-                )}
-             </aside>
-          )}
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-6">
+                     <h4 className="text-xs font-bold text-slate-400 uppercase mb-4 tracking-wider">Atribuir Entrega Pendente</h4>
+                     <div className="space-y-3 pb-20">
+                        {orders.filter((o: Order) => o.status === 'pending').map((o: Order) => (
+                           <div key={o.id} onClick={()=>onAssignOrder(o.id, selectedDriver.id)} className="border border-slate-200 p-4 rounded-xl hover:border-orange-500 hover:shadow-md transition-all bg-white cursor-pointer group">
+                              <div className="flex justify-between items-start mb-2"><span className="font-bold text-slate-800">{o.customer}</span><span className="text-emerald-600 font-extrabold">{o.amount}</span></div>
+                              <p className="text-xs text-slate-500 mb-3 line-clamp-2 leading-relaxed">{o.address}</p>
+                              <button className="w-full bg-slate-900 text-white text-xs font-bold py-3 rounded-lg group-hover:bg-orange-600 transition-colors">Enviar para Motoboy</button>
+                           </div>
+                        ))}
+                        {orders.filter((o: Order) => o.status === 'pending').length === 0 && (
+                           <div className="text-center py-10 bg-white rounded-xl border border-dashed border-slate-200"><Package className="mx-auto text-slate-300 mb-3" size={32}/><p className="text-sm text-slate-400 font-medium">Sem pedidos na fila.</p></div>
+                        )}
+                     </div>
+                  </div>
+               </div>
+             )}
+          </aside>
         </div>
       </main>
 
+      {/* MODAL PEDIDO */}
       {modal === 'order' && <NewOrderModal onClose={()=>setModal(null)} onSave={onCreateOrder} />}
-      {modal === 'driver' && <NewDriverModal onClose={()=>{setModal(null); setDriverToEdit(null);}} onSave={driverToEdit ? (data: any) => onUpdateDriver(driverToEdit.id, data) : onCreateDriver} initialData={driverToEdit} />}
-      {modal === 'vale' && driverToEdit && <NewValeModal driver={driverToEdit} onClose={() => { setModal(null); setDriverToEdit(null); }} onSave={onCreateVale} />}
-      {driverReportId && <DriverReportModal driverId={driverReportId} drivers={drivers} orders={orders} vales={vales} onClose={() => setDriverReportId(null)} onNewVale={() => { const drv = drivers.find((d: Driver) => d.id === driverReportId); if (drv) { setDriverToEdit(drv); setModal('vale'); } }} />}
+      
+      {/* MODAL MOTORISTA (CRIAR/EDITAR) */}
+      {modal === 'driver' && (
+         <NewDriverModal 
+            onClose={()=>{setModal(null); setDriverToEdit(null);}} 
+            onSave={driverToEdit ? (data: any) => onUpdateDriver(driverToEdit.id, data) : onCreateDriver}
+            initialData={driverToEdit} 
+         />
+      )}
+
+      {/* MODAL VALE */}
+      {modal === 'vale' && driverToEdit && (
+         <NewValeModal 
+            driver={driverToEdit}
+            onClose={() => { setModal(null); setDriverToEdit(null); }}
+            onSave={onCreateVale} 
+         />
+      )}
+
+      {/* MODAL RELATÓRIO FINANCEIRO DO MOTORISTA */}
+      {driverReportId && (
+         <DriverReportModal 
+            driverId={driverReportId} 
+            drivers={drivers} 
+            orders={orders} 
+            vales={vales}
+            onClose={() => setDriverReportId(null)} 
+            onNewVale={() => {
+                const drv = drivers.find((d: Driver) => d.id === driverReportId);
+                if (drv) { setDriverToEdit(drv); setModal('vale'); }
+            }}
+         />
+      )}
     </div>
   )
 }
