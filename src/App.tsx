@@ -6,8 +6,7 @@ import {
   MessageCircle, DollarSign, Loader2,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
   Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
-  Camera, LayoutDashboard, Map as MapIcon, CheckCircle2, AlertCircle
-} from 'lucide-react';
+  Camera, LayoutDashboard, Map as MapIcon, } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
 import { initializeApp } from "firebase/app";
