@@ -52,6 +52,7 @@ type DriverStatus = 'available' | 'delivering' | 'offline';
 interface Driver {
   id: string; 
   name: string;
+  password?: string; // Nova senha do motoboy
   status: DriverStatus;
   lat: number;
   lng: number;
@@ -306,16 +307,68 @@ function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType,
 }
 
 // ==========================================
-// SELEÇÃO DE MOTORISTA
+// SELEÇÃO DE MOTORISTA (COM SENHA)
 // ==========================================
 function DriverSelection({ drivers, onSelect, onBack }: any) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const driver = drivers.find((d: Driver) => d.id === selectedId);
+    
+    // Se o motorista não tem senha cadastrada (legado), permite entrar
+    if (!driver?.password) {
+        onSelect(driver?.id);
+        return;
+    }
+
+    if (driver.password === password) {
+        onSelect(driver.id);
+    } else {
+        setError("Senha incorreta");
+    }
+  };
+
+  if (selectedId) {
+      const driver = drivers.find((d: Driver) => d.id === selectedId);
+      return (
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+               <div className="text-center mb-6">
+                   <img src={driver?.avatar} className="w-20 h-20 rounded-full mx-auto mb-3 border-4 border-slate-100 shadow-sm" />
+                   <h3 className="font-bold text-xl text-slate-800">Olá, {driver?.name}!</h3>
+                   <p className="text-slate-400 text-sm">Confirme sua senha para entrar</p>
+               </div>
+               
+               <form onSubmit={handleLogin} className="space-y-4">
+                   <div>
+                       <input 
+                           type="password" 
+                           autoFocus
+                           className="w-full border border-slate-200 rounded-xl p-3 text-center text-lg outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all" 
+                           placeholder="Senha de acesso"
+                           value={password}
+                           onChange={e => { setPassword(e.target.value); setError(''); }}
+                       />
+                       {error && <p className="text-red-500 text-xs text-center mt-2 font-bold">{error}</p>}
+                   </div>
+                   <button className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-xl transition-colors">Acessar Painel</button>
+               </form>
+               <button onClick={() => { setSelectedId(null); setPassword(''); setError(''); }} className="w-full mt-4 text-slate-400 text-sm">Trocar de Usuário</button>
+           </div>
+        </div>
+      );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold mb-6 text-slate-800 text-center">Identifique-se</h2>
+        <h2 className="text-xl font-bold mb-6 text-slate-800 text-center">Quem é você?</h2>
         <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
           {drivers.map((d: Driver) => (
-            <button key={d.id} onClick={() => onSelect(d.id)} className="w-full flex items-center gap-4 p-3 border border-slate-100 rounded-xl hover:bg-orange-50 hover:border-orange-200 transition-all">
+            <button key={d.id} onClick={() => setSelectedId(d.id)} className="w-full flex items-center gap-4 p-3 border border-slate-100 rounded-xl hover:bg-orange-50 hover:border-orange-200 transition-all">
               <img src={d.avatar} className="w-12 h-12 rounded-full bg-slate-100 shadow-sm object-cover"/>
               <div className="text-left">
                 <span className="font-bold text-slate-700 block">{d.name}</span>
@@ -324,6 +377,7 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
                     {d.vehicle}
                 </span>
               </div>
+              {d.password && <Lock size={14} className="ml-auto text-slate-300" />}
             </button>
           ))}
         </div>
@@ -670,22 +724,12 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
                    <div className="overflow-x-auto">
                      <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50 border-b text-slate-500 font-semibold uppercase text-xs">
-                           <tr>
-                              <th className="p-4">Cliente</th>
-                              <th className="p-4">Entregador</th>
-                              <th className="p-4">Valor</th>
-                              <th className="p-4">Pagamento</th>
-                              <th className="p-4 hidden md:table-cell">Início</th>
-                              <th className="p-4 hidden md:table-cell">Fim</th>
-                              <th className="p-4">Duração</th>
-                              <th className="p-4">Status</th>
-                           </tr>
+                           <tr><th className="p-4">Cliente</th><th className="p-4">Valor</th><th className="p-4">Pagamento</th><th className="p-4 hidden md:table-cell">Início</th><th className="p-4 hidden md:table-cell">Fim</th><th className="p-4">Duração</th><th className="p-4">Status</th></tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                            {sortedHistory.map((o: Order) => (
                               <tr key={o.id} className="hover:bg-slate-50 transition-colors">
                                  <td className="p-4 font-medium text-slate-800">{o.customer}</td>
-                                 <td className="p-4 text-slate-600 font-medium">{drivers.find((d: Driver) => d.id === o.driverId)?.name || 'Não atribuído'}</td>
                                  <td className="p-4 font-bold text-emerald-600">{o.amount}</td>
                                  <td className="p-4 text-slate-500 text-xs">{o.paymentMethod || '-'}</td>
                                  <td className="p-4 text-slate-500 hidden md:table-cell">{formatTime(o.assignedAt)}</td>
@@ -694,7 +738,6 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
                                  <td className="p-4"><span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold">Concluído</span></td>
                               </tr>
                            ))}
-                           {sortedHistory.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic">Nenhum dado encontrado</td></tr>}
                         </tbody>
                      </table>
                    </div>
@@ -925,6 +968,7 @@ function NewOrderModal({ onClose, onSave }: any) {
 function DriverModal({ onClose, onSave, initialData }: any) {
    const [form, setForm] = useState({ 
        name: initialData?.name || '', 
+       password: initialData?.password || '', // Campo de senha
        phone: initialData?.phone || '', 
        vehicle: initialData?.vehicle || '', 
        cpf: initialData?.cpf || '', 
@@ -956,6 +1000,10 @@ function DriverModal({ onClose, onSave, initialData }: any) {
                <div>
                   <label className="text-xs font-bold text-slate-500 ml-1">Nome Completo</label>
                   <input required className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="Ex: João Silva" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} />
+               </div>
+               <div>
+                  <label className="text-xs font-bold text-slate-500 ml-1">Senha de Acesso</label>
+                  <input required type="text" className="w-full border border-slate-200 rounded-xl p-3 outline-none bg-yellow-50" placeholder="Crie uma senha" value={form.password} onChange={e=>setForm({...form, password: e.target.value})} />
                </div>
                <div className="grid grid-cols-2 gap-4">
                   <div>
