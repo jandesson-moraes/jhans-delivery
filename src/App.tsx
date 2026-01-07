@@ -6,7 +6,7 @@ import {
   MessageCircle, DollarSign, Loader2,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
   Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
-  Camera, LayoutDashboard, Map as MapIcon, Link as LinkIcon
+  Camera, LayoutDashboard, Map as MapIcon
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -342,7 +342,7 @@ function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType,
           )}
         </div>
       </div>
-      <p className="absolute bottom-6 text-slate-700 text-xs">Versão 7.2 • Jhans Delivery System</p>
+      <p className="absolute bottom-6 text-slate-700 text-xs">Versão 7.3 • Jhans Delivery System</p>
     </div>
   );
 }
@@ -685,8 +685,8 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
                 {/* Lista Pedidos Flutuante - Agora no canto direito superior e com fundo transparente no mobile */}
                  <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
                      <div className="bg-white/90 backdrop-blur p-3 rounded-lg shadow border border-slate-200 flex gap-4 text-xs font-bold text-slate-600">
-                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> {drivers.filter(d=>d.status!=='offline').length} Online</div>
-                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400"></span> {drivers.filter(d=>d.status==='offline').length} Offline</div>
+                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> {drivers.filter((d: Driver)=>d.status!=='offline').length} Online</div>
+                         <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400"></span> {drivers.filter((d: Driver)=>d.status==='offline').length} Offline</div>
                      </div>
                  </div>
 
