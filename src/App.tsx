@@ -5,7 +5,7 @@ import {
   TrendingUp, Utensils, Plus, LogOut, CheckSquare,
   MessageCircle, DollarSign, Link as LinkIcon, Loader2, Crosshair,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
-  Trash2, Edit, Wallet, Calendar
+  Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -80,7 +80,16 @@ interface Order {
   createdAt: any; 
   assignedAt?: any; 
   completedAt?: any; 
-  driverId?: string; // ID do motoboy que completou
+  driverId?: string; 
+}
+
+// Novo Tipo para Vales
+interface Vale {
+  id: string;
+  driverId: string;
+  amount: number;
+  description: string;
+  createdAt: any;
 }
 
 // --- UTILITÁRIOS ---
@@ -114,6 +123,7 @@ export default function App() {
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [vales, setVales] = useState<Vale[]>([]); // Novo estado para Vales
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -131,16 +141,27 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
+    
     const unsubDrivers = onSnapshot(collection(db, 'drivers'), (snap) => {
       setDrivers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Driver)));
     });
+    
     const unsubOrders = onSnapshot(collection(db, 'orders'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
       data.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
       setOrders(data);
+    });
+
+    // Listener para Vales
+    const unsubVales = onSnapshot(collection(db, 'vales'), (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Vale));
+      // Ordenar vales por data
+      data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      setVales(data);
       setLoading(false);
     });
-    return () => { unsubDrivers(); unsubOrders(); };
+
+    return () => { unsubDrivers(); unsubOrders(); unsubVales(); };
   }, [user]);
 
   useEffect(() => {
@@ -173,9 +194,18 @@ export default function App() {
 
   const deleteDriver = async (id: string) => {
     if(!user) return;
-    if (window.confirm("Tem certeza que deseja excluir este entregador? O histórico dele permanecerá nos pedidos, mas ele não poderá mais logar.")) {
+    if (window.confirm("Tem certeza? O histórico financeiro será mantido, mas o acesso será revogado.")) {
       await deleteDoc(doc(db, 'drivers', id));
     }
+  };
+
+  // Função para criar Vale
+  const createVale = async (data: any) => {
+    if(!user) return;
+    await addDoc(collection(db, 'vales'), {
+      ...data,
+      createdAt: serverTimestamp()
+    });
   };
 
   const assignOrder = async (orderId: string, driverId: string) => {
@@ -229,10 +259,10 @@ export default function App() {
     const driver = drivers.find(d => d.id === currentDriverId);
     if (!driver) return <div className="p-10 text-center"><p>Motorista não encontrado.</p><button onClick={handleLogout}>Sair</button></div>;
     
-    return <DriverApp driver={driver} orders={orders} onToggleStatus={() => toggleStatus(driver.id)} onAcceptOrder={acceptOrder} onCompleteOrder={() => completeOrder(driver.id)} onLogout={handleLogout} />;
+    return <DriverApp driver={driver} orders={orders} vales={vales} onToggleStatus={() => toggleStatus(driver.id)} onAcceptOrder={acceptOrder} onCompleteOrder={() => completeOrder(driver.id)} onLogout={handleLogout} />;
   }
 
-  return <AdminPanel drivers={drivers} orders={orders} onAssignOrder={assignOrder} onCreateDriver={createDriver} onUpdateDriver={updateDriver} onDeleteDriver={deleteDriver} onCreateOrder={createOrder} onLogout={handleLogout} />;
+  return <AdminPanel drivers={drivers} orders={orders} vales={vales} onAssignOrder={assignOrder} onCreateDriver={createDriver} onUpdateDriver={updateDriver} onDeleteDriver={deleteDriver} onCreateOrder={createOrder} onCreateVale={createVale} onLogout={handleLogout} />;
 }
 
 // ==========================================
@@ -301,13 +331,23 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
 // ==========================================
 // APP DO MOTOBOY
 // ==========================================
-function DriverApp({ driver, orders, onToggleStatus, onAcceptOrder, onCompleteOrder, onLogout }: any) {
+function DriverApp({ driver, orders, vales, onToggleStatus, onAcceptOrder, onCompleteOrder, onLogout }: any) {
   const [activeTab, setActiveTab] = useState<'home' | 'wallet'>('home');
   const activeOrder = orders.find((o: Order) => o.id === driver.currentOrderId);
   
-  // Filtra apenas entregas completas DESTE motoboy
+  // FINANÇAS DO MOTORISTA
   const myDeliveries = orders.filter((o: Order) => o.status === 'completed' && o.driverId === driver.id);
-  const myEarnings = myDeliveries.length * TAXA_ENTREGA;
+  const myVales = vales.filter((v: Vale) => v.driverId === driver.id);
+  
+  const totalEarnings = myDeliveries.length * TAXA_ENTREGA;
+  const totalDeductions = myVales.reduce((acc: number, v: Vale) => acc + (Number(v.amount) || 0), 0);
+  const finalBalance = totalEarnings - totalDeductions;
+
+  // Unir e ordenar histórico para exibição
+  const history = [
+      ...myDeliveries.map((o: Order) => ({ type: 'delivery', date: o.completedAt, amount: TAXA_ENTREGA, desc: o.address, id: o.id })),
+      ...myVales.map((v: Vale) => ({ type: 'vale', date: v.createdAt, amount: v.amount, desc: v.description, id: v.id }))
+  ].sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0));
 
   useEffect(() => {
     let watchId: number;
@@ -420,23 +460,32 @@ function DriverApp({ driver, orders, onToggleStatus, onAcceptOrder, onCompleteOr
           /* ABA CARTEIRA DO MOTOBOY */
           <div className="space-y-4">
              <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl">
-                <p className="text-slate-400 text-sm mb-1">Saldo Total Estimado</p>
-                <h3 className="text-4xl font-bold text-emerald-400">R$ {myEarnings.toFixed(2)}</h3>
-                <p className="text-xs text-slate-500 mt-2">Baseado em {myDeliveries.length} entregas x R$ {TAXA_ENTREGA.toFixed(2)}</p>
+                <p className="text-slate-400 text-sm mb-1">Saldo a Receber</p>
+                <h3 className={`text-4xl font-bold ${finalBalance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>R$ {finalBalance.toFixed(2)}</h3>
+                <div className="flex justify-between text-[10px] text-slate-500 mt-2 border-t border-slate-700 pt-2">
+                    <span>Entregas: +R$ {totalEarnings.toFixed(2)}</span>
+                    <span>Vales: -R$ {totalDeductions.toFixed(2)}</span>
+                </div>
              </div>
              
-             <h4 className="font-bold text-slate-700 mt-4">Histórico de Corridas</h4>
-             <div className="space-y-2">
-                {myDeliveries.sort((a,b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0)).map((o: Order) => (
-                   <div key={o.id} className="bg-white p-3 rounded-xl border border-slate-100 flex justify-between items-center shadow-sm">
-                      <div>
-                         <p className="font-bold text-slate-800 text-sm">{o.address}</p>
-                         <p className="text-xs text-slate-400">{formatDate(o.completedAt)} • {formatTime(o.completedAt)}</p>
+             <h4 className="font-bold text-slate-700 mt-4">Extrato Completo</h4>
+             <div className="space-y-2 pb-20">
+                {history.map((item: any) => (
+                   <div key={item.id} className={`bg-white p-3 rounded-xl border flex justify-between items-center shadow-sm ${item.type === 'vale' ? 'border-red-100' : 'border-emerald-50'}`}>
+                      <div className="flex items-center gap-3">
+                         {item.type === 'vale' ? <MinusCircle size={20} className="text-red-500"/> : <ArrowUpCircle size={20} className="text-emerald-500"/>}
+                         <div>
+                            <p className="font-bold text-slate-800 text-sm">{item.type === 'vale' ? 'Vale / Adiantamento' : 'Entrega Realizada'}</p>
+                            <p className="text-xs text-slate-400">{item.desc || 'Sem descrição'}</p>
+                            <p className="text-[10px] text-slate-400">{formatDate({seconds: item.date?.seconds})} • {formatTime({seconds: item.date?.seconds})}</p>
+                         </div>
                       </div>
-                      <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-1 rounded">+ R$ {TAXA_ENTREGA.toFixed(2)}</span>
+                      <span className={`text-xs font-bold px-2 py-1 rounded ${item.type === 'vale' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                         {item.type === 'vale' ? '-' : '+'} R$ {Number(item.amount).toFixed(2)}
+                      </span>
                    </div>
                 ))}
-                {myDeliveries.length === 0 && <p className="text-center text-slate-400 py-4 text-sm">Nenhuma entrega realizada.</p>}
+                {history.length === 0 && <p className="text-center text-slate-400 py-4 text-sm">Nenhum registro financeiro.</p>}
              </div>
           </div>
         )}
@@ -481,15 +530,16 @@ function AdminPanel(props: any) {
   return <Dashboard {...props} />;
 }
 
-function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onUpdateDriver, onDeleteDriver, onCreateOrder, onLogout }: any) {
+function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUpdateDriver, onDeleteDriver, onCreateOrder, onCreateVale, onLogout }: any) {
   const [view, setView] = useState<'map' | 'list' | 'history'>('map');
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
-  const [modal, setModal] = useState<'driver' | 'order' | null>(null);
+  const [modal, setModal] = useState<'driver' | 'order' | 'vale' | null>(null);
   const [driverToEdit, setDriverToEdit] = useState<Driver | null>(null);
-  const [driverReportId, setDriverReportId] = useState<string | null>(null); // ID do driver para relatório específico
+  const [driverReportId, setDriverReportId] = useState<string | null>(null);
 
   const delivered = orders.filter((o: Order) => o.status === 'completed');
-  const sortedHistory = [...delivered].sort((a,b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
+  // CORREÇÃO: Tipagem explícita para o sort
+  const sortedHistory = [...delivered].sort((a: Order, b: Order) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
 
   const trackDriver = (driver: Driver) => {
       if (driver.lat && driver.lng) {
@@ -653,6 +703,14 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onUpdateDri
                          <p className="text-sm text-slate-500">{selectedDriver.vehicle} • {selectedDriver.phone}</p>
                          <button onClick={() => trackDriver(selectedDriver)} className="mt-4 w-full bg-blue-50 text-blue-600 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors border border-blue-200"><Crosshair size={18} /> Rastrear GPS em Tempo Real</button>
                          {selectedDriver.lastUpdate && <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Atualizado às {formatTime(selectedDriver.lastUpdate)}</p>}
+                         
+                         {/* Botão para Lançar Vale (Acesso Rápido) */}
+                         <button 
+                            onClick={() => { setDriverToEdit(selectedDriver); setModal('vale'); }} 
+                            className="mt-2 w-full border border-red-200 text-red-600 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"
+                         >
+                            <MinusCircle size={16} /> Lançar Vale / Desconto
+                         </button>
                       </div>
                       <div className="flex-1 overflow-y-auto">
                          <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Atribuir Pedido</h4>
@@ -693,13 +751,27 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onUpdateDri
          />
       )}
 
+      {/* MODAL VALE */}
+      {modal === 'vale' && driverToEdit && (
+         <NewValeModal 
+            driver={driverToEdit}
+            onClose={() => { setModal(null); setDriverToEdit(null); }}
+            onSave={onCreateVale}
+         />
+      )}
+
       {/* MODAL RELATÓRIO FINANCEIRO DO MOTORISTA */}
       {driverReportId && (
          <DriverReportModal 
             driverId={driverReportId} 
             drivers={drivers} 
             orders={orders} 
+            vales={vales}
             onClose={() => setDriverReportId(null)} 
+            onNewVale={() => {
+                const drv = drivers.find(d => d.id === driverReportId);
+                if (drv) { setDriverToEdit(drv); setModal('vale'); }
+            }}
          />
       )}
     </div>
@@ -842,7 +914,6 @@ function DriverModal({ onClose, onSave, initialData }: any) {
       e.preventDefault();
       const driverData = {
           ...form,
-          // Se for edição, mantém dados antigos, senão cria padrões
           status: initialData ? initialData.status : 'offline',
           lat: initialData ? initialData.lat : 0,
           lng: initialData ? initialData.lng : 0,
@@ -873,14 +944,62 @@ function DriverModal({ onClose, onSave, initialData }: any) {
    )
 }
 
-function DriverReportModal({ driverId, drivers, orders, onClose }: any) {
+function NewValeModal({ driver, onClose, onSave }: any) {
+    const [amount, setAmount] = useState('');
+    const [desc, setDesc] = useState('');
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave({
+            driverId: driver.id,
+            amount: parseFloat(amount.replace(',', '.')),
+            description: desc
+        });
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm animate-in zoom-in p-6">
+                <h3 className="font-bold text-xl mb-4 text-slate-800 flex items-center gap-2"><MinusCircle className="text-red-500"/> Novo Vale</h3>
+                <p className="text-sm text-slate-500 mb-4">Adiantamento para <strong>{driver.name}</strong></p>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 ml-1">Valor (R$)</label>
+                        <input required autoFocus className="w-full border border-slate-200 rounded-xl p-3 text-lg font-bold text-slate-800 outline-none" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 ml-1">Motivo</label>
+                        <input required className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="Ex: Gasolina, Adiantamento" value={desc} onChange={e => setDesc(e.target.value)} />
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                        <button type="button" onClick={onClose} className="flex-1 border border-slate-200 rounded-xl py-3 font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
+                        <button className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl py-3 font-bold shadow-lg shadow-red-200">Lançar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+function DriverReportModal({ driverId, drivers, orders, vales, onClose, onNewVale }: any) {
     const driver = drivers.find((d: Driver) => d.id === driverId);
-    // Filtra entregas CONCLUÍDAS deste motorista
-    const history = orders.filter((o: Order) => o.status === 'completed' && o.driverId === driverId);
-    // Ordena do mais recente para o mais antigo
-    history.sort((a: any, b: any) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
     
-    const totalEarnings = history.length * TAXA_ENTREGA;
+    // Entregas (Crédito)
+    const myDeliveries = orders.filter((o: Order) => o.status === 'completed' && o.driverId === driverId);
+    const earnings = myDeliveries.length * TAXA_ENTREGA;
+    
+    // Vales (Débito)
+    const myVales = vales.filter((v: Vale) => v.driverId === driverId);
+    const deductions = myVales.reduce((acc: number, v: Vale) => acc + (Number(v.amount) || 0), 0);
+    
+    const balance = earnings - deductions;
+
+    // Histórico Unificado
+    const history = [
+        ...myDeliveries.map((o: Order) => ({ type: 'delivery', date: o.completedAt, amount: TAXA_ENTREGA, desc: o.address, id: o.id })),
+        ...myVales.map((v: Vale) => ({ type: 'vale', date: v.createdAt, amount: v.amount, desc: v.description, id: v.id }))
+    ].sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0));
 
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -889,49 +1008,58 @@ function DriverReportModal({ driverId, drivers, orders, onClose }: any) {
                     <div className="flex items-center gap-4">
                         <img src={driver?.avatar} className="w-12 h-12 rounded-full bg-white shadow-sm"/>
                         <div>
-                            <h3 className="font-bold text-xl text-slate-800">Relatório Financeiro</h3>
-                            <p className="text-slate-500 text-sm">{driver?.name}</p>
+                            <h3 className="font-bold text-xl text-slate-800">Financeiro: {driver?.name}</h3>
+                            <p className="text-slate-500 text-sm">Saldo Atual</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full"><X size={20}/></button>
                 </div>
                 
-                <div className="p-6 grid grid-cols-2 gap-4">
-                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-                        <p className="text-emerald-600 font-bold text-xs uppercase">A Pagar (Total)</p>
-                        <p className="text-3xl font-bold text-emerald-700">R$ {totalEarnings.toFixed(2)}</p>
+                <div className="p-6 grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className={`p-4 rounded-xl border ${balance >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+                        <p className={`font-bold text-xs uppercase ${balance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>A Pagar</p>
+                        <p className={`text-3xl font-bold ${balance >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>R$ {balance.toFixed(2)}</p>
                     </div>
-                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                        <p className="text-blue-600 font-bold text-xs uppercase">Entregas Realizadas</p>
-                        <p className="text-3xl font-bold text-blue-700">{history.length}</p>
+                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 hidden md:block">
+                        <p className="text-blue-600 font-bold text-xs uppercase">Entregas</p>
+                        <p className="text-xl font-bold text-blue-700">{myDeliveries.length}</p>
                     </div>
+                    <button onClick={onNewVale} className="p-4 rounded-xl border border-dashed border-red-300 flex flex-col items-center justify-center text-red-500 hover:bg-red-50 hover:border-red-400 transition-colors">
+                        <MinusCircle size={24} className="mb-1"/>
+                        <span className="text-xs font-bold">Lançar Vale</span>
+                    </button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6 pt-0">
-                    <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Calendar size={16}/> Histórico Detalhado</h4>
+                    <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Calendar size={16}/> Extrato Detalhado</h4>
                     <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs sticky top-0">
                             <tr>
                                 <th className="p-3 rounded-tl-lg">Data</th>
-                                <th className="p-3">Hora</th>
-                                <th className="p-3">Endereço</th>
-                                <th className="p-3 text-right rounded-tr-lg">Taxa</th>
+                                <th className="p-3">Descrição</th>
+                                <th className="p-3 text-right rounded-tr-lg">Valor</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {history.map((o: Order) => (
-                                <tr key={o.id} className="hover:bg-slate-50">
-                                    <td className="p-3 text-slate-600">{formatDate(o.completedAt)}</td>
-                                    <td className="p-3 text-slate-600">{formatTime(o.completedAt)}</td>
-                                    <td className="p-3 font-medium text-slate-800">{o.address}</td>
-                                    <td className="p-3 text-right font-bold text-emerald-600">+ R$ {TAXA_ENTREGA.toFixed(2)}</td>
+                            {history.map((item: any) => (
+                                <tr key={item.id} className="hover:bg-slate-50">
+                                    <td className="p-3 text-slate-600 w-32">
+                                        {formatDate({seconds: item.date?.seconds})}<br/>
+                                        <span className="text-xs text-slate-400">{formatTime({seconds: item.date?.seconds})}</span>
+                                    </td>
+                                    <td className="p-3">
+                                        <div className="flex items-center gap-2">
+                                            {item.type === 'vale' ? <ArrowDownCircle size={14} className="text-red-500"/> : <ArrowUpCircle size={14} className="text-emerald-500"/>}
+                                            <span className="font-medium text-slate-800">{item.type === 'vale' ? 'Vale / Adiantamento' : 'Entrega'}</span>
+                                        </div>
+                                        <p className="text-xs text-slate-500 pl-6 truncate max-w-[200px]">{item.desc}</p>
+                                    </td>
+                                    <td className={`p-3 text-right font-bold ${item.type === 'vale' ? 'text-red-600' : 'text-emerald-600'}`}>
+                                        {item.type === 'vale' ? '-' : '+'} R$ {Number(item.amount).toFixed(2)}
+                                    </td>
                                 </tr>
                             ))}
-                            {history.length === 0 && (
-                                <tr>
-                                    <td colSpan={4} className="p-8 text-center text-slate-400">Nenhuma entrega registrada.</td>
-                                </tr>
-                            )}
+                            {history.length === 0 && <tr><td colSpan={3} className="p-8 text-center text-slate-400">Nenhum registro.</td></tr>}
                         </tbody>
                     </table>
                 </div>
