@@ -4,7 +4,7 @@ import {
   X, Search, Users, Bike, 
   TrendingUp, Utensils, Plus, LogOut, CheckSquare,
   MessageCircle, DollarSign, Link as LinkIcon, Loader2, Crosshair,
-  Lock, KeyRound, ChevronRight
+  Lock, KeyRound, ChevronRight, BellRing
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -66,10 +66,10 @@ interface Order {
   address: string;
   mapsLink?: string; 
   items: string; 
-  status: 'pending' | 'assigned' | 'completed';
+  status: 'pending' | 'assigned' | 'accepted' | 'completed'; // Adicionado 'accepted'
   amount: string;
   value: number; 
-  time?: string; // Adicionado para corrigir erro TS2339
+  time?: string; 
   createdAt: any; 
   assignedAt?: any; 
   completedAt?: any; 
@@ -123,7 +123,8 @@ export default function App() {
     });
     const unsubOrders = onSnapshot(collection(db, 'orders'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
-      data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      // CORREÇÃO: Ordem CRESCENTE (Mais antigos primeiro - Fila)
+      data.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
       setOrders(data);
       setLoading(false);
     });
@@ -155,8 +156,15 @@ export default function App() {
 
   const assignOrder = async (orderId: string, driverId: string) => {
     if(!user) return;
+    // Define status como 'assigned' (aguardando aceite do motoboy)
     await updateDoc(doc(db, 'orders', orderId), { status: 'assigned', assignedAt: serverTimestamp() });
     await updateDoc(doc(db, 'drivers', driverId), { status: 'delivering', currentOrderId: orderId });
+  };
+
+  const acceptOrder = async (orderId: string) => {
+    if(!user) return;
+    // Motoboy aceita a corrida
+    await updateDoc(doc(db, 'orders', orderId), { status: 'accepted' });
   };
 
   const completeOrder = async (driverId: string) => {
@@ -199,7 +207,7 @@ export default function App() {
     const driver = drivers.find(d => d.id === currentDriverId);
     if (!driver) return <div className="p-10 text-center"><p>Motorista não encontrado.</p><button onClick={handleLogout}>Sair</button></div>;
     
-    return <DriverApp driver={driver} orders={orders} onToggleStatus={() => toggleStatus(driver.id)} onCompleteOrder={() => completeOrder(driver.id)} onLogout={handleLogout} />;
+    return <DriverApp driver={driver} orders={orders} onToggleStatus={() => toggleStatus(driver.id)} onAcceptOrder={acceptOrder} onCompleteOrder={() => completeOrder(driver.id)} onLogout={handleLogout} />;
   }
 
   return <AdminPanel drivers={drivers} orders={orders} onAssignOrder={assignOrder} onCreateDriver={createDriver} onCreateOrder={createOrder} onLogout={handleLogout} />;
@@ -271,7 +279,7 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
 // ==========================================
 // APP DO MOTOBOY
 // ==========================================
-function DriverApp({ driver, orders, onToggleStatus, onCompleteOrder, onLogout }: any) {
+function DriverApp({ driver, orders, onToggleStatus, onAcceptOrder, onCompleteOrder, onLogout }: any) {
   const activeOrder = orders.find((o: Order) => o.id === driver.currentOrderId);
   
   useEffect(() => {
@@ -322,24 +330,52 @@ function DriverApp({ driver, orders, onToggleStatus, onCompleteOrder, onLogout }
       <div className="flex-1 p-5 pt-10 overflow-y-auto">
         {driver.status === 'delivering' && activeOrder ? (
            <div className="bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
-               <div className="bg-orange-50 p-4 border-b border-orange-100 flex justify-between items-center">
-                  <div><span className="inline-block text-[10px] font-bold text-white bg-orange-500 px-2 py-0.5 rounded-full mb-1">EM ROTA</span><h3 className="font-bold text-lg text-slate-800 leading-none">{activeOrder.customer}</h3></div>
+               <div className={`p-4 border-b flex justify-between items-center ${activeOrder.status === 'assigned' ? 'bg-amber-50 border-amber-100' : 'bg-orange-50 border-orange-100'}`}>
+                  <div>
+                    {activeOrder.status === 'assigned' ? 
+                        <span className="inline-block text-[10px] font-bold text-white bg-amber-500 px-2 py-0.5 rounded-full mb-1 animate-pulse">NOVA CORRIDA</span> : 
+                        <span className="inline-block text-[10px] font-bold text-white bg-orange-500 px-2 py-0.5 rounded-full mb-1">EM ROTA</span>
+                    }
+                    <h3 className="font-bold text-lg text-slate-800 leading-none">{activeOrder.customer}</h3>
+                  </div>
                   <div className="text-right"><p className="text-xs text-slate-500">A cobrar</p><p className="font-bold text-xl text-slate-800">{activeOrder.amount}</p></div>
                </div>
-               <div className="p-5 space-y-6">
-                 <div>
-                    <div className="flex items-start gap-3">
-                       <MapPin className="text-orange-500 mt-1 shrink-0" size={20}/>
-                       <div><p className="text-xs text-slate-400 font-bold uppercase">Entrega</p><p className="text-slate-700 font-medium">{activeOrder.address}</p></div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 mt-4">
-                       <button onClick={() => openApp(activeOrder.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeOrder.address)}`)} className="flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-blue-200 active:scale-95 transition-transform"><Navigation size={18}/> Waze / Maps</button>
-                       <button onClick={() => openApp(`https://wa.me/55${activeOrder.phone.replace(/\D/g, '')}`)} className="flex items-center justify-center gap-2 bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-emerald-200 active:scale-95 transition-transform"><MessageCircle size={18}/> WhatsApp</button>
-                    </div>
-                 </div>
-                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100"><p className="text-xs text-slate-400 font-bold uppercase mb-2">Detalhes do Pedido</p><p className="text-slate-600 text-sm whitespace-pre-wrap">{activeOrder.items}</p></div>
-                 <button onClick={onCompleteOrder} className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform"><CheckSquare size={20} className="text-emerald-400"/> Confirmar Entrega</button>
-               </div>
+               
+               {/* TELA DE ACEITE (Bloqueia detalhes até aceitar) */}
+               {activeOrder.status === 'assigned' ? (
+                   <div className="p-6 text-center space-y-4">
+                       <BellRing className="w-16 h-16 text-amber-500 mx-auto animate-bounce"/>
+                       <div>
+                           <h3 className="text-xl font-bold text-slate-800">Nova entrega disponível!</h3>
+                           <p className="text-slate-500 text-sm">Confirme para ver o endereço e iniciar a rota.</p>
+                       </div>
+                       <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                           <p className="text-sm font-bold text-slate-700">{activeOrder.items}</p>
+                       </div>
+                       <button 
+                           onClick={() => onAcceptOrder(activeOrder.id)}
+                           className="w-full bg-amber-500 hover:bg-amber-600 text-white font-extrabold py-4 rounded-xl shadow-lg shadow-amber-200 text-lg transition-transform active:scale-95"
+                       >
+                           ACEITAR CORRIDA
+                       </button>
+                   </div>
+               ) : (
+                   /* TELA DE ROTA (Aparece só depois de aceitar) */
+                   <div className="p-5 space-y-6">
+                     <div>
+                        <div className="flex items-start gap-3">
+                           <MapPin className="text-orange-500 mt-1 shrink-0" size={20}/>
+                           <div><p className="text-xs text-slate-400 font-bold uppercase">Entrega</p><p className="text-slate-700 font-medium">{activeOrder.address}</p></div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 mt-4">
+                           <button onClick={() => openApp(activeOrder.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeOrder.address)}`)} className="flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-blue-200 active:scale-95 transition-transform"><Navigation size={18}/> Waze / Maps</button>
+                           <button onClick={() => openApp(`https://wa.me/55${activeOrder.phone.replace(/\D/g, '')}`)} className="flex items-center justify-center gap-2 bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-emerald-200 active:scale-95 transition-transform"><MessageCircle size={18}/> WhatsApp</button>
+                        </div>
+                     </div>
+                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100"><p className="text-xs text-slate-400 font-bold uppercase mb-2">Detalhes do Pedido</p><p className="text-slate-600 text-sm whitespace-pre-wrap">{activeOrder.items}</p></div>
+                     <button onClick={onCompleteOrder} className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform"><CheckSquare size={20} className="text-emerald-400"/> Confirmar Entrega</button>
+                   </div>
+               )}
            </div>
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-center opacity-50 pb-20">
@@ -367,18 +403,18 @@ function AdminPanel(props: any) {
           <div className="text-center mb-6">
             <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4 text-orange-500"><Lock size={32}/></div>
             <h2 className="text-2xl font-bold text-slate-800">Acesso Gerente</h2>
-            <p className="text-sm text-slate-500">Digite sua senha ou PIN de acesso</p>
+            <p className="text-sm text-slate-500">Digite sua senha de acesso</p>
           </div>
           <form onSubmit={(e) => {
             e.preventDefault();
-            if (password === '1234') { 
+            if (password === 'admin') { 
               localStorage.setItem('jhans_admin_auth', 'true');
               setIsAuthenticated(true);
             } else {
-              alert("Senha incorreta! Tente 1234");
+              alert("Senha incorreta!");
             }
           }} className="space-y-4">
-            <div className="relative"><KeyRound className="absolute left-3 top-3 text-slate-400" size={20}/><input type="password" className="w-full pl-10 pr-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-orange-500 bg-slate-50" placeholder="Senha (1234)" value={password} onChange={e => setPassword(e.target.value)}/></div>
+            <div className="relative"><KeyRound className="absolute left-3 top-3 text-slate-400" size={20}/><input type="password" className="w-full pl-10 pr-4 py-3 border rounded-xl outline-none focus:ring-2 focus:ring-orange-500 bg-slate-50" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)}/></div>
             <button className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-xl transition-colors">Entrar no Painel</button>
           </form>
           <button onClick={props.onLogout} className="w-full mt-4 text-slate-400 text-sm hover:underline">Voltar</button>
@@ -531,7 +567,7 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrd
                          <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Atribuir Pedido</h4>
                          <div className="space-y-3 pb-20">
                             {orders.filter((o: Order) => o.status === 'pending').map((o: Order) => (
-                               <div key={o.id} className="border border-slate-200 p-4 rounded-xl hover:border-orange-500 transition-colors bg-white shadow-sm">
+                               <div key={o.id} onClick={()=>onAssignOrder(o.id, selectedDriver.id)} className="border border-slate-200 p-4 rounded-xl hover:border-orange-500 transition-colors bg-white shadow-sm">
                                   <div className="flex justify-between items-start mb-2"><span className="font-bold text-slate-800">{o.customer}</span><span className="text-emerald-600 font-bold">{o.amount}</span></div>
                                   <p className="text-xs text-slate-500 mb-3 line-clamp-2">{o.address}</p>
                                   <button onClick={()=>{onAssignOrder(o.id, selectedDriver.id); setSelectedDriver(null);}} className="w-full bg-slate-900 text-white text-xs font-bold py-2.5 rounded-lg hover:bg-slate-800 transition-colors">Enviar Entrega</button>
