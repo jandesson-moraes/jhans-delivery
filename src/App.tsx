@@ -3,10 +3,10 @@ import {
   MapPin, Navigation, Package, Clock, 
   X, Search, Users, Bike, 
   TrendingUp, Utensils, Plus, LogOut, CheckSquare,
-  MessageCircle, DollarSign, Loader2, Crosshair,
+  MessageCircle, DollarSign, Link as LinkIcon, Loader2, Crosshair,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
   Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
-  Camera, LayoutDashboard, Map as MapIcon
+  Camera, LayoutDashboard, Map as MapIcon, ShieldAlert, CheckCircle2
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -153,6 +153,7 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [vales, setVales] = useState<Vale[]>([]); 
   const [loading, setLoading] = useState(true);
+  const [permissionError, setPermissionError] = useState(false); // Novo estado de erro
 
   useEffect(() => {
     localStorage.setItem('jhans_viewMode', viewMode);
@@ -170,29 +171,30 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     
+    // Tratamento de erro de permissão no Snapshot
+    const handleSnapshotError = (error: any) => {
+        console.error("Erro no Banco de Dados:", error);
+        if (error.code === 'permission-denied') {
+            setPermissionError(true);
+        }
+    };
+
     const unsubDrivers = onSnapshot(collection(db, 'drivers'), (snap) => {
       setDrivers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Driver)));
-    }, (error) => {
-        console.error("Erro ao carregar motoristas:", error);
-    });
+    }, handleSnapshotError);
     
     const unsubOrders = onSnapshot(collection(db, 'orders'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
       data.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
       setOrders(data);
-    }, (error) => {
-        console.error("Erro ao carregar pedidos:", error);
-    });
+    }, handleSnapshotError);
 
     const unsubVales = onSnapshot(collection(db, 'vales'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Vale));
       data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setVales(data);
       setLoading(false);
-    }, (error) => {
-        console.error("Erro ao carregar vales:", error);
-        setLoading(false);
-    });
+    }, handleSnapshotError);
 
     return () => { unsubDrivers(); unsubOrders(); unsubVales(); };
   }, [user]);
@@ -214,9 +216,10 @@ export default function App() {
             status: 'pending',
             createdAt: serverTimestamp()
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Erro ao criar pedido:", error);
-        alert("Não foi possível salvar o pedido. Verifique sua conexão.");
+        if (error.code === 'permission-denied') setPermissionError(true);
+        else alert("Erro ao salvar: " + error.message);
     }
   };
 
@@ -226,11 +229,8 @@ export default function App() {
         await addDoc(collection(db, 'drivers'), data);
     } catch (error: any) {
         console.error("Erro ao criar motorista:", error);
-        if (error.code === 'permission-denied') {
-             alert("Erro de Permissão: O banco de dados recusou a gravação. Verifique as regras do Firestore.");
-        } else {
-             alert("Erro ao salvar: " + error.message);
-        }
+        if (error.code === 'permission-denied') setPermissionError(true);
+        else alert("Erro ao salvar: " + error.message);
         throw error;
     }
   };
@@ -239,8 +239,9 @@ export default function App() {
     if(!user) return;
     try {
         await updateDoc(doc(db, 'drivers', id), data);
-    } catch (error) {
-        console.error("Erro ao atualizar motorista:", error);
+    } catch (error: any) {
+        console.error("Erro ao atualizar:", error);
+        if (error.code === 'permission-denied') setPermissionError(true);
         throw error;
     }
   };
@@ -250,9 +251,9 @@ export default function App() {
     if (window.confirm("Tem certeza? O histórico financeiro será mantido, mas o acesso será revogado.")) {
       try {
         await deleteDoc(doc(db, 'drivers', id));
-      } catch (error) {
-        console.error("Erro ao excluir motorista:", error);
-        alert("Erro ao excluir. Verifique se você tem permissão.");
+      } catch (error: any) {
+        console.error("Erro ao excluir:", error);
+        if (error.code === 'permission-denied') setPermissionError(true);
       }
     }
   };
@@ -264,9 +265,9 @@ export default function App() {
             ...data,
             createdAt: serverTimestamp()
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Erro ao lançar vale:", error);
-        alert("Erro ao salvar o vale.");
+        if (error.code === 'permission-denied') setPermissionError(true);
     }
   };
 
@@ -307,6 +308,48 @@ export default function App() {
     setViewMode('landing');
     setCurrentDriverId(null);
   };
+
+  // --- TELA DE ERRO DE PERMISSÃO ---
+  if (permissionError) {
+      return (
+          <div className="h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-6">
+              <div className="bg-white text-slate-800 p-8 rounded-2xl max-w-lg shadow-2xl">
+                  <div className="flex items-center gap-3 mb-4 text-red-600">
+                      <ShieldAlert size={40} />
+                      <h1 className="text-2xl font-bold">Acesso Bloqueado pelo Banco de Dados</h1>
+                  </div>
+                  <p className="text-slate-600 mb-6">
+                      O Firebase está recusando a gravação dos dados. Isso acontece quando as "Regras de Segurança" não estão configuradas para modo de teste.
+                  </p>
+                  
+                  <div className="bg-slate-100 p-4 rounded-xl mb-6 text-sm border border-slate-200">
+                      <p className="font-bold mb-2">Siga estes passos para corrigir:</p>
+                      <ol className="list-decimal pl-4 space-y-2 text-slate-700">
+                          <li>Acesse o <strong>Console do Firebase</strong>.</li>
+                          <li>Vá em <strong>Firestore Database</strong> &gt; Aba <strong>Regras</strong>.</li>
+                          <li>Apague tudo o que estiver lá e cole este código:</li>
+                      </ol>
+                      <div className="bg-slate-800 text-green-400 p-3 rounded mt-3 font-mono text-xs">
+                          allow read, write: if true;
+                      </div>
+                      <p className="mt-3 text-slate-500 text-xs">*Depois clique em "Publicar".</p>
+                  </div>
+                  
+                  <div className="bg-slate-100 p-4 rounded-xl text-sm border border-slate-200">
+                       <p className="font-bold mb-2">Também verifique:</p>
+                       <ul className="list-disc pl-4 space-y-1 text-slate-700">
+                           <li>Vá em <strong>Authentication</strong> &gt; <strong>Sign-in method</strong>.</li>
+                           <li>Garanta que o provedor <strong>Anônimo</strong> esteja "Ativado".</li>
+                       </ul>
+                  </div>
+
+                  <button onClick={() => window.location.reload()} className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors">
+                      Já fiz isso, tentar novamente
+                  </button>
+              </div>
+          </div>
+      )
+  }
 
   if (loading && !user) return <div className="h-screen flex flex-col items-center justify-center bg-slate-900 text-white"><Loader2 className="animate-spin w-12 h-12 text-orange-500 mb-4"/> <span className="font-bold text-lg animate-pulse">Carregando Sistema...</span></div>;
 
@@ -371,7 +414,7 @@ function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType,
         </div>
       </div>
       
-      <p className="absolute bottom-6 text-slate-600 text-xs">Versão 6.3 • Jhans Delivery System</p>
+      <p className="absolute bottom-6 text-slate-600 text-xs">Versão 6.4 • Jhans Delivery System</p>
     </div>
   );
 }
@@ -822,52 +865,62 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
              </div>
           )}
 
+          {/* RELATÓRIO COMPACTO E LIMPO */}
           {view === 'history' && (
-             <div className="flex-1 bg-slate-50 p-6 md:p-10 overflow-auto pb-32 md:pb-10">
+             <div className="flex-1 bg-white p-6 md:p-10 overflow-auto pb-32 md:pb-10">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                    <h3 className="font-bold text-2xl text-slate-800">Relatório Completo</h3>
-                    <button onClick={copyReport} className="flex items-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 hover:scale-105">
-                        <ClipboardCopy size={18}/> Copiar para WhatsApp
+                    <div>
+                        <h3 className="font-bold text-2xl text-slate-800">Histórico de Vendas</h3>
+                        <p className="text-sm text-slate-400">Visão detalhada das entregas concluídas</p>
+                    </div>
+                    <button onClick={copyReport} className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg">
+                        <ClipboardCopy size={18}/> Relatório WhatsApp
                     </button>
                 </div>
                 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-2 gap-4 mb-8">
                    <StatBox label="Faturamento" value={`R$ ${delivered.reduce((acc: number, c: Order)=>acc+(c.value||0),0).toFixed(2)}`} icon={<DollarSign/>} color="bg-emerald-50 text-emerald-600"/>
                    <StatBox label="Entregas" value={delivered.length} icon={<CheckSquare/>} color="bg-blue-50 text-blue-600"/>
                 </div>
                 
-                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                <div className="rounded-xl border border-slate-100 overflow-hidden">
                    <div className="overflow-x-auto">
-                     <table className="w-full text-sm text-left border-collapse">
-                        <thead className="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider">
+                     <table className="w-full text-xs md:text-sm text-left">
+                        <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider border-b border-slate-100">
                            <tr>
-                              <th className="p-3 font-semibold border-b">Cliente</th>
-                              <th className="p-3 font-semibold border-b">Entregador</th>
-                              <th className="p-3 font-semibold border-b">Valor</th>
-                              <th className="p-3 font-semibold border-b">Pagamento</th>
-                              <th className="p-3 font-semibold border-b hidden md:table-cell">Duração</th>
-                              <th className="p-3 font-semibold border-b">Status</th>
+                               <th className="p-4">Cliente</th>
+                               <th className="p-4 hidden md:table-cell">Entregador</th>
+                               <th className="p-4">Valor</th>
+                               <th className="p-4 hidden sm:table-cell">Pagamento</th>
+                               <th className="p-4 hidden lg:table-cell">Tempo</th>
+                               <th className="p-4 text-right">Status</th>
                            </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-slate-50">
                            {sortedHistory.map((o: Order) => (
-                              <tr key={o.id} className="hover:bg-slate-50/80 transition-colors text-xs md:text-sm">
-                                 <td className="p-3 font-medium text-slate-800">{o.customer}</td>
-                                 <td className="p-3 text-slate-600">
+                              <tr key={o.id} className="hover:bg-slate-50/50 transition-colors">
+                                 <td className="p-4 font-medium text-slate-700">{o.customer}</td>
+                                 <td className="p-4 hidden md:table-cell">
                                      <div className="flex items-center gap-2">
-                                         <div className="w-6 h-6 rounded-full bg-slate-200 overflow-hidden shadow-sm">
-                                            <img src={drivers.find((d: Driver) => d.id === o.driverId)?.avatar} className="w-full h-full object-cover"/>
-                                         </div>
-                                         <span className="font-medium text-slate-700">{drivers.find((d: Driver) => d.id === o.driverId)?.name || '...'}</span>
+                                         {drivers.find(d => d.id === o.driverId) ? (
+                                            <>
+                                                <img src={drivers.find(d => d.id === o.driverId)?.avatar} className="w-6 h-6 rounded-full object-cover"/>
+                                                <span className="text-slate-600">{drivers.find(d => d.id === o.driverId)?.name}</span>
+                                            </>
+                                         ) : <span className="text-slate-400 italic">Desconhecido</span>}
                                      </div>
                                  </td>
-                                 <td className="p-3 font-bold text-emerald-600">{o.amount}</td>
-                                 <td className="p-3 text-slate-500 font-medium">{o.paymentMethod || '-'}</td>
-                                 <td className="p-3 text-slate-500 hidden md:table-cell font-mono">{calcDuration(o.assignedAt, o.completedAt)}</td>
-                                 <td className="p-3"><span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold border border-emerald-200">CONCLUÍDO</span></td>
+                                 <td className="p-4 font-bold text-emerald-600">{o.amount}</td>
+                                 <td className="p-4 text-slate-500 hidden sm:table-cell">{o.paymentMethod || '-'}</td>
+                                 <td className="p-4 text-slate-400 hidden lg:table-cell font-mono">{calcDuration(o.assignedAt, o.completedAt)}</td>
+                                 <td className="p-4 text-right">
+                                     <div className="inline-flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-1 rounded text-[10px] font-bold uppercase">
+                                         <CheckCircle2 size={12}/> Concluído
+                                     </div>
+                                 </td>
                               </tr>
                            ))}
-                           {sortedHistory.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Nenhum dado encontrado para hoje.</td></tr>}
+                           {sortedHistory.length === 0 && <tr><td colSpan={6} className="p-10 text-center text-slate-400">Nenhum dado encontrado hoje.</td></tr>}
                         </tbody>
                      </table>
                    </div>
