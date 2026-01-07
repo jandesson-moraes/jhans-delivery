@@ -3,7 +3,7 @@ import {
   MapPin, Navigation, Package, Clock, 
   X, Search, Users, Bike, 
   TrendingUp, Utensils, Plus, LogOut, CheckSquare,
-  MessageCircle, DollarSign, Loader2,
+  MessageCircle, DollarSign, Loader2, Crosshair,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
   Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
   Camera, LayoutDashboard, Map as MapIcon
@@ -234,7 +234,7 @@ export default function App() {
     }
   };
 
-  // NOVA FUNÇÃO: DELETAR PEDIDO
+  // DELETAR PEDIDO
   const deleteOrder = async (id: string) => {
       if(!user) return;
       if (window.confirm("Tem certeza que deseja EXCLUIR este pedido do histórico?")) {
@@ -342,7 +342,7 @@ function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType,
           )}
         </div>
       </div>
-      <p className="absolute bottom-6 text-slate-700 text-xs">Versão 7.3 • Jhans Delivery System</p>
+      <p className="absolute bottom-6 text-slate-700 text-xs">Versão 7.4 • Jhans Delivery System</p>
     </div>
   );
 }
@@ -800,7 +800,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
           )}
 
           {/* PAINEL LATERAL DESLIZANTE (Agora oculto por padrão no modo mapa para "Visão Ampla") */}
-          <aside className={`fixed inset-y-0 right-0 w-full md:w-96 bg-white shadow-2xl p-0 overflow-y-auto z-50 transition-transform duration-300 border-l border-slate-100 ${selectedDriver ? 'translate-x-0' : 'translate-x-full'}`}>
+          <aside className={`fixed inset-y-0 right-0 w-full md:w-96 bg-white shadow-2xl p-0 overflow-y-auto z-40 transition-transform duration-300 border-l border-slate-100 ${selectedDriver ? 'translate-x-0' : 'translate-x-full'}`}>
              {selectedDriver && (
                <div className="h-full flex flex-col bg-slate-50">
                   <div className="bg-white p-6 border-b border-slate-100 sticky top-0 z-10">
@@ -1015,7 +1015,7 @@ function NewDriverModal({ onClose, onSave, initialData }: any) {
         await onSave(driverData);
         onClose();
       } catch (error) {
-        // Erro já tratado no onSave
+        console.error(error);
       } finally {
         setLoading(false);
       }
