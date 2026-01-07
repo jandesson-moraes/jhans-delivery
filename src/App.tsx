@@ -6,7 +6,7 @@ import {
   MessageCircle, DollarSign, Link as LinkIcon, Loader2, Crosshair,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
   Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
-  Camera, Upload
+  Camera
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
