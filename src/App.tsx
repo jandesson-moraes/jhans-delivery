@@ -4,7 +4,7 @@ import {
   X, Search, Users, Bike, 
   TrendingUp, Utensils, Plus, LogOut, CheckSquare,
   MessageCircle, DollarSign, Link as LinkIcon, Loader2, Crosshair,
-  Lock, KeyRound, ChevronRight, BellRing
+  Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -66,9 +66,11 @@ interface Order {
   address: string;
   mapsLink?: string; 
   items: string; 
-  status: 'pending' | 'assigned' | 'accepted' | 'completed'; // Adicionado 'accepted'
+  status: 'pending' | 'assigned' | 'accepted' | 'completed';
   amount: string;
   value: number; 
+  paymentMethod?: string; // Novo
+  obs?: string; // Novo
   time?: string; 
   createdAt: any; 
   assignedAt?: any; 
@@ -123,7 +125,7 @@ export default function App() {
     });
     const unsubOrders = onSnapshot(collection(db, 'orders'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
-      // CORREÇÃO: Ordem CRESCENTE (Mais antigos primeiro - Fila)
+      // Ordem CRESCENTE (Fila)
       data.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
       setOrders(data);
       setLoading(false);
@@ -156,14 +158,12 @@ export default function App() {
 
   const assignOrder = async (orderId: string, driverId: string) => {
     if(!user) return;
-    // Define status como 'assigned' (aguardando aceite do motoboy)
     await updateDoc(doc(db, 'orders', orderId), { status: 'assigned', assignedAt: serverTimestamp() });
     await updateDoc(doc(db, 'drivers', driverId), { status: 'delivering', currentOrderId: orderId });
   };
 
   const acceptOrder = async (orderId: string) => {
     if(!user) return;
-    // Motoboy aceita a corrida
     await updateDoc(doc(db, 'orders', orderId), { status: 'accepted' });
   };
 
@@ -341,7 +341,6 @@ function DriverApp({ driver, orders, onToggleStatus, onAcceptOrder, onCompleteOr
                   <div className="text-right"><p className="text-xs text-slate-500">A cobrar</p><p className="font-bold text-xl text-slate-800">{activeOrder.amount}</p></div>
                </div>
                
-               {/* TELA DE ACEITE (Bloqueia detalhes até aceitar) */}
                {activeOrder.status === 'assigned' ? (
                    <div className="p-6 text-center space-y-4">
                        <BellRing className="w-16 h-16 text-amber-500 mx-auto animate-bounce"/>
@@ -352,15 +351,9 @@ function DriverApp({ driver, orders, onToggleStatus, onAcceptOrder, onCompleteOr
                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                            <p className="text-sm font-bold text-slate-700">{activeOrder.items}</p>
                        </div>
-                       <button 
-                           onClick={() => onAcceptOrder(activeOrder.id)}
-                           className="w-full bg-amber-500 hover:bg-amber-600 text-white font-extrabold py-4 rounded-xl shadow-lg shadow-amber-200 text-lg transition-transform active:scale-95"
-                       >
-                           ACEITAR CORRIDA
-                       </button>
+                       <button onClick={() => onAcceptOrder(activeOrder.id)} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-extrabold py-4 rounded-xl shadow-lg shadow-amber-200 text-lg transition-transform active:scale-95">ACEITAR CORRIDA</button>
                    </div>
                ) : (
-                   /* TELA DE ROTA (Aparece só depois de aceitar) */
                    <div className="p-5 space-y-6">
                      <div>
                         <div className="flex items-start gap-3">
@@ -372,7 +365,11 @@ function DriverApp({ driver, orders, onToggleStatus, onAcceptOrder, onCompleteOr
                            <button onClick={() => openApp(`https://wa.me/55${activeOrder.phone.replace(/\D/g, '')}`)} className="flex items-center justify-center gap-2 bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-emerald-200 active:scale-95 transition-transform"><MessageCircle size={18}/> WhatsApp</button>
                         </div>
                      </div>
-                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100"><p className="text-xs text-slate-400 font-bold uppercase mb-2">Detalhes do Pedido</p><p className="text-slate-600 text-sm whitespace-pre-wrap">{activeOrder.items}</p></div>
+                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
+                        <div><p className="text-xs text-slate-400 font-bold uppercase">Itens</p><p className="text-slate-600 text-sm">{activeOrder.items}</p></div>
+                        {activeOrder.obs && <div><p className="text-xs text-slate-400 font-bold uppercase">Obs</p><p className="text-orange-600 text-sm font-bold">{activeOrder.obs}</p></div>}
+                        {activeOrder.paymentMethod && <div><p className="text-xs text-slate-400 font-bold uppercase">Pagamento</p><p className="text-slate-600 text-sm">{activeOrder.paymentMethod}</p></div>}
+                     </div>
                      <button onClick={onCompleteOrder} className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform"><CheckSquare size={20} className="text-emerald-400"/> Confirmar Entrega</button>
                    </div>
                )}
@@ -440,6 +437,30 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrd
       } else {
           alert("Aguardando sinal de GPS do motoboy...");
       }
+  };
+
+  // --- GERADOR DE RELATÓRIO WHATSAPP ---
+  const copyReport = () => {
+    const today = new Date().toLocaleDateString('pt-BR');
+    let text = `🛵 *RELATÓRIO DE ENTREGAS - JHAN'S BURGERS*\n📅 Data: ${today}\n--- ENTREGAS ---\n\n`;
+    
+    // Filtra entregas de hoje (opcional, aqui pega todas concluídas)
+    sortedHistory.forEach((o: Order, i: number) => {
+       text += `✅ ENTREGA ${sortedHistory.length - i} (${o.paymentMethod || 'PAGO'})\n`;
+       text += `👤 Cliente: ${o.customer}\n`;
+       text += `📞 Telefone: ${o.phone}\n`;
+       text += `🏠 Endereço: ${o.address}\n`;
+       if (o.mapsLink) text += `🔗 Localização: ${o.mapsLink}\n`;
+       text += `🍔 Pedido: ${o.items}\n`;
+       text += `💵 Valor: ${o.amount}\n`;
+       text += `📝 Obs: ${o.obs || 'Nenhuma.'}\n`;
+       if (o.assignedAt && o.completedAt) text += `⏱ Tempo: ${calcDuration(o.assignedAt, o.completedAt)}\n`;
+       text += `\n`;
+    });
+    
+    text += `--- FIM ---\nBoa sorte nas entregas! 🚀`;
+    navigator.clipboard.writeText(text);
+    alert("Relatório copiado para a área de transferência!");
   };
 
   return (
@@ -518,29 +539,37 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrd
 
           {view === 'history' && (
              <div className="flex-1 bg-white p-4 md:p-8 overflow-auto pb-24 md:pb-8">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-lg text-slate-800">Relatório Completo</h3>
+                    <button onClick={copyReport} className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200">
+                        <ClipboardCopy size={16}/> Copiar Relatório do Dia
+                    </button>
+                </div>
+                
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                    <StatBox label="Faturamento" value={`R$ ${delivered.reduce((acc: number, c: Order)=>acc+(c.value||0),0).toFixed(2)}`} icon={<DollarSign/>} color="bg-emerald-50 text-emerald-600"/>
                    <StatBox label="Entregas" value={delivered.length} icon={<CheckSquare/>} color="bg-blue-50 text-blue-600"/>
                 </div>
-                <h3 className="font-bold text-lg mb-4 text-slate-800">Relatório Completo</h3>
+                
                 <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
                    <div className="overflow-x-auto">
                      <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50 border-b text-slate-500 font-semibold uppercase text-xs">
-                           <tr><th className="p-4">Cliente</th><th className="p-4">Valor</th><th className="p-4 hidden md:table-cell">Início</th><th className="p-4 hidden md:table-cell">Fim</th><th className="p-4">Duração</th><th className="p-4">Status</th></tr>
+                           <tr><th className="p-4">Cliente</th><th className="p-4">Valor</th><th className="p-4">Pagamento</th><th className="p-4 hidden md:table-cell">Início</th><th className="p-4 hidden md:table-cell">Fim</th><th className="p-4">Duração</th><th className="p-4">Status</th></tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                            {sortedHistory.map((o: Order) => (
                               <tr key={o.id} className="hover:bg-slate-50 transition-colors">
                                  <td className="p-4 font-medium text-slate-800">{o.customer}</td>
                                  <td className="p-4 font-bold text-emerald-600">{o.amount}</td>
+                                 <td className="p-4 text-slate-500 text-xs">{o.paymentMethod || '-'}</td>
                                  <td className="p-4 text-slate-500 hidden md:table-cell">{formatTime(o.assignedAt)}</td>
                                  <td className="p-4 text-slate-500 hidden md:table-cell">{formatTime(o.completedAt)}</td>
                                  <td className="p-4 font-bold text-slate-700">{calcDuration(o.assignedAt, o.completedAt)}</td>
                                  <td className="p-4"><span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold">Concluído</span></td>
                               </tr>
                            ))}
-                           {sortedHistory.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Nenhum dado encontrado</td></tr>}
+                           {sortedHistory.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-slate-400 italic">Nenhum dado encontrado</td></tr>}
                         </tbody>
                      </table>
                    </div>
@@ -615,48 +644,111 @@ function StatBox({label, value, icon, color}: any) {
 }
 
 function NewOrderModal({ onClose, onSave }: any) {
-   const [form, setForm] = useState({ customer: '', phone: '', address: '', items: '', amount: '', mapsLink: '' });
+   const [form, setForm] = useState({ 
+      customer: '', phone: '', address: '', items: '', amount: '', mapsLink: '', paymentMethod: '', obs: '' 
+   });
+   const [pasteArea, setPasteArea] = useState(false);
+   const [rawText, setRawText] = useState('');
+
+   const parseOrder = () => {
+      const getLine = (marker: string) => {
+         const regex = new RegExp(`${marker}\\s*(.*)`, 'i');
+         const match = rawText.match(regex);
+         return match ? match[1].trim() : '';
+      };
+
+      const valLine = getLine('💵 Valor:');
+      let val = valLine;
+      let pay = '';
+      if (valLine.includes('(')) {
+         val = valLine.split('(')[0].trim();
+         pay = valLine.split('(')[1].replace(')', '').trim();
+      }
+
+      setForm({
+         customer: getLine('👤 Cliente:'),
+         phone: getLine('📞 Telefone:'),
+         address: getLine('🏠 Endereço:'),
+         mapsLink: getLine('🔗 Localização:') || getLine('Link:'),
+         items: getLine('🍔 Pedido:'),
+         amount: val,
+         paymentMethod: pay,
+         obs: getLine('📝 Obs:')
+      });
+      setPasteArea(false);
+   };
+
    const submit = (e: React.FormEvent) => {
       e.preventDefault();
-      onSave({ ...form, value: parseFloat(form.amount.replace(/[^0-9.]/g, '')) || 0 });
+      onSave({ ...form, value: parseFloat(form.amount.replace(/[^0-9,.]/g, '').replace(',', '.')) || 0 });
       onClose();
    };
+
    return (
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center mb-4">
                <h3 className="font-bold text-xl text-slate-800 flex items-center gap-2"><Plus className="text-orange-500"/> Novo Pedido</h3>
                <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full"><X size={20}/></button>
             </div>
-            <form onSubmit={submit} className="space-y-4">
-               <div>
-                  <label className="text-xs font-bold text-slate-500 ml-1">Cliente</label>
-                  <input required className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Nome do Cliente" value={form.customer} onChange={e=>setForm({...form, customer: e.target.value})} />
-               </div>
-               <div className="grid grid-cols-2 gap-4">
-                  <div>
-                     <label className="text-xs font-bold text-slate-500 ml-1">Telefone</label>
-                     <input required className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="11999999999" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} />
+
+            {pasteArea ? (
+               <div className="space-y-3">
+                  <p className="text-sm text-slate-500">Cole o texto do WhatsApp abaixo:</p>
+                  <textarea 
+                     className="w-full h-40 border p-3 rounded-xl text-xs font-mono bg-slate-50"
+                     placeholder="👤 Cliente: ... 🏠 Endereço: ..."
+                     value={rawText}
+                     onChange={e => setRawText(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                     <button onClick={() => setPasteArea(false)} className="flex-1 border py-2 rounded-lg text-sm font-bold text-slate-500">Cancelar</button>
+                     <button onClick={parseOrder} className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-bold">Preencher Auto</button>
                   </div>
-                  <div>
-                     <label className="text-xs font-bold text-slate-500 ml-1">Valor</label>
-                     <input required className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="R$ 0,00" value={form.amount} onChange={e=>setForm({...form, amount: e.target.value})} />
-                  </div>
                </div>
-               <div>
-                  <label className="text-xs font-bold text-slate-500 ml-1">Endereço</label>
-                  <input required className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="Rua, Número, Bairro" value={form.address} onChange={e=>setForm({...form, address: e.target.value})} />
-               </div>
-               <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
-                  <label className="text-xs font-bold text-blue-600 flex items-center gap-1 mb-1"><LinkIcon size={12}/> Link do Maps (Opcional)</label>
-                  <input className="w-full bg-white border border-blue-200 rounded-lg p-2 text-sm text-blue-800" placeholder="https://maps.google.com/..." value={form.mapsLink} onChange={e=>setForm({...form, mapsLink: e.target.value})} />
-               </div>
-               <div>
-                  <label className="text-xs font-bold text-slate-500 ml-1">Itens</label>
-                  <textarea required className="w-full border border-slate-200 rounded-xl p-3 outline-none min-h-[80px]" placeholder="Descrição do pedido..." value={form.items} onChange={e=>setForm({...form, items: e.target.value})} />
-               </div>
-               <button className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-orange-200 transition-transform active:scale-95">Salvar Pedido</button>
-            </form>
+            ) : (
+                <form onSubmit={submit} className="space-y-4">
+                   <button type="button" onClick={() => setPasteArea(true)} className="w-full border-2 border-dashed border-blue-200 bg-blue-50 text-blue-600 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors">
+                      <FileText size={16}/> Colar do WhatsApp (Auto-Preencher)
+                   </button>
+
+                   <div>
+                      <label className="text-xs font-bold text-slate-500 ml-1">Cliente</label>
+                      <input required className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Nome do Cliente" value={form.customer} onChange={e=>setForm({...form, customer: e.target.value})} />
+                   </div>
+                   <div className="grid grid-cols-2 gap-4">
+                      <div>
+                         <label className="text-xs font-bold text-slate-500 ml-1">Telefone</label>
+                         <input required className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="11999999999" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} />
+                      </div>
+                      <div>
+                         <label className="text-xs font-bold text-slate-500 ml-1">Valor</label>
+                         <input required className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="R$ 0,00" value={form.amount} onChange={e=>setForm({...form, amount: e.target.value})} />
+                      </div>
+                   </div>
+                   <div>
+                      <label className="text-xs font-bold text-slate-500 ml-1">Forma de Pagamento</label>
+                      <input className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="Ex: PIX, Cartão, Dinheiro" value={form.paymentMethod} onChange={e=>setForm({...form, paymentMethod: e.target.value})} />
+                   </div>
+                   <div>
+                      <label className="text-xs font-bold text-slate-500 ml-1">Endereço</label>
+                      <input required className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="Rua, Número, Bairro" value={form.address} onChange={e=>setForm({...form, address: e.target.value})} />
+                   </div>
+                   <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                      <label className="text-xs font-bold text-blue-600 flex items-center gap-1 mb-1"><LinkIcon size={12}/> Link do Maps (Opcional)</label>
+                      <input className="w-full bg-white border border-blue-200 rounded-lg p-2 text-sm text-blue-800" placeholder="https://maps.google.com/..." value={form.mapsLink} onChange={e=>setForm({...form, mapsLink: e.target.value})} />
+                   </div>
+                   <div>
+                      <label className="text-xs font-bold text-slate-500 ml-1">Itens</label>
+                      <textarea required className="w-full border border-slate-200 rounded-xl p-3 outline-none min-h-[60px]" placeholder="Descrição do pedido..." value={form.items} onChange={e=>setForm({...form, items: e.target.value})} />
+                   </div>
+                   <div>
+                      <label className="text-xs font-bold text-slate-500 ml-1">Observações</label>
+                      <input className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="Ex: Troco para 50" value={form.obs} onChange={e=>setForm({...form, obs: e.target.value})} />
+                   </div>
+                   <button className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-orange-200 transition-transform active:scale-95">Salvar Pedido</button>
+                </form>
+            )}
          </div>
       </div>
    )
