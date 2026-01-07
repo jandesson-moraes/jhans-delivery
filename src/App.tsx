@@ -172,12 +172,16 @@ export default function App() {
     
     const unsubDrivers = onSnapshot(collection(db, 'drivers'), (snap) => {
       setDrivers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Driver)));
+    }, (error) => {
+        console.error("Erro ao carregar motoristas:", error);
     });
     
     const unsubOrders = onSnapshot(collection(db, 'orders'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
       data.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
       setOrders(data);
+    }, (error) => {
+        console.error("Erro ao carregar pedidos:", error);
     });
 
     const unsubVales = onSnapshot(collection(db, 'vales'), (snap) => {
@@ -185,6 +189,9 @@ export default function App() {
       data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setVales(data);
       setLoading(false);
+    }, (error) => {
+        console.error("Erro ao carregar vales:", error);
+        setLoading(false);
     });
 
     return () => { unsubDrivers(); unsubOrders(); unsubVales(); };
@@ -201,36 +208,61 @@ export default function App() {
 
   const createOrder = async (data: any) => {
     if(!user) return;
-    await addDoc(collection(db, 'orders'), {
-      ...data,
-      status: 'pending',
-      createdAt: serverTimestamp()
-    });
+    try {
+        await addDoc(collection(db, 'orders'), {
+            ...data,
+            status: 'pending',
+            createdAt: serverTimestamp()
+        });
+    } catch (error) {
+        console.error("Erro ao criar pedido:", error);
+        alert("Não foi possível salvar o pedido. Verifique sua conexão.");
+    }
   };
 
   const createDriver = async (data: any) => {
     if(!user) return;
-    await addDoc(collection(db, 'drivers'), data);
+    try {
+        await addDoc(collection(db, 'drivers'), data);
+    } catch (error) {
+        console.error("Erro ao criar motorista:", error);
+        throw error;
+    }
   };
 
   const updateDriver = async (id: string, data: any) => {
     if(!user) return;
-    await updateDoc(doc(db, 'drivers', id), data);
+    try {
+        await updateDoc(doc(db, 'drivers', id), data);
+    } catch (error) {
+        console.error("Erro ao atualizar motorista:", error);
+        throw error;
+    }
   };
 
   const deleteDriver = async (id: string) => {
     if(!user) return;
     if (window.confirm("Tem certeza? O histórico financeiro será mantido, mas o acesso será revogado.")) {
-      await deleteDoc(doc(db, 'drivers', id));
+      try {
+        await deleteDoc(doc(db, 'drivers', id));
+      } catch (error) {
+        console.error("Erro ao excluir motorista:", error);
+        alert("Erro ao excluir. Verifique se você tem permissão.");
+      }
     }
   };
 
   const createVale = async (data: any) => {
     if(!user) return;
-    await addDoc(collection(db, 'vales'), {
-      ...data,
-      createdAt: serverTimestamp()
-    });
+    try {
+        await addDoc(collection(db, 'vales'), {
+            ...data,
+            createdAt: serverTimestamp()
+        });
+    } catch (error) {
+        console.error("Erro ao lançar vale:", error);
+        alert("Erro ao salvar o vale.");
+    }
   };
 
   const assignOrder = async (orderId: string, driverId: string) => {
@@ -334,7 +366,7 @@ function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType,
         </div>
       </div>
       
-      <p className="absolute bottom-6 text-slate-600 text-xs">Versão 6.0 • Jhans Delivery System</p>
+      <p className="absolute bottom-6 text-slate-600 text-xs">Versão 6.2 • Jhans Delivery System</p>
     </div>
   );
 }
@@ -812,9 +844,9 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
                                  <td className="p-5 text-slate-600">
                                      <div className="flex items-center gap-2">
                                          <div className="w-6 h-6 rounded-full bg-slate-200 overflow-hidden">
-                                            <img src={drivers.find(d => d.id === o.driverId)?.avatar} className="w-full h-full object-cover"/>
+                                            <img src={drivers.find((d: Driver) => d.id === o.driverId)?.avatar} className="w-full h-full object-cover"/>
                                          </div>
-                                         {drivers.find(d => d.id === o.driverId)?.name || '...'}
+                                         {drivers.find((d: Driver) => d.id === o.driverId)?.name || '...'}
                                      </div>
                                  </td>
                                  <td className="p-5 font-bold text-emerald-600">{o.amount}</td>
@@ -902,7 +934,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
       
       {/* MODAL MOTORISTA (CRIAR/EDITAR) */}
       {modal === 'driver' && (
-         <DriverModal 
+         <NewDriverModal 
             onClose={()=>{setModal(null); setDriverToEdit(null);}} 
             onSave={driverToEdit ? (data: any) => onUpdateDriver(driverToEdit.id, data) : onCreateDriver}
             initialData={driverToEdit} 
@@ -1042,7 +1074,7 @@ function NewOrderModal({ onClose, onSave }: any) {
 }
 
 function NewDriverModal({ onClose, onSave, initialData }: any) {
-   // ... Mesmo código do modal de driver, mas com estilos atualizados (veja abaixo se precisar, mas o padrão segue o NewOrderModal)
+   const [loading, setLoading] = useState(false);
    const [form, setForm] = useState({ 
        name: initialData?.name || '', 
        password: initialData?.password || '', 
@@ -1064,15 +1096,23 @@ function NewDriverModal({ onClose, onSave, initialData }: any) {
       }
    };
    
-   const submit = (e: React.FormEvent) => {
+   const submit = async (e: React.FormEvent) => {
       e.preventDefault();
-      onSave({
-          ...form,
-          status: initialData ? initialData.status : 'offline',
-          lat: 0, lng: 0, battery: 100, rating: 5.0, totalDeliveries: 0,
-          avatar: form.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${form.name}`
-      });
-      onClose();
+      setLoading(true);
+      try {
+        const driverData = {
+            ...form,
+            status: initialData ? initialData.status : 'offline',
+            lat: 0, lng: 0, battery: 100, rating: 5.0, totalDeliveries: 0,
+            avatar: form.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${form.name}`
+        };
+        await onSave(driverData);
+        onClose();
+      } catch (error) {
+        // Erro já tratado no onSave
+      } finally {
+        setLoading(false);
+      }
    };
 
    return (
@@ -1109,8 +1149,8 @@ function NewDriverModal({ onClose, onSave, initialData }: any) {
                </div>
 
                <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={onClose} className="flex-1 border border-slate-200 rounded-xl py-3 font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
-                  <button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-3 font-bold shadow-lg shadow-emerald-200">Salvar</button>
+                  <button type="button" onClick={onClose} disabled={loading} className="flex-1 border border-slate-200 rounded-xl py-3 font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
+                  <button disabled={loading} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-3 font-bold shadow-lg shadow-emerald-200 flex justify-center">{loading ? <Loader2 className="animate-spin" size={20}/> : 'Salvar'}</button>
                </div>
             </form>
          </div>
@@ -1121,19 +1161,25 @@ function NewDriverModal({ onClose, onSave, initialData }: any) {
 function NewValeModal({ driver, onClose, onSave }: any) {
     const [amount, setAmount] = useState('');
     const [desc, setDesc] = useState('');
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave({ driverId: driver.id, amount: parseFloat(amount.replace(',', '.')), description: desc });
+        onSave({
+            driverId: driver.id,
+            amount: parseFloat(amount.replace(',', '.')),
+            description: desc
+        });
         onClose();
     };
+
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm animate-in zoom-in p-6">
-                <h3 className="font-bold text-xl mb-1 text-slate-800 flex items-center gap-2"><MinusCircle className="text-red-500"/> Novo Vale</h3>
-                <p className="text-sm text-slate-400 mb-6">Desconto para <strong>{driver.name}</strong></p>
+                <h3 className="font-bold text-xl mb-4 text-slate-800 flex items-center gap-2"><MinusCircle className="text-red-500"/> Novo Vale</h3>
+                <p className="text-sm text-slate-500 mb-6">Desconto para <strong>{driver.name}</strong></p>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Valor</label><input required autoFocus className="w-full border-2 border-slate-100 rounded-xl p-4 text-2xl font-bold text-slate-800 outline-none focus:border-red-500" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} /></div>
-                    <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Motivo</label><input required className="w-full border-2 border-slate-100 rounded-xl p-3 outline-none" placeholder="Ex: Gasolina" value={desc} onChange={e => setDesc(e.target.value)} /></div>
+                    <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Valor (R$)</label><input required autoFocus className="w-full border-2 border-slate-100 rounded-xl p-4 text-2xl font-bold text-slate-800 outline-none focus:border-red-500" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} /></div>
+                    <div><label className="text-xs font-bold text-slate-400 ml-1 uppercase mb-1 block">Motivo</label><input required className="w-full border-2 border-slate-100 rounded-xl p-3 outline-none" placeholder="Ex: Gasolina, Adiantamento" value={desc} onChange={e => setDesc(e.target.value)} /></div>
                     <div className="flex gap-3 pt-4">
                         <button type="button" onClick={onClose} className="flex-1 border border-slate-200 rounded-xl py-3 font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
                         <button className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl py-3 font-bold shadow-lg shadow-red-200">Confirmar</button>
