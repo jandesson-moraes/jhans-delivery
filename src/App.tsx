@@ -5,7 +5,8 @@ import {
   TrendingUp, Utensils, Plus, LogOut, CheckSquare,
   MessageCircle, DollarSign, Link as LinkIcon, Loader2, Crosshair,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
-  Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle
+  Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
+  Camera
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -42,7 +43,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- CONSTANTES ---
-const TAXA_ENTREGA = 5.00; // Valor pago ao motoboy por entrega
+const TAXA_ENTREGA = 5.00; 
 
 // --- TIPOS ---
 type UserType = 'admin' | 'driver' | 'landing';
@@ -56,9 +57,11 @@ interface Driver {
   lng: number;
   battery: number;
   vehicle: string;
+  plate?: string; 
+  cpf?: string;   
   phone: string;
   currentOrderId?: string;
-  avatar: string;
+  avatar: string; 
   rating: number;
   totalDeliveries: number;
   lastUpdate?: any; 
@@ -83,7 +86,6 @@ interface Order {
   driverId?: string; 
 }
 
-// Novo Tipo para Vales
 interface Vale {
   id: string;
   driverId: string;
@@ -123,7 +125,7 @@ export default function App() {
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [vales, setVales] = useState<Vale[]>([]); // Novo estado para Vales
+  const [vales, setVales] = useState<Vale[]>([]); 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -152,10 +154,8 @@ export default function App() {
       setOrders(data);
     });
 
-    // Listener para Vales
     const unsubVales = onSnapshot(collection(db, 'vales'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Vale));
-      // Ordenar vales por data
       data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setVales(data);
       setLoading(false);
@@ -199,7 +199,6 @@ export default function App() {
     }
   };
 
-  // Função para criar Vale
   const createVale = async (data: any) => {
     if(!user) return;
     await addDoc(collection(db, 'vales'), {
@@ -317,8 +316,14 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
         <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
           {drivers.map((d: Driver) => (
             <button key={d.id} onClick={() => onSelect(d.id)} className="w-full flex items-center gap-4 p-3 border border-slate-100 rounded-xl hover:bg-orange-50 hover:border-orange-200 transition-all">
-              <img src={d.avatar} className="w-12 h-12 rounded-full bg-slate-100 shadow-sm"/>
-              <div className="text-left"><span className="font-bold text-slate-700 block">{d.name}</span><span className="text-xs text-slate-400 uppercase font-semibold">{d.vehicle}</span></div>
+              <img src={d.avatar} className="w-12 h-12 rounded-full bg-slate-100 shadow-sm object-cover"/>
+              <div className="text-left">
+                <span className="font-bold text-slate-700 block">{d.name}</span>
+                <span className="text-xs text-slate-400 uppercase font-semibold flex items-center gap-1">
+                    {d.plate && <span className="bg-slate-100 px-1 rounded">{d.plate}</span>}
+                    {d.vehicle}
+                </span>
+              </div>
             </button>
           ))}
         </div>
@@ -335,7 +340,6 @@ function DriverApp({ driver, orders, vales, onToggleStatus, onAcceptOrder, onCom
   const [activeTab, setActiveTab] = useState<'home' | 'wallet'>('home');
   const activeOrder = orders.find((o: Order) => o.id === driver.currentOrderId);
   
-  // FINANÇAS DO MOTORISTA
   const myDeliveries = orders.filter((o: Order) => o.status === 'completed' && o.driverId === driver.id);
   const myVales = vales.filter((v: Vale) => v.driverId === driver.id);
   
@@ -343,7 +347,6 @@ function DriverApp({ driver, orders, vales, onToggleStatus, onAcceptOrder, onCom
   const totalDeductions = myVales.reduce((acc: number, v: Vale) => acc + (Number(v.amount) || 0), 0);
   const finalBalance = totalEarnings - totalDeductions;
 
-  // Unir e ordenar histórico para exibição
   const history = [
       ...myDeliveries.map((o: Order) => ({ type: 'delivery', date: o.completedAt, amount: TAXA_ENTREGA, desc: o.address, id: o.id })),
       ...myVales.map((v: Vale) => ({ type: 'vale', date: v.createdAt, amount: v.amount, desc: v.description, id: v.id }))
@@ -375,16 +378,15 @@ function DriverApp({ driver, orders, vales, onToggleStatus, onAcceptOrder, onCom
       <div className="bg-slate-900 text-white p-5 pb-8 rounded-b-[2rem] shadow-lg relative z-10">
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-3">
-            <img src={driver.avatar} className="w-14 h-14 rounded-full border-4 border-slate-800 bg-white" />
+            <img src={driver.avatar} className="w-14 h-14 rounded-full border-4 border-slate-800 bg-white object-cover" />
             <div>
               <h2 className="font-bold text-xl">{driver.name}</h2>
-              <div className="flex items-center gap-2 text-slate-400 text-xs font-medium"><span className="bg-slate-800 px-2 py-0.5 rounded">{driver.vehicle}</span><span className="text-amber-400">★ {driver.rating}</span></div>
+              <div className="flex items-center gap-2 text-slate-400 text-xs font-medium"><span className="bg-slate-800 px-2 py-0.5 rounded">{driver.plate || driver.vehicle}</span><span className="text-amber-400">★ {driver.rating}</span></div>
             </div>
           </div>
           <button onClick={onLogout} className="p-2 bg-white/10 rounded-full hover:bg-white/20"><LogOut size={20}/></button>
         </div>
         
-        {/* Toggle Abas */}
         <div className="flex bg-slate-800 p-1 rounded-xl mt-4">
            <button onClick={() => setActiveTab('home')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab==='home' ? 'bg-orange-600 text-white' : 'text-slate-400'}`}>Entregas</button>
            <button onClick={() => setActiveTab('wallet')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab==='wallet' ? 'bg-orange-600 text-white' : 'text-slate-400'}`}>Minha Carteira</button>
@@ -457,7 +459,6 @@ function DriverApp({ driver, orders, vales, onToggleStatus, onAcceptOrder, onCom
             )}
           </>
         ) : (
-          /* ABA CARTEIRA DO MOTOBOY */
           <div className="space-y-4">
              <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl">
                 <p className="text-slate-400 text-sm mb-1">Saldo a Receber</p>
@@ -538,7 +539,6 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
   const [driverReportId, setDriverReportId] = useState<string | null>(null);
 
   const delivered = orders.filter((o: Order) => o.status === 'completed');
-  // CORREÇÃO: Tipagem explícita para o sort
   const sortedHistory = [...delivered].sort((a: Order, b: Order) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
 
   const trackDriver = (driver: Driver) => {
@@ -631,7 +631,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
                    {drivers.map((d: Driver) => (
                       <div key={d.id} className="border p-4 rounded-xl hover:shadow-md transition-all bg-white relative group">
                          <div className="flex items-center gap-4 cursor-pointer" onClick={()=>setSelectedDriver(d)}>
-                            <img src={d.avatar} className="w-14 h-14 rounded-full bg-slate-100"/>
+                            <img src={d.avatar} className="w-14 h-14 rounded-full bg-slate-100 object-cover"/>
                             <div>
                                <h3 className="font-bold text-slate-800">{d.name}</h3>
                                <p className="text-xs text-slate-500 mb-1">{d.phone}</p>
@@ -639,7 +639,6 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
                             </div>
                          </div>
                          
-                         {/* Ações do Entregador */}
                          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={()=>setDriverReportId(d.id)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100" title="Relatório Financeiro"><Wallet size={16}/></button>
                             <button onClick={()=>{setDriverToEdit(d); setModal('driver');}} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200" title="Editar"><Edit size={16}/></button>
@@ -696,15 +695,17 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
                       <div className="flex justify-between items-start mb-6"><h3 className="font-bold text-slate-800 text-lg">Detalhes do Motoboy</h3><button onClick={()=>setSelectedDriver(null)} className="p-1 hover:bg-slate-100 rounded"><X size={20}/></button></div>
                       <div className="flex flex-col items-center mb-6">
                          <div className="relative">
-                            <img src={selectedDriver.avatar} className="w-24 h-24 rounded-full border-4 border-slate-50 shadow-md"/>
+                            <img src={selectedDriver.avatar} className="w-24 h-24 rounded-full border-4 border-slate-50 shadow-md object-cover"/>
                             <span className={`absolute bottom-1 right-1 w-5 h-5 rounded-full border-2 border-white ${selectedDriver.status==='offline'?'bg-slate-400':selectedDriver.status==='available'?'bg-emerald-500':'bg-orange-500'}`}></span>
                          </div>
                          <h2 className="font-bold text-xl mt-3">{selectedDriver.name}</h2>
-                         <p className="text-sm text-slate-500">{selectedDriver.vehicle} • {selectedDriver.phone}</p>
+                         <p className="text-sm text-slate-500 flex flex-col items-center">
+                            <span>{selectedDriver.vehicle}</span>
+                            {selectedDriver.plate && <span className="bg-slate-100 px-2 rounded text-xs font-bold mt-1">{selectedDriver.plate}</span>}
+                         </p>
                          <button onClick={() => trackDriver(selectedDriver)} className="mt-4 w-full bg-blue-50 text-blue-600 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors border border-blue-200"><Crosshair size={18} /> Rastrear GPS em Tempo Real</button>
                          {selectedDriver.lastUpdate && <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Atualizado às {formatTime(selectedDriver.lastUpdate)}</p>}
                          
-                         {/* Botão para Lançar Vale (Acesso Rápido) */}
                          <button 
                             onClick={() => { setDriverToEdit(selectedDriver); setModal('vale'); }} 
                             className="mt-2 w-full border border-red-200 text-red-600 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"
@@ -756,7 +757,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
          <NewValeModal 
             driver={driverToEdit}
             onClose={() => { setModal(null); setDriverToEdit(null); }}
-            onSave={onCreateVale}
+            onSave={createVale}
          />
       )}
 
@@ -769,7 +770,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
             vales={vales}
             onClose={() => setDriverReportId(null)} 
             onNewVale={() => {
-                const drv = drivers.find(d => d.id === driverReportId);
+                const drv = drivers.find((d: Driver) => d.id === driverReportId);
                 if (drv) { setDriverToEdit(drv); setModal('vale'); }
             }}
          />
@@ -908,7 +909,14 @@ function NewOrderModal({ onClose, onSave }: any) {
 }
 
 function DriverModal({ onClose, onSave, initialData }: any) {
-   const [form, setForm] = useState(initialData || { name: '', phone: '', vehicle: '' });
+   const [form, setForm] = useState({ 
+       name: initialData?.name || '', 
+       phone: initialData?.phone || '', 
+       vehicle: initialData?.vehicle || '', 
+       cpf: initialData?.cpf || '', 
+       plate: initialData?.plate || '', 
+       avatar: initialData?.avatar || '' 
+   });
    
    const submit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -920,7 +928,7 @@ function DriverModal({ onClose, onSave, initialData }: any) {
           battery: initialData ? initialData.battery : 100,
           rating: initialData ? initialData.rating : 5.0,
           totalDeliveries: initialData ? initialData.totalDeliveries : 0,
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${form.name}`
+          avatar: form.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${form.name}`
       };
       onSave(driverData);
       onClose();
@@ -931,9 +939,39 @@ function DriverModal({ onClose, onSave, initialData }: any) {
          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm animate-in zoom-in p-6">
             <h3 className="font-bold text-xl mb-6 text-slate-800">{initialData ? 'Editar Motoboy' : 'Cadastrar Motoboy'}</h3>
             <form onSubmit={submit} className="space-y-4">
-               <input required className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="Nome Completo" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} />
-               <input required className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="Telefone" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} />
-               <input required className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="Veículo (Ex: Honda 160)" value={form.vehicle} onChange={e=>setForm({...form, vehicle: e.target.value})} />
+               <div>
+                  <label className="text-xs font-bold text-slate-500 ml-1">Nome Completo</label>
+                  <input required className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="Ex: João Silva" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} />
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                  <div>
+                     <label className="text-xs font-bold text-slate-500 ml-1">Telefone</label>
+                     <input required className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="(00) 90000-0000" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} />
+                  </div>
+                  <div>
+                     <label className="text-xs font-bold text-slate-500 ml-1">CPF</label>
+                     <input className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="000.000.000-00" value={form.cpf} onChange={e=>setForm({...form, cpf: e.target.value})} />
+                  </div>
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                  <div>
+                     <label className="text-xs font-bold text-slate-500 ml-1">Veículo</label>
+                     <input required className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="Ex: Honda 160" value={form.vehicle} onChange={e=>setForm({...form, vehicle: e.target.value})} />
+                  </div>
+                  <div>
+                     <label className="text-xs font-bold text-slate-500 ml-1">Placa</label>
+                     <input className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="ABC-1234" value={form.plate} onChange={e=>setForm({...form, plate: e.target.value})} />
+                  </div>
+               </div>
+               <div>
+                  <label className="text-xs font-bold text-slate-500 ml-1">Foto (URL)</label>
+                  <div className="flex gap-2">
+                     <div className="bg-slate-100 p-3 rounded-xl"><Camera size={20} className="text-slate-400"/></div>
+                     <input className="flex-1 border border-slate-200 rounded-xl p-3 outline-none text-sm" placeholder="Cole o link da foto aqui (Opcional)" value={form.avatar} onChange={e=>setForm({...form, avatar: e.target.value})} />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1 ml-1">* Se deixar em branco, usaremos um avatar automático.</p>
+               </div>
+
                <div className="flex gap-3 pt-2">
                   <button type="button" onClick={onClose} className="flex-1 border border-slate-200 rounded-xl py-3 font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
                   <button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-3 font-bold shadow-lg shadow-emerald-200">Salvar</button>
@@ -1006,7 +1044,7 @@ function DriverReportModal({ driverId, drivers, orders, vales, onClose, onNewVal
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl animate-in zoom-in flex flex-col max-h-[90vh]">
                 <div className="p-6 border-b flex justify-between items-center bg-slate-50 rounded-t-2xl">
                     <div className="flex items-center gap-4">
-                        <img src={driver?.avatar} className="w-12 h-12 rounded-full bg-white shadow-sm"/>
+                        <img src={driver?.avatar} className="w-12 h-12 rounded-full bg-white shadow-sm object-cover"/>
                         <div>
                             <h3 className="font-bold text-xl text-slate-800">Financeiro: {driver?.name}</h3>
                             <p className="text-slate-500 text-sm">Saldo Atual</p>
