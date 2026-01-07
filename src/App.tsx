@@ -4,7 +4,8 @@ import {
   X, Search, Users, Bike, 
   TrendingUp, Utensils, Plus, LogOut, CheckSquare,
   MessageCircle, DollarSign, Link as LinkIcon, Loader2, Crosshair,
-  Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText
+  Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
+  Trash2, Edit, Wallet, Calendar
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -21,7 +22,8 @@ import {
   updateDoc, 
   doc, 
   onSnapshot, 
-  serverTimestamp
+  serverTimestamp,
+  deleteDoc
 } from "firebase/firestore";
 
 // --- CONFIGURAÇÃO FIREBASE ---
@@ -38,6 +40,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// --- CONSTANTES ---
+const TAXA_ENTREGA = 5.00; // Valor pago ao motoboy por entrega
 
 // --- TIPOS ---
 type UserType = 'admin' | 'driver' | 'landing';
@@ -69,18 +74,24 @@ interface Order {
   status: 'pending' | 'assigned' | 'accepted' | 'completed';
   amount: string;
   value: number; 
-  paymentMethod?: string; // Novo
-  obs?: string; // Novo
+  paymentMethod?: string;
+  obs?: string;
   time?: string; 
   createdAt: any; 
   assignedAt?: any; 
   completedAt?: any; 
+  driverId?: string; // ID do motoboy que completou
 }
 
 // --- UTILITÁRIOS ---
 const formatTime = (timestamp: any) => {
   if (!timestamp) return '-';
   return new Date(timestamp.seconds * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+};
+
+const formatDate = (timestamp: any) => {
+  if (!timestamp) return '-';
+  return new Date(timestamp.seconds * 1000).toLocaleDateString('pt-BR');
 };
 
 const calcDuration = (start: any, end: any) => {
@@ -125,7 +136,6 @@ export default function App() {
     });
     const unsubOrders = onSnapshot(collection(db, 'orders'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
-      // Ordem CRESCENTE (Fila)
       data.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
       setOrders(data);
       setLoading(false);
@@ -156,9 +166,21 @@ export default function App() {
     await addDoc(collection(db, 'drivers'), data);
   };
 
+  const updateDriver = async (id: string, data: any) => {
+    if(!user) return;
+    await updateDoc(doc(db, 'drivers', id), data);
+  };
+
+  const deleteDriver = async (id: string) => {
+    if(!user) return;
+    if (window.confirm("Tem certeza que deseja excluir este entregador? O histórico dele permanecerá nos pedidos, mas ele não poderá mais logar.")) {
+      await deleteDoc(doc(db, 'drivers', id));
+    }
+  };
+
   const assignOrder = async (orderId: string, driverId: string) => {
     if(!user) return;
-    await updateDoc(doc(db, 'orders', orderId), { status: 'assigned', assignedAt: serverTimestamp() });
+    await updateDoc(doc(db, 'orders', orderId), { status: 'assigned', assignedAt: serverTimestamp(), driverId: driverId });
     await updateDoc(doc(db, 'drivers', driverId), { status: 'delivering', currentOrderId: orderId });
   };
 
@@ -210,7 +232,7 @@ export default function App() {
     return <DriverApp driver={driver} orders={orders} onToggleStatus={() => toggleStatus(driver.id)} onAcceptOrder={acceptOrder} onCompleteOrder={() => completeOrder(driver.id)} onLogout={handleLogout} />;
   }
 
-  return <AdminPanel drivers={drivers} orders={orders} onAssignOrder={assignOrder} onCreateDriver={createDriver} onCreateOrder={createOrder} onLogout={handleLogout} />;
+  return <AdminPanel drivers={drivers} orders={orders} onAssignOrder={assignOrder} onCreateDriver={createDriver} onUpdateDriver={updateDriver} onDeleteDriver={deleteDriver} onCreateOrder={createOrder} onLogout={handleLogout} />;
 }
 
 // ==========================================
@@ -280,8 +302,13 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
 // APP DO MOTOBOY
 // ==========================================
 function DriverApp({ driver, orders, onToggleStatus, onAcceptOrder, onCompleteOrder, onLogout }: any) {
+  const [activeTab, setActiveTab] = useState<'home' | 'wallet'>('home');
   const activeOrder = orders.find((o: Order) => o.id === driver.currentOrderId);
   
+  // Filtra apenas entregas completas DESTE motoboy
+  const myDeliveries = orders.filter((o: Order) => o.status === 'completed' && o.driverId === driver.id);
+  const myEarnings = myDeliveries.length * TAXA_ENTREGA;
+
   useEffect(() => {
     let watchId: number;
     if (driver.status !== 'offline' && 'geolocation' in navigator) {
@@ -316,69 +343,101 @@ function DriverApp({ driver, orders, onToggleStatus, onAcceptOrder, onCompleteOr
           </div>
           <button onClick={onLogout} className="p-2 bg-white/10 rounded-full hover:bg-white/20"><LogOut size={20}/></button>
         </div>
-        <div className="bg-white rounded-xl p-1 flex items-center justify-between shadow-lg transform translate-y-4">
-           <div className="flex-1 text-center py-2">
-              <span className={`text-xs font-bold uppercase block ${driver.status==='offline'?'text-slate-400':'text-emerald-500'}`}>{driver.status === 'offline' ? 'Offline' : 'Online'}</span>
-              <span className="text-[10px] text-slate-400">Status Atual</span>
-           </div>
-           <button onClick={onToggleStatus} className={`flex-1 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-all ${driver.status==='offline' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
-             {driver.status === 'offline' ? 'Ficar Online' : 'Pausar'}
-           </button>
+        
+        {/* Toggle Abas */}
+        <div className="flex bg-slate-800 p-1 rounded-xl mt-4">
+           <button onClick={() => setActiveTab('home')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab==='home' ? 'bg-orange-600 text-white' : 'text-slate-400'}`}>Entregas</button>
+           <button onClick={() => setActiveTab('wallet')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab==='wallet' ? 'bg-orange-600 text-white' : 'text-slate-400'}`}>Minha Carteira</button>
         </div>
       </div>
 
-      <div className="flex-1 p-5 pt-10 overflow-y-auto">
-        {driver.status === 'delivering' && activeOrder ? (
-           <div className="bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
-               <div className={`p-4 border-b flex justify-between items-center ${activeOrder.status === 'assigned' ? 'bg-amber-50 border-amber-100' : 'bg-orange-50 border-orange-100'}`}>
-                  <div>
-                    {activeOrder.status === 'assigned' ? 
-                        <span className="inline-block text-[10px] font-bold text-white bg-amber-500 px-2 py-0.5 rounded-full mb-1 animate-pulse">NOVA CORRIDA</span> : 
-                        <span className="inline-block text-[10px] font-bold text-white bg-orange-500 px-2 py-0.5 rounded-full mb-1">EM ROTA</span>
-                    }
-                    <h3 className="font-bold text-lg text-slate-800 leading-none">{activeOrder.customer}</h3>
+      <div className="flex-1 p-5 overflow-y-auto">
+        {activeTab === 'home' ? (
+          <>
+            <div className={`mb-6 p-4 rounded-xl border flex items-center justify-between shadow-sm transition-colors ${driver.status === 'offline' ? 'bg-white border-slate-200' : 'bg-emerald-50 border-emerald-100'}`}>
+               <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Seu Status</p>
+                  <div className="flex items-center gap-2">
+                     <div className={`w-2.5 h-2.5 rounded-full ${driver.status === 'offline' ? 'bg-slate-400' : 'bg-emerald-500 animate-pulse'}`}></div>
+                     <span className={`font-bold ${driver.status === 'offline' ? 'text-slate-600' : 'text-emerald-700'}`}>{driver.status === 'offline' ? 'Offline' : 'Online'}</span>
                   </div>
-                  <div className="text-right"><p className="text-xs text-slate-500">A cobrar</p><p className="font-bold text-xl text-slate-800">{activeOrder.amount}</p></div>
                </div>
-               
-               {activeOrder.status === 'assigned' ? (
-                   <div className="p-6 text-center space-y-4">
-                       <BellRing className="w-16 h-16 text-amber-500 mx-auto animate-bounce"/>
-                       <div>
-                           <h3 className="text-xl font-bold text-slate-800">Nova entrega disponível!</h3>
-                           <p className="text-slate-500 text-sm">Confirme para ver o endereço e iniciar a rota.</p>
-                       </div>
-                       <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                           <p className="text-sm font-bold text-slate-700">{activeOrder.items}</p>
-                       </div>
-                       <button onClick={() => onAcceptOrder(activeOrder.id)} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-extrabold py-4 rounded-xl shadow-lg shadow-amber-200 text-lg transition-transform active:scale-95">ACEITAR CORRIDA</button>
+               <button onClick={onToggleStatus} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all active:scale-95 ${driver.status === 'offline' ? 'bg-emerald-600 text-white' : 'bg-white border border-slate-200 text-slate-600'}`}>
+                 {driver.status === 'offline' ? 'Ficar Online' : 'Pausar'}
+               </button>
+            </div>
+
+            {driver.status === 'delivering' && activeOrder ? (
+               <div className="bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
+                   <div className={`p-4 border-b flex justify-between items-center ${activeOrder.status === 'assigned' ? 'bg-amber-50 border-amber-100' : 'bg-orange-50 border-orange-100'}`}>
+                      <div>
+                        {activeOrder.status === 'assigned' ? 
+                            <span className="inline-block text-[10px] font-bold text-white bg-amber-500 px-2 py-0.5 rounded-full mb-1 animate-pulse">NOVA CORRIDA</span> : 
+                            <span className="inline-block text-[10px] font-bold text-white bg-orange-500 px-2 py-0.5 rounded-full mb-1">EM ROTA</span>
+                        }
+                        <h3 className="font-bold text-lg text-slate-800 leading-none">{activeOrder.customer}</h3>
+                      </div>
+                      <div className="text-right"><p className="text-xs text-slate-500">A cobrar</p><p className="font-bold text-xl text-slate-800">{activeOrder.amount}</p></div>
                    </div>
-               ) : (
-                   <div className="p-5 space-y-6">
-                     <div>
-                        <div className="flex items-start gap-3">
-                           <MapPin className="text-orange-500 mt-1 shrink-0" size={20}/>
-                           <div><p className="text-xs text-slate-400 font-bold uppercase">Entrega</p><p className="text-slate-700 font-medium">{activeOrder.address}</p></div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 mt-4">
-                           <button onClick={() => openApp(activeOrder.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeOrder.address)}`)} className="flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-blue-200 active:scale-95 transition-transform"><Navigation size={18}/> Waze / Maps</button>
-                           <button onClick={() => openApp(`https://wa.me/55${activeOrder.phone.replace(/\D/g, '')}`)} className="flex items-center justify-center gap-2 bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-emerald-200 active:scale-95 transition-transform"><MessageCircle size={18}/> WhatsApp</button>
-                        </div>
-                     </div>
-                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
-                        <div><p className="text-xs text-slate-400 font-bold uppercase">Itens</p><p className="text-slate-600 text-sm">{activeOrder.items}</p></div>
-                        {activeOrder.obs && <div><p className="text-xs text-slate-400 font-bold uppercase">Obs</p><p className="text-orange-600 text-sm font-bold">{activeOrder.obs}</p></div>}
-                        {activeOrder.paymentMethod && <div><p className="text-xs text-slate-400 font-bold uppercase">Pagamento</p><p className="text-slate-600 text-sm">{activeOrder.paymentMethod}</p></div>}
-                     </div>
-                     <button onClick={onCompleteOrder} className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform"><CheckSquare size={20} className="text-emerald-400"/> Confirmar Entrega</button>
-                   </div>
-               )}
-           </div>
+                   
+                   {activeOrder.status === 'assigned' ? (
+                       <div className="p-6 text-center space-y-4">
+                           <BellRing className="w-16 h-16 text-amber-500 mx-auto animate-bounce"/>
+                           <div><h3 className="text-xl font-bold text-slate-800">Nova entrega disponível!</h3><p className="text-slate-500 text-sm">Confirme para ver o endereço e iniciar a rota.</p></div>
+                           <div className="bg-slate-50 p-3 rounded-lg border border-slate-100"><p className="text-sm font-bold text-slate-700">{activeOrder.items}</p></div>
+                           <button onClick={() => onAcceptOrder(activeOrder.id)} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-extrabold py-4 rounded-xl shadow-lg shadow-amber-200 text-lg transition-transform active:scale-95">ACEITAR CORRIDA</button>
+                       </div>
+                   ) : (
+                       <div className="p-5 space-y-6">
+                         <div>
+                            <div className="flex items-start gap-3">
+                               <MapPin className="text-orange-500 mt-1 shrink-0" size={20}/>
+                               <div><p className="text-xs text-slate-400 font-bold uppercase">Entrega</p><p className="text-slate-700 font-medium">{activeOrder.address}</p></div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 mt-4">
+                               <button onClick={() => openApp(activeOrder.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeOrder.address)}`)} className="flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-blue-200 active:scale-95 transition-transform"><Navigation size={18}/> Waze / Maps</button>
+                               <button onClick={() => openApp(`https://wa.me/55${activeOrder.phone.replace(/\D/g, '')}`)} className="flex items-center justify-center gap-2 bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-emerald-200 active:scale-95 transition-transform"><MessageCircle size={18}/> WhatsApp</button>
+                            </div>
+                         </div>
+                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
+                            <div><p className="text-xs text-slate-400 font-bold uppercase">Itens</p><p className="text-slate-600 text-sm">{activeOrder.items}</p></div>
+                            {activeOrder.obs && <div><p className="text-xs text-slate-400 font-bold uppercase">Obs</p><p className="text-orange-600 text-sm font-bold">{activeOrder.obs}</p></div>}
+                            {activeOrder.paymentMethod && <div><p className="text-xs text-slate-400 font-bold uppercase">Pagamento</p><p className="text-slate-600 text-sm">{activeOrder.paymentMethod}</p></div>}
+                         </div>
+                         <button onClick={onCompleteOrder} className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform"><CheckSquare size={20} className="text-emerald-400"/> Confirmar Entrega</button>
+                       </div>
+                   )}
+               </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center opacity-50 pb-20">
+                 <div className="relative mb-6"><span className="absolute inset-0 bg-orange-400 rounded-full animate-ping opacity-20"></span><div className="bg-white p-6 rounded-full shadow-lg relative z-10"><Search size={40} className="text-orange-500"/></div></div>
+                 <h3 className="text-xl font-bold text-slate-700">Aguardando...</h3>
+                 <p className="text-sm text-slate-400 max-w-[200px]">Mantenha o app aberto para receber pedidos.</p>
+              </div>
+            )}
+          </>
         ) : (
-          <div className="h-full flex flex-col items-center justify-center text-center opacity-50 pb-20">
-             <div className="relative mb-6"><span className="absolute inset-0 bg-orange-400 rounded-full animate-ping opacity-20"></span><div className="bg-white p-6 rounded-full shadow-lg relative z-10"><Search size={40} className="text-orange-500"/></div></div>
-             <h3 className="text-xl font-bold text-slate-700">Aguardando...</h3>
-             <p className="text-sm text-slate-400 max-w-[200px]">Mantenha o app aberto para receber pedidos.</p>
+          /* ABA CARTEIRA DO MOTOBOY */
+          <div className="space-y-4">
+             <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl">
+                <p className="text-slate-400 text-sm mb-1">Saldo Total Estimado</p>
+                <h3 className="text-4xl font-bold text-emerald-400">R$ {myEarnings.toFixed(2)}</h3>
+                <p className="text-xs text-slate-500 mt-2">Baseado em {myDeliveries.length} entregas x R$ {TAXA_ENTREGA.toFixed(2)}</p>
+             </div>
+             
+             <h4 className="font-bold text-slate-700 mt-4">Histórico de Corridas</h4>
+             <div className="space-y-2">
+                {myDeliveries.sort((a,b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0)).map((o: Order) => (
+                   <div key={o.id} className="bg-white p-3 rounded-xl border border-slate-100 flex justify-between items-center shadow-sm">
+                      <div>
+                         <p className="font-bold text-slate-800 text-sm">{o.address}</p>
+                         <p className="text-xs text-slate-400">{formatDate(o.completedAt)} • {formatTime(o.completedAt)}</p>
+                      </div>
+                      <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-1 rounded">+ R$ {TAXA_ENTREGA.toFixed(2)}</span>
+                   </div>
+                ))}
+                {myDeliveries.length === 0 && <p className="text-center text-slate-400 py-4 text-sm">Nenhuma entrega realizada.</p>}
+             </div>
           </div>
         )}
       </div>
@@ -422,10 +481,12 @@ function AdminPanel(props: any) {
   return <Dashboard {...props} />;
 }
 
-function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrder, onLogout }: any) {
+function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onUpdateDriver, onDeleteDriver, onCreateOrder, onLogout }: any) {
   const [view, setView] = useState<'map' | 'list' | 'history'>('map');
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [modal, setModal] = useState<'driver' | 'order' | null>(null);
+  const [driverToEdit, setDriverToEdit] = useState<Driver | null>(null);
+  const [driverReportId, setDriverReportId] = useState<string | null>(null); // ID do driver para relatório específico
 
   const delivered = orders.filter((o: Order) => o.status === 'completed');
   const sortedHistory = [...delivered].sort((a,b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
@@ -439,12 +500,9 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrd
       }
   };
 
-  // --- GERADOR DE RELATÓRIO WHATSAPP ---
   const copyReport = () => {
     const today = new Date().toLocaleDateString('pt-BR');
     let text = `🛵 *RELATÓRIO DE ENTREGAS - JHAN'S BURGERS*\n📅 Data: ${today}\n--- ENTREGAS ---\n\n`;
-    
-    // Filtra entregas de hoje (opcional, aqui pega todas concluídas)
     sortedHistory.forEach((o: Order, i: number) => {
        text += `✅ ENTREGA ${sortedHistory.length - i} (${o.paymentMethod || 'PAGO'})\n`;
        text += `👤 Cliente: ${o.customer}\n`;
@@ -457,10 +515,9 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrd
        if (o.assignedAt && o.completedAt) text += `⏱ Tempo: ${calcDuration(o.assignedAt, o.completedAt)}\n`;
        text += `\n`;
     });
-    
     text += `--- FIM ---\nBoa sorte nas entregas! 🚀`;
     navigator.clipboard.writeText(text);
-    alert("Relatório copiado para a área de transferência!");
+    alert("Relatório copiado!");
   };
 
   return (
@@ -522,14 +579,21 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrd
                 <div className="flex justify-between items-center mb-6"><h2 className="font-bold text-lg">Frota ({drivers.length})</h2><button onClick={()=>setModal('driver')} className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold flex gap-2"><Plus size={16}/> Novo</button></div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                    {drivers.map((d: Driver) => (
-                      <div key={d.id} onClick={()=>setSelectedDriver(d)} className="border p-4 rounded-xl hover:shadow-md cursor-pointer bg-white transition-all">
-                         <div className="flex items-center gap-4">
+                      <div key={d.id} className="border p-4 rounded-xl hover:shadow-md transition-all bg-white relative group">
+                         <div className="flex items-center gap-4 cursor-pointer" onClick={()=>setSelectedDriver(d)}>
                             <img src={d.avatar} className="w-14 h-14 rounded-full bg-slate-100"/>
                             <div>
                                <h3 className="font-bold text-slate-800">{d.name}</h3>
                                <p className="text-xs text-slate-500 mb-1">{d.phone}</p>
                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${d.status==='offline'?'bg-slate-100 text-slate-500':d.status==='available'?'bg-emerald-100 text-emerald-700':'bg-orange-100 text-orange-700'}`}>{d.status}</span>
                             </div>
+                         </div>
+                         
+                         {/* Ações do Entregador */}
+                         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={()=>setDriverReportId(d.id)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100" title="Relatório Financeiro"><Wallet size={16}/></button>
+                            <button onClick={()=>{setDriverToEdit(d); setModal('driver');}} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200" title="Editar"><Edit size={16}/></button>
+                            <button onClick={()=>onDeleteDriver(d.id)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100" title="Excluir"><Trash2 size={16}/></button>
                          </div>
                       </div>
                    ))}
@@ -547,7 +611,7 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrd
                 </div>
                 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                   <StatBox label="Faturamento" value={`R$ ${delivered.reduce((acc: number, c: Order)=>acc+(c.value||0),0).toFixed(2)}`} icon={<DollarSign/>} color="bg-emerald-50 text-emerald-600"/>
+                   <StatBox label="Faturamento Loja" value={`R$ ${delivered.reduce((acc: number, c: Order)=>acc+(c.value||0),0).toFixed(2)}`} icon={<DollarSign/>} color="bg-emerald-50 text-emerald-600"/>
                    <StatBox label="Entregas" value={delivered.length} icon={<CheckSquare/>} color="bg-blue-50 text-blue-600"/>
                 </div>
                 
@@ -555,7 +619,7 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrd
                    <div className="overflow-x-auto">
                      <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50 border-b text-slate-500 font-semibold uppercase text-xs">
-                           <tr><th className="p-4">Cliente</th><th className="p-4">Valor</th><th className="p-4">Pagamento</th><th className="p-4 hidden md:table-cell">Início</th><th className="p-4 hidden md:table-cell">Fim</th><th className="p-4">Duração</th><th className="p-4">Status</th></tr>
+                           <tr><th className="p-4">Cliente</th><th className="p-4">Valor</th><th className="p-4">Pagamento</th><th className="p-4 hidden md:table-cell">Início</th><th className="p-4 hidden md:table-cell">Fim</th><th className="p-4">Status</th></tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                            {sortedHistory.map((o: Order) => (
@@ -565,11 +629,9 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrd
                                  <td className="p-4 text-slate-500 text-xs">{o.paymentMethod || '-'}</td>
                                  <td className="p-4 text-slate-500 hidden md:table-cell">{formatTime(o.assignedAt)}</td>
                                  <td className="p-4 text-slate-500 hidden md:table-cell">{formatTime(o.completedAt)}</td>
-                                 <td className="p-4 font-bold text-slate-700">{calcDuration(o.assignedAt, o.completedAt)}</td>
                                  <td className="p-4"><span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold">Concluído</span></td>
                               </tr>
                            ))}
-                           {sortedHistory.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-slate-400 italic">Nenhum dado encontrado</td></tr>}
                         </tbody>
                      </table>
                    </div>
@@ -619,8 +681,27 @@ function Dashboard({ drivers, orders, onAssignOrder, onCreateDriver, onCreateOrd
         </div>
       </main>
 
+      {/* MODAL PEDIDO */}
       {modal === 'order' && <NewOrderModal onClose={()=>setModal(null)} onSave={onCreateOrder} />}
-      {modal === 'driver' && <NewDriverModal onClose={()=>setModal(null)} onSave={onCreateDriver} />}
+      
+      {/* MODAL MOTORISTA (CRIAR/EDITAR) */}
+      {modal === 'driver' && (
+         <DriverModal 
+            onClose={()=>{setModal(null); setDriverToEdit(null);}} 
+            onSave={driverToEdit ? (data: any) => onUpdateDriver(driverToEdit.id, data) : onCreateDriver}
+            initialData={driverToEdit} 
+         />
+      )}
+
+      {/* MODAL RELATÓRIO FINANCEIRO DO MOTORISTA */}
+      {driverReportId && (
+         <DriverReportModal 
+            driverId={driverReportId} 
+            drivers={drivers} 
+            orders={orders} 
+            onClose={() => setDriverReportId(null)} 
+         />
+      )}
     </div>
   )
 }
@@ -754,25 +835,30 @@ function NewOrderModal({ onClose, onSave }: any) {
    )
 }
 
-function NewDriverModal({ onClose, onSave }: any) {
-   const [form, setForm] = useState({ name: '', phone: '', vehicle: '' });
+function DriverModal({ onClose, onSave, initialData }: any) {
+   const [form, setForm] = useState(initialData || { name: '', phone: '', vehicle: '' });
+   
    const submit = (e: React.FormEvent) => {
       e.preventDefault();
-      onSave({ 
-          ...form, 
-          status: 'offline', 
-          lat: 0, lng: 0, 
-          battery: 100, 
-          rating: 5.0, 
-          totalDeliveries: 0, 
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${form.name}` 
-      });
+      const driverData = {
+          ...form,
+          // Se for edição, mantém dados antigos, senão cria padrões
+          status: initialData ? initialData.status : 'offline',
+          lat: initialData ? initialData.lat : 0,
+          lng: initialData ? initialData.lng : 0,
+          battery: initialData ? initialData.battery : 100,
+          rating: initialData ? initialData.rating : 5.0,
+          totalDeliveries: initialData ? initialData.totalDeliveries : 0,
+          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${form.name}`
+      };
+      onSave(driverData);
       onClose();
    };
+
    return (
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm animate-in zoom-in p-6">
-            <h3 className="font-bold text-xl mb-6 text-slate-800">Cadastrar Motoboy</h3>
+            <h3 className="font-bold text-xl mb-6 text-slate-800">{initialData ? 'Editar Motoboy' : 'Cadastrar Motoboy'}</h3>
             <form onSubmit={submit} className="space-y-4">
                <input required className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="Nome Completo" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} />
                <input required className="w-full border border-slate-200 rounded-xl p-3 outline-none" placeholder="Telefone" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} />
@@ -785,4 +871,71 @@ function NewDriverModal({ onClose, onSave }: any) {
          </div>
       </div>
    )
+}
+
+function DriverReportModal({ driverId, drivers, orders, onClose }: any) {
+    const driver = drivers.find((d: Driver) => d.id === driverId);
+    // Filtra entregas CONCLUÍDAS deste motorista
+    const history = orders.filter((o: Order) => o.status === 'completed' && o.driverId === driverId);
+    // Ordena do mais recente para o mais antigo
+    history.sort((a: any, b: any) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
+    
+    const totalEarnings = history.length * TAXA_ENTREGA;
+
+    return (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl animate-in zoom-in flex flex-col max-h-[90vh]">
+                <div className="p-6 border-b flex justify-between items-center bg-slate-50 rounded-t-2xl">
+                    <div className="flex items-center gap-4">
+                        <img src={driver?.avatar} className="w-12 h-12 rounded-full bg-white shadow-sm"/>
+                        <div>
+                            <h3 className="font-bold text-xl text-slate-800">Relatório Financeiro</h3>
+                            <p className="text-slate-500 text-sm">{driver?.name}</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full"><X size={20}/></button>
+                </div>
+                
+                <div className="p-6 grid grid-cols-2 gap-4">
+                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                        <p className="text-emerald-600 font-bold text-xs uppercase">A Pagar (Total)</p>
+                        <p className="text-3xl font-bold text-emerald-700">R$ {totalEarnings.toFixed(2)}</p>
+                    </div>
+                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                        <p className="text-blue-600 font-bold text-xs uppercase">Entregas Realizadas</p>
+                        <p className="text-3xl font-bold text-blue-700">{history.length}</p>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6 pt-0">
+                    <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><Calendar size={16}/> Histórico Detalhado</h4>
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs sticky top-0">
+                            <tr>
+                                <th className="p-3 rounded-tl-lg">Data</th>
+                                <th className="p-3">Hora</th>
+                                <th className="p-3">Endereço</th>
+                                <th className="p-3 text-right rounded-tr-lg">Taxa</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {history.map((o: Order) => (
+                                <tr key={o.id} className="hover:bg-slate-50">
+                                    <td className="p-3 text-slate-600">{formatDate(o.completedAt)}</td>
+                                    <td className="p-3 text-slate-600">{formatTime(o.completedAt)}</td>
+                                    <td className="p-3 font-medium text-slate-800">{o.address}</td>
+                                    <td className="p-3 text-right font-bold text-emerald-600">+ R$ {TAXA_ENTREGA.toFixed(2)}</td>
+                                </tr>
+                            ))}
+                            {history.length === 0 && (
+                                <tr>
+                                    <td colSpan={4} className="p-8 text-center text-slate-400">Nenhuma entrega registrada.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
 }
