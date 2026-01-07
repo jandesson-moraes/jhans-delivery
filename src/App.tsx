@@ -3,7 +3,7 @@ import {
   MapPin, Navigation, Package, Clock, 
   X, Search, Users, Bike, 
   TrendingUp, Utensils, Plus, LogOut, CheckSquare,
-  MessageCircle, DollarSign, Link as LinkIcon, Loader2, Crosshair,
+  MessageCircle, DollarSign, Loader2,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
   Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
   Camera, LayoutDashboard, Map as MapIcon, ShieldAlert, CheckCircle2
@@ -414,7 +414,7 @@ function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType,
         </div>
       </div>
       
-      <p className="absolute bottom-6 text-slate-600 text-xs">Versão 6.4 • Jhans Delivery System</p>
+      <p className="absolute bottom-6 text-slate-600 text-xs">Versão 6.5 • Jhans Delivery System</p>
     </div>
   );
 }
@@ -1259,7 +1259,7 @@ function DriverReportModal({ driverId, drivers, orders, vales, onClose, onNewVal
     const driver = drivers.find((d: Driver) => d.id === driverId);
     const myDeliveries = orders.filter((o: Order) => o.status === 'completed' && o.driverId === driverId);
     const earnings = myDeliveries.length * TAXA_ENTREGA;
-    const myVales = vales.filter((v: Vale) => v.driverId === driverId);
+    const myVales = vales.filter((v: Vale) => v.driverId === driver.id);
     const deductions = myVales.reduce((acc: number, v: Vale) => acc + (Number(v.amount) || 0), 0);
     const balance = earnings - deductions;
 
