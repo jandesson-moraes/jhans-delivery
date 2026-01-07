@@ -902,10 +902,10 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
                                  <td className="p-4 font-medium text-slate-700">{o.customer}</td>
                                  <td className="p-4 hidden md:table-cell">
                                      <div className="flex items-center gap-2">
-                                         {drivers.find(d => d.id === o.driverId) ? (
+                                         {drivers.find((d: Driver) => d.id === o.driverId) ? (
                                             <>
-                                                <img src={drivers.find(d => d.id === o.driverId)?.avatar} className="w-6 h-6 rounded-full object-cover"/>
-                                                <span className="text-slate-600">{drivers.find(d => d.id === o.driverId)?.name}</span>
+                                                <img src={drivers.find((d: Driver) => d.id === o.driverId)?.avatar} className="w-6 h-6 rounded-full object-cover"/>
+                                                <span className="text-slate-600">{drivers.find((d: Driver) => d.id === o.driverId)?.name}</span>
                                             </>
                                          ) : <span className="text-slate-400 italic">Desconhecido</span>}
                                      </div>
