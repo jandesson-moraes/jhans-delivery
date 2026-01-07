@@ -6,7 +6,7 @@ import {
   MessageCircle, DollarSign, Loader2,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
   Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
-  Camera, LayoutDashboard, Map as MapIcon, ShieldAlert, CheckCircle2
+  Camera, LayoutDashboard, Map as MapIcon, ShieldAlert
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -349,7 +349,7 @@ export default function App() {
 
   if (permissionError) {
       return (
-          <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-900 text-white p-6">
+          <div className="h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-6">
               <div className="bg-white text-slate-800 p-8 rounded-2xl max-w-lg shadow-2xl">
                   <div className="flex items-center gap-3 mb-4 text-red-600">
                       <ShieldAlert size={40} />
@@ -414,7 +414,7 @@ function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType,
           )}
         </div>
       </div>
-      <p className="absolute bottom-6 text-slate-700 text-xs">Versão 8.7 • Jhans Delivery System</p>
+      <p className="absolute bottom-6 text-slate-700 text-xs">Versão 8.8 • Jhans Delivery System</p>
     </div>
   );
 }
@@ -788,7 +788,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
 
                 {/* MOTOS NO MAPA */}
                 <div className="w-full h-full relative">
-                    {drivers.map((d: Driver, index: number) => {
+                    {drivers.map((d: Driver) => {
                        const seed = d.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
                        const visualTop = (seed * 137) % 80 + 10; 
                        const visualLeft = (seed * 93) % 80 + 10; 
@@ -1026,16 +1026,16 @@ function NewOrderModal({ onClose, onSave }: any) {
                        </button>
 
                        <div className="space-y-4">
-                           <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Cliente</label><input required className="w-full border-2 border-slate-300 rounded-xl p-3.5 focus:border-orange-500 focus:ring-4 focus:ring-orange-50 outline-none transition-all font-normal text-slate-600 placeholder:text-slate-400" placeholder="Nome do Cliente" value={form.customer} onChange={e=>setForm({...form, customer: e.target.value})} /></div>
+                           <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Cliente</label><input required className="w-full border-2 border-slate-300 rounded-xl p-3.5 focus:border-orange-500 focus:ring-4 focus:ring-orange-50 outline-none transition-all font-normal text-slate-800 placeholder:text-slate-400" placeholder="Nome do Cliente" value={form.customer} onChange={e=>setForm({...form, customer: e.target.value})} /></div>
                            <div className="grid grid-cols-2 gap-4">
-                              <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Telefone</label><input required className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-600 placeholder:text-slate-400" placeholder="(00) 00000-0000" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} /></div>
-                              <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Valor</label><input required className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-600 placeholder:text-slate-400" placeholder="R$ 0,00" value={form.amount} onChange={e=>setForm({...form, amount: e.target.value})} /></div>
+                              <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Telefone</label><input required className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-800 placeholder:text-slate-400" placeholder="(00) 00000-0000" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} /></div>
+                              <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Valor</label><input required className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-800 placeholder:text-slate-400" placeholder="R$ 0,00" value={form.amount} onChange={e=>setForm({...form, amount: e.target.value})} /></div>
                            </div>
-                           <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Pagamento</label><input className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-600 placeholder:text-slate-400" placeholder="PIX, Dinheiro..." value={form.paymentMethod} onChange={e=>setForm({...form, paymentMethod: e.target.value})} /></div>
-                           <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Endereço</label><input required className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-600 placeholder:text-slate-400" placeholder="Rua, Número, Bairro" value={form.address} onChange={e=>setForm({...form, address: e.target.value})} /></div>
+                           <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Pagamento</label><input className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-800 placeholder:text-slate-400" placeholder="PIX, Dinheiro..." value={form.paymentMethod} onChange={e=>setForm({...form, paymentMethod: e.target.value})} /></div>
+                           <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Endereço</label><input required className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-800 placeholder:text-slate-400" placeholder="Rua, Número, Bairro" value={form.address} onChange={e=>setForm({...form, address: e.target.value})} /></div>
                            <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Link GPS (Opcional)</label><input className="w-full bg-white border-2 border-slate-300 rounded-xl p-3 text-xs text-blue-600 outline-none focus:bg-white transition-all font-medium placeholder:text-slate-400" placeholder="https://maps.google.com/..." value={form.mapsLink} onChange={e=>setForm({...form, mapsLink: e.target.value})} /></div>
-                           <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Itens</label><textarea required className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-600 placeholder:text-slate-400 min-h-[80px]" placeholder="Descrição do pedido..." value={form.items} onChange={e=>setForm({...form, items: e.target.value})} /></div>
-                           <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Obs</label><input className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-600 placeholder:text-slate-400" placeholder="Ex: Troco para 50" value={form.obs} onChange={e=>setForm({...form, obs: e.target.value})} /></div>
+                           <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Itens</label><textarea required className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-800 placeholder:text-slate-400 min-h-[80px]" placeholder="Descrição do pedido..." value={form.items} onChange={e=>setForm({...form, items: e.target.value})} /></div>
+                           <div><label className="text-xs font-bold text-slate-600 uppercase mb-1 block">Obs</label><input className="w-full border-2 border-slate-300 rounded-xl p-3.5 outline-none focus:border-orange-500 transition-all font-normal text-slate-800 placeholder:text-slate-400" placeholder="Ex: Troco para 50" value={form.obs} onChange={e=>setForm({...form, obs: e.target.value})} /></div>
                        </div>
                        
                        <button className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-4 rounded-2xl shadow-xl shadow-orange-200 transition-all transform hover:scale-[1.02] active:scale-95 text-lg">Salvar Pedido</button>
