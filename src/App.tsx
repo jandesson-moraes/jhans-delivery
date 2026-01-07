@@ -3,7 +3,7 @@ import {
   MapPin, Navigation, Package, Clock, 
   X, Search, Users, Bike, 
   TrendingUp, Utensils, Plus, LogOut, CheckSquare,
-  MessageCircle, DollarSign, Loader2,
+  MessageCircle, DollarSign, Loader2, Crosshair,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
   Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
   Camera, LayoutDashboard, Map as MapIcon
@@ -224,8 +224,13 @@ export default function App() {
     if(!user) return;
     try {
         await addDoc(collection(db, 'drivers'), data);
-    } catch (error) {
+    } catch (error: any) {
         console.error("Erro ao criar motorista:", error);
+        if (error.code === 'permission-denied') {
+             alert("Erro de Permissão: O banco de dados recusou a gravação. Verifique as regras do Firestore.");
+        } else {
+             alert("Erro ao salvar: " + error.message);
+        }
         throw error;
     }
   };
@@ -366,7 +371,7 @@ function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType,
         </div>
       </div>
       
-      <p className="absolute bottom-6 text-slate-600 text-xs">Versão 6.2 • Jhans Delivery System</p>
+      <p className="absolute bottom-6 text-slate-600 text-xs">Versão 6.3 • Jhans Delivery System</p>
     </div>
   );
 }
@@ -833,29 +838,36 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
                 
                 <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                    <div className="overflow-x-auto">
-                     <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-50 border-b text-slate-500 font-semibold uppercase text-xs">
-                           <tr><th className="p-5">Cliente</th><th className="p-5">Entregador</th><th className="p-5">Valor</th><th className="p-5">Pagamento</th><th className="p-5 hidden md:table-cell">Duração</th><th className="p-5">Status</th></tr>
+                     <table className="w-full text-sm text-left border-collapse">
+                        <thead className="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider">
+                           <tr>
+                              <th className="p-3 font-semibold border-b">Cliente</th>
+                              <th className="p-3 font-semibold border-b">Entregador</th>
+                              <th className="p-3 font-semibold border-b">Valor</th>
+                              <th className="p-3 font-semibold border-b">Pagamento</th>
+                              <th className="p-3 font-semibold border-b hidden md:table-cell">Duração</th>
+                              <th className="p-3 font-semibold border-b">Status</th>
+                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                            {sortedHistory.map((o: Order) => (
-                              <tr key={o.id} className="hover:bg-slate-50 transition-colors">
-                                 <td className="p-5 font-medium text-slate-800">{o.customer}</td>
-                                 <td className="p-5 text-slate-600">
+                              <tr key={o.id} className="hover:bg-slate-50/80 transition-colors text-xs md:text-sm">
+                                 <td className="p-3 font-medium text-slate-800">{o.customer}</td>
+                                 <td className="p-3 text-slate-600">
                                      <div className="flex items-center gap-2">
-                                         <div className="w-6 h-6 rounded-full bg-slate-200 overflow-hidden">
+                                         <div className="w-6 h-6 rounded-full bg-slate-200 overflow-hidden shadow-sm">
                                             <img src={drivers.find((d: Driver) => d.id === o.driverId)?.avatar} className="w-full h-full object-cover"/>
                                          </div>
-                                         {drivers.find((d: Driver) => d.id === o.driverId)?.name || '...'}
+                                         <span className="font-medium text-slate-700">{drivers.find((d: Driver) => d.id === o.driverId)?.name || '...'}</span>
                                      </div>
                                  </td>
-                                 <td className="p-5 font-bold text-emerald-600">{o.amount}</td>
-                                 <td className="p-5 text-slate-500 text-xs uppercase font-semibold">{o.paymentMethod || '-'}</td>
-                                 <td className="p-5 text-slate-500 hidden md:table-cell font-mono">{calcDuration(o.assignedAt, o.completedAt)}</td>
-                                 <td className="p-5"><span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold">CONCLUÍDO</span></td>
+                                 <td className="p-3 font-bold text-emerald-600">{o.amount}</td>
+                                 <td className="p-3 text-slate-500 font-medium">{o.paymentMethod || '-'}</td>
+                                 <td className="p-3 text-slate-500 hidden md:table-cell font-mono">{calcDuration(o.assignedAt, o.completedAt)}</td>
+                                 <td className="p-3"><span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold border border-emerald-200">CONCLUÍDO</span></td>
                               </tr>
                            ))}
-                           {sortedHistory.length === 0 && <tr><td colSpan={8} className="p-10 text-center text-slate-400 italic">Nenhum dado encontrado para hoje.</td></tr>}
+                           {sortedHistory.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-slate-400 italic">Nenhum dado encontrado para hoje.</td></tr>}
                         </tbody>
                      </table>
                    </div>
@@ -1231,9 +1243,13 @@ function DriverReportModal({ driverId, drivers, orders, vales, onClose, onNewVal
 
                 <div className="flex-1 overflow-y-auto p-6 pt-0 custom-scrollbar bg-white">
                     <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2 text-sm uppercase tracking-wide"><Calendar size={16}/> Histórico</h4>
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider sticky top-0">
-                            <tr><th className="p-3 rounded-tl-lg">Data</th><th className="p-3">Descrição</th><th className="p-3 text-right rounded-tr-lg">Valor</th></tr>
+                    <table className="w-full text-sm text-left border-collapse">
+                        <thead className="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider">
+                            <tr>
+                                <th className="p-3 font-semibold border-b">Data</th>
+                                <th className="p-3 font-semibold border-b">Descrição</th>
+                                <th className="p-3 font-semibold border-b text-right">Valor</th>
+                            </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {history.map((item: any) => (
