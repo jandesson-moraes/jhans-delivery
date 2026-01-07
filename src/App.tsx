@@ -6,7 +6,7 @@ import {
   MessageCircle, DollarSign, Loader2,
   Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
   Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
-  Camera, LayoutDashboard, Map as MapIcon, ShieldAlert, Link as LinkIcon
+  Camera, LayoutDashboard, Map as MapIcon, ShieldAlert
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -80,7 +80,8 @@ interface Order {
   value: number; 
   paymentMethod?: string;
   obs?: string;
-  time?: string; 
+  time?: string;
+  origin?: 'manual' | 'menu';
   createdAt: any; 
   assignedAt?: any; 
   completedAt?: any; 
@@ -414,7 +415,7 @@ function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType,
           )}
         </div>
       </div>
-      <p className="absolute bottom-6 text-slate-700 text-xs">Versão 9.1 • Jhans Delivery System</p>
+      <p className="absolute bottom-6 text-slate-700 text-xs">Versão 9.2 • Jhans Delivery System</p>
     </div>
   );
 }
@@ -788,7 +789,7 @@ function Dashboard({ drivers, orders, vales, onAssignOrder, onCreateDriver, onUp
 
                 {/* MOTOS NO MAPA */}
                 <div className="w-full h-full relative">
-                    {drivers.map((d: Driver, index: number) => {
+                    {drivers.map((d: Driver) => {
                        const seed = d.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
                        const visualTop = (seed * 137) % 80 + 10; 
                        const visualLeft = (seed * 93) % 80 + 10; 
