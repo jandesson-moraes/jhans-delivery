@@ -79,7 +79,7 @@ interface Order {
   address: string;
   mapsLink?: string; 
   items: string; 
-  status: 'pending' | 'assigned' | 'accepted' | 'completed';
+  status: 'pending' | 'assigned' | 'delivering' | 'completed'; // Removido 'accepted' para evitar ambiguidade
   amount: string;
   value: number; 
   paymentMethod?: string;
@@ -252,33 +252,33 @@ export default function App() {
   useEffect(() => {
       const style = document.createElement('style');
       style.innerHTML = `
-        /* Animação de Patrulha (Driving) - Movimento maior */
-        @keyframes drive { 
+        /* Animação de Patrulha nas Ruas (Zigue-Zague) */
+        @keyframes patrol { 
             0% { transform: translate(0, 0); } 
-            25% { transform: translate(30px, -15px); } 
-            50% { transform: translate(0, -30px); } 
-            75% { transform: translate(-30px, -15px); } 
-            100% { transform: translate(0, 0); } 
+            25% { transform: translate(60px, 0); } /* Anda na rua horizontal */
+            50% { transform: translate(60px, 60px); } /* Vira na rua vertical */
+            75% { transform: translate(0, 60px); } /* Volta na horizontal */
+            100% { transform: translate(0, 0); } /* Volta pra casa */
         }
-        .animate-drive { animation: drive 12s ease-in-out infinite; }
+        .animate-drive { animation: patrol 20s linear infinite; }
         
-        /* Fundo Estilo Mapa de Cidade Noturna - Ruas Visíveis */
+        /* Fundo Estilo Mapa de Cidade Noturna - Ruas Bem Visíveis */
         .city-map-bg {
-            background-color: #0f172a; /* Slate 950 Background */
-            /* Linhas horizontais e verticais para simular quarteirões */
+            background-color: #0f172a; /* Fundo Escuro */
+            /* Grid de Ruas (Linhas Claras) */
             background-image:
-                linear-gradient(rgba(51, 65, 85, 0.4) 2px, transparent 2px),
-                linear-gradient(90deg, rgba(51, 65, 85, 0.4) 2px, transparent 2px);
-            background-size: 80px 80px; /* Tamanho do quarteirão */
+                linear-gradient(rgba(148, 163, 184, 0.15) 4px, transparent 4px), /* Rua Horizontal */
+                linear-gradient(90deg, rgba(148, 163, 184, 0.15) 4px, transparent 4px); /* Rua Vertical */
+            background-size: 80px 80px; /* Tamanho da Quadra */
             background-position: center center;
         }
 
-        /* Efeito de brilho sutil nas ruas */
-        .city-map-bg::after {
+        /* Efeito de iluminação urbana */
+        .city-map-bg::before {
             content: '';
             position: absolute;
             inset: 0;
-            background: radial-gradient(circle at center, transparent 0%, rgba(15, 23, 42, 0.8) 100%);
+            background: radial-gradient(circle at 50% 50%, transparent 20%, rgba(2, 6, 23, 0.6) 100%);
             pointer-events: none;
         }
 
@@ -353,8 +353,16 @@ export default function App() {
   const deleteProduct = (id: string) => handleAction(async () => { if(confirm("Excluir produto?")) await deleteDoc(doc(db, 'products', id)); });
   const updateClient = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'clients', id), data); });
 
-  const assignOrder = (oid: string, did: string) => handleAction(async () => { await updateDoc(doc(db, 'orders', oid), { status: 'assigned', assignedAt: serverTimestamp(), driverId: did }); await updateDoc(doc(db, 'drivers', did), { status: 'delivering', currentOrderId: oid }); });
-  const acceptOrder = (id: string) => handleAction(async () => { await updateDoc(doc(db, 'orders', id), { status: 'accepted' }); });
+  const assignOrder = (oid: string, did: string) => handleAction(async () => { 
+      await updateDoc(doc(db, 'orders', oid), { status: 'assigned', assignedAt: serverTimestamp(), driverId: did }); 
+      await updateDoc(doc(db, 'drivers', did), { status: 'delivering', currentOrderId: oid }); 
+  });
+  
+  // CORREÇÃO CRÍTICA: Ao aceitar, muda para 'delivering' e não 'accepted'
+  const acceptOrder = (id: string) => handleAction(async () => { 
+      await updateDoc(doc(db, 'orders', id), { status: 'delivering' }); 
+  });
+  
   const completeOrder = (oid: string, did: string) => handleAction(async () => {
       const drv = drivers.find(d => d.id === did);
       await updateDoc(doc(db, 'orders', oid), { status: 'completed', completedAt: serverTimestamp() });
@@ -457,7 +465,8 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
 
 function DriverApp({ driver, orders, onToggleStatus, onAcceptOrder, onCompleteOrder, onLogout }: any) {
   const [activeTab, setActiveTab] = useState<'home' | 'wallet'>('home');
-  const activeOrders = orders.filter((o: Order) => o.driverId === driver.id && o.status !== 'completed' && o.status !== 'pending');
+  // CORREÇÃO CRÍTICA NO FILTRO: Inclui 'delivering' para que não suma após aceitar
+  const activeOrders = orders.filter((o: Order) => o.driverId === driver.id && (o.status === 'assigned' || o.status === 'delivering'));
   const myDeliveries = orders.filter((o: Order) => o.status === 'completed' && o.driverId === driver.id);
   const totalEarnings = myDeliveries.length * TAXA_ENTREGA;
 
