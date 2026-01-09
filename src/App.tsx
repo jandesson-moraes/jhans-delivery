@@ -740,19 +740,32 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
         <div className="p-6"><button onClick={onLogout} className="w-full p-4 bg-slate-800 rounded-2xl flex items-center justify-center gap-3 text-slate-400 font-bold hover:text-white transition-colors"><LogOut size={20}/> Sair</button></div>
       </aside>
 
-      <div className="md:hidden fixed bottom-0 left-0 w-full bg-slate-900/90 backdrop-blur-md text-white pb-6 pt-2 z-50 border-t border-slate-800 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
-         <div className="flex justify-between items-center px-4 overflow-x-auto gap-6 custom-scrollbar">
-             <button onClick={()=>setView('map')} className={`flex-shrink-0 flex flex-col items-center gap-1 transition-all ${view==='map'?'text-orange-500':'text-slate-400'}`}><MapPin size={22}/><span className="text-[10px] font-bold">Mapa</span></button>
-             <button onClick={()=>setView('list')} className={`flex-shrink-0 flex flex-col items-center gap-1 transition-all ${view==='list'?'text-orange-500':'text-slate-400'}`}><Users size={22}/><span className="text-[10px] font-bold">Equipe</span></button>
-             <button onClick={()=>setView('daily')} className={`flex-shrink-0 flex flex-col items-center gap-1 transition-all ${view==='daily'?'text-orange-500':'text-slate-400'}`}><ClipboardList size={22}/><span className="text-[10px] font-bold">Dia</span></button>
-             
-             {/* Botão Central de Novo Pedido */}
-             <button onClick={()=>setModal('order')} className="flex-shrink-0 -mt-6 bg-gradient-to-br from-orange-500 to-red-600 rounded-full p-4 shadow-lg border-4 border-slate-900 text-white"><Plus size={28}/></button>
-             
-             <button onClick={()=>setView('menu')} className={`flex-shrink-0 flex flex-col items-center gap-1 transition-all ${view==='menu'?'text-orange-500':'text-slate-400'}`}><ShoppingBag size={22}/><span className="text-[10px] font-bold">Menu</span></button>
-             <button onClick={()=>setView('clients')} className={`flex-shrink-0 flex flex-col items-center gap-1 transition-all ${view==='clients'?'text-orange-500':'text-slate-400'}`}><Trophy size={22}/><span className="text-[10px] font-bold">Clientes</span></button>
-             <button onClick={()=>setView('history')} className={`flex-shrink-0 flex flex-col items-center gap-1 transition-all ${view==='history'?'text-orange-500':'text-slate-400'}`}><Clock size={22}/><span className="text-[10px] font-bold">Caixa</span></button>
-         </div>
+      {/* BARRA DE NAVEGAÇÃO MOBILE (AJUSTADA) */}
+      <div className="md:hidden fixed bottom-0 left-0 w-full bg-slate-900/90 backdrop-blur-md text-white z-50 border-t border-slate-800 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
+          <div className="relative flex justify-between items-center px-6 pb-4 pt-2">
+              
+              {/* Botão Central Flutuante (FAB) */}
+              <div className="absolute left-1/2 -translate-x-1/2 -top-8">
+                  <button onClick={()=>setModal('order')} className="bg-gradient-to-br from-orange-500 to-red-600 rounded-full p-4 shadow-xl border-4 border-slate-950 text-white transform active:scale-95 transition-transform">
+                      <Plus size={32}/>
+                  </button>
+              </div>
+
+              {/* Lado Esquerdo */}
+              <div className="flex gap-6">
+                  <button onClick={()=>setView('map')} className={`flex flex-col items-center gap-1 ${view==='map'?'text-orange-500':'text-slate-400'}`}><MapPin size={22}/><span className="text-[9px] font-bold">Mapa</span></button>
+                  <button onClick={()=>setView('daily')} className={`flex flex-col items-center gap-1 ${view==='daily'?'text-orange-500':'text-slate-400'}`}><ClipboardList size={22}/><span className="text-[9px] font-bold">Dia</span></button>
+              </div>
+
+              {/* Espaçador Central */}
+              <div className="w-12"></div>
+
+              {/* Lado Direito */}
+              <div className="flex gap-6">
+                  <button onClick={()=>setView('clients')} className={`flex flex-col items-center gap-1 ${view==='clients'?'text-orange-500':'text-slate-400'}`}><Users size={22}/><span className="text-[9px] font-bold">Clientes</span></button>
+                  <button onClick={()=>setView('history')} className={`flex flex-col items-center gap-1 ${view==='history'?'text-orange-500':'text-slate-400'}`}><Clock size={22}/><span className="text-[9px] font-bold">Caixa</span></button>
+              </div>
+          </div>
       </div>
 
       <main className="flex-1 flex flex-col relative overflow-hidden w-full h-full">
@@ -915,7 +928,7 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
         )}
 
         {view === 'clients' && (
-             <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-auto w-full">
+             <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-auto w-full pb-28 md:pb-8">
                  <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                      <div><h2 className="text-2xl font-bold text-white">Gestão de Clientes</h2><p className="text-sm text-slate-500">{clients.length} cadastrados</p></div>
                      <div className="flex gap-2 w-full md:w-auto">
