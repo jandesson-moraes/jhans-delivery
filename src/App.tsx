@@ -6,7 +6,7 @@ import {
   TrendingUp, TrendingDown, Utensils, Plus, LogOut, CheckSquare,
   MessageCircle, DollarSign, Loader2,
   ChevronRight, ClipboardCopy,
-  Trash2, Edit, Wallet, MinusCircle,
+  Trash2, Edit, Wallet, MinusCircle, Settings, Camera,
   LayoutDashboard, Map as MapIcon, ShoppingBag, PlusCircle, MinusCircle as MinusIcon, UploadCloud, Trophy, Star, Store, Minus, ListPlus, ClipboardList
 } from 'lucide-react';
 
@@ -53,6 +53,11 @@ const TAXA_ENTREGA = 5.00;
 type UserType = 'admin' | 'driver' | 'landing';
 type DriverStatus = 'available' | 'delivering' | 'offline';
 
+interface AppConfig {
+    appName: string;
+    appLogoUrl: string;
+}
+
 interface Driver {
   id: string; 
   name: string;
@@ -79,7 +84,7 @@ interface Order {
   address: string;
   mapsLink?: string; 
   items: string; 
-  status: 'pending' | 'assigned' | 'delivering' | 'completed'; // Removido 'accepted' para evitar ambiguidade
+  status: 'pending' | 'assigned' | 'delivering' | 'completed';
   amount: string;
   value: number; 
   paymentMethod?: string;
@@ -194,15 +199,57 @@ const copyToClipboard = (text: string) => {
     document.body.removeChild(textArea);
 };
 
+// COMPRESSOR DE IMAGEM (CLIENT-SIDE)
+const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                // Reduz para max 200px de largura (bom para avatares)
+                const MAX_WIDTH = 200; 
+                const scaleSize = MAX_WIDTH / img.width;
+                canvas.width = MAX_WIDTH;
+                canvas.height = img.height * scaleSize;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+                // Converte para JPEG com qualidade 0.7 (70%)
+                resolve(canvas.toDataURL('image/jpeg', 0.7)); 
+            };
+        };
+        reader.onerror = (error) => reject(error);
+    });
+};
+
 // --- COMPONENTES AUXILIARES ---
-const BrandLogo = ({ size = 'normal', dark = false }: { size?: 'small'|'normal'|'large', dark?: boolean }) => {
+// BrandLogo agora aceita config dinamicamente
+const BrandLogo = ({ size = 'normal', dark = false, config }: { size?: 'small'|'normal'|'large', dark?: boolean, config?: AppConfig }) => {
     const sizeClasses = { small: 'text-lg', normal: 'text-2xl', large: 'text-4xl' };
+    const iconSize = size === 'large' ? 48 : size === 'normal' ? 32 : 20;
+    
+    // Default config se não for passado
+    const appName = config?.appName || "Jhans Burgers";
+    const appLogo = config?.appLogoUrl;
+
     return (
         <div className={`flex items-center gap-3 font-extrabold tracking-tight ${sizeClasses[size]} ${dark ? 'text-slate-800' : 'text-white'}`}>
-            <div className={`bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-md shadow-orange-500/20 ${size === 'small' ? 'p-1.5' : 'p-2.5'}`}>
-                <Utensils className="text-white" size={size === 'large' ? 48 : size === 'normal' ? 32 : 20} />
+            {appLogo ? (
+                <div className={`rounded-xl flex items-center justify-center shadow-md overflow-hidden bg-slate-800 ${size === 'small' ? 'w-8 h-8' : size === 'normal' ? 'w-12 h-12' : 'w-20 h-20'}`}>
+                    <img src={appLogo} alt="Logo" className="w-full h-full object-cover"/>
+                </div>
+            ) : (
+                <div className={`bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-md shadow-orange-500/20 ${size === 'small' ? 'p-1.5' : 'p-2.5'}`}>
+                    <Utensils className="text-white" size={iconSize} />
+                </div>
+            )}
+            
+            <div className="flex flex-col leading-none">
+                <span>{appName}</span>
+                {size !== 'small' && <span className={`text-[0.4em] uppercase tracking-widest ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Delivery System</span>}
             </div>
-            <span>Jhans<span className="text-amber-500">Burgers</span></span>
         </div>
     );
 };
@@ -239,6 +286,16 @@ export default function App() {
     try { return localStorage.getItem('jhans_driverId'); } catch { return null; }
   });
 
+  // Configurações do App (Persistência Local para White Label)
+  const [appConfig, setAppConfig] = useState<AppConfig>(() => {
+      try {
+          const saved = localStorage.getItem('jhans_app_config');
+          return saved ? JSON.parse(saved) : { appName: "Jhans Burgers", appLogoUrl: "" };
+      } catch {
+          return { appName: "Jhans Burgers", appLogoUrl: "" };
+      }
+  });
+
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [vales, setVales] = useState<Vale[]>([]); 
@@ -247,53 +304,76 @@ export default function App() {
   const [clients, setClients] = useState<Client[]>([]); 
   const [loading, setLoading] = useState(true);
   const [permissionError, setPermissionError] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // Injetar CSS de Animação e Custom Scrollbar (SLIM) + BACKGROUND CIDADE (RUAS)
+  // Monitora redimensionamento
+  useEffect(() => {
+      const handleResize = () => setIsMobile(window.innerWidth < 768);
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Salvar configurações quando mudarem
+  useEffect(() => {
+      localStorage.setItem('jhans_app_config', JSON.stringify(appConfig));
+  }, [appConfig]);
+
+  // Injetar CSS de Animação e Custom Scrollbar (SLIM) + CIDADE REALISTA (RUAS)
   useEffect(() => {
       const style = document.createElement('style');
       style.innerHTML = `
-        /* Animação de Patrulha nas Ruas (Zigue-Zague) */
-        @keyframes patrol { 
-            0% { transform: translate(0, 0); } 
-            25% { transform: translate(60px, 0); } /* Anda na rua horizontal */
-            50% { transform: translate(60px, 60px); } /* Vira na rua vertical */
-            75% { transform: translate(0, 60px); } /* Volta na horizontal */
-            100% { transform: translate(0, 0); } /* Volta pra casa */
-        }
-        .animate-drive { animation: patrol 20s linear infinite; }
+        /* --- ANIMAÇÕES DE TRÂNSITO --- */
+        /* O Grid tem 80px. */
         
-        /* Fundo Estilo Mapa de Cidade Noturna - Ruas Bem Visíveis */
+        @keyframes driveX { 
+            0% { transform: translate(0, 0) scaleX(1); } 
+            45% { transform: translate(160px, 0) scaleX(1); } 
+            50% { transform: translate(160px, 0) scaleX(-1); }
+            95% { transform: translate(0, 0) scaleX(-1); } 
+            100% { transform: translate(0, 0) scaleX(1); } 
+        }
+
+        @keyframes driveY { 
+            0% { transform: translate(0, 0); } 
+            45% { transform: translate(0, 160px); } 
+            50% { transform: translate(0, 160px); } 
+            95% { transform: translate(0, 0); } 
+            100% { transform: translate(0, 0); } 
+        }
+
+        @keyframes driveL { 
+            0% { transform: translate(0, 0); } 
+            25% { transform: translate(80px, 0); }
+            50% { transform: translate(80px, 80px); }
+            75% { transform: translate(0, 80px); }
+            100% { transform: translate(0, 0); }
+        }
+
+        .animate-drive-x { animation: driveX 20s linear infinite; }
+        .animate-drive-y { animation: driveY 25s linear infinite; }
+        .animate-drive-l { animation: driveL 30s linear infinite; }
+        
+        /* --- MAPA DE CIDADE (RUAS) --- */
         .city-map-bg {
-            background-color: #0f172a; /* Fundo Escuro */
-            /* Grid de Ruas (Linhas Claras) */
+            background-color: #0f172a; /* Slate 900 Background */
+            /* Linhas simulando ruas (grid simples e eficiente) */
             background-image:
-                linear-gradient(rgba(148, 163, 184, 0.15) 4px, transparent 4px), /* Rua Horizontal */
-                linear-gradient(90deg, rgba(148, 163, 184, 0.15) 4px, transparent 4px); /* Rua Vertical */
+                linear-gradient(rgba(148, 163, 184, 0.1) 4px, transparent 4px), /* Rua Horizontal */
+                linear-gradient(90deg, rgba(148, 163, 184, 0.1) 4px, transparent 4px); /* Rua Vertical */
             background-size: 80px 80px; /* Tamanho da Quadra */
-            background-position: center center;
+            background-position: -2px -2px; /* Ajuste fino */
         }
 
-        /* Efeito de iluminação urbana */
-        .city-map-bg::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(circle at 50% 50%, transparent 20%, rgba(2, 6, 23, 0.6) 100%);
-            pointer-events: none;
+        /* Farol */
+        .headlight {
+            box-shadow: 0 0 20px 5px rgba(245, 158, 11, 0.4);
         }
 
-        /* SCROLLBAR GLOBAL SLIM */
-        ::-webkit-scrollbar {
-          width: 0px; /* Remove visualmente no mobile */
-          height: 0px;
-        }
-        @media (min-width: 768px) {
-            ::-webkit-scrollbar { width: 5px; height: 5px; }
-        }
+        /* SCROLLBAR */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #475569; }
-        * { scrollbar-width: none; } /* Firefox mobile */
+        * { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
       `;
       document.head.appendChild(style);
       return () => { if(document.head.contains(style)) document.head.removeChild(style); };
@@ -344,6 +424,7 @@ export default function App() {
   });
 
   const createDriver = (data: any) => handleAction(async () => { await addDoc(collection(db, 'drivers'), data); });
+  const updateDriver = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'drivers', id), data); }); // Novo: Atualizar Driver
   const deleteDriver = (id: string) => handleAction(async () => { if (confirm("Tem certeza?")) await deleteDoc(doc(db, 'drivers', id)); });
   const deleteOrder = (id: string) => handleAction(async () => { if (confirm("Excluir pedido?")) await deleteDoc(doc(db, 'orders', id)); });
   const createVale = (data: any) => handleAction(async () => { await addDoc(collection(db, 'vales'), { ...data, createdAt: serverTimestamp() }); });
@@ -358,7 +439,6 @@ export default function App() {
       await updateDoc(doc(db, 'drivers', did), { status: 'delivering', currentOrderId: oid }); 
   });
   
-  // CORREÇÃO CRÍTICA: Ao aceitar, muda para 'delivering' e não 'accepted'
   const acceptOrder = (id: string) => handleAction(async () => { 
       await updateDoc(doc(db, 'orders', id), { status: 'delivering' }); 
   });
@@ -376,7 +456,7 @@ export default function App() {
   if (permissionError) return <div className="h-screen flex items-center justify-center bg-slate-950 text-white"><div className="text-center"><h1>Acesso Bloqueado</h1><button onClick={()=>window.location.reload()} className="mt-4 bg-blue-600 px-4 py-2 rounded">Recarregar</button></div></div>;
   if (loading && !user) return <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 text-white"><Loader2 className="animate-spin w-10 h-10 text-amber-500 mb-4"/> <span className="font-medium animate-pulse">Carregando Sistema...</span></div>;
 
-  if (viewMode === 'landing') return <LandingPage onSelectMode={(m: UserType, id?: string) => { if(id) setCurrentDriverId(id); setViewMode(m); }} />;
+  if (viewMode === 'landing') return <LandingPage onSelectMode={(m: UserType, id?: string) => { if(id) setCurrentDriverId(id); setViewMode(m); }} config={appConfig} />;
   
   if (viewMode === 'driver') {
     if (currentDriverId === 'select') return <DriverSelection drivers={drivers} onSelect={(id: string) => setCurrentDriverId(id)} onBack={handleLogout} />;
@@ -387,18 +467,21 @@ export default function App() {
 
   return <AdminPanel 
             drivers={drivers} orders={orders} vales={vales} expenses={expenses} products={products} clients={clients}
-            onAssignOrder={assignOrder} onCreateDriver={createDriver} onDeleteDriver={deleteDriver} 
+            onAssignOrder={assignOrder} onCreateDriver={createDriver} onUpdateDriver={updateDriver} onDeleteDriver={deleteDriver} 
             onCreateOrder={createOrder} onDeleteOrder={deleteOrder} onCreateVale={createVale} onCreateExpense={createExpense}
             onCreateProduct={createProduct} onDeleteProduct={deleteProduct} onUpdateProduct={updateProduct} onUpdateClient={updateClient} onLogout={handleLogout} 
+            isMobile={isMobile}
+            appConfig={appConfig}
+            setAppConfig={setAppConfig}
         />;
 }
 
 // --- TELAS ---
-function LandingPage({ onSelectMode }: { onSelectMode: (m: UserType, id?: string) => void }) {
+function LandingPage({ onSelectMode, config }: { onSelectMode: (m: UserType, id?: string) => void, config: AppConfig }) {
   return (
     <div className="min-h-screen w-screen bg-slate-950 flex flex-col items-center justify-center p-6 relative overflow-hidden">
       <div className="z-10 text-center space-y-8 max-w-md w-full animate-in fade-in duration-700 slide-in-from-bottom-4">
-        <div className="flex justify-center scale-125 mb-4"><BrandLogo size="large" /></div>
+        <div className="flex justify-center scale-125 mb-4"><BrandLogo size="large" config={config} /></div>
         <div className="space-y-3">
           <button onClick={() => onSelectMode('admin')} className="w-full group relative flex items-center justify-between p-5 bg-slate-900 border border-slate-800 rounded-2xl transition-all hover:border-amber-500/50 hover:bg-slate-800">
             <div className="flex items-center gap-4"><div className="bg-blue-900/30 p-3 rounded-xl text-blue-400"><TrendingUp size={20}/></div><div className="text-left"><span className="block font-bold text-white text-lg">Sou Gerente</span><span className="text-xs text-slate-400">Painel Administrativo</span></div></div><ChevronRight className="text-slate-500 group-hover:text-white transition-colors" />
@@ -408,7 +491,7 @@ function LandingPage({ onSelectMode }: { onSelectMode: (m: UserType, id?: string
           </button>
         </div>
       </div>
-      <p className="absolute bottom-6 text-slate-600 text-xs">Versão 15.0 (Dark) • Jhans Burgers</p>
+      <p className="absolute bottom-6 text-slate-600 text-xs">Versão 16.0 (SaaS Ready) • {config.appName}</p>
     </div>
   );
 }
@@ -431,7 +514,9 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
         <div className="min-h-screen w-screen bg-slate-950 flex items-center justify-center p-4">
            <div className="bg-slate-900 rounded-3xl shadow-2xl p-8 w-full max-w-sm border border-slate-800">
                <div className="text-center mb-6">
-                   <div className="w-20 h-20 rounded-full mx-auto mb-4 border-4 border-slate-800 shadow-md overflow-hidden relative"><img src={driver?.avatar} className="w-full h-full object-cover" /></div>
+                   <div className="w-20 h-20 rounded-full mx-auto mb-4 border-4 border-slate-800 shadow-md overflow-hidden relative">
+                       <img src={driver?.avatar} className="w-full h-full object-cover" />
+                   </div>
                    <h3 className="font-bold text-xl text-white">Olá, {driver?.name}!</h3>
                </div>
                <form onSubmit={handleLogin} className="space-y-4">
@@ -558,7 +643,7 @@ function AdminPanel(props: any) {
     return (
       <div className="min-h-screen w-screen bg-slate-950 flex items-center justify-center p-4">
         <div className="bg-slate-900 rounded-3xl p-10 w-full max-w-sm shadow-2xl border border-slate-800">
-          <div className="text-center mb-8"><BrandLogo dark size="normal" /><h2 className="text-2xl font-bold text-white mt-4">Acesso Restrito</h2></div>
+          <div className="text-center mb-8"><BrandLogo dark size="normal" config={props.appConfig} /><h2 className="text-2xl font-bold text-white mt-4">Acesso Restrito</h2></div>
           <form onSubmit={handleLogin} className="space-y-6">
             <input type="password" autoFocus className="w-full p-4 border-2 border-slate-700 bg-slate-950 rounded-2xl outline-none text-center text-white placeholder-slate-600 focus:border-amber-500 transition-colors" placeholder="Senha" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} />
             {error && <p className="text-red-500 text-center font-bold text-sm animate-pulse">{error}</p>}
@@ -572,9 +657,9 @@ function AdminPanel(props: any) {
   return <Dashboard {...props} />;
 }
 
-function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssignOrder, onCreateDriver, onDeleteDriver, onDeleteOrder, onCreateOrder, onCreateVale, onCreateExpense, onCreateProduct, onUpdateProduct, onDeleteProduct, onUpdateClient, onLogout }: any) {
+function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssignOrder, onCreateDriver, onUpdateDriver, onDeleteDriver, onDeleteOrder, onCreateOrder, onCreateVale, onCreateExpense, onCreateProduct, onUpdateProduct, onDeleteProduct, onUpdateClient, onLogout, isMobile, appConfig, setAppConfig }: any) {
   const [view, setView] = useState<'map' | 'list' | 'history' | 'menu' | 'clients' | 'daily'>('map');
-  const [modal, setModal] = useState<'driver' | 'order' | 'vale' | 'import' | 'product' | 'expense' | 'client' | null>(null);
+  const [modal, setModal] = useState<'driver' | 'order' | 'vale' | 'import' | 'product' | 'expense' | 'client' | 'settings' | null>(null);
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
   const [driverReportId, setDriverReportId] = useState<string | null>(null);
@@ -655,7 +740,7 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
 
   const copyReport = () => {
     const today = new Date().toLocaleDateString('pt-BR');
-    let text = `🛵 *RELATÓRIO DE ENTREGAS - JHAN'S BURGERS*\n📅 Data: ${today}\n--- ENTREGAS ---\n\n`;
+    let text = `🛵 *RELATÓRIO DE ENTREGAS - ${appConfig.appName.toUpperCase()}*\n📅 Data: ${today}\n--- ENTREGAS ---\n\n`;
     sortedHistory.forEach((o: Order, i: number) => {
        const driverName = drivers.find((d: Driver) => d.id === o.driverId)?.name || 'Não identificado';
        text += `✅ ENTREGA ${sortedHistory.length - i} (${o.paymentMethod || 'PAGO'})\n`;
@@ -750,7 +835,7 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
   return (
     <div className="flex h-screen w-screen bg-slate-950 font-sans text-slate-200 overflow-hidden">
       <aside className="hidden md:flex w-72 bg-slate-900 text-white flex-col z-20 shadow-2xl h-full border-r border-slate-800">
-        <div className="p-8 border-b border-slate-800"><BrandLogo size="normal" /></div>
+        <div className="p-8 border-b border-slate-800"><BrandLogo size="normal" config={appConfig} /></div>
         <nav className="flex-1 p-6 space-y-3">
           <SidebarBtn icon={<LayoutDashboard/>} label="Monitoramento" active={view==='map'} onClick={()=>setView('map')}/>
           <SidebarBtn icon={<Users/>} label="Equipe" active={view==='list'} onClick={()=>setView('list')}/>
@@ -761,7 +846,10 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
           <SidebarBtn icon={<Trophy/>} label="Clientes" active={view==='clients'} onClick={()=>setView('clients')}/>
           <SidebarBtn icon={<Clock/>} label="Financeiro" active={view==='history'} onClick={()=>setView('history')}/>
         </nav>
-        <div className="p-6"><button onClick={onLogout} className="w-full p-4 bg-slate-800 rounded-2xl flex items-center justify-center gap-3 text-slate-400 font-bold hover:text-white transition-colors"><LogOut size={20}/> Sair</button></div>
+        <div className="p-6 space-y-2">
+            <button onClick={() => setModal('settings')} className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center gap-3 text-slate-400 font-bold hover:text-white transition-colors hover:bg-slate-800"><Settings size={20}/> Config</button>
+            <button onClick={onLogout} className="w-full p-4 bg-slate-800 rounded-2xl flex items-center justify-center gap-3 text-slate-400 font-bold hover:text-white transition-colors"><LogOut size={20}/> Sair</button>
+        </div>
       </aside>
 
       {/* BARRA DE NAVEGAÇÃO MOBILE (AJUSTADA) */}
@@ -794,30 +882,72 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
 
       <main className="flex-1 flex flex-col relative overflow-hidden w-full h-full">
         <header className="h-16 md:h-20 bg-slate-900 border-b border-slate-800 px-4 md:px-10 flex items-center justify-between shadow-sm z-10 w-full">
-           <h1 className="text-lg md:text-2xl font-extrabold text-white tracking-tight">
-               {view === 'map' ? 'Visão Geral' : view === 'list' ? 'Gestão de Equipe' : view === 'menu' ? 'Cardápio Digital' : view === 'clients' ? 'Gestão de Clientes' : view === 'daily' ? 'Pedidos do Dia' : 'Financeiro & Relatórios'}
-           </h1>
+           <div className="flex items-center gap-3">
+               {appConfig.appLogoUrl && <img src={appConfig.appLogoUrl} className="w-8 h-8 rounded-full md:hidden object-cover" />}
+               <h1 className="text-lg md:text-2xl font-extrabold text-white tracking-tight truncate">
+                   {view === 'map' ? 'Visão Geral' : view === 'list' ? 'Gestão de Equipe' : view === 'menu' ? 'Cardápio Digital' : view === 'clients' ? 'Gestão de Clientes' : view === 'daily' ? 'Pedidos do Dia' : 'Financeiro & Relatórios'}
+               </h1>
+           </div>
+           
+           {/* Botões do Topo (Mobile: Config e Sair) */}
+           <div className="flex items-center gap-2">
+               <button onClick={() => setModal('settings')} className="md:hidden p-2 text-slate-400 hover:text-white transition-colors bg-slate-800 rounded-xl">
+                   <Settings size={20}/>
+               </button>
+               <button onClick={onLogout} className="md:hidden p-2 text-slate-400 hover:text-white transition-colors bg-slate-800 rounded-xl">
+                   <LogOut size={20}/>
+               </button>
+           </div>
         </header>
 
         <div className="flex-1 overflow-hidden relative w-full h-full">
           {view === 'map' && (
              <div className="absolute inset-0 city-map-bg overflow-hidden w-full h-full">
-                {/* MOTOS NO MAPA COM ANIMAÇÃO */}
+                
+                {/* DICAS DE LOCALIZAÇÃO / MARCA D'ÁGUA NO FUNDO */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-5 select-none p-4">
+                    <span className="text-slate-200 font-black text-5xl md:text-9xl text-center leading-none tracking-tighter opacity-10">{appConfig.appName.toUpperCase()}</span>
+                    <span className="text-slate-200 font-bold text-xl md:text-4xl tracking-widest mt-2 uppercase opacity-10">DELIVERY SYSTEM</span>
+                </div>
+
+                {/* MOTOS NO MAPA COM ANIMAÇÃO NAS RUAS */}
                 <div className="w-full h-full relative">
-                    {drivers.map((d: Driver) => {
+                    {drivers.map((d: Driver, index: number) => {
                        const seed = d.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                       // Posição segura para não cortar (entre 20% e 75% da altura)
-                       const visualTop = Math.min(Math.max((seed * 137) % 80, 20), 75); 
-                       const visualLeft = (seed * 93) % 80 + 10; 
                        
+                       const maxCols = isMobile ? 4 : 12;
+                       const maxRows = isMobile ? 6 : 8;
+
+                       // Ajuste Fino para Grade de Ruas (80px box, 4px line)
+                       // Centralizar na linha: (Index * 80) - Offset
+                       const gridX = (Math.floor(seed * 17) % maxCols) * 80 - 12; 
+                       const gridY = (Math.floor(seed * 23) % maxRows) * 80 - 12; 
+                       
+                       const animType = index % 3 === 0 ? 'animate-drive-x' : index % 3 === 1 ? 'animate-drive-y' : 'animate-drive-l';
+                       const colorStatus = d.status === 'delivering' ? 'border-amber-500' : d.status === 'offline' ? 'border-slate-500' : 'border-emerald-500';
+                       const glowStatus = d.status === 'delivering' ? 'headlight' : '';
+
                        return (
-                           <div key={d.id} onClick={(e) => { e.stopPropagation(); setSelectedDriver(d); }} className="absolute z-30 hover:scale-110 transition-all duration-700 cursor-pointer animate-drive" 
-                                style={{ top: `${visualTop}%`, left: `${visualLeft}%` }}>
+                           <div key={d.id} 
+                                onClick={(e) => { e.stopPropagation(); setSelectedDriver(d); }} 
+                                className={`absolute z-30 cursor-pointer transition-transform duration-1000 ${animType}`}
+                                style={{ top: `${gridY + 80}px`, left: `${gridX + 80}px` }}>
+                              
                               <div className="relative group flex flex-col items-center">
-                                 <div className={`w-14 h-14 md:w-16 md:h-16 rounded-full border-4 shadow-2xl overflow-hidden bg-slate-800 ${d.status==='delivering' ? 'border-amber-500' : 'border-slate-600'}`}>
-                                    <img src={d.avatar} className="w-full h-full object-cover"/>
+                                 {/* FOTO DO MOTOBOY NO MAPA */}
+                                 <div className={`relative bg-slate-900 p-0.5 rounded-full border-2 ${colorStatus} shadow-xl ${glowStatus} transform transition-all active:scale-95 overflow-hidden w-10 h-10`}>
+                                     {d.avatar ? (
+                                         <img src={d.avatar} className="w-full h-full object-cover rounded-full" alt={d.name} />
+                                     ) : (
+                                         <div className="w-full h-full flex items-center justify-center bg-slate-800"><Bike size={20} className="text-white"/></div>
+                                     )}
+                                     
+                                     {/* Bolinha de status */}
+                                     <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${d.status === 'delivering' ? 'bg-amber-500 animate-pulse' : d.status === 'available' ? 'bg-emerald-500' : 'bg-slate-500'}`}></div>
                                  </div>
-                                 <div className="mt-1 bg-slate-900/80 backdrop-blur text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg">{d.name}</div>
+                                 <div className="mt-1 bg-black/80 backdrop-blur text-white text-[9px] font-bold px-2 py-0.5 rounded-md shadow-lg whitespace-nowrap transition-opacity">
+                                     {d.name.split(' ')[0]}
+                                 </div>
                               </div>
                            </div>
                        )
@@ -825,19 +955,18 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
                 </div>
                 
                 {/* LISTA DE PEDIDOS PENDENTES */}
-                <div className="absolute top-6 left-6 z-20 space-y-3 max-h-[85%] overflow-y-auto w-80 pr-2 custom-scrollbar">
+                <div className="absolute top-6 left-6 z-40 space-y-3 max-h-[60%] overflow-y-auto w-72 pr-2 custom-scrollbar">
                    {orders.filter((o: Order) => o.status === 'pending').map((o: Order) => (
-                      <div key={o.id} className="bg-slate-900/95 backdrop-blur-md p-4 rounded-xl shadow-lg border-l-4 border-amber-500 relative group">
-                         <div className="flex justify-between items-start mb-1"><span className="font-bold text-sm text-white">{o.customer}</span><span className="text-[10px] font-bold bg-slate-800 px-2 py-1 rounded text-slate-400">{o.time}</span></div>
-                         <p className="text-xs text-slate-400 truncate">{o.address}</p>
-                         <div className="flex justify-between items-center mt-2">
+                      <div key={o.id} className="bg-slate-900/90 backdrop-blur-md p-3 rounded-xl shadow-2xl border-l-4 border-amber-500 relative group animate-in slide-in-from-left-4 duration-300">
+                         <div className="flex justify-between items-start mb-1"><span className="font-bold text-sm text-white truncate w-32">{o.customer}</span><span className="text-[10px] font-bold bg-slate-800 px-2 py-1 rounded text-slate-400">{o.time}</span></div>
+                         <p className="text-xs text-slate-400 truncate mb-2">{o.address}</p>
+                         <div className="flex justify-between items-center">
                              <span className="text-sm font-bold text-emerald-400">{o.amount}</span>
                              <div className="flex gap-1">
                                 {o.serviceType === 'pickup' && <span className="bg-purple-900/50 text-purple-400 px-1 rounded text-[10px] font-bold">Retira</span>}
-                                {o.paymentStatus === 'pending' && <span className="bg-red-900/50 text-red-400 px-1 rounded text-[10px] font-bold">Pag. Pendente</span>}
                              </div>
                          </div>
-                         <button onClick={() => onDeleteOrder(o.id)} className="absolute -right-2 -top-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12}/></button>
+                         <button onClick={() => onDeleteOrder(o.id)} className="absolute -right-2 -top-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110"><Trash2 size={12}/></button>
                       </div>
                    ))}
                 </div>
@@ -857,7 +986,10 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
                             <img src={d.avatar} className="w-16 h-16 rounded-full bg-slate-800 object-cover border-2 border-slate-700"/>
                             <div>
                                <h3 className="font-bold text-lg text-white">{d.name}</h3>
-                               <span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wide ${d.status==='offline'?'bg-slate-800 text-slate-500':d.status==='available'?'bg-emerald-900/30 text-emerald-400':'bg-orange-900/30 text-orange-400'}`}>{d.status}</span>
+                               <div className="flex gap-2">
+                                  <span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wide ${d.status==='offline'?'bg-slate-800 text-slate-500':d.status==='available'?'bg-emerald-900/30 text-emerald-400':'bg-orange-900/30 text-orange-400'}`}>{d.status}</span>
+                                  <span className="text-[10px] px-3 py-1 rounded-full font-bold uppercase bg-slate-800 text-slate-400">{d.vehicle || 'Moto'}</span>
+                               </div>
                             </div>
                          </div>
                          <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1004,8 +1136,9 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
       </main>
 
       {/* MODAIS */}
+      {modal === 'settings' && <SettingsModal config={appConfig} onSave={(newConfig: AppConfig) => { setAppConfig(newConfig); setModal(null); }} onClose={() => setModal(null)} />}
       {modal === 'order' && <NewOrderModal onClose={()=>setModal(null)} onSave={(data: any) => { onCreateOrder(data); setView('map'); }} products={products} clients={clients} />}
-      {modal === 'driver' && <NewDriverModal onClose={()=>{setModal(null); setDriverToEdit(null);}} onSave={onCreateDriver} initialData={driverToEdit} />}
+      {modal === 'driver' && <NewDriverModal onClose={()=>{setModal(null); setDriverToEdit(null);}} onSave={driverToEdit ? (data: any) => onUpdateDriver(driverToEdit.id, data) : onCreateDriver} initialData={driverToEdit} />}
       {modal === 'vale' && driverToEdit && <NewValeModal driver={driverToEdit} onClose={() => { setModal(null); setDriverToEdit(null); }} onSave={onCreateVale} />}
       {modal === 'import' && <ImportModal onClose={() => setModal(null)} onImportCSV={handleImportCSV} />}
       {modal === 'expense' && <NewExpenseModal onClose={() => setModal(null)} onSave={onCreateExpense} />}
@@ -1019,7 +1152,7 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
                   <div className="bg-slate-900 p-6 border-b border-slate-800 sticky top-0 z-10">
                       <div className="flex justify-between items-start mb-6"><h3 className="font-bold text-white text-lg">Perfil do Motoboy</h3><button onClick={()=>setSelectedDriver(null)} className="p-2 hover:bg-slate-800 rounded-full transition-colors"><X size={20} className="text-slate-500"/></button></div>
                       <div className="flex flex-col items-center">
-                         <div className="relative mb-3"><img src={selectedDriver.avatar} className="w-24 h-24 rounded-full border-4 border-slate-800 shadow-lg object-cover"/><span className={`absolute bottom-1 right-1 w-6 h-6 rounded-full border-4 border-white ${selectedDriver.status==='offline'?'bg-slate-400':selectedDriver.status==='available'?'bg-emerald-500':'bg-orange-500'}`}></span></div>
+                         <div className="relative mb-3"><img src={selectedDriver.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + selectedDriver.name} className="w-24 h-24 rounded-full border-4 border-slate-800 shadow-lg object-cover"/><span className={`absolute bottom-1 right-1 w-6 h-6 rounded-full border-4 border-white ${selectedDriver.status==='offline'?'bg-slate-400':selectedDriver.status==='available'?'bg-emerald-500':'bg-orange-500'}`}></span></div>
                          <h2 className="font-bold text-2xl text-white">{selectedDriver.name}</h2>
                          <div className="flex items-center gap-2 mt-1"><span className="text-xs font-bold bg-slate-800 text-slate-400 px-2 py-0.5 rounded">{selectedDriver.plate}</span><span className="text-sm text-slate-500">{selectedDriver.vehicle}</span></div>
                          <button onClick={() => trackDriver(selectedDriver)} className="mt-5 w-full bg-blue-600/20 text-blue-400 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-600/40 transition-colors border border-blue-600/30"><MapIcon size={18} /> Rastrear Posição Real</button>
@@ -1050,6 +1183,32 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
 }
 
 // ... MODAIS AUXILIARES ...
+
+function SettingsModal({ config, onSave, onClose }: any) {
+    const [form, setForm] = useState(config);
+    return (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-sm p-6 border border-slate-800">
+                <h3 className="font-bold text-xl mb-4 text-white flex items-center gap-2"><Settings size={20}/> Configurações do Sistema</h3>
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 ml-1 uppercase mb-1 block">Nome do Sistema / Hamburgueria</label>
+                        <input className="w-full border-2 border-slate-700 bg-slate-950 rounded-xl p-3 outline-none font-bold text-white" value={form.appName} onChange={e => setForm({...form, appName: e.target.value})} />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 ml-1 uppercase mb-1 block">URL da Logo (Imagem)</label>
+                        <input className="w-full border-2 border-slate-700 bg-slate-950 rounded-xl p-3 outline-none text-xs text-slate-300 font-mono" placeholder="https://..." value={form.appLogoUrl} onChange={e => setForm({...form, appLogoUrl: e.target.value})} />
+                        {form.appLogoUrl && <img src={form.appLogoUrl} className="mt-2 w-16 h-16 rounded-xl object-cover border border-slate-700 mx-auto" />}
+                    </div>
+                    <div className="flex gap-3 pt-4">
+                        <button onClick={onClose} className="flex-1 border border-slate-700 rounded-xl py-3 font-bold text-slate-500 hover:bg-slate-800">Cancelar</button>
+                        <button onClick={() => onSave(form)} className="flex-1 bg-amber-600 hover:bg-amber-700 text-white rounded-xl py-3 font-bold shadow-lg">Salvar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
 
 function MenuManager({ products, onCreate, onUpdate, onDelete }: any) {
     const [newItem, setNewItem] = useState({ name: '', price: '', category: 'Hambúrgueres', description: '' });
@@ -1598,17 +1757,112 @@ function NewExpenseModal({ onClose, onSave }: any) {
     );
 }
 
-function NewDriverModal({ onClose, onSave }: any) {
-    const [form, setForm] = useState({ name: '', password: '', phone: '', vehicle: '', cpf: '', plate: '', avatar: '' });
-    const submit = (e: any) => { e.preventDefault(); onSave({...form, status: 'offline', lat:0, lng:0, battery: 100, rating: 5, totalDeliveries: 0, avatar: form.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${form.name}`}); onClose(); };
+function NewDriverModal({ onClose, onSave, initialData }: any) {
+    // Inicializa com dados vazios ou dados de edição se existirem
+    const [form, setForm] = useState(initialData || { name: '', password: '', phone: '', vehicle: '', cpf: '', plate: '', avatar: '' });
+    const [isProcessingImage, setIsProcessingImage] = useState(false);
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setIsProcessingImage(true);
+            try {
+                const compressedBase64 = await compressImage(file);
+                setForm({ ...form, avatar: compressedBase64 });
+            } catch (err) {
+                console.error("Erro ao processar imagem", err);
+                alert("Erro ao processar a imagem. Tente outra.");
+            } finally {
+                setIsProcessingImage(false);
+            }
+        }
+    };
+
+    const submit = (e: any) => { 
+        e.preventDefault(); 
+        const baseData = { ...form };
+        
+        // Se for novo cadastro, define padrões iniciais. Se for edição, mantém o que tem.
+        if (!initialData) {
+             Object.assign(baseData, { 
+                 status: 'offline', 
+                 lat: 0, 
+                 lng: 0, 
+                 battery: 100, 
+                 rating: 5, 
+                 totalDeliveries: 0,
+                 // Avatar padrão se não tiver upload
+                 avatar: form.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${form.name}` 
+             });
+        }
+
+        onSave(baseData); 
+        onClose(); 
+    };
+
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4">
-            <div className="bg-slate-900 rounded-3xl p-6 w-full max-w-sm border border-slate-800">
-                <h3 className="font-bold text-xl text-white mb-4">Novo Motoboy</h3>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+            <div className="bg-slate-900 rounded-3xl p-6 w-full max-w-md border border-slate-800 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+                <h3 className="font-bold text-xl text-white mb-6 flex items-center gap-2">
+                    {initialData ? <Edit className="text-amber-500"/> : <PlusCircle className="text-emerald-500"/>}
+                    {initialData ? 'Editar Motoboy' : 'Novo Motoboy'}
+                </h3>
+                
                 <form onSubmit={submit} className="space-y-4">
-                    <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none" placeholder="Nome" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} required/>
-                    <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none" placeholder="Senha" value={form.password} onChange={e=>setForm({...form, password: e.target.value})} required/>
-                    <div className="flex gap-3"><button type="button" onClick={onClose} className="flex-1 text-slate-500">Cancelar</button><button className="flex-1 bg-emerald-600 text-white rounded-xl py-3 font-bold">Salvar</button></div>
+                    {/* Upload de Foto */}
+                    <div className="flex flex-col items-center justify-center mb-6">
+                        <div className="relative w-24 h-24 rounded-full border-4 border-slate-700 bg-slate-800 overflow-hidden group">
+                            {form.avatar ? (
+                                <img src={form.avatar} className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-slate-500"><Users size={32}/></div>
+                            )}
+                            <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                <Camera className="text-white" size={24}/>
+                                <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                            </label>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-2">{isProcessingImage ? 'Processando...' : 'Toque para alterar foto'}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2">
+                            <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Nome Completo</label>
+                            <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" placeholder="Ex: João Silva" value={form.name} onChange={e=>setForm({...form, name: capitalize(e.target.value)})} required/>
+                        </div>
+                        
+                        <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Senha de Acesso</label>
+                            <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" placeholder="1234" value={form.password} onChange={e=>setForm({...form, password: e.target.value})} required/>
+                        </div>
+                        
+                        <div>
+                             <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Telefone</label>
+                            <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" placeholder="11999999999" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})}/>
+                        </div>
+
+                        <div className="col-span-2">
+                            <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">CPF</label>
+                            <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" placeholder="000.000.000-00" value={form.cpf} onChange={e=>setForm({...form, cpf: e.target.value})}/>
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Modelo Veículo</label>
+                            <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" placeholder="Ex: Titan 160" value={form.vehicle} onChange={e=>setForm({...form, vehicle: e.target.value})}/>
+                        </div>
+                        
+                        <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Placa</label>
+                            <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" placeholder="ABC-1234" value={form.plate} onChange={e=>setForm({...form, plate: e.target.value.toUpperCase()})}/>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-4 border-t border-slate-800 mt-2">
+                        <button type="button" onClick={onClose} className="flex-1 py-3 text-slate-400 font-bold hover:text-white transition-colors">Cancelar</button>
+                        <button type="submit" disabled={isProcessingImage} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-3 font-bold shadow-lg disabled:opacity-50">
+                            {initialData ? 'Salvar Alterações' : 'Cadastrar'}
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
