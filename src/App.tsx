@@ -5,9 +5,9 @@ import {
   X, Search, Users, Bike, 
   TrendingUp, TrendingDown, Utensils, Plus, LogOut, CheckSquare,
   MessageCircle, DollarSign, Loader2,
-  Lock, KeyRound, ChevronRight, BellRing, ClipboardCopy, FileText,
-  Trash2, Edit, Wallet, Calendar, MinusCircle, ArrowDownCircle, ArrowUpCircle,
-  Camera, LayoutDashboard, Map as MapIcon, ShieldAlert, ShoppingBag, Store, AlertTriangle, PlusCircle, MinusCircle as MinusIcon, UploadCloud, Trophy, Star, History
+  ChevronRight, ClipboardCopy,
+  Trash2, Edit, Wallet, MinusCircle,
+  LayoutDashboard, Map as MapIcon, ShoppingBag, PlusCircle, MinusCircle as MinusIcon, UploadCloud, Trophy, Star, Store, Minus, ListPlus
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -150,16 +150,13 @@ const isToday = (timestamp: any) => {
            date.getFullYear() === today.getFullYear();
 };
 
-const calcDuration = (start: any, end: any) => {
-  if (!start || !end || !start.seconds || !end.seconds) return '-';
-  const diffMs = (end.seconds * 1000) - (start.seconds * 1000);
-  const diffMins = Math.floor(diffMs / 60000);
-  return `${diffMins} min`;
-};
-
 const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 };
+
+const parseCurrency = (val: string) => {
+    return parseFloat(val.replace('R$', '').replace(/\./g, '').replace(',', '.').trim()) || 0;
+}
 
 const normalizePhone = (phone: string) => {
     if (!phone) return '';
@@ -251,12 +248,37 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [permissionError, setPermissionError] = useState(false);
 
-  // Injetar CSS de Animação
+  // Injetar CSS de Animação e Custom Scrollbar (SLIM)
   useEffect(() => {
       const style = document.createElement('style');
       style.innerHTML = `
         @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-5px); } 100% { transform: translateY(0px); } }
         .animate-float { animation: float 3s ease-in-out infinite; }
+        
+        /* SCROLLBAR GLOBAL SLIM - MODERNIZADA */
+        ::-webkit-scrollbar {
+          width: 5px; /* Bem fina */
+          height: 5px;
+        }
+        
+        ::-webkit-scrollbar-track {
+          background: transparent; /* Fundo transparente para integrar com o design */
+        }
+        
+        ::-webkit-scrollbar-thumb {
+          background: #334155; /* Slate-700 - Um cinza escuro sutil */
+          border-radius: 10px; /* Bordas arredondadas */
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+          background: #475569; /* Slate-600 ao passar o mouse */
+        }
+
+        /* Para Firefox */
+        * {
+          scrollbar-width: thin;
+          scrollbar-color: #334155 transparent;
+        }
       `;
       document.head.appendChild(style);
       return () => { if(document.head.contains(style)) document.head.removeChild(style); };
@@ -307,20 +329,14 @@ export default function App() {
   });
 
   const createDriver = (data: any) => handleAction(async () => { await addDoc(collection(db, 'drivers'), data); });
-  const updateDriver = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'drivers', id), data); });
   const deleteDriver = (id: string) => handleAction(async () => { if (confirm("Tem certeza?")) await deleteDoc(doc(db, 'drivers', id)); });
   const deleteOrder = (id: string) => handleAction(async () => { if (confirm("Excluir pedido?")) await deleteDoc(doc(db, 'orders', id)); });
   const createVale = (data: any) => handleAction(async () => { await addDoc(collection(db, 'vales'), { ...data, createdAt: serverTimestamp() }); });
   const createExpense = (data: any) => handleAction(async () => { await addDoc(collection(db, 'expenses'), { ...data, createdAt: serverTimestamp() }); });
-  const deleteExpense = (id: string) => handleAction(async () => { if(confirm("Excluir despesa?")) await deleteDoc(doc(db, 'expenses', id)); });
   const createProduct = (data: any) => handleAction(async () => { await addDoc(collection(db, 'products'), data); });
+  const updateProduct = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'products', id), data); });
   const deleteProduct = (id: string) => handleAction(async () => { if(confirm("Excluir produto?")) await deleteDoc(doc(db, 'products', id)); });
   const updateClient = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'clients', id), data); });
-
-  const importClients = (importedData: any[]) => handleAction(async () => {
-      // Esta função agora é chamada pelo ImportModal com os dados processados do CSV
-      // Mas para manter compatibilidade com o modal novo, vamos ignorar este e usar o handleImportCSV dentro do Dashboard
-  });
 
   const assignOrder = (oid: string, did: string) => handleAction(async () => { await updateDoc(doc(db, 'orders', oid), { status: 'assigned', assignedAt: serverTimestamp(), driverId: did }); await updateDoc(doc(db, 'drivers', did), { status: 'delivering', currentOrderId: oid }); });
   const acceptOrder = (id: string) => handleAction(async () => { await updateDoc(doc(db, 'orders', id), { status: 'accepted' }); });
@@ -337,25 +353,25 @@ export default function App() {
   if (permissionError) return <div className="h-screen flex items-center justify-center bg-slate-950 text-white"><div className="text-center"><h1>Acesso Bloqueado</h1><button onClick={()=>window.location.reload()} className="mt-4 bg-blue-600 px-4 py-2 rounded">Recarregar</button></div></div>;
   if (loading && !user) return <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 text-white"><Loader2 className="animate-spin w-10 h-10 text-amber-500 mb-4"/> <span className="font-medium animate-pulse">Carregando Sistema...</span></div>;
 
-  if (viewMode === 'landing') return <LandingPage onSelectMode={(m: UserType, id?: string) => { if(id) setCurrentDriverId(id); setViewMode(m); }} hasDrivers={drivers.length > 0} />;
+  if (viewMode === 'landing') return <LandingPage onSelectMode={(m: UserType, id?: string) => { if(id) setCurrentDriverId(id); setViewMode(m); }} />;
   
   if (viewMode === 'driver') {
     if (currentDriverId === 'select') return <DriverSelection drivers={drivers} onSelect={(id: string) => setCurrentDriverId(id)} onBack={handleLogout} />;
     const driver = drivers.find(d => d.id === currentDriverId);
     if (!driver) return <div className="p-10 text-center text-white bg-slate-900 h-screen"><p>Motorista não encontrado.</p><button onClick={handleLogout}>Sair</button></div>;
-    return <DriverApp driver={driver} orders={orders} vales={vales} onToggleStatus={() => toggleStatus(driver.id)} onAcceptOrder={acceptOrder} onCompleteOrder={completeOrder} onLogout={handleLogout} />;
+    return <DriverApp driver={driver} orders={orders} onToggleStatus={() => toggleStatus(driver.id)} onAcceptOrder={acceptOrder} onCompleteOrder={completeOrder} onLogout={handleLogout} />;
   }
 
   return <AdminPanel 
             drivers={drivers} orders={orders} vales={vales} expenses={expenses} products={products} clients={clients}
-            onAssignOrder={assignOrder} onCreateDriver={createDriver} onUpdateDriver={updateDriver} onDeleteDriver={deleteDriver} 
-            onCreateOrder={createOrder} onDeleteOrder={deleteOrder} onCreateVale={createVale} onCreateExpense={createExpense} onDeleteExpense={deleteExpense}
-            onCreateProduct={createProduct} onDeleteProduct={deleteProduct} onUpdateClient={updateClient} onLogout={handleLogout} 
+            onAssignOrder={assignOrder} onCreateDriver={createDriver} onDeleteDriver={deleteDriver} 
+            onCreateOrder={createOrder} onDeleteOrder={deleteOrder} onCreateVale={createVale} onCreateExpense={createExpense}
+            onCreateProduct={createProduct} onDeleteProduct={deleteProduct} onUpdateProduct={updateProduct} onUpdateClient={updateClient} onLogout={handleLogout} 
         />;
 }
 
 // --- TELAS ---
-function LandingPage({ onSelectMode, hasDrivers }: { onSelectMode: (m: UserType, id?: string) => void, hasDrivers: boolean }) {
+function LandingPage({ onSelectMode }: { onSelectMode: (m: UserType, id?: string) => void }) {
   return (
     <div className="min-h-screen w-screen bg-slate-950 flex flex-col items-center justify-center p-6 relative overflow-hidden">
       <div className="z-10 text-center space-y-8 max-w-md w-full animate-in fade-in duration-700 slide-in-from-bottom-4">
@@ -424,7 +440,7 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
   )
 }
 
-function DriverApp({ driver, orders, vales, onToggleStatus, onAcceptOrder, onCompleteOrder, onLogout }: any) {
+function DriverApp({ driver, orders, onToggleStatus, onAcceptOrder, onCompleteOrder, onLogout }: any) {
   const [activeTab, setActiveTab] = useState<'home' | 'wallet'>('home');
   const activeOrders = orders.filter((o: Order) => o.driverId === driver.id && o.status !== 'completed' && o.status !== 'pending');
   const myDeliveries = orders.filter((o: Order) => o.status === 'completed' && o.driverId === driver.id);
@@ -532,13 +548,13 @@ function AdminPanel(props: any) {
   return <Dashboard {...props} />;
 }
 
-function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssignOrder, onCreateDriver, onUpdateDriver, onDeleteDriver, onDeleteOrder, onCreateOrder, onCreateVale, onCreateExpense, onDeleteExpense, onCreateProduct, onDeleteProduct, onImportClients, onUpdateClient, onLogout }: any) {
+function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssignOrder, onCreateDriver, onDeleteDriver, onDeleteOrder, onCreateOrder, onCreateVale, onCreateExpense, onCreateProduct, onUpdateProduct, onDeleteProduct, onUpdateClient, onLogout }: any) {
   const [view, setView] = useState<'map' | 'list' | 'history' | 'menu' | 'clients'>('map');
   const [modal, setModal] = useState<'driver' | 'order' | 'vale' | 'import' | 'product' | 'expense' | 'client' | null>(null);
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
   const [driverReportId, setDriverReportId] = useState<string | null>(null);
-  const [driverToEdit, setDriverToEdit] = useState<Driver | null>(null); // Recuperado
+  const [driverToEdit, setDriverToEdit] = useState<Driver | null>(null); 
 
   const delivered = orders.filter((o: Order) => o.status === 'completed');
   const sortedHistory = [...delivered].sort((a: Order, b: Order) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
@@ -553,9 +569,8 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
   }, [delivered, expenses]);
 
   const clientsData = useMemo(() => {
-     // Cria um ranking real baseado no número de pedidos
      const ranking = new Map();
-     delivered.forEach(order => {
+     delivered.forEach((order: Order) => {
         const phoneKey = normalizePhone(order.phone);
         if (!phoneKey) return;
         const current = ranking.get(phoneKey) || { 
@@ -564,27 +579,27 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
             phone: order.phone, 
             address: order.address,
             count: 0, 
-            total: 0 
+            totalSpent: 0 
         };
         ranking.set(phoneKey, { 
             ...current, 
             count: current.count + 1, 
-            total: current.total + (order.value || 0) 
+            totalSpent: current.totalSpent + (order.value || 0) 
         });
      });
-     // Se já temos clientes cadastrados, usamos os dados deles
-     clients.forEach(c => {
+     
+     clients.forEach((c: Client) => {
          const k = normalizePhone(c.phone);
          if(ranking.has(k)) {
              const exist = ranking.get(k);
-             ranking.set(k, { ...exist, name: c.name, address: c.address, obs: c.obs });
+             ranking.set(k, { ...exist, name: c.name, address: c.address, obs: c.obs, mapsLink: c.mapsLink });
          } else {
-             ranking.set(k, { id: k, name: c.name, phone: c.phone, address: c.address, obs: c.obs, count: 0, total: 0 });
+             ranking.set(k, { id: k, name: c.name, phone: c.phone, address: c.address, obs: c.obs, mapsLink: c.mapsLink, count: 0, totalSpent: 0 });
          }
      });
 
      return Array.from(ranking.values())
-        .sort((a: any, b: any) => b.count - a.count); // Ordena por quantidade de pedidos
+        .sort((a: any, b: any) => b.count - a.count); 
   }, [clients, delivered]);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -617,33 +632,29 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
     copyToClipboard(text);
   };
 
-  // Importador que lê EXATAMENTE o arquivo de Lançamentos
   const handleImportCSV = async (csvText: string) => {
       if (!csvText) return;
       const dbBatch = writeBatch(db);
       let operations = 0;
       
       const lines = csvText.split('\n');
-      // Pula o cabeçalho
       lines.slice(1).forEach((line) => {
           if (!line.trim()) return;
           
-          // Regex para separar CSV corretamente (lidando com aspas)
           const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
           const cols = matches.map(c => c.replace(/^"|"$/g, ''));
 
-          // ID, Data, Hora, Descricao, Valor, Tipo, Categoria, Fornecedor, Cond, ClientID, Nome, CPF, Telefone, Endereco, Link, Obs, FormaPagamento
+          // Usando desestruturação com "buracos" para ignorar variáveis não usadas
+          // forn (idx 7), cond (idx 8), cid (idx 9), cpf (idx 11) removidos/ignorados
           if (cols.length >= 15) {
-             const [id, date, time, desc, valStr, type, cat, forn, cond, cid, clientName, cpf, phone, addr, mapLink] = cols;
+             const [id, date, time, desc, valStr, type, cat, , , , clientName, , phone, addr, mapLink] = cols;
              
              const val = parseFloat(valStr);
              if (isNaN(val)) return;
              
-             // Cria data combinada ou usa meio dia se não tiver hora
              const timestamp = new Date(`${date}T${time || '12:00'}`);
              
              if (type === 'income') {
-                 // 1. Criar Histórico de Venda
                  const orderId = id || 'ord_' + Date.now() + Math.random();
                  const orderRef = doc(db, 'orders', orderId);
                  dbBatch.set(orderRef, {
@@ -660,7 +671,6 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
                      origin: 'manual'
                  });
 
-                 // 2. Criar/Atualizar Cliente
                  const cleanPhone = normalizePhone(phone);
                  if (cleanPhone) {
                      const clientRef = doc(db, 'clients', cleanPhone);
@@ -675,7 +685,6 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
                  operations++;
 
              } else if (type === 'expense') {
-                 // 3. Criar Despesa
                  const expenseId = id || 'exp_' + Date.now() + Math.random();
                  const expRef = doc(db, 'expenses', expenseId);
                  dbBatch.set(expRef, {
@@ -740,7 +749,7 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
                 
                 {/* MOTOS NO MAPA COM ANIMAÇÃO */}
                 <div className="w-full h-full relative">
-                    {drivers.map((d: Driver, index: number) => {
+                    {drivers.map((d: Driver) => {
                        const seed = d.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
                        const visualTop = (seed * 137) % 80 + 10; 
                        const visualLeft = (seed * 93) % 80 + 10; 
@@ -873,8 +882,8 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
              </div>
         )}
 
-        {view === 'menu' && <MenuManager products={products} onCreate={onCreateProduct} onDelete={onDeleteProduct} />}
-      </div> {/* FECHAMENTO CORRIGIDO DA DIV DE CONTEÚDO */}
+        {view === 'menu' && <MenuManager products={products} onCreate={onCreateProduct} onUpdate={onUpdateProduct} onDelete={onDeleteProduct} />}
+      </div>
       </main>
 
       {/* MODAIS */}
@@ -925,68 +934,196 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
 
 // ... MODAIS AUXILIARES ...
 
-function MenuManager({ products, onCreate, onDelete }: any) {
+function MenuManager({ products, onCreate, onUpdate, onDelete }: any) {
     const [newItem, setNewItem] = useState({ name: '', price: '', category: 'Hambúrgueres', description: '' });
+    const [customCategory, setCustomCategory] = useState('');
+    const [editingId, setEditingId] = useState<string | null>(null);
 
     const handleCapitalize = (e: any, field: string) => {
         const val = capitalize(e.target.value);
         setNewItem(prev => ({...prev, [field]: val}));
     };
 
-    const handleAdd = (e: React.FormEvent) => { 
+    const handleSubmit = (e: React.FormEvent) => { 
         e.preventDefault(); 
-        onCreate({ 
+        
+        const finalCategory = newItem.category === 'new_custom' ? capitalize(customCategory) : newItem.category;
+        
+        if (!finalCategory) {
+            alert("Selecione ou digite uma categoria válida.");
+            return;
+        }
+
+        const payload = { 
             ...newItem, 
-            price: parseFloat(newItem.price.replace(',', '.')) || 0 
-        }); 
+            category: finalCategory,
+            price: parseFloat(newItem.price.toString().replace(',', '.')) || 0 
+        };
+
+        if (editingId) {
+            onUpdate(editingId, payload);
+            setEditingId(null);
+        } else {
+            onCreate(payload);
+        }
+        
         setNewItem({ name: '', price: '', category: 'Hambúrgueres', description: '' }); 
+        setCustomCategory('');
     };
 
-    // Agrupamento por Categoria
-    const groupedProducts = useMemo(() => {
-        return products.reduce((acc: any, product: Product) => {
+    const handleEdit = (product: Product) => {
+        setNewItem({
+            name: product.name,
+            price: product.price.toFixed(2).replace('.', ','),
+            category: product.category,
+            description: product.description || ''
+        });
+        setEditingId(product.id);
+        // Rola para o topo para ver o formulário
+        document.querySelector('.bg-slate-900')?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    const handleCancelEdit = () => {
+        setEditingId(null);
+        setNewItem({ name: '', price: '', category: 'Hambúrgueres', description: '' });
+        setCustomCategory('');
+    };
+
+    // Lista fixa de categorias padrão + categorias extraídas dos produtos existentes
+    const availableCategories = useMemo(() => {
+        const fixed = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
+        const existing = Array.from(new Set(products.map((p: Product) => p.category)));
+        // Combina e remove duplicatas
+        return Array.from(new Set([...fixed, ...existing]));
+    }, [products]);
+
+    // Agrupamento por Categoria com Ordenação Específica
+    const sortedGroupedProducts = useMemo(() => {
+        const grouped = products.reduce((acc: any, product: Product) => {
             (acc[product.category] = acc[product.category] || []).push(product);
             return acc;
         }, {});
+
+        // Ordem desejada
+        const ORDER = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
+        
+        // Ordena as chaves (categorias)
+        const sortedKeys = Object.keys(grouped).sort((a, b) => {
+            const idxA = ORDER.indexOf(a);
+            const idxB = ORDER.indexOf(b);
+            
+            // Se ambos estão na lista fixa, ordena pelo índice
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            // Se A está na lista e B não, A vem primeiro
+            if (idxA !== -1) return -1;
+            // Se B está na lista e A não, B vem primeiro
+            if (idxB !== -1) return 1;
+            // Se nenhum está na lista, ordena alfabeticamente
+            return a.localeCompare(b);
+        });
+
+        // Retorna um array de [categoria, items] ordenado
+        return sortedKeys.map(key => ({ category: key, items: grouped[key] }));
     }, [products]);
 
     return (
         <div className="flex-1 bg-slate-950 p-6 md:p-10 overflow-auto w-full h-full">
             <h2 className="font-bold text-2xl text-white mb-6">Cardápio Digital</h2>
             
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl mb-8">
-                <h3 className="font-bold text-slate-300 mb-4 flex items-center gap-2"><PlusCircle size={20} className="text-emerald-500"/> Adicionar Novo Produto</h3>
-                <form onSubmit={handleAdd} className="flex flex-col md:flex-row gap-4 items-end">
-                    <div className="flex-1 w-full"><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Nome</label><input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-white" placeholder="Ex: X-Bacon" value={newItem.name} onChange={e => handleCapitalize(e, 'name')} required /></div>
-                    <div className="w-full md:w-32"><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Preço</label><input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-white" placeholder="0,00" value={newItem.price} onChange={e => setNewItem({...newItem, price: e.target.value})} required /></div>
-                    <div className="w-full md:w-48"><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Categoria</label><select className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-white" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value})}><option>Hambúrgueres</option><option>Combos</option><option>Bebidas</option><option>Porções</option></select></div>
-                    <button className="w-full md:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg transition-colors">Salvar</button>
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl mb-8 shadow-xl">
+                <h3 className="font-bold text-slate-300 mb-4 flex items-center gap-2">
+                    {editingId ? <Edit size={20} className="text-amber-500"/> : <PlusCircle size={20} className="text-emerald-500"/>} 
+                    {editingId ? 'Editar Produto' : 'Adicionar Novo Produto'}
+                </h3>
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                    <div className="flex flex-col md:flex-row gap-4">
+                        <div className="flex-1">
+                            <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Nome</label>
+                            <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-white" placeholder="Ex: X-Bacon" value={newItem.name} onChange={e => handleCapitalize(e, 'name')} required />
+                        </div>
+                        <div className="w-full md:w-32">
+                            <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Preço</label>
+                            <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-white" placeholder="0,00" value={newItem.price} onChange={e => setNewItem({...newItem, price: e.target.value})} required />
+                        </div>
+                        <div className="w-full md:w-48">
+                            <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Categoria</label>
+                            <select 
+                                className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-white" 
+                                value={newItem.category} 
+                                onChange={e => setNewItem({...newItem, category: e.target.value})}
+                            >
+                                {availableCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                <option value="new_custom">+ Nova Categoria...</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    {newItem.category === 'new_custom' && (
+                        <div className="animate-in fade-in slide-in-from-top-2">
+                            <label className="text-xs font-bold text-slate-500 mb-1 block uppercase text-amber-500">Nome da Nova Categoria</label>
+                            <input autoFocus className="w-full p-3 bg-slate-950 border border-amber-500/50 rounded-xl outline-none focus:border-amber-500 text-white" placeholder="Digite a nova categoria..." value={customCategory} onChange={e => setCustomCategory(e.target.value)} />
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Descrição / Ingredientes (Opcional)</label>
+                        <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-white text-sm" placeholder="Ex: Pão, carne 150g, queijo, bacon..." value={newItem.description} onChange={e => handleCapitalize(e, 'description')} />
+                    </div>
+
+                    <div className="flex gap-3 justify-end">
+                        {editingId && (
+                            <button type="button" onClick={handleCancelEdit} className="px-6 py-3 border border-slate-700 text-slate-400 font-bold rounded-xl hover:bg-slate-800 transition-colors">Cancelar</button>
+                        )}
+                        <button className={`w-full md:w-auto px-6 py-3 font-bold rounded-xl shadow-lg transition-colors text-white ${editingId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
+                            {editingId ? 'Atualizar Produto' : 'Salvar Produto'}
+                        </button>
+                    </div>
                 </form>
             </div>
 
-            <div className="space-y-8">
-                {Object.entries(groupedProducts).map(([category, items]: any) => (
-                    <div key={category}>
-                        <h3 className="text-xl font-bold text-amber-500 mb-4 border-b border-slate-800 pb-2">{category}</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {items.map((p: Product) => (
-                                <div key={p.id} className="border border-slate-800 p-4 rounded-xl shadow-sm bg-slate-900 hover:border-amber-500/50 transition-colors relative group">
-                                    <div className="flex justify-between items-start">
-                                        <div><h4 className="font-bold text-white mt-1 text-lg">{p.name}</h4><p className="font-extrabold text-emerald-400 text-xl">{formatCurrency(p.price)}</p></div>
-                                        <button onClick={() => onDelete(p.id)} className="p-2 text-slate-600 hover:text-red-500 rounded-lg transition-colors"><Trash2 size={18}/></button>
+            <div className="space-y-8 pb-10">
+                {sortedGroupedProducts.map((group: any, index: number) => {
+                    // Lógica de Cores Alternadas (Par: Amber/Orange, Ímpar: Purple/Blue)
+                    const isEven = index % 2 === 0;
+                    const headerColor = isEven ? 'text-amber-500 border-amber-500/30' : 'text-purple-400 border-purple-500/30';
+                    const cardBorderHover = isEven ? 'group-hover:border-amber-500/50' : 'group-hover:border-purple-500/50';
+                    const priceColor = isEven ? 'text-emerald-400' : 'text-blue-400';
+
+                    return (
+                        <div key={group.category}>
+                            <h3 className={`text-xl font-bold mb-4 border-b-2 pb-2 uppercase tracking-wider flex items-center gap-2 ${headerColor}`}>
+                                {isEven ? <Utensils size={20}/> : <ListPlus size={20}/>}
+                                {group.category}
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {group.items.map((p: Product) => (
+                                    <div key={p.id} className={`border border-slate-800 p-4 rounded-xl shadow-sm bg-slate-900 transition-all relative group flex flex-col justify-between ${cardBorderHover}`}>
+                                        <div>
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h4 className="font-bold text-white text-lg leading-tight">{p.name}</h4>
+                                                <p className={`font-extrabold text-lg ${priceColor}`}>{formatCurrency(p.price)}</p>
+                                            </div>
+                                            {p.description && (
+                                                <p className="text-xs text-slate-500 leading-relaxed mb-2 line-clamp-3">{p.description}</p>
+                                            )}
+                                        </div>
+                                        <div className="flex justify-end mt-2 pt-2 border-t border-slate-800/50 gap-2">
+                                            <button onClick={() => handleEdit(p)} className="p-2 text-slate-600 hover:text-amber-500 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"><Edit size={14}/> Editar</button>
+                                            <button onClick={() => onDelete(p.id)} className="p-2 text-slate-600 hover:text-red-500 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"><Trash2 size={14}/> Excluir</button>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    )
+                })}
             </div>
         </div>
     );
 }
 
 function EditClientModal({ client, orders, onClose, onSave }: any) {
-    const [form, setForm] = useState({ name: client.name, address: client.address, obs: client.obs || '' });
+    const [form, setForm] = useState({ name: client.name, address: client.address, obs: client.obs || '', mapsLink: client.mapsLink || '' });
     const [tab, setTab] = useState<'info'|'history'>('info');
 
     const clientOrders = useMemo(() => {
@@ -1018,9 +1155,27 @@ function EditClientModal({ client, orders, onClose, onSave }: any) {
                 <div className="p-6 overflow-y-auto custom-scrollbar">
                     {tab === 'info' ? (
                         <form onSubmit={handleSubmit} className="space-y-4">
+                            {/* Resumo do Cliente */}
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                                    <p className="text-xs text-slate-500 uppercase font-bold">Total Gasto</p>
+                                    <p className="text-xl text-emerald-400 font-bold">{formatCurrency(client.totalSpent || 0)}</p>
+                                </div>
+                                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                                    <p className="text-xs text-slate-500 uppercase font-bold">Total Pedidos</p>
+                                    <p className="text-xl text-blue-400 font-bold">{client.count || 0}</p>
+                                </div>
+                            </div>
+
                             <div><label className="text-xs font-bold text-slate-500 mb-1 block">Nome</label><input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" value={form.name} onChange={e=>handleCapitalize(e, 'name')}/></div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 mb-1 block">Telefone</label>
+                                <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-400 outline-none cursor-not-allowed opacity-50" value={client.phone} disabled />
+                            </div>
                             <div><label className="text-xs font-bold text-slate-500 mb-1 block">Endereço</label><input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" value={form.address} onChange={e=>handleCapitalize(e, 'address')}/></div>
+                            <div><label className="text-xs font-bold text-slate-500 mb-1 block">Link Google Maps</label><input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" value={form.mapsLink} onChange={e=>setForm({...form, mapsLink: e.target.value})}/></div>
                             <div><label className="text-xs font-bold text-slate-500 mb-1 block">Observações (Preferências)</label><textarea className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" value={form.obs} onChange={e=>handleCapitalize(e, 'obs')}/></div>
+                            
                             <div className="flex gap-3 pt-4"><button type="button" onClick={onClose} className="flex-1 border border-slate-700 rounded-xl py-3 font-bold text-slate-400 hover:bg-slate-800">Cancelar</button><button className="flex-1 bg-amber-600 hover:bg-amber-700 text-white rounded-xl py-3 font-bold shadow-lg">Salvar</button></div>
                         </form>
                     ) : (
@@ -1041,11 +1196,20 @@ function EditClientModal({ client, orders, onClose, onSave }: any) {
 }
 
 function NewOrderModal({ onClose, onSave, products, clients }: any) {
-   const [mode, setMode] = useState<'manual' | 'menu'>('manual');
-   const [cart, setCart] = useState<{product: Product, qtd: number}[]>([]);
-   const [form, setForm] = useState({ customer: '', phone: '', address: '', items: '', amount: '', mapsLink: '', paymentMethod: 'PIX', serviceType: 'delivery', paymentStatus: 'paid', obs: '', origin: 'manual' });
-   const [pasteArea, setPasteArea] = useState(false);
-   const [rawText, setRawText] = useState('');
+   const [cart, setCart] = useState<{product: Product, quantity: number}[]>([]);
+   const [form, setForm] = useState({ 
+       customer: '', 
+       phone: '', 
+       address: '', 
+       items: '', // Mantém apenas para manual/obs
+       amount: '', 
+       mapsLink: '', 
+       paymentMethod: 'PIX', 
+       serviceType: 'delivery', 
+       paymentStatus: 'paid', 
+       obs: '', 
+       origin: 'manual' 
+   });
 
    const handleCapitalize = (e: any, field: string) => {
        setForm(prev => ({...prev, [field]: capitalize(e.target.value)}));
@@ -1059,90 +1223,203 @@ function NewOrderModal({ onClose, onSave, products, clients }: any) {
        }
    };
    
-   const addToCart = (product: Product) => { setCart(prev => { const existing = prev.find(item => item.product.id === product.id); if (existing) return prev.map(item => item.product.id === product.id ? {...item, qtd: item.qtd + 1} : item); return [...prev, { product, qtd: 1 }]; }); };
-   const removeFromCart = (productId: string) => { setCart(prev => { const existing = prev.find(item => item.product.id === productId); if (existing && existing.qtd > 1) return prev.map(item => item.product.id === productId ? {...item, qtd: item.qtd - 1} : item); return prev.filter(item => item.product.id !== productId); }); };
-   const finishMenuOrder = () => { const itemsText = cart.map(item => `${item.qtd}x ${item.product.name}`).join(', '); const totalValue = cart.reduce((acc, item) => acc + (item.product.price * item.qtd), 0); setForm(prev => ({ ...prev, items: itemsText, amount: formatCurrency(totalValue), origin: 'menu' })); setMode('manual'); };
-
-   const parseOrder = () => {
-      const getLine = (marker: string) => { const regex = new RegExp(`${marker}\\s*(.*)`, 'i'); const match = rawText.match(regex); return match ? match[1].trim() : ''; };
-      const valLine = getLine('💵 Valor:'); let val = valLine; let pay = ''; if (valLine.includes('(')) { val = valLine.split('(')[0].trim(); pay = valLine.split('(')[1].replace(')', '').trim(); }
-      setForm({ ...form, customer: getLine('👤 Cliente:'), phone: getLine('📞 Telefone:'), address: getLine('🏠 Endereço:'), mapsLink: getLine('🔗 Localização:') || getLine('Link:'), items: getLine('🍔 Pedido:'), amount: val, paymentMethod: pay || 'Dinheiro', obs: getLine('📝 Obs:'), origin: 'manual' });
-      setPasteArea(false);
+   const addToCart = (product: Product) => {
+       setCart(prev => {
+           const existing = prev.find(p => p.product.id === product.id);
+           let newCart;
+           if (existing) {
+               newCart = prev.map(p => p.product.id === product.id ? { ...p, quantity: p.quantity + 1 } : p);
+           } else {
+               newCart = [...prev, { product, quantity: 1 }];
+           }
+           updateTotal(newCart, product.price); // Adiciona o preço do item ao total
+           return newCart;
+       });
    };
-   const submit = (e: React.FormEvent) => { e.preventDefault(); const valorNumerico = parseFloat(form.amount.replace('R$', '').replace('.', '').replace(',', '.').trim()) || 0; onSave({ ...form, value: valorNumerico }); onClose(); };
 
-   // Agrupamento por Categoria para o PDV
-   const groupedProducts = useMemo(() => {
-       return products.reduce((acc: any, product: Product) => {
-           (acc[product.category] = acc[product.category] || []).push(product);
-           return acc;
-       }, {});
-   }, [products]);
+   const updateQuantity = (index: number, delta: number) => {
+       setCart(prev => {
+           const newCart = [...prev];
+           const item = newCart[index];
+           const newQty = item.quantity + delta;
+           
+           if (newQty <= 0) {
+               newCart.splice(index, 1);
+               updateTotal(newCart, -item.product.price); // Remove preço
+           } else {
+               item.quantity = newQty;
+               const priceDiff = delta > 0 ? item.product.price : -item.product.price;
+               updateTotal(newCart, priceDiff);
+           }
+           return newCart;
+       });
+   };
+
+   const removeStart = (index: number) => {
+        setCart(prev => {
+            const newCart = [...prev];
+            const item = newCart[index];
+            const deduction = item.product.price * item.quantity;
+            newCart.splice(index, 1);
+            updateTotal(newCart, -deduction);
+            return newCart;
+        });
+   };
+
+   const updateTotal = (cartItems: any[], priceDiff: number) => {
+       // Lógica Híbrida: Soma ao valor que já está no input
+       // Isso permite que o usuário tenha digitado um valor manual e o clique apenas adicione/subtraia
+       const currentVal = parseCurrency(form.amount || '0');
+       const newVal = Math.max(0, currentVal + priceDiff);
+       setForm(prev => ({ ...prev, amount: formatCurrency(newVal) }));
+   };
+
+   const submit = (e: React.FormEvent) => { 
+       e.preventDefault(); 
+       
+       // Combina Itens do Carrinho + Texto Manual
+       const cartText = cart.map(i => `${i.quantity}x ${i.product.name}`).join('\n');
+       const finalItems = [cartText, form.items].filter(Boolean).join('\n---\n');
+
+       const valorNumerico = parseCurrency(form.amount); 
+       
+       onSave({ ...form, items: finalItems, value: valorNumerico }); 
+       onClose(); 
+   };
+
+   // Agrupamento por Categoria para o PDV com Ordenação e Cores
+   const sortedGroupedProducts = useMemo(() => {
+        const grouped = products.reduce((acc: any, product: Product) => {
+            (acc[product.category] = acc[product.category] || []).push(product);
+            return acc;
+        }, {});
+
+        // Ordem desejada
+        const ORDER = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
+        
+        const sortedKeys = Object.keys(grouped).sort((a, b) => {
+            const idxA = ORDER.indexOf(a);
+            const idxB = ORDER.indexOf(b);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            return a.localeCompare(b);
+        });
+
+        return sortedKeys.map(key => ({ category: key, items: grouped[key] }));
+    }, [products]);
 
    return (
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-         <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-6xl h-[85vh] flex overflow-hidden border border-slate-800">
+         <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-7xl h-[90vh] flex overflow-hidden border border-slate-800">
+            {/* LADO ESQUERDO: CARDÁPIO */}
             <div className="flex-1 bg-slate-950 p-6 overflow-y-auto border-r border-slate-800 custom-scrollbar">
                  <div className="flex justify-between items-center mb-6">
                         <h3 className="font-bold text-xl text-white">Cardápio</h3>
-                        {/* Filtros de Categoria (opcional) */}
                  </div>
                  <div className="space-y-8">
-                     {Object.entries(groupedProducts).map(([category, items]: any) => (
-                         <div key={category}>
-                             <h4 className="text-amber-500 font-bold mb-3 border-b border-slate-800 pb-2">{category}</h4>
-                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                {items.map((p: Product) => (
-                                    <button key={p.id} onClick={() => addToCart(p)} className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm hover:border-amber-500 transition-all text-left group">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <span className="font-bold text-slate-300 group-hover:text-amber-500">{p.name}</span>
-                                            <span className="text-xs font-bold bg-slate-800 text-amber-500 px-2 py-0.5 rounded">{formatCurrency(p.price)}</span>
-                                        </div>
-                                    </button>
-                                ))}
+                     {sortedGroupedProducts.map((group: any, index: number) => {
+                         // Lógica de Cores Alternadas (Mesma do MenuManager)
+                         const isEven = index % 2 === 0;
+                         const headerColor = isEven ? 'text-amber-500 border-amber-500/30' : 'text-purple-400 border-purple-500/30';
+                         const cardBorderHover = isEven ? 'hover:border-amber-500 hover:bg-slate-800' : 'hover:border-purple-500 hover:bg-slate-800';
+                         const badgeColor = isEven ? 'text-emerald-400' : 'text-blue-400';
+
+                         return (
+                             <div key={group.category}>
+                                 <h4 className={`font-bold mb-3 border-b pb-2 uppercase tracking-wider ${headerColor}`}>{group.category}</h4>
+                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                    {group.items.map((p: Product) => (
+                                        <button key={p.id} onClick={() => addToCart(p)} className={`bg-slate-900 p-3 rounded-xl border border-slate-800 shadow-sm transition-all text-left group flex flex-col h-full active:scale-95 ${cardBorderHover}`}>
+                                            <span className={`font-bold text-slate-300 text-sm line-clamp-2 mb-2 flex-1 ${isEven ? 'group-hover:text-amber-500' : 'group-hover:text-purple-400'}`}>{p.name}</span>
+                                            <span className={`text-xs font-bold bg-slate-950 px-2 py-1 rounded w-fit ${badgeColor}`}>{formatCurrency(p.price)}</span>
+                                        </button>
+                                    ))}
+                                 </div>
                              </div>
-                         </div>
-                     ))}
+                         );
+                     })}
                  </div>
             </div>
 
-            <div className="w-96 bg-slate-900 p-6 flex flex-col h-full relative z-10">
-                <div className="flex justify-between items-center mb-6"><h3 className="font-bold text-lg text-white flex items-center gap-2"><PlusCircle size={18} className="text-amber-500"/> Novo Pedido</h3><button onClick={onClose}><X size={20} className="text-slate-500 hover:text-white"/></button></div>
-                {!pasteArea && (<div className="flex border-b border-slate-800 mb-4"><button onClick={() => setMode('manual')} className={`flex-1 py-3 text-sm font-bold transition-colors ${mode==='manual' ? 'text-amber-500 border-b-2 border-amber-500' : 'text-slate-500 hover:text-white'}`}>Manual / WhatsApp</button><button onClick={() => setMode('menu')} className={`flex-1 py-3 text-sm font-bold transition-colors ${mode==='menu' ? 'text-amber-500 border-b-2 border-amber-500' : 'text-slate-500 hover:text-white'}`}>Cardápio</button></div>)}
-                
-                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                    {mode === 'menu' ? (
-                        <div className="space-y-4">
-                           {cart.map((item, i) => (
-                               <div key={i} className="flex justify-between items-center text-sm p-3 bg-slate-950 rounded-lg border border-slate-800">
-                                   <div className="flex gap-2 text-white"><span className="font-bold text-amber-500">{item.qtd}x</span> <span>{item.product.name}</span></div>
-                                   <div className="flex items-center gap-2"><button onClick={()=>removeFromCart(item.product.id)} className="text-slate-500 hover:text-white">-</button><button onClick={()=>addToCart(item.product)} className="text-slate-500 hover:text-white">+</button></div>
-                               </div>
-                           ))}
-                           <button onClick={finishMenuOrder} disabled={cart.length === 0} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl mt-4 disabled:opacity-50">Confirmar</button>
-                        </div>
-                    ) : (
-                        <form onSubmit={submit} className="space-y-4">
-                           <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" placeholder="Telefone" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} onBlur={handlePhoneBlur} />
-                           <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" placeholder="Nome" value={form.customer} onChange={e=>handleCapitalize(e, 'customer')} />
-                           <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" placeholder="Endereço" value={form.address} onChange={e=>handleCapitalize(e, 'address')} />
-                           <textarea className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500 h-24" placeholder="Itens do pedido..." value={form.items} onChange={e=>setForm({...form, items: e.target.value})} />
-                           <div className="grid grid-cols-2 gap-2">
-                               <input className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" placeholder="R$ 0,00" value={form.amount} onChange={e=>setForm({...form, amount: e.target.value})} />
-                               <select className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none" value={form.paymentMethod} onChange={e=>setForm({...form, paymentMethod: e.target.value})}><option value="PIX">PIX</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option></select>
-                           </div>
-                           <button className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 rounded-xl shadow-lg mt-2">Salvar Pedido</button>
-                           {!pasteArea && <button type="button" onClick={()=>setPasteArea(true)} className="w-full text-xs text-slate-500 hover:text-white mt-2">Colar do WhatsApp</button>}
-                        </form>
-                    )}
-                    
-                    {pasteArea && (
-                        <div className="mt-4">
-                            <textarea className="w-full h-32 bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white" placeholder="Cole o texto do WhatsApp aqui..." value={rawText} onChange={e => setRawText(e.target.value)}/>
-                            <button onClick={parseOrder} className="w-full bg-blue-600 text-white py-2 rounded-xl text-xs font-bold mt-2">Processar</button>
-                        </div>
-                    )}
+            {/* LADO DIREITO: FORMULÁRIO */}
+            <div className="w-[450px] bg-slate-900 p-6 flex flex-col h-full relative z-10 overflow-y-auto custom-scrollbar">
+                <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
+                    <h3 className="font-bold text-lg text-white flex items-center gap-2"><PlusCircle size={18} className="text-amber-500"/> Novo Pedido</h3>
+                    <button onClick={onClose}><X size={20} className="text-slate-500 hover:text-white"/></button>
                 </div>
+                
+                <form onSubmit={submit} className="space-y-4 flex-1 flex flex-col">
+                   <div className="space-y-3 shrink-0">
+                       <label className="text-xs font-bold text-slate-500 uppercase">Cliente</label>
+                       <div className="grid grid-cols-3 gap-2">
+                           <input className="col-span-1 p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500 text-sm" placeholder="Telefone" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} onBlur={handlePhoneBlur} />
+                           <input className="col-span-2 p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500 text-sm" placeholder="Nome" value={form.customer} onChange={e=>handleCapitalize(e, 'customer')} />
+                       </div>
+                       <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500 text-sm" placeholder="Endereço Completo" value={form.address} onChange={e=>handleCapitalize(e, 'address')} />
+                       <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500 text-sm" placeholder="Link do Google Maps (Opcional)" value={form.mapsLink} onChange={e=>setForm({...form, mapsLink: e.target.value})} />
+                   </div>
+
+                   <div className="pt-2 shrink-0">
+                       <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Tipo de Pedido</label>
+                       <div className="flex gap-2">
+                           <button type="button" onClick={() => setForm({...form, serviceType: 'delivery'})} className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all border ${form.serviceType === 'delivery' ? 'bg-amber-600 border-amber-600 text-white' : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800'}`}>
+                               <Bike size={18}/> Entrega
+                           </button>
+                           <button type="button" onClick={() => setForm({...form, serviceType: 'pickup'})} className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all border ${form.serviceType === 'pickup' ? 'bg-purple-600 border-purple-600 text-white' : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800'}`}>
+                               <Store size={18}/> Retirada
+                           </button>
+                       </div>
+                   </div>
+
+                   {/* CARRINHO VISUAL INTERATIVO */}
+                   <div className="flex-1 min-h-[100px] flex flex-col border-t border-slate-800 pt-4 mt-2">
+                       <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Itens Selecionados</label>
+                       {cart.length === 0 ? (
+                           <div className="text-center py-4 text-slate-600 text-sm italic border border-dashed border-slate-800 rounded-xl mb-2">Nenhum item selecionado</div>
+                       ) : (
+                           <div className="space-y-2 mb-4">
+                               {cart.map((item, index) => (
+                                   <div key={index} className="flex items-center justify-between bg-slate-950 p-2 rounded-lg border border-slate-800 animate-in fade-in zoom-in duration-300">
+                                       <div className="flex items-center gap-3 flex-1">
+                                           <div className="flex items-center bg-slate-900 rounded-lg border border-slate-800">
+                                               <button type="button" onClick={() => updateQuantity(index, -1)} className="p-1 hover:text-white text-slate-500"><Minus size={14}/></button>
+                                               <span className="text-xs font-bold w-6 text-center text-white">{item.quantity}</span>
+                                               <button type="button" onClick={() => updateQuantity(index, 1)} className="p-1 hover:text-white text-slate-500"><Plus size={14}/></button>
+                                           </div>
+                                           <span className="text-xs text-slate-300 font-medium truncate flex-1">{item.product.name}</span>
+                                       </div>
+                                       <div className="flex items-center gap-3">
+                                            <span className="text-xs font-bold text-emerald-400">{formatCurrency(item.product.price * item.quantity)}</span>
+                                            <button type="button" onClick={() => removeStart(index)} className="text-slate-600 hover:text-red-500"><Trash2 size={14}/></button>
+                                       </div>
+                                   </div>
+                               ))}
+                           </div>
+                       )}
+                       
+                       <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Observações / Itens Manuais</label>
+                       <textarea 
+                           className="w-full flex-1 min-h-[80px] p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500 text-sm font-mono leading-relaxed resize-none" 
+                           placeholder="Ex: Sem cebola, ou cole o pedido do WhatsApp aqui..." 
+                           value={form.items} 
+                           onChange={e=>setForm({...form, items: e.target.value})} 
+                       />
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-2 pt-2 shrink-0">
+                       <div>
+                           <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Valor Total</label>
+                           <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-emerald-400 font-bold text-lg outline-none focus:border-amber-500" placeholder="R$ 0,00" value={form.amount} onChange={e=>setForm({...form, amount: e.target.value})} />
+                       </div>
+                       <div>
+                           <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Pagamento</label>
+                           <select className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none h-[54px]" value={form.paymentMethod} onChange={e=>setForm({...form, paymentMethod: e.target.value})}><option value="PIX">PIX</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option></select>
+                       </div>
+                   </div>
+                   
+                   <button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl shadow-lg mt-2 text-lg shrink-0">Confirmar Pedido</button>
+                </form>
             </div>
          </div>
       </div>
