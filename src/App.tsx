@@ -606,10 +606,10 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
   const dailyOrdersData = useMemo(() => {
       const todayOrders = orders.filter((o: Order) => isToday(o.createdAt));
       // Ordenar por hora (decrescente ou crescente, aqui farei decrescente para ver os mais recentes primeiro)
-      todayOrders.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      todayOrders.sort((a: Order, b: Order) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       
       const totalOrders = todayOrders.length;
-      const totalValue = todayOrders.reduce((acc, o) => acc + (o.value || 0), 0);
+      const totalValue = todayOrders.reduce((acc: number, o: Order) => acc + (o.value || 0), 0);
       
       return { todayOrders, totalOrders, totalValue };
   }, [orders]);
@@ -1126,7 +1126,7 @@ function MenuManager({ products, onCreate, onUpdate, onDelete }: any) {
                                 value={newItem.category} 
                                 onChange={e => setNewItem({...newItem, category: e.target.value})}
                             >
-                                {availableCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                              {(availableCategories as string[]).map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                 <option value="new_custom">+ Nova Categoria...</option>
                             </select>
                         </div>
@@ -1306,7 +1306,7 @@ function NewOrderModal({ onClose, onSave, products, clients }: any) {
            } else {
                newCart = [...prev, { product, quantity: 1 }];
            }
-           updateTotal(newCart, product.price); // Adiciona o preço do item ao total
+           updateTotal(product.price); // Adiciona o preço do item ao total
            return newCart;
        });
    };
@@ -1319,11 +1319,11 @@ function NewOrderModal({ onClose, onSave, products, clients }: any) {
            
            if (newQty <= 0) {
                newCart.splice(index, 1);
-               updateTotal(newCart, -item.product.price); // Remove preço
+               updateTotal(-item.product.price); // Remove preço
            } else {
                item.quantity = newQty;
                const priceDiff = delta > 0 ? item.product.price : -item.product.price;
-               updateTotal(newCart, priceDiff);
+               updateTotal(priceDiff);
            }
            return newCart;
        });
@@ -1335,12 +1335,12 @@ function NewOrderModal({ onClose, onSave, products, clients }: any) {
             const item = newCart[index];
             const deduction = item.product.price * item.quantity;
             newCart.splice(index, 1);
-            updateTotal(newCart, -deduction);
+            updateTotal(-deduction);
             return newCart;
         });
    };
 
-   const updateTotal = (cartItems: any[], priceDiff: number) => {
+   const updateTotal = (priceDiff: number) => {
        // Lógica Híbrida: Soma ao valor que já está no input
        // Isso permite que o usuário tenha digitado um valor manual e o clique apenas adicione/subtraia
        const currentVal = parseCurrency(form.amount || '0');
