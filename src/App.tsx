@@ -7,7 +7,7 @@ import {
   MessageCircle, DollarSign, Loader2,
   ChevronRight, ClipboardCopy,
   Trash2, Edit, Wallet, MinusCircle, Settings, Camera,
-  LayoutDashboard, Map as MapIcon, ShoppingBag, PlusCircle, MinusCircle as MinusIcon, UploadCloud, Trophy, Star, Store, Minus, ListPlus, ClipboardList
+  LayoutDashboard, Map as MapIcon, ShoppingBag, PlusCircle, MinusCircle as MinusIcon, UploadCloud, Trophy, Star, Store, Minus, ListPlus, ClipboardList, History, Calendar, ChevronDown
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -215,7 +215,7 @@ const compressImage = (file: File): Promise<string> => {
                 canvas.width = MAX_WIDTH;
                 canvas.height = img.height * scaleSize;
                 const ctx = canvas.getContext('2d');
-                ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+                if (ctx) ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 // Converte para JPEG com qualidade 0.7 (70%)
                 resolve(canvas.toDataURL('image/jpeg', 0.7)); 
             };
@@ -380,13 +380,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    try {
-        localStorage.setItem('jhans_viewMode', viewMode);
-        if (currentDriverId) localStorage.setItem('jhans_driverId', currentDriverId);
-    } catch(e) { console.error("Storage error", e); }
-  }, [viewMode, currentDriverId]);
-
-  useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       if (u) setUser(u);
       else signInAnonymously(auth).catch(console.error);
@@ -424,7 +417,7 @@ export default function App() {
   });
 
   const createDriver = (data: any) => handleAction(async () => { await addDoc(collection(db, 'drivers'), data); });
-  const updateDriver = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'drivers', id), data); }); // Novo: Atualizar Driver
+  const updateDriver = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'drivers', id), data); }); 
   const deleteDriver = (id: string) => handleAction(async () => { if (confirm("Tem certeza?")) await deleteDoc(doc(db, 'drivers', id)); });
   const deleteOrder = (id: string) => handleAction(async () => { if (confirm("Excluir pedido?")) await deleteDoc(doc(db, 'orders', id)); });
   const createVale = (data: any) => handleAction(async () => { await addDoc(collection(db, 'vales'), { ...data, createdAt: serverTimestamp() }); });
@@ -491,7 +484,7 @@ function LandingPage({ onSelectMode, config }: { onSelectMode: (m: UserType, id?
           </button>
         </div>
       </div>
-      <p className="absolute bottom-6 text-slate-600 text-xs">Versão 16.0 (SaaS Ready) • {config.appName}</p>
+      <p className="absolute bottom-6 text-slate-600 text-xs">Versão 17.0 (App Moto Pro) • {config.appName}</p>
     </div>
   );
 }
@@ -550,10 +543,34 @@ function DriverSelection({ drivers, onSelect, onBack }: any) {
 
 function DriverApp({ driver, orders, onToggleStatus, onAcceptOrder, onCompleteOrder, onLogout }: any) {
   const [activeTab, setActiveTab] = useState<'home' | 'wallet'>('home');
-  // CORREÇÃO CRÍTICA NO FILTRO: Inclui 'delivering' para que não suma após aceitar
+  const [historyFilter, setHistoryFilter] = useState<'today' | 'all'>('today');
+  const [visibleItems, setVisibleItems] = useState(20);
+
   const activeOrders = orders.filter((o: Order) => o.driverId === driver.id && (o.status === 'assigned' || o.status === 'delivering'));
-  const myDeliveries = orders.filter((o: Order) => o.status === 'completed' && o.driverId === driver.id);
-  const totalEarnings = myDeliveries.length * TAXA_ENTREGA;
+  
+  // UseMemo para evitar re-cálculos pesados a cada render
+  const allDeliveries = useMemo(() => {
+     return orders.filter((o: Order) => o.status === 'completed' && o.driverId === driver.id)
+            .sort((a: Order, b: Order) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
+  }, [orders, driver.id]);
+
+  // Lista filtrada (Hoje vs Todos)
+  const displayedDeliveries = useMemo(() => {
+      let filtered = allDeliveries;
+      if (historyFilter === 'today') {
+          filtered = filtered.filter((o: Order) => isToday(o.completedAt));
+      }
+      return filtered;
+  }, [allDeliveries, historyFilter]);
+
+  // Lista paginada
+  const visibleDeliveries = displayedDeliveries.slice(0, visibleItems);
+
+  // Totais (Sempre calculados sobre o TODO para os cards)
+  const totalEarnings = allDeliveries.length * TAXA_ENTREGA;
+  const todayEarnings = allDeliveries.filter((o:Order) => isToday(o.completedAt)).length * TAXA_ENTREGA;
+  const todayCount = allDeliveries.filter((o:Order) => isToday(o.completedAt)).length;
+  const totalCount = allDeliveries.length;
 
   return (
     <div className="bg-slate-950 min-h-screen w-screen flex flex-col">
@@ -566,12 +583,12 @@ function DriverApp({ driver, orders, onToggleStatus, onAcceptOrder, onCompleteOr
           <button onClick={onLogout} className="p-2 bg-slate-800 rounded-xl hover:bg-slate-700 text-white transition-colors"><LogOut size={18}/></button>
         </div>
         <div className="flex bg-slate-950 p-1 rounded-lg">
-           <button onClick={() => setActiveTab('home')} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${activeTab==='home' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>Entregas</button>
-           <button onClick={() => setActiveTab('wallet')} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${activeTab==='wallet' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>Extrato</button>
+           <button onClick={() => setActiveTab('home')} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-2 ${activeTab==='home' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><Bike size={14}/> Entregas</button>
+           <button onClick={() => setActiveTab('wallet')} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-2 ${activeTab==='wallet' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><History size={14}/> Extrato</button>
         </div>
       </div>
 
-      <div className="flex-1 px-4 -mt-6 pb-4 overflow-y-auto z-20">
+      <div className="flex-1 px-4 -mt-6 pb-4 overflow-y-auto z-20 custom-scrollbar">
         {activeTab === 'home' ? (
           <div className="space-y-4">
             <div className={`p-4 rounded-xl border shadow-lg flex items-center justify-between transition-all ${driver.status === 'offline' ? 'bg-slate-900 border-slate-800' : 'bg-emerald-900/20 border-emerald-800'}`}>
@@ -609,10 +626,56 @@ function DriverApp({ driver, orders, onToggleStatus, onAcceptOrder, onCompleteOr
             ))}
           </div>
         ) : (
-          <div className="space-y-4 pt-2">
-             <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white p-6 rounded-2xl shadow-xl border border-slate-700">
-                <p className="text-slate-400 text-xs font-medium mb-1">Saldo a Receber</p>
-                <h3 className="text-4xl font-bold tracking-tight text-emerald-400">R$ {totalEarnings.toFixed(2)}</h3>
+          <div className="space-y-6 pt-2 pb-10">
+             {/* Cards de Gamificação/Resumo Interativos */}
+             <div className="grid grid-cols-2 gap-3">
+                 <button onClick={() => { setHistoryFilter('today'); setVisibleItems(20); }} className={`bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-2xl shadow-xl border text-left transition-all active:scale-95 ${historyFilter === 'today' ? 'border-amber-500 ring-1 ring-amber-500/50' : 'border-slate-700'}`}>
+                    <p className="text-slate-400 text-[10px] font-bold uppercase mb-1">Hoje ({todayCount})</p>
+                    <h3 className="text-2xl font-bold text-white">R$ {todayEarnings.toFixed(2)}</h3>
+                 </button>
+                 <button onClick={() => { setHistoryFilter('all'); setVisibleItems(20); }} className={`bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-2xl shadow-xl border text-left transition-all active:scale-95 ${historyFilter === 'all' ? 'border-amber-500 ring-1 ring-amber-500/50' : 'border-slate-700'}`}>
+                    <p className="text-slate-400 text-[10px] font-bold uppercase mb-1">Total ({totalCount})</p>
+                    <h3 className="text-2xl font-bold text-emerald-400">R$ {totalEarnings.toFixed(2)}</h3>
+                 </button>
+             </div>
+
+             {/* Histórico Detalhado */}
+             <div>
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center justify-between">
+                    <span className="flex items-center gap-2"><History size={16}/> {historyFilter === 'today' ? 'Corridas de Hoje' : 'Histórico Geral'}</span>
+                    <span className="text-[10px] bg-slate-900 px-2 py-0.5 rounded text-slate-400">{displayedDeliveries.length} entregas</span>
+                </h3>
+                <div className="space-y-3">
+                    {visibleDeliveries.length === 0 ? (
+                        <div className="text-center py-10 text-slate-600 text-sm italic border border-dashed border-slate-800 rounded-xl">Nenhuma entrega encontrada neste período.</div>
+                    ) : (
+                        visibleDeliveries.map((order: Order) => (
+                            <div key={order.id} className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <Calendar size={12} className="text-slate-500"/>
+                                        <span className="text-[10px] font-bold text-slate-400">{formatDate(order.completedAt)} • {formatTime(order.completedAt)}</span>
+                                    </div>
+                                    <p className="text-sm font-bold text-white truncate max-w-[200px]">{order.address}</p>
+                                </div>
+                                <div className="text-right">
+                                    <span className="block text-xs text-slate-500 font-bold uppercase">Ganho</span>
+                                    <span className="text-emerald-400 font-bold">+ R$ {TAXA_ENTREGA.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        ))
+                    )}
+
+                    {/* Botão Carregar Mais */}
+                    {displayedDeliveries.length > visibleItems && (
+                        <button 
+                            onClick={() => setVisibleItems(prev => prev + 20)}
+                            className="w-full py-3 mt-4 text-xs font-bold text-slate-400 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800 hover:text-white transition-colors flex items-center justify-center gap-2"
+                        >
+                            <ChevronDown size={14}/> Carregar mais antigas
+                        </button>
+                    )}
+                </div>
              </div>
           </div>
         )}
@@ -905,13 +968,16 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
              <div className="absolute inset-0 city-map-bg overflow-hidden w-full h-full">
                 
                 {/* DICAS DE LOCALIZAÇÃO / MARCA D'ÁGUA NO FUNDO */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-5 select-none p-4">
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-10 select-none p-4 z-0">
+                    {appConfig.appLogoUrl ? (
+                        <img src={appConfig.appLogoUrl} className="w-32 h-32 md:w-48 md:h-48 object-contain mb-4 opacity-20 grayscale" />
+                    ) : null}
                     <span className="text-slate-200 font-black text-5xl md:text-9xl text-center leading-none tracking-tighter opacity-10">{appConfig.appName.toUpperCase()}</span>
                     <span className="text-slate-200 font-bold text-xl md:text-4xl tracking-widest mt-2 uppercase opacity-10">DELIVERY SYSTEM</span>
                 </div>
 
                 {/* MOTOS NO MAPA COM ANIMAÇÃO NAS RUAS */}
-                <div className="w-full h-full relative">
+                <div className="w-full h-full relative z-10">
                     {drivers.map((d: Driver, index: number) => {
                        const seed = d.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
                        
@@ -1186,6 +1252,24 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
 
 function SettingsModal({ config, onSave, onClose }: any) {
     const [form, setForm] = useState(config);
+    const [isProcessingImage, setIsProcessingImage] = useState(false);
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setIsProcessingImage(true);
+            try {
+                const compressedBase64 = await compressImage(file);
+                setForm({ ...form, appLogoUrl: compressedBase64 });
+            } catch (err) {
+                console.error("Erro ao processar imagem", err);
+                alert("Erro ao processar a imagem. Tente outra.");
+            } finally {
+                setIsProcessingImage(false);
+            }
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
             <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-sm p-6 border border-slate-800">
@@ -1195,14 +1279,36 @@ function SettingsModal({ config, onSave, onClose }: any) {
                         <label className="text-xs font-bold text-slate-500 ml-1 uppercase mb-1 block">Nome do Sistema / Hamburgueria</label>
                         <input className="w-full border-2 border-slate-700 bg-slate-950 rounded-xl p-3 outline-none font-bold text-white" value={form.appName} onChange={e => setForm({...form, appName: e.target.value})} />
                     </div>
+                    
+                    {/* Área de Upload / Link da Logo */}
                     <div>
-                        <label className="text-xs font-bold text-slate-500 ml-1 uppercase mb-1 block">URL da Logo (Imagem)</label>
-                        <input className="w-full border-2 border-slate-700 bg-slate-950 rounded-xl p-3 outline-none text-xs text-slate-300 font-mono" placeholder="https://..." value={form.appLogoUrl} onChange={e => setForm({...form, appLogoUrl: e.target.value})} />
-                        {form.appLogoUrl && <img src={form.appLogoUrl} className="mt-2 w-16 h-16 rounded-xl object-cover border border-slate-700 mx-auto" />}
+                        <label className="text-xs font-bold text-slate-500 ml-1 uppercase mb-1 block">Logotipo do Sistema</label>
+                        <div className="flex flex-col items-center gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800">
+                             {/* Preview da Imagem */}
+                             <div className="relative w-20 h-20 rounded-xl border-2 border-slate-700 bg-slate-900 overflow-hidden group">
+                                {form.appLogoUrl ? (
+                                    <img src={form.appLogoUrl} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-slate-600"><Utensils size={24}/></div>
+                                )}
+                                <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                    <Camera className="text-white" size={24}/>
+                                    <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                                </label>
+                            </div>
+                            
+                            <div className="w-full text-center">
+                                <p className="text-[10px] text-slate-500 mb-2">ou cole o link da imagem:</p>
+                                <input className="w-full border-b border-slate-700 bg-transparent p-2 text-xs text-slate-300 font-mono outline-none focus:border-amber-500 text-center" placeholder="https://..." value={form.appLogoUrl} onChange={e => setForm({...form, appLogoUrl: e.target.value})} />
+                            </div>
+                        </div>
                     </div>
+
                     <div className="flex gap-3 pt-4">
                         <button onClick={onClose} className="flex-1 border border-slate-700 rounded-xl py-3 font-bold text-slate-500 hover:bg-slate-800">Cancelar</button>
-                        <button onClick={() => onSave(form)} className="flex-1 bg-amber-600 hover:bg-amber-700 text-white rounded-xl py-3 font-bold shadow-lg">Salvar</button>
+                        <button onClick={() => onSave(form)} disabled={isProcessingImage} className="flex-1 bg-amber-600 hover:bg-amber-700 text-white rounded-xl py-3 font-bold shadow-lg disabled:opacity-50">
+                            {isProcessingImage ? 'Processando...' : 'Salvar'}
+                        </button>
                     </div>
                 </div>
             </div>
