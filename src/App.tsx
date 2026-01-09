@@ -248,30 +248,38 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [permissionError, setPermissionError] = useState(false);
 
-  // Injetar CSS de Animação e Custom Scrollbar (SLIM) + BACKGROUND CIDADE
+  // Injetar CSS de Animação e Custom Scrollbar (SLIM) + BACKGROUND CIDADE (RUAS)
   useEffect(() => {
       const style = document.createElement('style');
       style.innerHTML = `
-        /* Animação de Patrulha (Driving) */
+        /* Animação de Patrulha (Driving) - Movimento maior */
         @keyframes drive { 
             0% { transform: translate(0, 0); } 
-            25% { transform: translate(10px, -5px); } 
-            50% { transform: translate(0, -10px); } 
-            75% { transform: translate(-10px, -5px); } 
+            25% { transform: translate(30px, -15px); } 
+            50% { transform: translate(0, -30px); } 
+            75% { transform: translate(-30px, -15px); } 
             100% { transform: translate(0, 0); } 
         }
-        .animate-drive { animation: drive 8s ease-in-out infinite; }
+        .animate-drive { animation: drive 12s ease-in-out infinite; }
         
-        /* Fundo Estilo Mapa de Cidade Noturna */
+        /* Fundo Estilo Mapa de Cidade Noturna - Ruas Visíveis */
         .city-map-bg {
-            background-color: #0f172a;
-            background-image: 
-                linear-gradient(rgba(30, 41, 59, 0.5) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(30, 41, 59, 0.5) 1px, transparent 1px),
-                linear-gradient(rgba(30, 41, 59, 0.3) 2px, transparent 2px),
-                linear-gradient(90deg, rgba(30, 41, 59, 0.3) 2px, transparent 2px);
-            background-size: 40px 40px, 40px 40px, 120px 120px, 120px 120px;
-            background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
+            background-color: #0f172a; /* Slate 950 Background */
+            /* Linhas horizontais e verticais para simular quarteirões */
+            background-image:
+                linear-gradient(rgba(51, 65, 85, 0.4) 2px, transparent 2px),
+                linear-gradient(90deg, rgba(51, 65, 85, 0.4) 2px, transparent 2px);
+            background-size: 80px 80px; /* Tamanho do quarteirão */
+            background-position: center center;
+        }
+
+        /* Efeito de brilho sutil nas ruas */
+        .city-map-bg::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, transparent 0%, rgba(15, 23, 42, 0.8) 100%);
+            pointer-events: none;
         }
 
         /* SCROLLBAR GLOBAL SLIM */
@@ -828,7 +836,7 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
           )}
 
           {view === 'list' && (
-             <div className="flex-1 bg-slate-950 p-6 md:p-10 overflow-auto w-full h-full pb-28 md:pb-8">
+             <div className="flex-1 bg-slate-950 p-6 md:p-10 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
                 <div className="flex justify-between items-center mb-8">
                    <h2 className="font-bold text-2xl text-white">Frota Ativa ({drivers.length})</h2>
                    <button onClick={()=>setModal('driver')} className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-xl text-sm font-bold flex gap-2 shadow-lg hover:scale-105 transition-all"><Plus size={18}/> Cadastrar</button>
@@ -855,7 +863,7 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
           )}
 
           {view === 'daily' && (
-              <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-auto w-full pb-32 md:pb-8">
+              <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
                   <div className="flex justify-between items-center mb-6">
                       <h2 className="text-2xl font-bold text-white">Controle Diário</h2>
                       <p className="text-sm text-slate-500">{new Date().toLocaleDateString('pt-BR')}</p>
@@ -916,7 +924,7 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
           )}
         
         {view === 'history' && (
-             <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-auto w-full pb-32 md:pb-8">
+             <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <div><h3 className="font-bold text-2xl text-slate-200">Fluxo de Caixa</h3></div>
                     <div className="flex gap-2 flex-wrap">
@@ -934,7 +942,7 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
         )}
 
         {view === 'clients' && (
-             <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-auto w-full pb-32 md:pb-8">
+             <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
                  <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                      <div><h2 className="text-2xl font-bold text-white">Gestão de Clientes</h2><p className="text-sm text-slate-500">{clients.length} cadastrados</p></div>
                      <div className="flex gap-2 w-full md:w-auto">
@@ -987,7 +995,7 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
       </main>
 
       {/* MODAIS */}
-      {modal === 'order' && <NewOrderModal onClose={()=>setModal(null)} onSave={onCreateOrder} products={products} clients={clients} />}
+      {modal === 'order' && <NewOrderModal onClose={()=>setModal(null)} onSave={(data: any) => { onCreateOrder(data); setView('map'); }} products={products} clients={clients} />}
       {modal === 'driver' && <NewDriverModal onClose={()=>{setModal(null); setDriverToEdit(null);}} onSave={onCreateDriver} initialData={driverToEdit} />}
       {modal === 'vale' && driverToEdit && <NewValeModal driver={driverToEdit} onClose={() => { setModal(null); setDriverToEdit(null); }} onSave={onCreateVale} />}
       {modal === 'import' && <ImportModal onClose={() => setModal(null)} onImportCSV={handleImportCSV} />}
