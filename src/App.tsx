@@ -7,7 +7,7 @@ import {
   MessageCircle, DollarSign, Loader2,
   ChevronRight, ClipboardCopy,
   Trash2, Edit, Wallet, MinusCircle,
-  LayoutDashboard, Map as MapIcon, ShoppingBag, PlusCircle, MinusCircle as MinusIcon, UploadCloud, Trophy, Star, Store, Minus, ListPlus
+  LayoutDashboard, Map as MapIcon, ShoppingBag, PlusCircle, MinusCircle as MinusIcon, UploadCloud, Trophy, Star, Store, Minus, ListPlus, ClipboardList
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -549,7 +549,7 @@ function AdminPanel(props: any) {
 }
 
 function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssignOrder, onCreateDriver, onDeleteDriver, onDeleteOrder, onCreateOrder, onCreateVale, onCreateExpense, onCreateProduct, onUpdateProduct, onDeleteProduct, onUpdateClient, onLogout }: any) {
-  const [view, setView] = useState<'map' | 'list' | 'history' | 'menu' | 'clients'>('map');
+  const [view, setView] = useState<'map' | 'list' | 'history' | 'menu' | 'clients' | 'daily'>('map');
   const [modal, setModal] = useState<'driver' | 'order' | 'vale' | 'import' | 'product' | 'expense' | 'client' | null>(null);
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
@@ -601,6 +601,18 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
      return Array.from(ranking.values())
         .sort((a: any, b: any) => b.count - a.count); 
   }, [clients, delivered]);
+
+  // DAILY ORDERS DATA
+  const dailyOrdersData = useMemo(() => {
+      const todayOrders = orders.filter((o: Order) => isToday(o.createdAt));
+      // Ordenar por hora (decrescente ou crescente, aqui farei decrescente para ver os mais recentes primeiro)
+      todayOrders.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      
+      const totalOrders = todayOrders.length;
+      const totalValue = todayOrders.reduce((acc, o) => acc + (o.value || 0), 0);
+      
+      return { todayOrders, totalOrders, totalValue };
+  }, [orders]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const filteredClients = clientsData.filter((c: any) => 
@@ -720,6 +732,7 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
           <SidebarBtn icon={<Users/>} label="Equipe" active={view==='list'} onClick={()=>setView('list')}/>
           <div className="h-px bg-slate-800 my-6 mx-2"></div>
           <SidebarBtn icon={<Plus/>} label="Novo Pedido" onClick={()=>setModal('order')} highlight/>
+          <SidebarBtn icon={<ClipboardList/>} label="Pedidos do Dia" active={view==='daily'} onClick={()=>setView('daily')}/>
           <SidebarBtn icon={<ShoppingBag/>} label="Cardápio Digital" active={view==='menu'} onClick={()=>setView('menu')}/>
           <SidebarBtn icon={<Trophy/>} label="Clientes" active={view==='clients'} onClick={()=>setView('clients')}/>
           <SidebarBtn icon={<Clock/>} label="Financeiro" active={view==='history'} onClick={()=>setView('history')}/>
@@ -738,7 +751,7 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
       <main className="flex-1 flex flex-col relative overflow-hidden w-full h-full">
         <header className="h-16 md:h-20 bg-slate-900 border-b border-slate-800 px-4 md:px-10 flex items-center justify-between shadow-sm z-10 w-full">
            <h1 className="text-lg md:text-2xl font-extrabold text-white tracking-tight">
-               {view === 'map' ? 'Visão Geral' : view === 'list' ? 'Gestão de Equipe' : view === 'menu' ? 'Cardápio Digital' : view === 'clients' ? 'Gestão de Clientes' : 'Financeiro & Relatórios'}
+               {view === 'map' ? 'Visão Geral' : view === 'list' ? 'Gestão de Equipe' : view === 'menu' ? 'Cardápio Digital' : view === 'clients' ? 'Gestão de Clientes' : view === 'daily' ? 'Pedidos do Dia' : 'Financeiro & Relatórios'}
            </h1>
         </header>
 
@@ -813,6 +826,67 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
                    ))}
                 </div>
              </div>
+          )}
+
+          {view === 'daily' && (
+              <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-auto w-full">
+                  <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-2xl font-bold text-white">Controle Diário</h2>
+                      <p className="text-sm text-slate-500">{new Date().toLocaleDateString('pt-BR')}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-8">
+                      <StatBox label="Pedidos Hoje" value={dailyOrdersData.totalOrders} icon={<ClipboardList/>} color="bg-blue-900/20 text-blue-400 border-blue-900/50"/>
+                      <StatBox label="Faturamento Dia" value={formatCurrency(dailyOrdersData.totalValue)} icon={<DollarSign/>} color="bg-emerald-900/20 text-emerald-400 border-emerald-900/50"/>
+                  </div>
+
+                  <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
+                      <div className="overflow-x-auto">
+                          <table className="w-full text-left text-sm text-slate-400">
+                              <thead className="bg-slate-950 text-slate-200 font-bold uppercase tracking-wider border-b border-slate-800">
+                                  <tr>
+                                      <th className="p-4">Hora</th>
+                                      <th className="p-4">Status</th>
+                                      <th className="p-4">Cliente</th>
+                                      <th className="p-4 hidden md:table-cell">Endereço</th>
+                                      <th className="p-4 hidden md:table-cell">Itens</th>
+                                      <th className="p-4 text-right">Valor</th>
+                                      <th className="p-4 hidden md:table-cell">Pagamento</th>
+                                      <th className="p-4 hidden md:table-cell">Entregador</th>
+                                  </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-800">
+                                  {dailyOrdersData.todayOrders.length === 0 && (
+                                      <tr><td colSpan={8} className="p-8 text-center text-slate-600">Nenhum pedido hoje.</td></tr>
+                                  )}
+                                  {dailyOrdersData.todayOrders.map((o: Order) => {
+                                      const driverName = drivers.find((d: Driver) => d.id === o.driverId)?.name || '-';
+                                      return (
+                                          <tr key={o.id} className="hover:bg-slate-800/50 transition-colors">
+                                              <td className="p-4 font-bold text-white">{formatTime(o.createdAt)}</td>
+                                              <td className="p-4">
+                                                  <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
+                                                      o.status === 'completed' ? 'bg-emerald-900/30 text-emerald-400' :
+                                                      o.status === 'pending' ? 'bg-red-900/30 text-red-400' :
+                                                      'bg-blue-900/30 text-blue-400'
+                                                  }`}>
+                                                      {o.status === 'completed' ? 'Entregue' : o.status === 'pending' ? 'Pendente' : 'Em Rota'}
+                                                  </span>
+                                              </td>
+                                              <td className="p-4 font-medium text-slate-300">{o.customer}</td>
+                                              <td className="p-4 hidden md:table-cell truncate max-w-xs" title={o.address}>{o.address}</td>
+                                              <td className="p-4 hidden md:table-cell truncate max-w-xs" title={o.items}>{o.items}</td>
+                                              <td className="p-4 text-right text-emerald-400 font-bold">{o.amount}</td>
+                                              <td className="p-4 hidden md:table-cell">{o.paymentMethod}</td>
+                                              <td className="p-4 hidden md:table-cell">{driverName}</td>
+                                          </tr>
+                                      )
+                                  })}
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+              </div>
           )}
         
         {view === 'history' && (
