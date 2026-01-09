@@ -6,7 +6,7 @@ import {
   TrendingUp, TrendingDown, Utensils, Plus, LogOut, CheckSquare,
   MessageCircle, DollarSign, Loader2,
   ChevronRight, ClipboardCopy,
-  Trash2, Edit, Wallet, MinusCircle, Settings, Camera,
+  Trash2, Edit, Wallet, MinusCircle, Settings, Camera, ClipboardPaste,
   LayoutDashboard, Map as MapIcon, ShoppingBag, PlusCircle, MinusCircle as MinusIcon, UploadCloud, Trophy, Star, Store, Minus, ListPlus, ClipboardList, History, Calendar, ChevronDown
 } from 'lucide-react';
 
@@ -227,6 +227,7 @@ const compressImage = (file: File): Promise<string> => {
 // --- COMPONENTES AUXILIARES ---
 // BrandLogo agora aceita config dinamicamente
 const BrandLogo = ({ size = 'normal', dark = false, config }: { size?: 'small'|'normal'|'large', dark?: boolean, config?: AppConfig }) => {
+    // Revertido para os tamanhos originais (sem redução mobile)
     const sizeClasses = { small: 'text-lg', normal: 'text-2xl', large: 'text-4xl' };
     const iconSize = size === 'large' ? 48 : size === 'normal' ? 32 : 20;
     
@@ -237,18 +238,18 @@ const BrandLogo = ({ size = 'normal', dark = false, config }: { size?: 'small'|'
     return (
         <div className={`flex items-center gap-3 font-extrabold tracking-tight ${sizeClasses[size]} ${dark ? 'text-slate-800' : 'text-white'}`}>
             {appLogo ? (
-                <div className={`rounded-xl flex items-center justify-center shadow-md overflow-hidden bg-slate-800 ${size === 'small' ? 'w-8 h-8' : size === 'normal' ? 'w-12 h-12' : 'w-20 h-20'}`}>
+                <div className={`rounded-xl flex items-center justify-center shadow-md overflow-hidden bg-slate-800 ${size === 'small' ? 'w-8 h-8' : size === 'normal' ? 'w-12 h-12' : 'w-20 h-20'} shrink-0`}>
                     <img src={appLogo} alt="Logo" className="w-full h-full object-cover"/>
                 </div>
             ) : (
-                <div className={`bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-md shadow-orange-500/20 ${size === 'small' ? 'p-1.5' : 'p-2.5'}`}>
+                <div className={`bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-md shadow-orange-500/20 shrink-0 ${size === 'small' ? 'p-1.5' : 'p-2.5'}`}>
                     <Utensils className="text-white" size={iconSize} />
                 </div>
             )}
             
-            <div className="flex flex-col leading-none">
+            <div className="flex flex-col leading-none items-start">
                 <span>{appName}</span>
-                {size !== 'small' && <span className={`text-[0.4em] uppercase tracking-widest ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Delivery System</span>}
+                {size !== 'small' && <span className={`text-[0.4em] uppercase tracking-widest text-left ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Delivery System</span>}
             </div>
         </div>
     );
@@ -764,9 +765,11 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
          const k = normalizePhone(c.phone);
          if(ranking.has(k)) {
              const exist = ranking.get(k);
-             ranking.set(k, { ...exist, name: c.name, address: c.address, obs: c.obs, mapsLink: c.mapsLink });
+             // IMPORTANTE: Garantir que o ID real seja preservado
+             ranking.set(k, { ...exist, id: c.id, name: c.name, address: c.address, obs: c.obs, mapsLink: c.mapsLink });
          } else {
-             ranking.set(k, { id: k, name: c.name, phone: c.phone, address: c.address, obs: c.obs, mapsLink: c.mapsLink, count: 0, totalSpent: 0 });
+             // Fallback: Se não tiver ID (raro), usa o telefone como ID
+             ranking.set(k, { id: c.id || k, name: c.name, phone: c.phone, address: c.address, obs: c.obs, mapsLink: c.mapsLink, count: 0, totalSpent: 0 });
          }
      });
 
@@ -1094,12 +1097,10 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
                                       <th className="p-4 text-right">Valor</th>
                                       <th className="p-4 hidden md:table-cell">Pagamento</th>
                                       <th className="p-4 hidden md:table-cell">Entregador</th>
+                                      <th className="p-4 text-center">Ação</th>
                                   </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-800">
-                                  {dailyOrdersData.todayOrders.length === 0 && (
-                                      <tr><td colSpan={8} className="p-8 text-center text-slate-600">Nenhum pedido hoje.</td></tr>
-                                  )}
                                   {dailyOrdersData.todayOrders.map((o: Order) => {
                                       const driverName = drivers.find((d: Driver) => d.id === o.driverId)?.name || '-';
                                       return (
@@ -1120,6 +1121,11 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
                                               <td className="p-4 text-right text-emerald-400 font-bold">{o.amount}</td>
                                               <td className="p-4 hidden md:table-cell">{o.paymentMethod}</td>
                                               <td className="p-4 hidden md:table-cell">{driverName}</td>
+                                              <td className="p-4 text-center">
+                                                  <button onClick={(e) => { e.stopPropagation(); onDeleteOrder(o.id); }} className="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-800 rounded-lg transition-colors" title="Excluir Pedido">
+                                                      <Trash2 size={16}/>
+                                                  </button>
+                                              </td>
                                           </tr>
                                       )
                                   })}
@@ -1507,9 +1513,10 @@ function MenuManager({ products, onCreate, onUpdate, onDelete }: any) {
 function EditClientModal({ client, orders, onClose, onSave }: any) {
     const [form, setForm] = useState({ name: client.name, address: client.address, obs: client.obs || '', mapsLink: client.mapsLink || '' });
     const [tab, setTab] = useState<'info'|'history'>('info');
+    const [visibleCount, setVisibleCount] = useState(30);
 
     const clientOrders = useMemo(() => {
-        return orders.filter((o: Order) => normalizePhone(o.phone) === client.id).sort((a: Order, b: Order) => b.createdAt - a.createdAt);
+        return orders.filter((o: Order) => normalizePhone(o.phone) === client.id).sort((a: Order, b: Order) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
     }, [orders, client]);
 
     const handleCapitalize = (e: any, field: string) => {
@@ -1563,12 +1570,20 @@ function EditClientModal({ client, orders, onClose, onSave }: any) {
                     ) : (
                         <div className="space-y-3">
                             {clientOrders.length === 0 && <p className="text-center text-slate-500 py-10">Nenhum pedido encontrado.</p>}
-                            {clientOrders.map((o: Order) => (
+                            {clientOrders.slice(0, visibleCount).map((o: Order) => (
                                 <div key={o.id} className="p-4 bg-slate-950 border border-slate-800 rounded-xl">
                                     <div className="flex justify-between mb-1"><span className="text-slate-400 text-xs">{formatDate(o.createdAt)}</span><span className="text-emerald-400 font-bold">{o.amount}</span></div>
                                     <p className="text-white text-sm">{o.items}</p>
                                 </div>
                             ))}
+                             {clientOrders.length > visibleCount && (
+                                <button 
+                                    onClick={() => setVisibleCount(prev => prev + 30)}
+                                    className="w-full py-3 mt-2 text-xs font-bold text-slate-400 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800 hover:text-white transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <ChevronDown size={14}/> Carregar mais antigos
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
@@ -1592,6 +1607,9 @@ function NewOrderModal({ onClose, onSave, products, clients }: any) {
        obs: '', 
        origin: 'manual' 
    });
+
+   const [showPaste, setShowPaste] = useState(false);
+   const [pasteText, setPasteText] = useState('');
 
    const handleCapitalize = (e: any, field: string) => {
        setForm(prev => ({...prev, [field]: capitalize(e.target.value)}));
@@ -1654,6 +1672,35 @@ function NewOrderModal({ onClose, onSave, products, clients }: any) {
        const currentVal = parseCurrency(form.amount || '0');
        const newVal = Math.max(0, currentVal + priceDiff);
        setForm(prev => ({ ...prev, amount: formatCurrency(newVal) }));
+   };
+
+   const processPaste = () => {
+       if (!pasteText) return;
+       const lines = pasteText.split('\n');
+       const newData = { ...form, items: pasteText }; // Joga tudo na obs por segurança
+
+       lines.forEach(line => {
+           const lower = line.toLowerCase();
+           if (lower.includes('nome:') || lower.includes('cliente:')) {
+               newData.customer = line.split(':')[1].trim();
+           }
+           if (lower.includes('endereço:') || lower.includes('rua') || lower.includes('av')) {
+               newData.address = line.replace(/endereço:/i, '').trim();
+           }
+           if (lower.includes('total') || lower.includes('valor')) {
+               const match = line.match(/[\d,.]+/);
+               if (match) newData.amount = formatCurrency(parseFloat(match[0].replace(',', '.')));
+           }
+           // Tenta capturar telefone (ex: (11) 99999-9999)
+           const phoneMatch = line.match(/\(?\d{2}\)?\s?9?\d{4}[-\s]?\d{4}/);
+           if (phoneMatch) {
+               newData.phone = phoneMatch[0];
+           }
+       });
+
+       setForm(newData);
+       setShowPaste(false);
+       setPasteText('');
    };
 
    const submit = (e: React.FormEvent) => { 
@@ -1737,7 +1784,25 @@ function NewOrderModal({ onClose, onSave, products, clients }: any) {
                 
                 <form onSubmit={submit} className="space-y-3 md:space-y-4 flex-1 flex flex-col">
                    <div className="space-y-2 md:space-y-3 shrink-0">
-                       <label className="text-[10px] md:text-xs font-bold text-slate-500 uppercase">Cliente</label>
+                       <div className="flex justify-between items-end">
+                           <label className="text-[10px] md:text-xs font-bold text-slate-500 uppercase">Cliente</label>
+                           <button type="button" onClick={() => setShowPaste(!showPaste)} className="text-[10px] text-amber-500 font-bold flex items-center gap-1 hover:text-amber-400"><ClipboardPaste size={12}/> Colar do WhatsApp</button>
+                       </div>
+                       
+                       {/* Área de Colar Mágica */}
+                       {showPaste && (
+                           <div className="bg-slate-950 p-2 rounded-xl border border-amber-500/30 animate-in slide-in-from-top-2">
+                               <textarea 
+                                   autoFocus
+                                   className="w-full h-20 bg-transparent text-xs text-slate-300 outline-none resize-none"
+                                   placeholder="Cole o pedido do WhatsApp aqui..."
+                                   value={pasteText}
+                                   onChange={e => setPasteText(e.target.value)}
+                               />
+                               <button type="button" onClick={processPaste} className="w-full bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold py-2 rounded-lg mt-1">Processar Texto</button>
+                           </div>
+                       )}
+
                        <div className="grid grid-cols-3 gap-2">
                            <input className="col-span-1 p-2 md:p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500 text-xs md:text-sm" placeholder="Tel" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} onBlur={handlePhoneBlur} />
                            <input className="col-span-2 p-2 md:p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500 text-xs md:text-sm" placeholder="Nome" value={form.customer} onChange={e=>handleCapitalize(e, 'customer')} />
