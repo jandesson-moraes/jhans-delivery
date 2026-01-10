@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   MapPin, Navigation, Package, Clock, 
   X, Search, Users, Bike, 
@@ -419,7 +419,9 @@ export default function App() {
 
   const createDriver = (data: any) => handleAction(async () => { await addDoc(collection(db, 'drivers'), data); });
   const updateDriver = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'drivers', id), data); }); 
-  const updateOrder = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'orders', id), data); }); // Novo: Atualizar Pedido
+  const updateOrder = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'orders', id), data); }); 
+  const updateClient = (id: string, data: any) => handleAction(async () => { await setDoc(doc(db, 'clients', id), data, { merge: true }); });
+
   const deleteDriver = (id: string) => handleAction(async () => { if (confirm("Tem certeza?")) await deleteDoc(doc(db, 'drivers', id)); });
   const deleteOrder = (id: string) => handleAction(async () => { if (confirm("Excluir pedido?")) await deleteDoc(doc(db, 'orders', id)); });
   const createVale = (data: any) => handleAction(async () => { await addDoc(collection(db, 'vales'), { ...data, createdAt: serverTimestamp() }); });
@@ -427,7 +429,7 @@ export default function App() {
   const createProduct = (data: any) => handleAction(async () => { await addDoc(collection(db, 'products'), data); });
   const updateProduct = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'products', id), data); });
   const deleteProduct = (id: string) => handleAction(async () => { if(confirm("Excluir produto?")) await deleteDoc(doc(db, 'products', id)); });
-  const updateClient = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'clients', id), data); });
+  const updateClientData = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'clients', id), data); }); // Updated client update
 
   const assignOrder = (oid: string, did: string) => handleAction(async () => { 
       await updateDoc(doc(db, 'orders', oid), { status: 'assigned', assignedAt: serverTimestamp(), driverId: did }); 
@@ -464,7 +466,7 @@ export default function App() {
             drivers={drivers} orders={orders} vales={vales} expenses={expenses} products={products} clients={clients}
             onAssignOrder={assignOrder} onCreateDriver={createDriver} onUpdateDriver={updateDriver} onDeleteDriver={deleteDriver} 
             onCreateOrder={createOrder} onDeleteOrder={deleteOrder} onUpdateOrder={updateOrder} onCreateVale={createVale} onCreateExpense={createExpense}
-            onCreateProduct={createProduct} onDeleteProduct={deleteProduct} onUpdateProduct={updateProduct} onUpdateClient={updateClient} onLogout={handleLogout} 
+            onCreateProduct={createProduct} onDeleteProduct={deleteProduct} onUpdateProduct={updateProduct} onUpdateClient={updateClientData} onLogout={handleLogout} 
             isMobile={isMobile}
             appConfig={appConfig}
             setAppConfig={setAppConfig}
@@ -684,16 +686,10 @@ function DriverApp({ driver, orders, onToggleStatus, onAcceptOrder, onCompleteOr
                             <div key={order.id} className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center animate-in fade-in slide-in-from-bottom-2 duration-300">
                                 <div className="flex-1 min-w-0 mr-2">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
-                                            <Clock size={10}/> 
-                                            {/* Duration Calculation */}
-                                            {order.assignedAt && order.completedAt 
-                                                ? `${Math.floor((order.completedAt.seconds - order.assignedAt.seconds) / 60)} min`
-                                                : formatTime(order.completedAt)
-                                            }
-                                        </span>
-                                        <span className="text-[10px] text-slate-600">• {formatDate(order.completedAt)}</span>
+                                        <Calendar size={12} className="text-slate-500"/>
+                                        <span className="text-[10px] font-bold text-slate-400">{formatDate(order.completedAt)} • {formatTime(order.completedAt)}</span>
                                     </div>
+                                    {/* AQUI ESTÁ A CORREÇÃO: Nome do Cliente e Endereço abaixo */}
                                     <p className="text-sm font-bold text-white truncate">{order.customer}</p>
                                     <p className="text-xs text-slate-400 truncate">{order.address}</p>
                                 </div>
@@ -766,6 +762,30 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
   const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
   const [driverReportId, setDriverReportId] = useState<string | null>(null);
   const [driverToEdit, setDriverToEdit] = useState<Driver | null>(null); 
+  const [driverSidebarTab, setDriverSidebarTab] = useState<'assign' | 'history' | 'finance'>('assign');
+
+  // FIX: Adicionando as variáveis que faltavam para a sidebar do motorista
+  const selectedDriverOrders = useMemo(() => {
+    if (!selectedDriver) return [];
+    return orders.filter((o: Order) => o.driverId === selectedDriver.id && o.status === 'completed')
+      .sort((a: Order, b: Order) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
+  }, [orders, selectedDriver]);
+
+  const driverFinancials = useMemo(() => {
+    if (!selectedDriver) return { total: 0, vales: 0, net: 0, valeList: [] };
+    const myDeliveriesCount = orders.filter((o: Order) => o.driverId === selectedDriver.id && o.status === 'completed').length;
+    const totalEarnings = myDeliveriesCount * TAXA_ENTREGA;
+    
+    const myVales = vales.filter((v: Vale) => v.driverId === selectedDriver.id);
+    const totalVales = myVales.reduce((acc: number, v: Vale) => acc + (Number(v.amount) || 0), 0);
+
+    return {
+        total: totalEarnings,
+        vales: totalVales,
+        net: totalEarnings - totalVales,
+        valeList: myVales
+    };
+  }, [orders, vales, selectedDriver]);
 
   const delivered = orders.filter((o: Order) => o.status === 'completed');
   const sortedHistory = [...delivered].sort((a: Order, b: Order) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
@@ -832,6 +852,10 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
       c.phone.includes(searchTerm)
   );
+
+  // PAGINAÇÃO CLIENTES
+  const [visibleClientsCount, setVisibleClientsCount] = useState(30);
+  const visibleClients = filteredClients.slice(0, visibleClientsCount);
 
   const trackDriver = (driver: Driver) => {
       if (driver.lat && driver.lng) {
@@ -985,264 +1009,280 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
       </div>
 
       <main className="flex-1 flex flex-col relative overflow-hidden w-full h-full">
-        <header className="h-16 md:h-20 bg-slate-900 border-b border-slate-800 px-4 md:px-10 flex items-center justify-between shadow-sm z-10 w-full">
-           <div className="flex items-center gap-3">
-               {appConfig.appLogoUrl && <img src={appConfig.appLogoUrl} className="w-8 h-8 rounded-full md:hidden object-cover" />}
-               <h1 className="text-lg md:text-2xl font-extrabold text-white tracking-tight truncate">
-                   {view === 'map' ? 'Visão Geral' : view === 'list' ? 'Gestão de Equipe' : view === 'menu' ? 'Cardápio Digital' : view === 'clients' ? 'Gestão de Clientes' : view === 'daily' ? 'Pedidos do Dia' : 'Financeiro & Relatórios'}
-               </h1>
-           </div>
-           
-           {/* Botões do Topo (Mobile: Config e Sair) */}
-           <div className="flex items-center gap-2">
-               <button onClick={() => setModal('settings')} className="md:hidden p-2 text-slate-400 hover:text-white transition-colors bg-slate-800 rounded-xl">
-                   <Settings size={20}/>
-               </button>
-               <button onClick={onLogout} className="md:hidden p-2 text-slate-400 hover:text-white transition-colors bg-slate-800 rounded-xl">
-                   <LogOut size={20}/>
-               </button>
-           </div>
-        </header>
+        {/* Adicionei 'max-w-7xl mx-auto' para conter a largura em telas grandes */}
+        <div className="w-full max-w-[1920px] mx-auto h-full flex flex-col"> 
+          <header className="h-16 md:h-20 bg-slate-900 border-b border-slate-800 px-4 md:px-10 flex items-center justify-between shadow-sm z-10 w-full shrink-0">
+             <div className="flex items-center gap-3 overflow-hidden">
+                 {appConfig.appLogoUrl && <img src={appConfig.appLogoUrl} className="w-8 h-8 rounded-full md:hidden object-cover" />}
+                 <h1 className="text-lg md:text-2xl font-extrabold text-white tracking-tight truncate flex-1 min-w-0">
+                     {view === 'map' ? 'Visão Geral' : view === 'list' ? 'Gestão de Equipe' : view === 'menu' ? 'Cardápio Digital' : view === 'clients' ? 'Gestão de Clientes' : view === 'daily' ? 'Pedidos do Dia' : 'Financeiro & Relatórios'}
+                 </h1>
+             </div>
+             
+             {/* Botões do Topo (Mobile: Config e Sair) */}
+             <div className="flex items-center gap-2">
+                 <button onClick={() => setModal('settings')} className="md:hidden p-2 text-slate-400 hover:text-white transition-colors bg-slate-800 rounded-xl">
+                     <Settings size={20}/>
+                 </button>
+                 <button onClick={onLogout} className="md:hidden p-2 text-slate-400 hover:text-white transition-colors bg-slate-800 rounded-xl">
+                     <LogOut size={20}/>
+                 </button>
+             </div>
+          </header>
 
-        <div className="flex-1 overflow-hidden relative w-full h-full">
-          {view === 'map' && (
-             <div className="absolute inset-0 city-map-bg overflow-hidden w-full h-full">
-                
-                {/* DICAS DE LOCALIZAÇÃO / MARCA D'ÁGUA NO FUNDO */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-10 select-none p-4 z-0">
-                    {appConfig.appLogoUrl ? (
-                        <img src={appConfig.appLogoUrl} className="w-32 h-32 md:w-48 md:h-48 object-contain mb-4 opacity-20 grayscale" />
-                    ) : null}
-                    <span className="text-slate-200 font-black text-5xl md:text-9xl text-center leading-none tracking-tighter opacity-10">{appConfig.appName.toUpperCase()}</span>
-                    <span className="text-slate-200 font-bold text-xl md:text-4xl tracking-widest mt-2 uppercase opacity-10">DELIVERY SYSTEM</span>
-                </div>
+          <div className="flex-1 overflow-hidden relative w-full h-full">
+            {view === 'map' && (
+               <div className="absolute inset-0 city-map-bg overflow-hidden w-full h-full">
+                  
+                  {/* DICAS DE LOCALIZAÇÃO / MARCA D'ÁGUA NO FUNDO */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-10 select-none p-4 z-0">
+                      {appConfig.appLogoUrl ? (
+                          <img src={appConfig.appLogoUrl} className="w-32 h-32 md:w-48 md:h-48 object-contain mb-4 opacity-20 grayscale" />
+                      ) : null}
+                      <span className="text-slate-200 font-black text-5xl md:text-9xl text-center leading-none tracking-tighter opacity-10">{appConfig.appName.toUpperCase()}</span>
+                      <span className="text-slate-200 font-bold text-xl md:text-4xl tracking-widest mt-2 uppercase opacity-10">DELIVERY SYSTEM</span>
+                  </div>
 
-                {/* MOTOS NO MAPA COM ANIMAÇÃO NAS RUAS */}
-                <div className="w-full h-full relative z-10">
-                    {drivers.map((d: Driver, index: number) => {
-                       const seed = d.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                       
-                       const maxCols = isMobile ? 4 : 12;
-                       const maxRows = isMobile ? 6 : 8;
+                  {/* MOTOS NO MAPA COM ANIMAÇÃO NAS RUAS */}
+                  <div className="w-full h-full relative z-10">
+                      {drivers.map((d: Driver, index: number) => {
+                         const seed = d.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                         
+                         const maxCols = isMobile ? 4 : 12;
+                         const maxRows = isMobile ? 6 : 8;
 
-                       // Ajuste Fino para Grade de Ruas (80px box, 4px line)
-                       // Centralizar na linha: (Index * 80) - Offset
-                       const gridX = (Math.floor(seed * 17) % maxCols) * 80 - 12; 
-                       const gridY = (Math.floor(seed * 23) % maxRows) * 80 - 12; 
-                       
-                       const animType = index % 3 === 0 ? 'animate-drive-x' : index % 3 === 1 ? 'animate-drive-y' : 'animate-drive-l';
-                       const colorStatus = d.status === 'delivering' ? 'border-amber-500' : d.status === 'offline' ? 'border-slate-500' : 'border-emerald-500';
-                       const glowStatus = d.status === 'delivering' ? 'headlight' : '';
+                         // Ajuste Fino para Grade de Ruas (80px box, 4px line)
+                         // Centralizar na linha: (Index * 80) - Offset
+                         const gridX = (Math.floor(seed * 17) % maxCols) * 80 - 12; 
+                         const gridY = (Math.floor(seed * 23) % maxRows) * 80 - 12; 
+                         
+                         const animType = index % 3 === 0 ? 'animate-drive-x' : index % 3 === 1 ? 'animate-drive-y' : 'animate-drive-l';
+                         const colorStatus = d.status === 'delivering' ? 'border-amber-500' : d.status === 'offline' ? 'border-slate-500' : 'border-emerald-500';
+                         const glowStatus = d.status === 'delivering' ? 'headlight' : '';
 
-                       return (
-                           <div key={d.id} 
-                                onClick={(e) => { e.stopPropagation(); setSelectedDriver(d); }} 
-                                className={`absolute z-30 cursor-pointer transition-transform duration-1000 ${animType}`}
-                                style={{ top: `${gridY + 80}px`, left: `${gridX + 80}px` }}>
-                              
-                              <div className="relative group flex flex-col items-center">
-                                 {/* FOTO DO MOTOBOY NO MAPA */}
-                                 <div className={`relative bg-slate-900 p-0.5 rounded-full border-2 ${colorStatus} shadow-xl ${glowStatus} transform transition-all active:scale-95 overflow-hidden w-10 h-10`}>
-                                     {d.avatar ? (
-                                         <img src={d.avatar} className="w-full h-full object-cover rounded-full" alt={d.name} />
-                                     ) : (
-                                         <div className="w-full h-full flex items-center justify-center bg-slate-800"><Bike size={20} className="text-white"/></div>
-                                     )}
-                                     
-                                     {/* Bolinha de status */}
-                                     <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${d.status === 'delivering' ? 'bg-amber-500 animate-pulse' : d.status === 'available' ? 'bg-emerald-500' : 'bg-slate-500'}`}></div>
-                                 </div>
-                                 <div className="mt-1 bg-black/80 backdrop-blur text-white text-[9px] font-bold px-2 py-0.5 rounded-md shadow-lg whitespace-nowrap transition-opacity">
-                                     {d.name.split(' ')[0]}
+                         return (
+                             <div key={d.id} 
+                                  onClick={(e) => { e.stopPropagation(); setSelectedDriver(d); }} 
+                                  className={`absolute z-30 cursor-pointer transition-transform duration-1000 ${animType}`}
+                                  style={{ top: `${gridY + 80}px`, left: `${gridX + 80}px` }}>
+                                
+                                <div className="relative group flex flex-col items-center">
+                                   {/* FOTO DO MOTOBOY NO MAPA */}
+                                   <div className={`relative bg-slate-900 p-0.5 rounded-full border-2 ${colorStatus} shadow-xl ${glowStatus} transform transition-all active:scale-95 overflow-hidden w-10 h-10`}>
+                                       {d.avatar ? (
+                                           <img src={d.avatar} className="w-full h-full object-cover rounded-full" alt={d.name} />
+                                       ) : (
+                                           <div className="w-full h-full flex items-center justify-center bg-slate-800"><Bike size={20} className="text-white"/></div>
+                                       )}
+                                       
+                                       {/* Bolinha de status */}
+                                       <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${d.status === 'delivering' ? 'bg-amber-500 animate-pulse' : d.status === 'available' ? 'bg-emerald-500' : 'bg-slate-500'}`}></div>
+                                   </div>
+                                   <div className="mt-1 bg-black/80 backdrop-blur text-white text-[9px] font-bold px-2 py-0.5 rounded-md shadow-lg whitespace-nowrap transition-opacity">
+                                       {d.name.split(' ')[0]}
+                                   </div>
+                                </div>
+                             </div>
+                         )
+                      })}
+                  </div>
+                  
+                  {/* LISTA DE PEDIDOS PENDENTES */}
+                  <div className="absolute top-6 left-6 z-40 space-y-3 max-h-[60%] overflow-y-auto w-72 pr-2 custom-scrollbar">
+                     {orders.filter((o: Order) => o.status === 'pending').map((o: Order) => (
+                        <div key={o.id} className="bg-slate-900/90 backdrop-blur-md p-3 rounded-xl shadow-2xl border-l-4 border-amber-500 relative group animate-in slide-in-from-left-4 duration-300">
+                           <div className="flex justify-between items-start mb-1"><span className="font-bold text-sm text-white truncate w-32">{o.customer}</span><span className="text-[10px] font-bold bg-slate-800 px-2 py-1 rounded text-slate-400">{o.time}</span></div>
+                           <p className="text-xs text-slate-400 truncate mb-2">{o.address}</p>
+                           <div className="flex justify-between items-center">
+                               <span className="text-sm font-bold text-emerald-400">{o.amount}</span>
+                               <div className="flex gap-1">
+                                  {o.serviceType === 'pickup' && <span className="bg-purple-900/50 text-purple-400 px-1 rounded text-[10px] font-bold">Retira</span>}
+                               </div>
+                           </div>
+                           <button onClick={() => onDeleteOrder(o.id)} className="absolute -right-2 -top-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110"><Trash2 size={12}/></button>
+                        </div>
+                     ))}
+                  </div>
+               </div>
+            )}
+
+            {view === 'list' && (
+               <div className="flex-1 bg-slate-950 p-6 md:p-10 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
+                  <div className="flex justify-between items-center mb-8">
+                     <h2 className="font-bold text-2xl text-white">Frota Ativa ({drivers.length})</h2>
+                     <button onClick={()=>setModal('driver')} className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-xl text-sm font-bold flex gap-2 shadow-lg hover:scale-105 transition-all"><Plus size={18}/> Cadastrar</button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                     {drivers.map((d: Driver) => (
+                        <div key={d.id} className="border border-slate-800 p-5 rounded-2xl bg-slate-900 relative group cursor-pointer hover:border-amber-500/50 transition-colors" onClick={()=>setSelectedDriver(d)}>
+                           <div className="flex items-center gap-5">
+                              <img src={d.avatar} className="w-16 h-16 rounded-full bg-slate-800 object-cover border-2 border-slate-700"/>
+                              <div>
+                                 <h3 className="font-bold text-lg text-white">{d.name}</h3>
+                                 <div className="flex gap-2">
+                                    <span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wide ${d.status==='offline'?'bg-slate-800 text-slate-500':d.status==='available'?'bg-emerald-900/30 text-emerald-400':'bg-orange-900/30 text-orange-400'}`}>{d.status}</span>
+                                    <span className="text-[10px] px-3 py-1 rounded-full font-bold uppercase bg-slate-800 text-slate-400">{d.vehicle || 'Moto'}</span>
                                  </div>
                               </div>
                            </div>
-                       )
-                    })}
-                </div>
-                
-                {/* LISTA DE PEDIDOS PENDENTES */}
-                <div className="absolute top-6 left-6 z-40 space-y-3 max-h-[60%] overflow-y-auto w-72 pr-2 custom-scrollbar">
-                   {orders.filter((o: Order) => o.status === 'pending').map((o: Order) => (
-                      <div key={o.id} className="bg-slate-900/90 backdrop-blur-md p-3 rounded-xl shadow-2xl border-l-4 border-amber-500 relative group animate-in slide-in-from-left-4 duration-300">
-                         <div className="flex justify-between items-start mb-1"><span className="font-bold text-sm text-white truncate w-32">{o.customer}</span><span className="text-[10px] font-bold bg-slate-800 px-2 py-1 rounded text-slate-400">{o.time}</span></div>
-                         <p className="text-xs text-slate-400 truncate mb-2">{o.address}</p>
-                         <div className="flex justify-between items-center">
-                             <span className="text-sm font-bold text-emerald-400">{o.amount}</span>
-                             <div className="flex gap-1">
-                                {o.serviceType === 'pickup' && <span className="bg-purple-900/50 text-purple-400 px-1 rounded text-[10px] font-bold">Retira</span>}
-                             </div>
-                         </div>
-                         <button onClick={() => onDeleteOrder(o.id)} className="absolute -right-2 -top-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110"><Trash2 size={12}/></button>
-                      </div>
-                   ))}
-                </div>
-             </div>
-          )}
-
-          {view === 'list' && (
-             <div className="flex-1 bg-slate-950 p-6 md:p-10 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
-                <div className="flex justify-between items-center mb-8">
-                   <h2 className="font-bold text-2xl text-white">Frota Ativa ({drivers.length})</h2>
-                   <button onClick={()=>setModal('driver')} className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-xl text-sm font-bold flex gap-2 shadow-lg hover:scale-105 transition-all"><Plus size={18}/> Cadastrar</button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                   {drivers.map((d: Driver) => (
-                      <div key={d.id} className="border border-slate-800 p-5 rounded-2xl bg-slate-900 relative group cursor-pointer hover:border-amber-500/50 transition-colors" onClick={()=>setSelectedDriver(d)}>
-                         <div className="flex items-center gap-5">
-                            <img src={d.avatar} className="w-16 h-16 rounded-full bg-slate-800 object-cover border-2 border-slate-700"/>
-                            <div>
-                               <h3 className="font-bold text-lg text-white">{d.name}</h3>
-                               <div className="flex gap-2">
-                                  <span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase tracking-wide ${d.status==='offline'?'bg-slate-800 text-slate-500':d.status==='available'?'bg-emerald-900/30 text-emerald-400':'bg-orange-900/30 text-orange-400'}`}>{d.status}</span>
-                                  <span className="text-[10px] px-3 py-1 rounded-full font-bold uppercase bg-slate-800 text-slate-400">{d.vehicle || 'Moto'}</span>
-                               </div>
-                            </div>
-                         </div>
-                         <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={(e)=>{e.stopPropagation(); setDriverReportId(d.id)}} className="p-2 bg-blue-900/20 text-blue-400 rounded-lg hover:bg-blue-900/40 transition-colors"><Wallet size={18}/></button>
-                            <button onClick={(e)=>{e.stopPropagation(); setDriverToEdit(d); setModal('driver');}} className="p-2 bg-slate-800 text-slate-400 rounded-lg hover:bg-slate-700 transition-colors"><Edit size={18}/></button>
-                            <button onClick={(e)=>{e.stopPropagation(); onDeleteDriver(d.id)}} className="p-2 bg-red-900/20 text-red-400 rounded-lg hover:bg-red-900/40 transition-colors"><Trash2 size={18}/></button>
-                         </div>
-                      </div>
-                   ))}
-                </div>
-             </div>
-          )}
-
-          {view === 'daily' && (
-              <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
-                  <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-2xl font-bold text-white">Controle Diário</h2>
-                      <p className="text-sm text-slate-500">{new Date().toLocaleDateString('pt-BR')}</p>
+                           <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={(e)=>{e.stopPropagation(); setDriverReportId(d.id)}} className="p-2 bg-blue-900/20 text-blue-400 rounded-lg hover:bg-blue-900/40 transition-colors"><Wallet size={18}/></button>
+                              <button onClick={(e)=>{e.stopPropagation(); setDriverToEdit(d); setModal('driver');}} className="p-2 bg-slate-800 text-slate-400 rounded-lg hover:bg-slate-700 transition-colors"><Edit size={18}/></button>
+                              <button onClick={(e)=>{e.stopPropagation(); onDeleteDriver(d.id)}} className="p-2 bg-red-900/20 text-red-400 rounded-lg hover:bg-red-900/40 transition-colors"><Trash2 size={18}/></button>
+                           </div>
+                        </div>
+                     ))}
                   </div>
+               </div>
+            )}
 
-                  <div className="grid grid-cols-2 gap-4 mb-8">
-                      <StatBox label="Pedidos Hoje" value={dailyOrdersData.totalOrders} icon={<ClipboardList/>} color="bg-blue-900/20 text-blue-400 border-blue-900/50"/>
-                      <StatBox label="Faturamento Dia" value={formatCurrency(dailyOrdersData.totalValue)} icon={<DollarSign/>} color="bg-emerald-900/20 text-emerald-400 border-emerald-900/50"/>
-                  </div>
+            {view === 'daily' && (
+                <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-white">Controle Diário</h2>
+                        <p className="text-sm text-slate-500">{new Date().toLocaleDateString('pt-BR')}</p>
+                    </div>
 
-                  <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
-                      <div className="overflow-x-auto">
-                          <table className="w-full text-left text-sm text-slate-400">
-                              <thead className="bg-slate-950 text-slate-200 font-bold uppercase tracking-wider border-b border-slate-800">
-                                  <tr>
-                                      <th className="p-4">Hora</th>
-                                      <th className="p-4">Status</th>
-                                      <th className="p-4">Cliente</th>
-                                      <th className="p-4 hidden md:table-cell">Endereço</th>
-                                      <th className="p-4 hidden md:table-cell">Itens</th>
-                                      <th className="p-4 text-right">Valor</th>
-                                      <th className="p-4 hidden md:table-cell">Pagamento</th>
-                                      <th className="p-4 hidden md:table-cell">Entregador</th>
-                                      <th className="p-4 text-center">Ação</th>
-                                  </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-800">
-                                  {dailyOrdersData.todayOrders.map((o: Order) => {
-                                      const driverName = drivers.find((d: Driver) => d.id === o.driverId)?.name || '-';
-                                      return (
-                                          <tr key={o.id} className="hover:bg-slate-800/50 transition-colors">
-                                              <td className="p-4 font-bold text-white">{formatTime(o.createdAt)}</td>
-                                              <td className="p-4">
-                                                  <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
-                                                      o.status === 'completed' ? 'bg-emerald-900/30 text-emerald-400' :
-                                                      o.status === 'pending' ? 'bg-red-900/30 text-red-400' :
-                                                      'bg-blue-900/30 text-blue-400'
-                                                  }`}>
-                                                      {o.status === 'completed' ? 'Entregue' : o.status === 'pending' ? 'Pendente' : 'Em Rota'}
-                                                  </span>
-                                              </td>
-                                              <td className="p-4 font-medium text-slate-300">{o.customer}</td>
-                                              <td className="p-4 hidden md:table-cell truncate max-w-xs" title={o.address}>{o.address}</td>
-                                              <td className="p-4 hidden md:table-cell truncate max-w-xs" title={o.items}>{o.items}</td>
-                                              <td className="p-4 text-right text-emerald-400 font-bold">{o.amount}</td>
-                                              <td className="p-4 hidden md:table-cell">{o.paymentMethod}</td>
-                                              <td className="p-4 hidden md:table-cell">{driverName}</td>
-                                              <td className="p-4 text-center">
-                                                  <button onClick={(e) => { e.stopPropagation(); onDeleteOrder(o.id); }} className="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-800 rounded-lg transition-colors" title="Excluir Pedido">
-                                                      <Trash2 size={16}/>
-                                                  </button>
-                                              </td>
-                                          </tr>
-                                      )
-                                  })}
-                              </tbody>
-                          </table>
-                      </div>
-                  </div>
-              </div>
-          )}
-        
-        {view === 'history' && (
-             <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                    <div><h3 className="font-bold text-2xl text-slate-200">Fluxo de Caixa</h3></div>
-                    <div className="flex gap-2 flex-wrap">
-                        <button onClick={() => setModal('expense')} className="flex items-center gap-2 bg-red-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-red-700 transition-all shadow-md"><MinusIcon size={18}/> Lançar Custo</button>
-                        <button onClick={copyReport} className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-md"><ClipboardCopy size={18}/> Relatório</button>
+                    <div className="grid grid-cols-2 gap-4 mb-8">
+                        <StatBox label="Pedidos Hoje" value={dailyOrdersData.totalOrders} icon={<ClipboardList/>} color="bg-blue-900/20 text-blue-400 border-blue-900/50"/>
+                        <StatBox label="Faturamento Dia" value={formatCurrency(dailyOrdersData.totalValue)} icon={<DollarSign/>} color="bg-emerald-900/20 text-emerald-400 border-emerald-900/50"/>
+                    </div>
+
+                    <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm text-slate-400">
+                                <thead className="bg-slate-950 text-slate-200 font-bold uppercase tracking-wider border-b border-slate-800">
+                                    <tr>
+                                        <th className="p-4">Hora</th>
+                                        <th className="p-4">Status</th>
+                                        <th className="p-4">Cliente</th>
+                                        <th className="p-4 hidden md:table-cell">Endereço</th>
+                                        <th className="p-4 hidden md:table-cell">Itens</th>
+                                        <th className="p-4 text-right">Valor</th>
+                                        <th className="p-4 hidden md:table-cell">Pagamento</th>
+                                        <th className="p-4 hidden md:table-cell">Entregador</th>
+                                        <th className="p-4 text-center">Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800">
+                                    {dailyOrdersData.todayOrders.map((o: Order) => {
+                                        const driverName = drivers.find((d: Driver) => d.id === o.driverId)?.name || '-';
+                                        return (
+                                            <tr key={o.id} className="hover:bg-slate-800/50 transition-colors">
+                                                <td className="p-4 font-bold text-white">{formatTime(o.createdAt)}</td>
+                                                <td className="p-4">
+                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
+                                                        o.status === 'completed' ? 'bg-emerald-900/30 text-emerald-400' :
+                                                        o.status === 'pending' ? 'bg-red-900/30 text-red-400' :
+                                                        'bg-blue-900/30 text-blue-400'
+                                                    }`}>
+                                                        {o.status === 'completed' ? 'Entregue' : o.status === 'pending' ? 'Pendente' : 'Em Rota'}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 font-medium text-slate-300">{o.customer}</td>
+                                                <td className="p-4 hidden md:table-cell truncate max-w-xs" title={o.address}>{o.address}</td>
+                                                <td className="p-4 hidden md:table-cell truncate max-w-xs" title={o.items}>{o.items}</td>
+                                                <td className="p-4 text-right text-emerald-400 font-bold">{o.amount}</td>
+                                                <td className="p-4 hidden md:table-cell">{o.paymentMethod}</td>
+                                                <td className="p-4 hidden md:table-cell">{driverName}</td>
+                                                <td className="p-4 text-center">
+                                                    <button onClick={(e) => { e.stopPropagation(); onDeleteOrder(o.id); }} className="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-800 rounded-lg transition-colors" title="Excluir Pedido">
+                                                        <Trash2 size={16}/>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        )
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                   <StatBox label="Saldo Atual" value={formatCurrency(finance.balance)} subtext="Caixa Real" icon={<Wallet/>} color={finance.balance >= 0 ? "bg-emerald-900/20 text-emerald-400 border-emerald-900/50" : "bg-red-900/20 text-red-400 border-red-900/50"}/>
-                   <StatBox label="Entrada Hoje" value={formatCurrency(finance.todayIncome)} icon={<TrendingUp/>} color="bg-blue-900/20 text-blue-400 border-blue-900/50"/>
-                   <StatBox label="Custo Hoje" value={formatCurrency(finance.todayExpenses)} subtext="Insumos" icon={<TrendingDown/>} color="bg-red-900/20 text-red-400 border-red-900/50"/>
-                   <StatBox label="Total Geral" value={formatCurrency(finance.totalIncome)} icon={<DollarSign/>} color="bg-slate-900 text-slate-400 border-slate-800"/>
-                </div>
-             </div>
-        )}
+            )}
+          
+          {view === 'history' && (
+               <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                      <div><h3 className="font-bold text-2xl text-slate-200">Fluxo de Caixa</h3></div>
+                      <div className="flex gap-2 flex-wrap">
+                          <button onClick={() => setModal('expense')} className="flex items-center gap-2 bg-red-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-red-700 transition-all shadow-md"><MinusIcon size={18}/> Lançar Custo</button>
+                          <button onClick={copyReport} className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-md"><ClipboardCopy size={18}/> Relatório</button>
+                      </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                     <StatBox label="Saldo Atual" value={formatCurrency(finance.balance)} subtext="Caixa Real" icon={<Wallet/>} color={finance.balance >= 0 ? "bg-emerald-900/20 text-emerald-400 border-emerald-900/50" : "bg-red-900/20 text-red-400 border-red-900/50"}/>
+                     <StatBox label="Entrada Hoje" value={formatCurrency(finance.todayIncome)} icon={<TrendingUp/>} color="bg-blue-900/20 text-blue-400 border-blue-900/50"/>
+                     <StatBox label="Custo Hoje" value={formatCurrency(finance.todayExpenses)} subtext="Insumos" icon={<TrendingDown/>} color="bg-red-900/20 text-red-400 border-red-900/50"/>
+                     <StatBox label="Total Geral" value={formatCurrency(finance.totalIncome)} icon={<DollarSign/>} color="bg-slate-900 text-slate-400 border-slate-800"/>
+                  </div>
+               </div>
+          )}
 
-        {view === 'clients' && (
-             <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
-                 <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-                     <div><h2 className="text-2xl font-bold text-white">Gestão de Clientes</h2><p className="text-sm text-slate-500">{clients.length} cadastrados</p></div>
-                     <div className="flex gap-2 w-full md:w-auto">
-                        <div className="relative flex-1 md:w-64"><Search className="absolute left-3 top-3 text-slate-500" size={18}/><input className="w-full bg-slate-900 border border-slate-800 text-white rounded-xl pl-10 pr-4 py-2.5 outline-none focus:border-amber-500" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
-                        <button onClick={() => setModal('import')} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-md"><UploadCloud size={18}/></button>
-                     </div>
-                 </div>
+          {view === 'clients' && (
+               <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
+                   <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                       <div><h2 className="text-2xl font-bold text-white">Gestão de Clientes</h2><p className="text-sm text-slate-500">{clients.length} cadastrados</p></div>
+                       <div className="flex gap-2 w-full md:w-auto">
+                          <div className="relative flex-1 md:w-64"><Search className="absolute left-3 top-3 text-slate-500" size={18}/><input className="w-full bg-slate-900 border border-slate-800 text-white rounded-xl pl-10 pr-4 py-2.5 outline-none focus:border-amber-500" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
+                          <button onClick={() => setModal('import')} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-md"><UploadCloud size={18}/></button>
+                       </div>
+                   </div>
 
-                 {/* TOP 3 CLIENTES */}
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                     {filteredClients.slice(0, 3).map((client: any, index: number) => (
-                         <div key={client.id} className="flex items-center p-4 bg-slate-900 rounded-2xl border border-slate-800 relative overflow-hidden group hover:border-amber-500/50 transition-colors cursor-pointer" onClick={() => { setClientToEdit(client); setModal('client'); }}>
-                             <div className={`absolute top-0 left-0 w-1 h-full ${index === 0 ? 'bg-yellow-400' : index === 1 ? 'bg-slate-400' : 'bg-orange-700'}`}></div>
-                             <div className="w-12 h-12 flex items-center justify-center bg-slate-950 rounded-full font-bold text-lg text-white mr-4 border border-slate-800">{index + 1}</div>
-                             <div className="flex-1">
-                                 <h4 className="font-bold text-white text-lg truncate">{client.name}</h4>
-                                 <p className="text-sm text-slate-500">{client.totalOrders} pedidos</p>
-                             </div>
-                             <div className="text-right">
-                                 <p className="font-bold text-emerald-400 text-sm">{formatCurrency(client.totalSpent)}</p>
-                             </div>
-                             <Star className="absolute top-2 right-2 text-yellow-500 opacity-20 rotate-12" size={24} />
-                         </div>
-                     ))}
-                 </div>
+                   {/* TOP 3 CLIENTES */}
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                       {filteredClients.slice(0, 3).map((client: any, index: number) => (
+                           <div key={client.id} className="flex items-center p-4 bg-slate-900 rounded-2xl border border-slate-800 relative overflow-hidden group hover:border-amber-500/50 transition-colors cursor-pointer" onClick={() => { setClientToEdit(client); setModal('client'); }}>
+                               <div className={`absolute top-0 left-0 w-1 h-full ${index === 0 ? 'bg-yellow-400' : index === 1 ? 'bg-slate-400' : 'bg-orange-700'}`}></div>
+                               <div className="w-12 h-12 flex items-center justify-center bg-slate-950 rounded-full font-bold text-lg text-white mr-4 border border-slate-800">{index + 1}</div>
+                               <div className="flex-1">
+                                   <h4 className="font-bold text-white text-lg truncate">{client.name}</h4>
+                                   <p className="text-sm text-slate-500">{client.totalOrders} pedidos</p>
+                               </div>
+                               <div className="text-right">
+                                   <p className="font-bold text-emerald-400 text-sm">{formatCurrency(client.totalSpent)}</p>
+                               </div>
+                               <Star className="absolute top-2 right-2 text-yellow-500 opacity-20 rotate-12" size={24} />
+                           </div>
+                       ))}
+                   </div>
 
-                 <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
-                    <table className="w-full text-left text-sm text-slate-400">
-                        <thead className="bg-slate-950 text-slate-200 font-bold uppercase tracking-wider border-b border-slate-800">
-                            <tr><th className="p-4">Nome</th><th className="p-4 hidden md:table-cell">Telefone</th><th className="p-4 hidden md:table-cell">Endereço</th><th className="p-4 text-right">Total Gasto</th><th className="p-4 text-center">Ação</th></tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-800">
-                            {filteredClients.map((client) => (
-                                <tr key={client.id} className="hover:bg-slate-800/50 transition-colors">
-                                    <td className="p-4 font-bold text-white">{client.name}</td>
-                                    <td className="p-4 hidden md:table-cell">{client.phone}</td>
-                                    <td className="p-4 hidden md:table-cell truncate max-w-xs">{client.address}</td>
-                                    <td className="p-4 text-right text-emerald-400 font-bold">{formatCurrency(client.totalSpent || 0)}</td>
-                                    <td className="p-4 text-center"><button onClick={() => { setClientToEdit(client); setModal('client'); }} className="p-2 bg-slate-800 hover:bg-amber-600 hover:text-white rounded-lg transition-colors text-slate-400"><Edit size={16}/></button></td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                 </div>
-             </div>
-        )}
+                   <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
+                      <table className="w-full text-left text-sm text-slate-400">
+                          <thead className="bg-slate-950 text-slate-200 font-bold uppercase tracking-wider border-b border-slate-800">
+                              <tr><th className="p-4">Nome</th><th className="p-4 hidden md:table-cell">Telefone</th><th className="p-4 hidden md:table-cell">Endereço</th><th className="p-4 text-right">Total Gasto</th><th className="p-4 text-center">Ação</th></tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800">
+                              {/* PAGINAÇÃO CLIENTES */}
+                              {visibleClients.map((client) => (
+                                  <tr key={client.id} className="hover:bg-slate-800/50 transition-colors">
+                                      <td className="p-4 font-bold text-white">{client.name}</td>
+                                      <td className="p-4 hidden md:table-cell">{client.phone}</td>
+                                      <td className="p-4 hidden md:table-cell truncate max-w-xs">{client.address}</td>
+                                      <td className="p-4 text-right text-emerald-400 font-bold">{formatCurrency(client.totalSpent || 0)}</td>
+                                      <td className="p-4 text-center"><button onClick={() => { setClientToEdit(client); setModal('client'); }} className="p-2 bg-slate-800 hover:bg-amber-600 hover:text-white rounded-lg transition-colors text-slate-400"><Edit size={16}/></button></td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                      
+                      {/* Botão Carregar Mais Clientes */}
+                      {filteredClients.length > visibleClientsCount && (
+                          <div className="p-4 text-center border-t border-slate-800">
+                               <button 
+                                  onClick={() => setVisibleClientsCount(prev => prev + 30)}
+                                  className="text-xs font-bold text-slate-500 hover:text-white flex items-center justify-center gap-1 mx-auto"
+                               >
+                                  <ChevronDown size={14}/> Carregar mais clientes
+                               </button>
+                          </div>
+                      )}
+                   </div>
+               </div>
+          )}
 
-        {view === 'menu' && <MenuManager products={products} onCreate={onCreateProduct} onUpdate={onUpdateProduct} onDelete={onDeleteProduct} />}
-      </div>
+          {view === 'menu' && <MenuManager products={products} onCreate={onCreateProduct} onUpdate={onUpdateProduct} onDelete={onDeleteProduct} />}
+        </div>
+        </div>
       </main>
 
       {/* MODAIS */}
@@ -1252,11 +1292,11 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
       {modal === 'vale' && driverToEdit && <NewValeModal driver={driverToEdit} onClose={() => { setModal(null); setDriverToEdit(null); }} onSave={onCreateVale} />}
       {modal === 'import' && <ImportModal onClose={() => setModal(null)} onImportCSV={handleImportCSV} />}
       {modal === 'expense' && <NewExpenseModal onClose={() => setModal(null)} onSave={onCreateExpense} />}
-      {modal === 'client' && clientToEdit && <EditClientModal client={clientToEdit} orders={delivered} onClose={() => setModal(null)} onUpdateOrder={onUpdateOrder} onSave={(data: any) => { onUpdateClient(clientToEdit.id, data); setModal(null); }} />}
+      {modal === 'client' && clientToEdit && <EditClientModal client={clientToEdit} orders={delivered} onClose={() => setModal(null)} onUpdateOrder={onUpdateOrder} onSave={(data: any) => { updateClientData(clientToEdit.id, data); setModal(null); }} />}
       {driverReportId && <DriverReportModal driverId={driverReportId} drivers={drivers} orders={orders} vales={vales} onClose={() => setDriverReportId(null)} />}
       
       {/* SIDEBAR DO MOTORISTA SELECIONADO */}
-      <aside className={`fixed inset-y-0 right-0 w-full md:w-96 bg-slate-900 shadow-2xl p-0 overflow-y-auto z-50 transition-transform duration-300 border-l border-slate-800 ${selectedDriver ? 'translate-x-0' : 'translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 right-0 w-full md:w-96 bg-slate-900 shadow-2xl p-0 overflow-y-auto z-[60] transition-transform duration-300 border-l border-slate-800 ${selectedDriver ? 'translate-x-0' : 'translate-x-full'}`}>
              {selectedDriver && (
                <div className="h-full flex flex-col bg-slate-950">
                   <div className="bg-slate-900 p-6 border-b border-slate-800 sticky top-0 z-10">
@@ -1265,29 +1305,106 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
                          <div className="relative mb-3"><img src={selectedDriver.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + selectedDriver.name} className="w-24 h-24 rounded-full border-4 border-slate-800 shadow-lg object-cover"/><span className={`absolute bottom-1 right-1 w-6 h-6 rounded-full border-4 border-white ${selectedDriver.status==='offline'?'bg-slate-400':selectedDriver.status==='available'?'bg-emerald-500':'bg-orange-500'}`}></span></div>
                          <h2 className="font-bold text-2xl text-white">{selectedDriver.name}</h2>
                          <div className="flex items-center gap-2 mt-1"><span className="text-xs font-bold bg-slate-800 text-slate-400 px-2 py-0.5 rounded">{selectedDriver.plate}</span><span className="text-sm text-slate-500">{selectedDriver.vehicle}</span></div>
-                         <button onClick={() => trackDriver(selectedDriver)} className="mt-5 w-full bg-blue-600/20 text-blue-400 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-600/40 transition-colors border border-blue-600/30"><MapIcon size={18} /> Rastrear Posição Real</button>
-                         {selectedDriver.lastUpdate && <p className="text-[10px] text-slate-500 mt-2 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Sinal GPS: {formatTime(selectedDriver.lastUpdate)}</p>}
-                         <button onClick={() => { setDriverToEdit(selectedDriver); setModal('vale'); }} className="mt-3 w-full border border-red-900/50 text-red-500 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-900/20 transition-colors"><MinusCircle size={16} /> Lançar Desconto / Vale</button>
+                         
+                         {/* Navegação de Abas da Sidebar */}
+                         <div className="flex w-full mt-6 bg-slate-950 p-1 rounded-xl">
+                            <button onClick={() => setDriverSidebarTab('assign')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${driverSidebarTab==='assign'?'bg-slate-800 text-white shadow-md':'text-slate-500 hover:text-slate-300'}`}>Atribuir</button>
+                            <button onClick={() => setDriverSidebarTab('history')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${driverSidebarTab==='history'?'bg-slate-800 text-white shadow-md':'text-slate-500 hover:text-slate-300'}`}>Histórico</button>
+                            <button onClick={() => setDriverSidebarTab('finance')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${driverSidebarTab==='finance'?'bg-slate-800 text-white shadow-md':'text-slate-500 hover:text-slate-300'}`}>Financeiro</button>
+                         </div>
                       </div>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-6">
-                     <h4 className="text-xs font-bold text-slate-500 uppercase mb-4 tracking-wider">Atribuir Entrega Pendente</h4>
-                     <div className="space-y-3 pb-20">
-                        {orders.filter((o: Order) => o.status === 'pending').map((o: Order) => (
-                           <div key={o.id} onClick={()=>onAssignOrder(o.id, selectedDriver.id)} className="border border-slate-800 p-4 rounded-xl hover:border-orange-500 hover:shadow-md transition-all bg-slate-900 cursor-pointer group">
-                              <div className="flex justify-between items-start mb-2"><span className="font-bold text-white">{o.customer}</span><span className="text-emerald-400 font-extrabold">{o.amount}</span></div>
-                              <p className="text-xs text-slate-400 mb-3 line-clamp-2 leading-relaxed">{o.address}</p>
-                              <button className="w-full bg-slate-800 text-white text-xs font-bold py-3 rounded-lg group-hover:bg-orange-600 transition-colors">Enviar para Motoboy</button>
-                           </div>
-                        ))}
-                        {orders.filter((o: Order) => o.status === 'pending').length === 0 && (
-                           <div className="text-center py-10 bg-slate-900 rounded-xl border border-dashed border-slate-800"><Package className="mx-auto text-slate-500 mb-3" size={32}/><p className="text-sm text-slate-500 font-medium">Sem pedidos na fila.</p></div>
-                        )}
-                     </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                     {driverSidebarTab === 'assign' && (
+                         <div className="space-y-3 pb-20">
+                            <h4 className="text-xs font-bold text-slate-500 uppercase mb-4 tracking-wider">Atribuir Entrega Pendente</h4>
+                            {orders.filter((o: Order) => o.status === 'pending').map((o: Order) => (
+                               <div key={o.id} onClick={()=>onAssignOrder(o.id, selectedDriver.id)} className="border border-slate-800 p-4 rounded-xl hover:border-orange-500 hover:shadow-md transition-all bg-slate-900 cursor-pointer group">
+                                  <div className="flex justify-between items-start mb-2"><span className="font-bold text-white">{o.customer}</span><span className="text-emerald-400 font-extrabold">{o.amount}</span></div>
+                                  <p className="text-xs text-slate-400 mb-3 line-clamp-2 leading-relaxed">{o.address}</p>
+                                  <button className="w-full bg-slate-800 text-white text-xs font-bold py-3 rounded-lg group-hover:bg-orange-600 transition-colors">Enviar para Motoboy</button>
+                               </div>
+                            ))}
+                            {orders.filter((o: Order) => o.status === 'pending').length === 0 && (
+                               <div className="text-center py-10 bg-slate-900 rounded-xl border border-dashed border-slate-800"><Package className="mx-auto text-slate-500 mb-3" size={32}/><p className="text-sm text-slate-500 font-medium">Sem pedidos na fila.</p></div>
+                            )}
+                         </div>
+                     )}
+
+                     {driverSidebarTab === 'history' && (
+                         <div className="space-y-3 pb-20">
+                             <h4 className="text-xs font-bold text-slate-500 uppercase mb-4 tracking-wider">Últimas Entregas</h4>
+                             {selectedDriverOrders.length === 0 ? (
+                                 <div className="text-center py-8 text-slate-600 italic text-sm">Nenhuma entrega realizada.</div>
+                             ) : (
+                                 selectedDriverOrders.map((o: Order) => (
+                                     <div key={o.id} className="bg-slate-900 p-3 rounded-xl border border-slate-800">
+                                         <div className="flex justify-between mb-1">
+                                             <span className="text-xs font-bold text-slate-400">{formatDate(o.completedAt)}</span>
+                                             <span className="text-[10px] font-bold bg-emerald-900/30 text-emerald-400 px-2 py-0.5 rounded flex items-center gap-1"><Clock size={10}/> 
+                                                {o.assignedAt && o.completedAt 
+                                                    ? `${Math.floor((o.completedAt.seconds - o.assignedAt.seconds) / 60)} min`
+                                                    : '-'
+                                                }
+                                             </span>
+                                         </div>
+                                         {/* AQUI ESTÁ A CORREÇÃO: Nome do cliente em destaque e endereço abaixo */}
+                                         <p className="text-sm text-white font-medium truncate mb-1">{o.customer}</p>
+                                         <p className="text-xs text-slate-500 truncate">{o.address}</p>
+                                     </div>
+                                 ))
+                             )}
+                         </div>
+                     )}
+
+                     {driverSidebarTab === 'finance' && (
+                         <div className="space-y-6 pb-20">
+                             <div className="grid grid-cols-2 gap-3">
+                                 <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
+                                     <p className="text-[10px] uppercase font-bold text-slate-500">Entregas</p>
+                                     <p className="text-xl font-bold text-white">{selectedDriverOrders.length}</p>
+                                 </div>
+                                 <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
+                                     <p className="text-[10px] uppercase font-bold text-slate-500">Produção</p>
+                                     <p className="text-xl font-bold text-emerald-400">{formatCurrency(driverFinancials.total)}</p>
+                                 </div>
+                             </div>
+
+                             <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                                 <div className="flex justify-between items-center mb-2">
+                                     <span className="text-xs font-bold text-slate-400">Total Vales</span>
+                                     <span className="text-sm font-bold text-red-400">- {formatCurrency(driverFinancials.vales)}</span>
+                                 </div>
+                                 <div className="flex justify-between items-center pt-2 border-t border-slate-800">
+                                     <span className="text-sm font-bold text-white">A Pagar</span>
+                                     <span className="text-xl font-bold text-emerald-400">{formatCurrency(driverFinancials.net)}</span>
+                                 </div>
+                             </div>
+
+                             <button onClick={() => { setDriverToEdit(selectedDriver); setModal('vale'); }} className="w-full border border-red-900/50 text-red-500 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-900/20 transition-colors"><MinusCircle size={16} /> Lançar Novo Vale</button>
+                             
+                             <div>
+                                 <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 tracking-wider">Histórico de Vales</h4>
+                                 {driverFinancials.valeList.length === 0 ? (
+                                     <p className="text-center text-slate-600 text-xs italic">Nenhum vale lançado.</p>
+                                 ) : (
+                                     <div className="space-y-2">
+                                         {driverFinancials.valeList.map((v: Vale) => (
+                                             <div key={v.id} className="flex justify-between items-center text-xs bg-slate-900 p-2 rounded-lg border border-slate-800">
+                                                 <span className="text-slate-400">{v.description}</span>
+                                                 <span className="text-red-400 font-bold">- {formatCurrency(Number(v.amount))}</span>
+                                             </div>
+                                         ))}
+                                     </div>
+                                 )}
+                             </div>
+                         </div>
+                     )}
                   </div>
                </div>
              )}
-          </aside>
+      </aside>
     </div>
   )
 }
@@ -1687,16 +1804,56 @@ function NewOrderModal({ onClose, onSave, products, clients }: any) {
 
    const [showPaste, setShowPaste] = useState(false);
    const [pasteText, setPasteText] = useState('');
+   
+   // ESTADOS PARA AUTOCOMPLETE
+   const [clientSuggestions, setClientSuggestions] = useState<Client[]>([]);
+   const [showSuggestions, setShowSuggestions] = useState(false);
 
    const handleCapitalize = (e: any, field: string) => {
-       setForm(prev => ({...prev, [field]: capitalize(e.target.value)}));
+       const val = capitalize(e.target.value);
+       setForm(prev => ({...prev, [field]: val}));
+       
+       // Lógica de Autocomplete por NOME
+       if (field === 'customer' && val.length > 2) {
+           const matches = clients.filter((c: Client) => c.name.toLowerCase().includes(val.toLowerCase()));
+           setClientSuggestions(matches);
+           setShowSuggestions(true);
+       } else {
+           setShowSuggestions(false);
+       }
    };
 
-   const handlePhoneBlur = () => {
-       const inputNormal = normalizePhone(form.phone);
+   // Selecionar sugestão
+   const selectClient = (client: Client) => {
+       setForm(prev => ({
+           ...prev,
+           customer: client.name,
+           phone: client.phone,
+           address: client.address,
+           mapsLink: client.mapsLink || ''
+       }));
+       setShowSuggestions(false);
+   };
+
+   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+       const val = e.target.value;
+       setForm(prev => ({...prev, phone: val}));
+       
+       // Autocomplete por TELEFONE
+       const inputNormal = normalizePhone(val);
        if (inputNormal.length >= 8) {
-           const client = clients.find((c: Client) => { const storedNormal = normalizePhone(c.id || c.phone); return storedNormal.includes(inputNormal) || inputNormal.includes(storedNormal); });
-           if (client) setForm(prev => ({ ...prev, customer: client.name || prev.customer, address: client.address || prev.address, mapsLink: client.mapsLink || prev.mapsLink }));
+           const client = clients.find((c: Client) => { 
+               const storedNormal = normalizePhone(c.id || c.phone); 
+               return storedNormal.includes(inputNormal); 
+           });
+           if (client) {
+               setForm(prev => ({ 
+                   ...prev, 
+                   customer: client.name || prev.customer, 
+                   address: client.address || prev.address, 
+                   mapsLink: client.mapsLink || prev.mapsLink 
+               }));
+           }
        }
    };
    
@@ -1859,8 +2016,8 @@ function NewOrderModal({ onClose, onSave, products, clients }: any) {
                     <button onClick={onClose}><X size={20} className="text-slate-500 hover:text-white"/></button>
                 </div>
                 
-                <form onSubmit={submit} className="space-y-3 md:space-y-4 flex-1 flex flex-col">
-                   <div className="space-y-2 md:space-y-3 shrink-0">
+                <form onSubmit={submit} className="space-y-3 md:space-y-4 flex-1 flex flex-col relative">
+                   <div className="space-y-2 md:space-y-3 shrink-0 relative">
                        <div className="flex justify-between items-end">
                            <label className="text-[10px] md:text-xs font-bold text-slate-500 uppercase">Cliente</label>
                            <button type="button" onClick={() => setShowPaste(!showPaste)} className="text-[10px] text-amber-500 font-bold flex items-center gap-1 hover:text-amber-400"><ClipboardPaste size={12}/> Colar do WhatsApp</button>
@@ -1868,7 +2025,7 @@ function NewOrderModal({ onClose, onSave, products, clients }: any) {
                        
                        {/* Área de Colar Mágica */}
                        {showPaste && (
-                           <div className="bg-slate-950 p-2 rounded-xl border border-amber-500/30 animate-in slide-in-from-top-2">
+                           <div className="bg-slate-950 p-2 rounded-xl border border-amber-500/30 animate-in slide-in-from-top-2 mb-2">
                                <textarea 
                                    autoFocus
                                    className="w-full h-20 bg-transparent text-xs text-slate-300 outline-none resize-none"
@@ -1880,9 +2037,29 @@ function NewOrderModal({ onClose, onSave, products, clients }: any) {
                            </div>
                        )}
 
-                       <div className="grid grid-cols-3 gap-2">
-                           <input className="col-span-1 p-2 md:p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500 text-xs md:text-sm" placeholder="Tel" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} onBlur={handlePhoneBlur} />
-                           <input className="col-span-2 p-2 md:p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500 text-xs md:text-sm" placeholder="Nome" value={form.customer} onChange={e=>handleCapitalize(e, 'customer')} />
+                       <div className="grid grid-cols-3 gap-2 relative">
+                           <input className="col-span-1 p-2 md:p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500 text-xs md:text-sm" placeholder="Tel" value={form.phone} onChange={handlePhoneChange} />
+                           
+                           <div className="col-span-2 relative">
+                               <input className="w-full p-2 md:p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500 text-xs md:text-sm" placeholder="Nome" value={form.customer} onChange={e=>handleCapitalize(e, 'customer')} />
+                               
+                               {/* AUTOCOMPLETE DROPDOWN */}
+                               {showSuggestions && clientSuggestions.length > 0 && (
+                                   <div className="absolute top-full left-0 w-full bg-slate-950 border border-slate-700 rounded-xl mt-1 z-50 shadow-2xl max-h-40 overflow-y-auto">
+                                       {clientSuggestions.map((c: Client) => (
+                                           <button 
+                                               type="button"
+                                               key={c.id} 
+                                               onClick={() => selectClient(c)}
+                                               className="w-full text-left p-3 hover:bg-slate-800 text-white text-xs border-b border-slate-800 last:border-0 flex justify-between"
+                                           >
+                                               <span className="font-bold">{c.name}</span>
+                                               <span className="text-slate-500">{c.phone}</span>
+                                           </button>
+                                       ))}
+                                   </div>
+                               )}
+                           </div>
                        </div>
                        <input className="w-full p-2 md:p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500 text-xs md:text-sm" placeholder="Endereço" value={form.address} onChange={e=>handleCapitalize(e, 'address')} />
                        <input className="w-full p-2 md:p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500 text-xs md:text-sm" placeholder="Link do Google Maps (Opcional)" value={form.mapsLink} onChange={e=>setForm({...form, mapsLink: e.target.value})} />
