@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   MapPin, Navigation, Package, Clock, 
   X, Search, Users, Bike, 
@@ -347,7 +347,7 @@ export default function App() {
             25% { transform: translate(80px, 0); }
             50% { transform: translate(80px, 80px); }
             75% { transform: translate(0, 80px); }
-            100% { transform: translate(0, 0); }
+            100% { transform: translate(0, 0); } 
         }
 
         .animate-drive-x { animation: driveX 20s linear infinite; }
@@ -420,7 +420,8 @@ export default function App() {
   const createDriver = (data: any) => handleAction(async () => { await addDoc(collection(db, 'drivers'), data); });
   const updateDriver = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'drivers', id), data); }); 
   const updateOrder = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'orders', id), data); }); 
-  const updateClient = (id: string, data: any) => handleAction(async () => { await setDoc(doc(db, 'clients', id), data, { merge: true }); });
+  // FIX: Atualizar cliente com merge para evitar erros se doc não existir ou sobrescrever
+  const updateClientData = (id: string, data: any) => handleAction(async () => { await setDoc(doc(db, 'clients', id), data, { merge: true }); });
 
   const deleteDriver = (id: string) => handleAction(async () => { if (confirm("Tem certeza?")) await deleteDoc(doc(db, 'drivers', id)); });
   const deleteOrder = (id: string) => handleAction(async () => { if (confirm("Excluir pedido?")) await deleteDoc(doc(db, 'orders', id)); });
@@ -429,8 +430,7 @@ export default function App() {
   const createProduct = (data: any) => handleAction(async () => { await addDoc(collection(db, 'products'), data); });
   const updateProduct = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'products', id), data); });
   const deleteProduct = (id: string) => handleAction(async () => { if(confirm("Excluir produto?")) await deleteDoc(doc(db, 'products', id)); });
-  const updateClientData = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'clients', id), data); }); // Updated client update
-
+  
   const assignOrder = (oid: string, did: string) => handleAction(async () => { 
       await updateDoc(doc(db, 'orders', oid), { status: 'assigned', assignedAt: serverTimestamp(), driverId: did }); 
       await updateDoc(doc(db, 'drivers', did), { status: 'delivering', currentOrderId: oid }); 
@@ -857,6 +857,7 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
   const [visibleClientsCount, setVisibleClientsCount] = useState(30);
   const visibleClients = filteredClients.slice(0, visibleClientsCount);
 
+  // TRACK DRIVER FUNCTION - REINSERIDA CORRETAMENTE PARA EVITAR ERRO DE REFERENCIA
   const trackDriver = (driver: Driver) => {
       if (driver.lat && driver.lng) {
           const url = `https://www.google.com/maps/search/?api=1&query=${driver.lat},${driver.lng}`;
@@ -1292,7 +1293,7 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
       {modal === 'vale' && driverToEdit && <NewValeModal driver={driverToEdit} onClose={() => { setModal(null); setDriverToEdit(null); }} onSave={onCreateVale} />}
       {modal === 'import' && <ImportModal onClose={() => setModal(null)} onImportCSV={handleImportCSV} />}
       {modal === 'expense' && <NewExpenseModal onClose={() => setModal(null)} onSave={onCreateExpense} />}
-      {modal === 'client' && clientToEdit && <EditClientModal client={clientToEdit} orders={delivered} onClose={() => setModal(null)} onUpdateOrder={onUpdateOrder} onSave={(data: any) => { updateClientData(clientToEdit.id, data); setModal(null); }} />}
+      {modal === 'client' && clientToEdit && <EditClientModal client={clientToEdit} orders={delivered} onClose={() => setModal(null)} onUpdateOrder={onUpdateOrder} onSave={(data: any) => { onUpdateClient(clientToEdit.id, data); setModal(null); }} />}
       {driverReportId && <DriverReportModal driverId={driverReportId} drivers={drivers} orders={orders} vales={vales} onClose={() => setDriverReportId(null)} />}
       
       {/* SIDEBAR DO MOTORISTA SELECIONADO */}
@@ -1305,17 +1306,19 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
                          <div className="relative mb-3"><img src={selectedDriver.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + selectedDriver.name} className="w-24 h-24 rounded-full border-4 border-slate-800 shadow-lg object-cover"/><span className={`absolute bottom-1 right-1 w-6 h-6 rounded-full border-4 border-white ${selectedDriver.status==='offline'?'bg-slate-400':selectedDriver.status==='available'?'bg-emerald-500':'bg-orange-500'}`}></span></div>
                          <h2 className="font-bold text-2xl text-white">{selectedDriver.name}</h2>
                          <div className="flex items-center gap-2 mt-1"><span className="text-xs font-bold bg-slate-800 text-slate-400 px-2 py-0.5 rounded">{selectedDriver.plate}</span><span className="text-sm text-slate-500">{selectedDriver.vehicle}</span></div>
-                         
-                         {/* Navegação de Abas da Sidebar */}
-                         <div className="flex w-full mt-6 bg-slate-950 p-1 rounded-xl">
-                            <button onClick={() => setDriverSidebarTab('assign')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${driverSidebarTab==='assign'?'bg-slate-800 text-white shadow-md':'text-slate-500 hover:text-slate-300'}`}>Atribuir</button>
-                            <button onClick={() => setDriverSidebarTab('history')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${driverSidebarTab==='history'?'bg-slate-800 text-white shadow-md':'text-slate-500 hover:text-slate-300'}`}>Histórico</button>
-                            <button onClick={() => setDriverSidebarTab('finance')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${driverSidebarTab==='finance'?'bg-slate-800 text-white shadow-md':'text-slate-500 hover:text-slate-300'}`}>Financeiro</button>
-                         </div>
+                         <button onClick={() => trackDriver(selectedDriver)} className="mt-5 w-full bg-blue-600/20 text-blue-400 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-600/40 transition-colors border border-blue-600/30"><MapIcon size={18} /> Rastrear Posição Real</button>
+                         {selectedDriver.lastUpdate && <p className="text-[10px] text-slate-500 mt-2 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Sinal GPS: {formatTime(selectedDriver.lastUpdate)}</p>}
+                         <button onClick={() => { setDriverToEdit(selectedDriver); setModal('vale'); }} className="mt-3 w-full border border-red-900/50 text-red-500 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-900/20 transition-colors"><MinusCircle size={16} /> Lançar Desconto / Vale</button>
                       </div>
                   </div>
                   
                   <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                     <div className="flex w-full mt-6 bg-slate-950 p-1 rounded-xl mb-6">
+                        <button onClick={() => setDriverSidebarTab('assign')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${driverSidebarTab==='assign'?'bg-slate-800 text-white shadow-md':'text-slate-500 hover:text-slate-300'}`}>Atribuir</button>
+                        <button onClick={() => setDriverSidebarTab('history')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${driverSidebarTab==='history'?'bg-slate-800 text-white shadow-md':'text-slate-500 hover:text-slate-300'}`}>Histórico</button>
+                        <button onClick={() => setDriverSidebarTab('finance')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${driverSidebarTab==='finance'?'bg-slate-800 text-white shadow-md':'text-slate-500 hover:text-slate-300'}`}>Financeiro</button>
+                     </div>
+
                      {driverSidebarTab === 'assign' && (
                          <div className="space-y-3 pb-20">
                             <h4 className="text-xs font-bold text-slate-500 uppercase mb-4 tracking-wider">Atribuir Entrega Pendente</h4>
@@ -1382,7 +1385,7 @@ function Dashboard({ drivers, orders, vales, expenses, products, clients, onAssi
                                  </div>
                              </div>
 
-                             <button onClick={() => { setDriverToEdit(selectedDriver); setModal('vale'); }} className="w-full border border-red-900/50 text-red-500 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-900/20 transition-colors"><MinusCircle size={16} /> Lançar Novo Vale</button>
+                             <button onClick={() => { setDriverToEdit(selectedDriver); setModal('vale'); }} className="w-full border border-red-900/50 text-red-500 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-red-900/20 transition-colors"><MinusCircle size={16} /> Lançar Novo Vale</button>
                              
                              <div>
                                  <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 tracking-wider">Histórico de Vales</h4>
@@ -1665,7 +1668,7 @@ function MenuManager({ products, onCreate, onUpdate, onDelete }: any) {
     );
 }
 
-function EditClientModal({ client, orders, onClose, onSave, onUpdateOrder }: any) {
+function EditClientModal({ client, orders, onClose, onSave, onUpdateOrder }: any) { // Removed unused onUpdateClient prop
     const [form, setForm] = useState({ name: client.name, address: client.address, obs: client.obs || '', mapsLink: client.mapsLink || '' });
     const [tab, setTab] = useState<'info'|'history'>('info');
     const [visibleCount, setVisibleCount] = useState(30);
