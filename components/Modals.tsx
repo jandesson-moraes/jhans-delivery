@@ -518,6 +518,7 @@ export function NewOrderModal({ onClose, onSave, products, clients }: any) {
 
 export function EditOrderModal({ order, onClose, onSave }: any) {
     const [form, setForm] = useState({
+        status: order.status,
         items: order.items,
         obs: order.obs || '',
         amount: order.amount,
@@ -554,6 +555,24 @@ export function EditOrderModal({ order, onClose, onSave }: any) {
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="col-span-2">
+                             <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Status do Pedido</label>
+                             <select 
+                                className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold outline-none focus:border-amber-500"
+                                value={form.status}
+                                onChange={e => setForm({...form, status: e.target.value})}
+                             >
+                                <option value="pending">Pendente</option>
+                                <option value="preparing">Em Preparo (Cozinha)</option>
+                                <option value="ready">Pronto (Aguardando)</option>
+                                <option value="assigned">Atribuído (Em Rota)</option>
+                                <option value="delivering">Entregando</option>
+                                <option value="completed">Concluído</option>
+                             </select>
+                             <p className="text-[10px] text-amber-500 mt-1">
+                                *Alterar de "Em Rota/Entregando" para "Pronto/Pendente" removerá o motoboy.
+                             </p>
+                        </div>
                         <div className="col-span-2">
                             <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Itens do Pedido</label>
                             <textarea className="w-full h-32 p-3 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono text-sm outline-none focus:border-amber-500" value={form.items} onChange={e => setForm({...form, items: toSentenceCase(e.target.value)})} />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
-import { collection, addDoc, updateDoc, doc, onSnapshot, serverTimestamp, deleteDoc, setDoc, writeBatch, Timestamp } from "firebase/firestore";
+import { collection, addDoc, updateDoc, doc, onSnapshot, serverTimestamp, deleteDoc, setDoc, writeBatch, Timestamp, deleteField } from "firebase/firestore";
 import { auth, db } from './services/firebase';
 import { UserType, Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement } from './types';
 import { BrandLogo, Footer } from './components/Shared';
@@ -168,7 +168,27 @@ export default function App() {
   const createDriver = (data: any) => handleAction(async () => { await addDoc(collection(db, 'drivers'), data); });
   const updateDriver = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'drivers', id), data); });
   const deleteDriver = (id: string) => handleAction(async () => { if (confirm("Tem certeza?")) await deleteDoc(doc(db, 'drivers', id)); });
-  const updateOrder = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'orders', id), data); });
+  
+  // Atualiza o pedido com lógica de segurança para remover motoboy se voltar status
+  const updateOrder = (id: string, data: any) => handleAction(async () => {
+      // Se estiver alterando o status para algo anterior a "assigned" (pending/preparing/ready)
+      // Precisamos verificar se tinha um motorista e liberá-lo.
+      if (data.status && ['pending', 'preparing', 'ready'].includes(data.status)) {
+          const currentOrder = orders.find(o => o.id === id);
+          if (currentOrder && currentOrder.driverId) {
+              // Libera o motorista
+              await updateDoc(doc(db, 'drivers', currentOrder.driverId), {
+                  status: 'available',
+                  currentOrderId: null
+              });
+              // Remove o vínculo do pedido
+              data.driverId = deleteField();
+              data.assignedAt = deleteField();
+          }
+      }
+      await updateDoc(doc(db, 'orders', id), data);
+  });
+
   const deleteOrder = (id: string) => handleAction(async () => { if (confirm("Excluir pedido?")) await deleteDoc(doc(db, 'orders', id)); });
   const assignOrder = (oid: string, did: string) => handleAction(async () => { await updateDoc(doc(db, 'orders', oid), { status: 'assigned', assignedAt: serverTimestamp(), driverId: did }); await updateDoc(doc(db, 'drivers', did), { status: 'delivering', currentOrderId: oid }); });
   const acceptOrder = (id: string) => handleAction(async () => { await updateDoc(doc(db, 'orders', id), { status: 'delivering' }); });

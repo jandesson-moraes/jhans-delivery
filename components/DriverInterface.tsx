@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package } from 'lucide-react';
+import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package, Zap, ZapOff } from 'lucide-react';
 import { Driver, Order } from '../types';
 import { isToday, formatTime, formatCurrency, formatDate } from '../utils';
 import { Footer } from './Shared';
@@ -131,8 +131,14 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
         {activeTab === 'home' && (
           <div className="space-y-4">
             <div className={`p-4 rounded-xl border shadow-lg flex items-center justify-between transition-all ${driver.status === 'offline' ? 'bg-slate-900 border-slate-800' : 'bg-emerald-900/20 border-emerald-800'}`}>
-               <div><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Status</p><span className={`font-bold text-sm ${driver.status === 'offline' ? 'text-slate-300' : 'text-emerald-400'}`}>{driver.status === 'offline' ? 'Você está Offline' : 'Online e Disponível'}</span></div>
-               <button onClick={onToggleStatus} className={`px-4 py-2 rounded-lg font-bold text-xs shadow-md transition-all active:scale-95 ${driver.status === 'offline' ? 'bg-emerald-600 text-white' : 'bg-slate-800 border border-slate-700 text-slate-300'}`}>{driver.status === 'offline' ? 'Ficar Online' : 'Pausar'}</button>
+               <div>
+                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Status</p>
+                   <span className={`font-bold text-sm ${driver.status === 'offline' ? 'text-slate-300' : 'text-emerald-400'}`}>{driver.status === 'offline' ? 'Você está Offline' : 'Online e Disponível'}</span>
+               </div>
+               <button onClick={onToggleStatus} className={`px-4 py-2 rounded-lg font-bold text-xs shadow-md transition-all active:scale-95 flex items-center gap-2 ${driver.status === 'offline' ? 'bg-emerald-600 text-white' : 'bg-slate-800 border border-slate-700 text-slate-300'}`}>
+                   {driver.status === 'offline' ? <Zap size={14}/> : <ZapOff size={14}/>}
+                   {driver.status === 'offline' ? 'Ficar Online' : 'Pausar'}
+               </button>
             </div>
             
             {driver.status !== 'offline' && todaysOrders.map((order: Order) => (

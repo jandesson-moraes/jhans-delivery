@@ -1,20 +1,22 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Order, Product } from '../types';
+import { Order, Product, Driver } from '../types';
 import { formatTime, toSentenceCase, formatDate } from '../utils';
-import { Clock, CheckCircle2, Flame, ChefHat, ArrowLeft, AlertTriangle, History, ArrowRight } from 'lucide-react';
+import { Clock, CheckCircle2, Flame, ChefHat, ArrowLeft, AlertTriangle, History, ArrowRight, Bike } from 'lucide-react';
 import { KitchenHistoryModal } from './Modals';
 import { Footer } from './Shared';
 
 interface KDSProps {
     orders: Order[];
     products?: Product[];
+    drivers?: Driver[];
     onUpdateStatus: (id: string, status: any) => void;
+    onAssignOrder?: (oid: string, did: string) => void;
     onBack?: () => void;
 }
 
 const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
-export function KitchenDisplay({ orders, products = [], onUpdateStatus }: KDSProps) {
+export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateStatus, onAssignOrder }: KDSProps) {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [viewMode, setViewMode] = useState<'active' | 'history'>('active');
     const [selectedHistoryOrder, setSelectedHistoryOrder] = useState<Order | null>(null);
@@ -181,8 +183,29 @@ export function KitchenDisplay({ orders, products = [], onUpdateStatus }: KDSPro
                                                 </button>
                                             )}
                                             {order.status === 'ready' && (
-                                                <div className="w-full bg-emerald-900/30 border border-emerald-500/30 text-emerald-400 py-3 rounded-lg font-bold uppercase text-xs md:text-sm flex items-center justify-center gap-2 animate-pulse">
-                                                    <CheckCircle2 size={16}/> Aguardando Entrega
+                                                <div className="space-y-2">
+                                                    <div className="w-full bg-emerald-900/30 border border-emerald-500/30 text-emerald-400 py-2 rounded-lg font-bold uppercase text-xs flex items-center justify-center gap-2">
+                                                        <CheckCircle2 size={14}/> Pedido Pronto
+                                                    </div>
+                                                    {onAssignOrder && (
+                                                        <div className="relative">
+                                                            <Bike size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50" />
+                                                            <select 
+                                                                className="w-full bg-slate-900 border border-slate-700 hover:border-amber-500 text-white text-xs font-bold py-3 pl-10 pr-4 rounded-lg outline-none appearance-none cursor-pointer transition-colors"
+                                                                defaultValue=""
+                                                                onChange={(e) => {
+                                                                    if(e.target.value) onAssignOrder(order.id, e.target.value);
+                                                                }}
+                                                            >
+                                                                <option value="" disabled>Chamar Motoboy...</option>
+                                                                {drivers.map(d => (
+                                                                    <option key={d.id} value={d.id}>
+                                                                        {d.name} {d.status === 'available' ? '(Livre)' : '(Ocupado)'}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

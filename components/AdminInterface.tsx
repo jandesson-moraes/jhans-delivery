@@ -335,7 +335,15 @@ export default function AdminInterface(props: AdminProps) {
                     {view === 'menu' && <MenuManager products={products} onCreate={props.onCreateProduct} onUpdate={props.onUpdateProduct} onDelete={props.onDeleteProduct} />}
                     {view === 'clients' && <ClientsView clients={clients} orders={delivered} setModal={setModal} setClientToEdit={setClientToEdit} />}
                     {view === 'reports' && <ItemReportView orders={orders} />}
-                    {view === 'kds' && <KitchenDisplay orders={orders} products={products} onUpdateStatus={onUpdateOrder} />}
+                    {view === 'kds' && (
+                        <KitchenDisplay 
+                            orders={orders} 
+                            products={products} 
+                            drivers={drivers}
+                            onUpdateStatus={onUpdateOrder} 
+                            onAssignOrder={onAssignOrder}
+                        />
+                    )}
                     
                     {view === 'history' && (
                        <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
