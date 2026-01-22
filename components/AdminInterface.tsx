@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement } from '../types';
 import { BrandLogo, SidebarBtn, StatBox, Footer } from './Shared';
 import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart, History, CheckCircle2, Radar } from 'lucide-react';
@@ -9,6 +9,9 @@ import { DailyOrdersView } from './DailyOrdersView';
 import { KitchenDisplay } from './KitchenDisplay';
 import { ItemReportView } from './ItemReportView';
 import { NewOrderModal, ConfirmAssignmentModal } from './Modals'; 
+
+// Som de "Caixa/Sucesso" para entrega finalizada
+const SUCCESS_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3';
 
 type AdminViewMode = 'map' | 'list' | 'history' | 'menu' | 'clients' | 'daily' | 'kds' | 'reports';
 
@@ -98,6 +101,33 @@ export default function AdminInterface(props: AdminProps) {
     const [driverSidebarTab, setDriverSidebarTab] = useState<'assign' | 'history' | 'finance'>('assign');
     const [orderToAssign, setOrderToAssign] = useState<Order | null>(null);
     const [showIntro, setShowIntro] = useState(true);
+
+    // Refs para controle de áudio de entrega finalizada
+    const prevCompletedCountRef = useRef(0);
+    const successAudioRef = useRef<HTMLAudioElement | null>(null);
+
+    useEffect(() => {
+        successAudioRef.current = new Audio(SUCCESS_SOUND);
+        successAudioRef.current.volume = 0.6;
+    }, []);
+
+    // Monitora entregas finalizadas para tocar som
+    useEffect(() => {
+        const completedCount = orders.filter(o => o.status === 'completed').length;
+        
+        // Se a contagem de finalizados aumentou, toca o som
+        if (completedCount > prevCompletedCountRef.current && prevCompletedCountRef.current !== 0) {
+            if(successAudioRef.current) {
+                const playPromise = successAudioRef.current.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => console.log("Áudio bloqueado:", error));
+                }
+                // Vibração se suportado
+                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+            }
+        }
+        prevCompletedCountRef.current = completedCount;
+    }, [orders]);
 
     const trackDriver = (driver: Driver) => {
         if (driver.lat && driver.lng) {
@@ -302,7 +332,7 @@ export default function AdminInterface(props: AdminProps) {
                     )}
 
                     {view === 'list' && (
-                       <div className="flex-1 bg-slate-950 p-6 md:p-10 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
+                       <div className="flex-1 bg-slate-950 p-6 md:p-10 overflow-y-auto w-full h-full pb-24 md:pb-8 custom-scrollbar">
                           <div className="flex justify-between items-center mb-8">
                              <h2 className="font-bold text-2xl text-white">Frota Ativa ({drivers.length})</h2>
                              <button onClick={()=>setModal('driver')} className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-xl text-sm font-bold flex gap-2 shadow-lg hover:scale-105 transition-all"><Plus size={18}/> Cadastrar</button>
@@ -346,7 +376,7 @@ export default function AdminInterface(props: AdminProps) {
                     )}
                     
                     {view === 'history' && (
-                       <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
+                       <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-24 md:pb-8 custom-scrollbar">
                           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                               <h3 className="font-bold text-2xl text-slate-200">Fluxo de Caixa</h3>
                               <button onClick={() => setModal('expense')} className="flex items-center gap-2 bg-red-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-red-700 transition-all shadow-md"><MinusCircle size={18}/> Lançar Custo</button>
@@ -363,7 +393,7 @@ export default function AdminInterface(props: AdminProps) {
              </main>
 
             {/* Mobile Navigation */}
-            <div className="md:hidden fixed bottom-0 left-0 w-full bg-slate-900/90 backdrop-blur-md text-white z-50 border-t border-slate-800 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
+            <div className="md:hidden fixed bottom-0 left-0 w-full bg-slate-900/90 backdrop-blur-md text-white z-50 border-t border-slate-800 shadow-[0_-10px_40px_rgba(0,0,0,0.3)] pb-safe">
                 <div className="relative flex justify-between items-center px-6 pb-4 pt-2">
                     <div className="absolute left-1/2 -translate-x-1/2 -top-8">
                         <button onClick={()=>setModal('order')} className="bg-gradient-to-br from-orange-500 to-red-600 rounded-full p-4 shadow-xl border-4 border-slate-950 text-white transform active:scale-95 transition-transform"><Plus size={32}/></button>

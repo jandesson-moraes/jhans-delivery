@@ -285,7 +285,16 @@ export default function App() {
     return (
         <>
             <GlobalStyles />
-            <DriverInterface driver={driver} orders={orders} onToggleStatus={() => toggleStatus(driver.id)} onAcceptOrder={acceptOrder} onCompleteOrder={completeOrder} onLogout={handleLogout} />
+            <DriverInterface 
+                driver={driver} 
+                orders={orders} 
+                onToggleStatus={() => toggleStatus(driver.id)} 
+                onAcceptOrder={acceptOrder} 
+                onCompleteOrder={completeOrder} 
+                onUpdateOrder={updateOrder}
+                onDeleteOrder={deleteOrder}
+                onLogout={handleLogout} 
+            />
         </>
     );
   }
