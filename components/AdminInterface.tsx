@@ -1,13 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement } from '../types';
-import { BrandLogo, SidebarBtn, StatBox } from './Shared';
-import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart, History, CheckCircle2 } from 'lucide-react';
+import { BrandLogo, SidebarBtn, StatBox, Footer } from './Shared';
+import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart, History, CheckCircle2, Radar } from 'lucide-react';
 import { formatCurrency, formatTime, formatDate, isToday } from '../utils';
 import { MenuManager } from './MenuManager';
 import { ClientsView } from './ClientsView';
 import { DailyOrdersView } from './DailyOrdersView';
 import { KitchenDisplay } from './KitchenDisplay';
 import { ItemReportView } from './ItemReportView';
+import { NewOrderModal, ConfirmAssignmentModal } from './Modals'; 
 
 type AdminViewMode = 'map' | 'list' | 'history' | 'menu' | 'clients' | 'daily' | 'kds' | 'reports';
 
@@ -43,16 +44,60 @@ interface AdminProps {
     setClientToEdit: (c: Client | null) => void;
 }
 
+// Componente de Animação de Entrada
+const IntroAnimation = ({ onComplete, appName }: { onComplete: () => void, appName: string }) => {
+    const [step, setStep] = useState(0);
+
+    useEffect(() => {
+        const t1 = setTimeout(() => setStep(1), 800);
+        const t2 = setTimeout(() => setStep(2), 2000);
+        const t3 = setTimeout(() => setStep(3), 3500);
+        const t4 = setTimeout(onComplete, 4200);
+        return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
+    }, []);
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-black text-cyan-400 font-mono flex flex-col items-center justify-center p-8 select-none">
+            <div className="w-full max-w-lg space-y-4">
+                <div className="flex justify-between items-end border-b border-cyan-800 pb-2 mb-8">
+                    <span className="text-xs opacity-50">SYS.BOOT.V17</span>
+                    <span className="animate-pulse">● ONLINE</span>
+                </div>
+
+                <div className={`transition-opacity duration-500 ${step >= 0 ? 'opacity-100' : 'opacity-0'}`}>
+                    {'>'} ESTABELECENDO CONEXÃO COM SATÉLITE...
+                </div>
+                <div className={`transition-opacity duration-500 ${step >= 1 ? 'opacity-100' : 'opacity-0'}`}>
+                    {'>'} CARREGANDO MÓDULOS DA FROTA... OK
+                </div>
+                <div className={`transition-opacity duration-500 ${step >= 2 ? 'opacity-100' : 'opacity-0'}`}>
+                    {'>'} SINCRONIZANDO DADOS GEOGRÁFICOS... OK
+                </div>
+                
+                <div className={`mt-8 relative h-2 bg-cyan-900/30 rounded overflow-hidden transition-opacity duration-500 ${step >= 0 ? 'opacity-100' : 'opacity-0'}`}>
+                    <div className="absolute top-0 left-0 h-full bg-cyan-400 animate-drive-x w-full" style={{animationDuration: '3s'}}></div>
+                </div>
+
+                <h1 className={`text-4xl font-black text-white text-center mt-12 transition-all duration-1000 transform ${step >= 3 ? 'scale-110 opacity-100 blur-0' : 'scale-90 opacity-0 blur-sm'}`}>
+                    {appName.toUpperCase()}
+                </h1>
+            </div>
+        </div>
+    );
+};
+
 export default function AdminInterface(props: AdminProps) {
     const { 
         drivers, orders, vales, expenses, products, clients, settlements, appConfig, 
         isMobile, setModal, setModalData, onLogout, onDeleteOrder, onAssignOrder, 
-        setDriverToEdit, onDeleteDriver, setClientToEdit, onUpdateOrder
+        setDriverToEdit, onDeleteDriver, setClientToEdit, onUpdateOrder, onCreateOrder
     } = props;
     
     const [view, setView] = useState<AdminViewMode>('map');
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
     const [driverSidebarTab, setDriverSidebarTab] = useState<'assign' | 'history' | 'finance'>('assign');
+    const [orderToAssign, setOrderToAssign] = useState<Order | null>(null);
+    const [showIntro, setShowIntro] = useState(true);
 
     const trackDriver = (driver: Driver) => {
         if (driver.lat && driver.lng) {
@@ -77,23 +122,17 @@ export default function AdminInterface(props: AdminProps) {
     const driverFinancials = useMemo(() => {
         if (!selectedDriver) return { total: 0, vales: 0, net: 0, valeList: [], history: [] };
         
-        // Data do último fechamento (Timestamp ou 0 se nunca houve)
         const lastSettlementTime = selectedDriver.lastSettlementAt?.seconds || 0;
-
-        // Filtra entregas APÓS o último fechamento
         const currentCycleOrders = orders.filter((o: Order) => 
             o.driverId === selectedDriver.id && 
             o.status === 'completed' &&
             (o.completedAt?.seconds || 0) > lastSettlementTime
         );
-
-        // Filtra vales APÓS o último fechamento
         const currentCycleVales = vales.filter((v: Vale) => 
             v.driverId === selectedDriver.id &&
             (v.createdAt?.seconds || 0) > lastSettlementTime
         );
         
-        // Histórico de fechamentos passados
         const driverSettlements = settlements.filter(s => s.driverId === selectedDriver.id)
             .sort((a, b) => (b.endAt?.seconds || 0) - (a.endAt?.seconds || 0));
 
@@ -124,22 +163,37 @@ export default function AdminInterface(props: AdminProps) {
         setModal('closeCycle');
     };
 
-    // Ocultar a interface padrão se estiver no modo KDS
-    if (view === 'kds') {
-        return (
-            <div className="h-screen w-screen bg-black absolute inset-0 z-[100]">
-                <KitchenDisplay 
-                    orders={orders} 
-                    products={products}
-                    onUpdateStatus={onUpdateOrder} 
-                    onBack={() => setView('map')}
-                />
-            </div>
-        )
-    }
+    const initiateAssignment = (order: Order) => {
+        setOrderToAssign(order);
+        setModal('confirmAssign');
+    };
+
+    const confirmAssignment = () => {
+        if (orderToAssign && selectedDriver) {
+            onAssignOrder(orderToAssign.id, selectedDriver.id);
+            setOrderToAssign(null);
+        }
+    };
+
+    const handleCreateOrder = (data: any) => {
+        onCreateOrder(data);
+        setModal(null);
+        setView('kds'); 
+    };
 
     return (
         <div className="flex h-screen w-screen bg-slate-950 font-sans text-slate-200 overflow-hidden">
+             {showIntro && <IntroAnimation appName={appConfig.appName} onComplete={() => setShowIntro(false)} />}
+             
+             {(props as any).modal === 'order' && (
+                <NewOrderModal 
+                    onClose={()=>setModal(null)} 
+                    onSave={handleCreateOrder} 
+                    products={products} 
+                    clients={clients} 
+                />
+             )}
+
              <aside className="hidden md:flex w-72 bg-slate-900 text-white flex-col z-20 shadow-2xl h-full border-r border-slate-800">
                 <div className="p-8 border-b border-slate-800"><BrandLogo size="normal" config={appConfig} /></div>
                 <nav className="flex-1 p-6 space-y-3 overflow-y-auto custom-scrollbar">
@@ -162,11 +216,11 @@ export default function AdminInterface(props: AdminProps) {
              </aside>
 
              <main className="flex-1 flex flex-col relative overflow-hidden w-full h-full">
-                <header className="h-16 md:h-20 bg-slate-900 border-b border-slate-800 px-4 md:px-10 flex items-center justify-between shadow-sm z-10 w-full shrink-0">
+                <header className="h-16 md:h-20 bg-slate-900 border-b border-slate-800 px-4 md:px-10 flex items-center justify-between shadow-sm z-10 w-full shrink-0 relative">
                      <div className="flex items-center gap-3 overflow-hidden">
                          {appConfig.appLogoUrl && <img src={appConfig.appLogoUrl} className="w-8 h-8 rounded-full md:hidden object-cover" alt="Logo" />}
                          <h1 className="text-lg md:text-2xl font-extrabold text-white tracking-tight truncate flex-1 min-w-0">
-                             {view === 'map' ? 'Visão Geral' : view === 'list' ? 'Gestão de Equipe' : view === 'menu' ? 'Cardápio Digital' : view === 'clients' ? 'Gestão de Clientes' : view === 'daily' ? 'Pedidos do Dia' : view === 'reports' ? 'Relatórios de Itens' : 'Financeiro & Relatórios'}
+                             {view === 'map' ? 'Central de Comando' : view === 'list' ? 'Gestão de Equipe' : view === 'menu' ? 'Cardápio Digital' : view === 'clients' ? 'Gestão de Clientes' : view === 'daily' ? 'Pedidos do Dia' : view === 'kds' ? 'Fila da Cozinha' : view === 'reports' ? 'Relatórios de Itens' : 'Financeiro & Relatórios'}
                          </h1>
                      </div>
                      <div className="flex items-center gap-2 md:hidden">
@@ -177,39 +231,61 @@ export default function AdminInterface(props: AdminProps) {
 
                 <div className="flex-1 overflow-hidden relative w-full h-full">
                     {view === 'map' && (
-                       <div className="absolute inset-0 city-map-bg overflow-hidden w-full h-full">
-                          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-10 select-none p-4 z-0">
-                              <span className="text-slate-200 font-black text-5xl md:text-9xl text-center leading-none tracking-tighter opacity-10">{appConfig.appName.toUpperCase()}</span>
-                          </div>
-
-                          <div className="w-full h-full relative z-10">
+                       <div className="absolute inset-0 perspective-container w-full h-full">
+                          {/* Plano do Chão em Perspectiva */}
+                          <div className="absolute inset-0 map-plane w-full h-full">
+                              {/* Drivers no Plano 3D */}
                               {drivers.map((d: Driver, index: number) => {
                                  const seed = d.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                                 const maxCols = isMobile ? 4 : 12;
-                                 const maxRows = isMobile ? 6 : 8;
-                                 const gridX = (Math.floor(seed * 17) % maxCols) * 80 - 12; 
-                                 const gridY = (Math.floor(seed * 23) % maxRows) * 80 - 12; 
-                                 const animType = index % 3 === 0 ? 'animate-drive-x' : index % 3 === 1 ? 'animate-drive-y' : 'animate-drive-l';
                                  
+                                 // Centralização (25% a 75%)
+                                 const gridX = 25 + (Math.floor(seed * 17) % 50); 
+                                 const gridY = 25 + (Math.floor(seed * 23) % 50); 
+                                 
+                                 // Escolha aleatória entre 5 rotas diferentes
+                                 const pathIndex = seed % 5; 
+                                 const animType = `animate-path-${pathIndex}`;
+                                 
+                                 // Delay aleatório negativo para desincronizar animações iguais
+                                 const randomDelay = (seed % 20) * -2; // -0s até -38s
+
+                                 // Status Color Logic
+                                 const statusColor = d.status === 'delivering' ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.6)]' : d.status === 'offline' ? 'border-slate-500 opacity-50' : 'border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.6)]';
+
                                  return (
                                      <div key={d.id} 
                                           onClick={(e) => { e.stopPropagation(); setSelectedDriver(d); }} 
                                           className={`absolute z-30 cursor-pointer transition-transform duration-1000 ${animType}`}
-                                          style={{ top: `${gridY + 80}px`, left: `${gridX + 80}px` }}>
-                                        <div className="relative group flex flex-col items-center">
-                                           <div className={`relative bg-slate-900 p-0.5 rounded-full border-2 ${d.status === 'delivering' ? 'border-amber-500 headlight' : d.status === 'offline' ? 'border-slate-500' : 'border-emerald-500'} shadow-xl transform transition-all active:scale-95 overflow-hidden w-10 h-10`}>
-                                               <img src={d.avatar} className="w-full h-full object-cover rounded-full" alt={d.name} />
-                                           </div>
-                                           <div className="mt-1 bg-black/80 backdrop-blur text-white text-[9px] font-bold px-2 py-0.5 rounded-md shadow-lg whitespace-nowrap">{d.name.split(' ')[0]}</div>
-                                        </div>
+                                          style={{ top: `${gridY}%`, left: `${gridX}%`, animationDelay: `${randomDelay}s` }}>
+                                          
+                                          {/* Container do Driver (Billboard para ficar em pé) */}
+                                          <div className="relative group billboard-corrector flex flex-col items-center">
+                                              
+                                              {/* Avatar do Motoboy - Reduzido para w-10 h-10 (40px) */}
+                                              <div className={`relative bg-slate-900 p-1 rounded-full border-[2px] ${statusColor} w-10 h-10 flex items-center justify-center transition-all hover:scale-125 hover:z-50 shadow-2xl`}>
+                                                   <img src={d.avatar} className="w-full h-full object-cover rounded-full bg-slate-800" alt={d.name} style={{imageRendering: 'auto'}} />
+                                                   {d.status === 'delivering' && (
+                                                       <div className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full border-2 border-slate-900 animate-pulse"></div>
+                                                   )}
+                                              </div>
+
+                                              {/* Label Flutuante */}
+                                              <div className="mt-2 bg-black/80 border border-slate-700 backdrop-blur-sm text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-lg uppercase opacity-80 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                                                  {d.name.split(' ')[0]}
+                                              </div>
+                                          </div>
                                      </div>
                                  )
                               })}
                           </div>
                           
-                          <div className="absolute top-6 left-6 z-40 space-y-3 max-h-[60%] overflow-y-auto w-72 pr-2 custom-scrollbar">
+                          {/* Overlay 2D (Fila de Pedidos no canto) */}
+                          <div className="absolute top-6 left-6 z-40 space-y-3 max-h-[60%] overflow-y-auto w-72 pr-2 custom-scrollbar pointer-events-auto">
+                             <div className="flex items-center gap-2 mb-2 text-cyan-400 font-bold text-xs uppercase tracking-widest bg-black/50 p-2 rounded backdrop-blur border border-cyan-900/50">
+                                <Radar size={14} className="animate-spin-slow"/> Radar de Pedidos
+                             </div>
                              {orders.filter((o: Order) => o.status === 'pending' || o.status === 'preparing' || o.status === 'ready').map((o: Order) => (
-                                <div key={o.id} className={`bg-slate-900/90 backdrop-blur-md p-3 rounded-xl shadow-2xl border-l-4 relative group animate-in slide-in-from-left-4 duration-300 ${o.status === 'ready' ? 'border-emerald-500' : o.status === 'preparing' ? 'border-blue-500' : 'border-amber-500'}`}>
+                                <div key={o.id} className={`bg-slate-900/80 backdrop-blur-md p-3 rounded-xl shadow-2xl border-l-4 relative group animate-in slide-in-from-left-4 duration-300 ${o.status === 'ready' ? 'border-emerald-500' : o.status === 'preparing' ? 'border-blue-500' : 'border-amber-500'}`}>
                                    <div className="flex justify-between items-start mb-1"><span className="font-bold text-sm text-white truncate w-32">{o.customer}</span><span className="text-[10px] font-bold bg-slate-800 px-2 py-1 rounded text-slate-400">{o.time}</span></div>
                                    <p className="text-xs text-slate-400 truncate mb-2">{o.address}</p>
                                    <div className="flex justify-between items-center">
@@ -251,6 +327,7 @@ export default function AdminInterface(props: AdminProps) {
                                 </div>
                              ))}
                           </div>
+                          <Footer />
                        </div>
                     )}
 
@@ -258,6 +335,7 @@ export default function AdminInterface(props: AdminProps) {
                     {view === 'menu' && <MenuManager products={products} onCreate={props.onCreateProduct} onUpdate={props.onUpdateProduct} onDelete={props.onDeleteProduct} />}
                     {view === 'clients' && <ClientsView clients={clients} orders={delivered} setModal={setModal} setClientToEdit={setClientToEdit} />}
                     {view === 'reports' && <ItemReportView orders={orders} />}
+                    {view === 'kds' && <KitchenDisplay orders={orders} products={products} onUpdateStatus={onUpdateOrder} />}
                     
                     {view === 'history' && (
                        <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
@@ -270,6 +348,7 @@ export default function AdminInterface(props: AdminProps) {
                              <StatBox label="Entrada Hoje" value={formatCurrency(finance.todayIncome)} icon={<CheckSquare/>} color="bg-blue-900/20 text-blue-400 border-blue-900/50"/>
                              <StatBox label="Custo Hoje" value={formatCurrency(finance.todayExpenses)} subtext="Insumos" icon={<MinusCircle/>} color="bg-red-900/20 text-red-400 border-red-900/50"/>
                           </div>
+                          <Footer />
                        </div>
                     )}
                 </div>
@@ -293,8 +372,8 @@ export default function AdminInterface(props: AdminProps) {
                 </div>
             </div>
 
-             {/* Driver Sidebar */}
-             <aside className={`fixed inset-y-0 right-0 w-full md:w-96 bg-slate-900 shadow-2xl p-0 overflow-y-auto z-[60] transition-transform duration-300 border-l border-slate-800 ${selectedDriver ? 'translate-x-0' : 'translate-x-full'}`}>
+             {/* Driver Sidebar & Modals... (Unchanged) */}
+             <aside className={`fixed inset-y-0 right-0 w-full md:w-96 bg-slate-900 shadow-2xl p-0 overflow-y-auto z-[60] transition-transform duration-300 border-l border-slate-800 ${selectedDriver && view === 'map' ? 'translate-x-0' : 'translate-x-full'}`}>
                  {selectedDriver && (
                    <div className="h-full flex flex-col bg-slate-950">
                       <div className="bg-slate-900 p-6 border-b border-slate-800 sticky top-0 z-10">
@@ -319,7 +398,7 @@ export default function AdminInterface(props: AdminProps) {
                          {driverSidebarTab === 'assign' && (
                              <div className="space-y-3 pb-20">
                                 {orders.filter((o: Order) => o.status === 'pending' || o.status === 'ready' || o.status === 'preparing').map((o: Order) => (
-                                   <div key={o.id} onClick={()=>onAssignOrder(o.id, selectedDriver.id)} className="border border-slate-800 p-4 rounded-xl hover:border-orange-500 hover:shadow-md transition-all bg-slate-900 cursor-pointer group">
+                                   <div key={o.id} onClick={()=>initiateAssignment(o)} className="border border-slate-800 p-4 rounded-xl hover:border-orange-500 hover:shadow-md transition-all bg-slate-900 cursor-pointer group">
                                       <div className="flex justify-between items-start mb-2">
                                           <span className="font-bold text-white">{o.customer}</span>
                                           <span className={`text-[10px] px-1 rounded uppercase font-bold ${o.status==='ready'?'bg-emerald-900 text-emerald-300':'text-amber-500'}`}>{o.status === 'ready' ? 'Pronto' : 'Pendente'}</span>
@@ -390,6 +469,16 @@ export default function AdminInterface(props: AdminProps) {
                    </div>
                  )}
             </aside>
+
+            {/* Renderização do Modal de Confirmação Localmente */}
+            {(props as any).modal === 'confirmAssign' && (
+                <ConfirmAssignmentModal 
+                    onClose={() => setModal(null)}
+                    onConfirm={confirmAssignment}
+                    order={orderToAssign}
+                    driverName={selectedDriver?.name}
+                />
+            )}
         </div>
     );
 }

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Client, Order } from '../types';
 import { normalizePhone, formatCurrency } from '../utils';
 import { Search, UploadCloud, Edit, ChevronDown, Star } from 'lucide-react';
+import { Footer } from './Shared';
 
 export function ClientsView({ clients, orders, setModal, setClientToEdit }: any) {
     const [searchTerm, setSearchTerm] = useState('');
@@ -63,6 +64,7 @@ export function ClientsView({ clients, orders, setModal, setClientToEdit }: any)
               </table>
               {filteredClients.length > visibleClientsCount && (<div className="p-4 text-center border-t border-slate-800"><button onClick={() => setVisibleClientsCount(prev => prev + 30)} className="text-xs font-bold text-slate-500 hover:text-white flex items-center justify-center gap-1 mx-auto"><ChevronDown size={14}/> Carregar mais clientes</button></div>)}
            </div>
+           <Footer />
        </div>
     );
 }

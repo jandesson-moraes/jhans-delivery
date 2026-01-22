@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Order } from '../types';
 import { parseOrderItems, downloadCSV, isToday, formatCurrency, formatDate } from '../utils';
 import { Download, Filter, Package } from 'lucide-react';
+import { Footer } from './Shared';
 
 interface ItemReportProps {
     orders: Order[];
@@ -97,6 +98,8 @@ export function ItemReportView({ orders }: ItemReportProps) {
                     </table>
                 </div>
             </div>
+            
+            <Footer />
         </div>
     );
 }

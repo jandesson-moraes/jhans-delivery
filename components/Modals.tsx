@@ -1,9 +1,242 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History } from 'lucide-react';
+import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils } from 'lucide-react';
 import { Product, Client, AppConfig, Driver, Order, Vale } from '../types';
 import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase } from '../utils';
 
-// --- CLOSE CYCLE MODAL (NOVO) ---
+// --- PRODUCT FORM MODAL (NOVO) ---
+export function ProductFormModal({ product, isOpen, onClose, onSave, existingCategories }: any) {
+    if (!isOpen) return null;
+
+    const [form, setForm] = useState({ 
+        name: '', 
+        price: '', 
+        category: 'Hambúrgueres', 
+        description: '' 
+    });
+    const [customCategory, setCustomCategory] = useState('');
+
+    // Carrega dados se for edição
+    useEffect(() => {
+        if (product) {
+            setForm({
+                name: product.name,
+                price: product.price.toString().replace('.', ','),
+                category: product.category,
+                description: product.description || ''
+            });
+        } else {
+            setForm({ name: '', price: '', category: 'Hambúrgueres', description: '' });
+        }
+        setCustomCategory('');
+    }, [product, isOpen]);
+
+    const handleCapitalize = (e: any, field: string) => {
+        const val = field === 'description' ? toSentenceCase(e.target.value) : capitalize(e.target.value);
+        setForm(prev => ({...prev, [field]: val}));
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const finalCategory = form.category === 'new_custom' ? capitalize(customCategory) : form.category;
+        
+        if (!finalCategory) { 
+            alert("Selecione ou digite uma categoria válida."); 
+            return; 
+        }
+
+        const payload = { 
+            ...form, 
+            category: finalCategory, 
+            price: parseFloat(form.price.toString().replace(',', '.')) || 0 
+        };
+
+        onSave(product ? product.id : null, payload);
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+            <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg p-6 border border-slate-800 animate-in zoom-in">
+                <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
+                    <h3 className="font-bold text-xl text-white flex items-center gap-2">
+                        {product ? <Edit className="text-amber-500"/> : <PlusCircle className="text-emerald-500"/>}
+                        {product ? 'Editar Produto' : 'Novo Produto'}
+                    </h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Nome do Item</label>
+                        <input 
+                            className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-white" 
+                            placeholder="Ex: X-Bacon" 
+                            value={form.name} 
+                            onChange={e => handleCapitalize(e, 'name')} 
+                            required 
+                            autoFocus
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Preço (R$)</label>
+                            <input 
+                                className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-white font-bold" 
+                                placeholder="0,00" 
+                                value={form.price} 
+                                onChange={e => setForm({...form, price: e.target.value})} 
+                                required 
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Categoria</label>
+                            <select 
+                                className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-white" 
+                                value={form.category} 
+                                onChange={e => setForm({...form, category: e.target.value})}
+                            >
+                                {existingCategories.map((cat: string) => <option key={cat} value={cat}>{cat}</option>)}
+                                <option value="new_custom">+ Nova Categoria...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {form.category === 'new_custom' && (
+                        <div className="animate-in fade-in slide-in-from-top-2 bg-amber-900/10 p-3 rounded-xl border border-amber-500/20">
+                            <label className="text-xs font-bold text-amber-500 mb-1 block uppercase">Nome da Nova Categoria</label>
+                            <input 
+                                className="w-full p-3 bg-slate-950 border border-amber-500/50 rounded-xl outline-none focus:border-amber-500 text-white" 
+                                placeholder="Digite a nova categoria..." 
+                                value={customCategory} 
+                                onChange={e => setCustomCategory(e.target.value)} 
+                            />
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Descrição / Ingredientes</label>
+                        <textarea 
+                            className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-white text-sm h-24 resize-none" 
+                            placeholder="Ex: Pão brioche, carne 150g, queijo cheddar, bacon crocante..." 
+                            value={form.description} 
+                            onChange={e => handleCapitalize(e, 'description')} 
+                        />
+                    </div>
+
+                    <div className="flex gap-3 pt-4 border-t border-slate-800">
+                        <button type="button" onClick={onClose} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-800 rounded-xl transition-colors">Cancelar</button>
+                        <button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2">
+                            <Save size={18}/> {product ? 'Salvar Alterações' : 'Criar Produto'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// --- KITCHEN HISTORY MODAL (NOVO) ---
+export function KitchenHistoryModal({ order, onClose, products }: any) {
+    if (!order) return null;
+
+    const findProductDescription = (line: string) => {
+        if(!line) return '';
+        const cleanName = line.replace(/^\d+[xX\s]+/, '').trim();
+        const product = products.find((p: Product) => p.name.toLowerCase() === cleanName.toLowerCase());
+        return product?.description || '';
+    };
+
+    return (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in">
+            <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg p-0 border border-slate-800 overflow-hidden animate-in zoom-in">
+                <div className="bg-slate-950 p-4 border-b border-slate-800 flex justify-between items-center">
+                    <div>
+                        <h3 className="font-bold text-xl text-white">Pedido #{order.id.slice(-4)}</h3>
+                        <p className="text-slate-500 text-sm">{formatDate(order.createdAt)} às {formatTime(order.createdAt)}</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 transition-colors"><X size={24}/></button>
+                </div>
+                
+                <div className="p-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                    <div className="flex items-center gap-3 mb-6 bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+                        <div className="bg-slate-700 p-2 rounded-lg"><Users size={20} className="text-white"/></div>
+                        <div>
+                            <p className="text-xs font-bold text-slate-400 uppercase">Cliente</p>
+                            <p className="font-bold text-white text-lg">{order.customer}</p>
+                        </div>
+                    </div>
+
+                    <h4 className="font-bold text-slate-500 uppercase text-xs mb-3 border-b border-slate-800 pb-2">Itens do Pedido</h4>
+                    <div className="space-y-4 mb-6">
+                        {order.items.split('\n').filter((l:string) => l.trim()).map((line:string, i:number) => {
+                             if (line.includes('---')) return <hr key={i} className="border-slate-800"/>;
+                             const isObs = line.toLowerCase().startsWith('obs:');
+                             const description = !isObs ? findProductDescription(line) : '';
+                             return (
+                                 <div key={i}>
+                                     <p className={`font-bold ${isObs ? 'text-amber-400 bg-amber-900/20 p-2 rounded border border-amber-900/50 text-sm' : 'text-white text-lg'}`}>{line}</p>
+                                     {description && <p className="text-sm text-slate-500 mt-1 pl-2 border-l-2 border-slate-700">{description}</p>}
+                                 </div>
+                             )
+                        })}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><Clock size={12}/> Entrada</p>
+                            <p className="text-white font-mono font-bold">{formatTime(order.createdAt)}</p>
+                        </div>
+                        <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><CheckCircle2 size={12}/> Saída (Cozinha)</p>
+                            <p className="text-emerald-400 font-mono font-bold">
+                                {order.assignedAt || order.completedAt ? formatTime(order.assignedAt || order.completedAt) : '-'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-4 border-t border-slate-800 bg-slate-950">
+                    <button onClick={onClose} className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition-colors">Fechar Detalhes</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- CONFIRM ASSIGNMENT MODAL ---
+export function ConfirmAssignmentModal({ onClose, onConfirm, order, driverName }: any) {
+    if (!order) return null;
+
+    return (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+            <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 border border-slate-800 animate-in zoom-in">
+                <div className="flex flex-col items-center text-center">
+                    <div className="bg-amber-500/10 p-4 rounded-full mb-4">
+                        <AlertTriangle className="text-amber-500 w-10 h-10" />
+                    </div>
+                    <h3 className="font-bold text-xl text-white mb-2">Confirmar Envio?</h3>
+                    <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                        Você está atribuindo o pedido <strong>#{order.id.slice(-4)}</strong> para <strong>{driverName}</strong>.
+                        <br/><br/>
+                        <span className="text-amber-400 font-bold">O pedido já está pronto e embalado na cozinha?</span>
+                    </p>
+
+                    <div className="flex gap-3 w-full">
+                        <button onClick={onClose} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-800 rounded-xl transition-colors border border-transparent hover:border-slate-700">
+                            Cancelar
+                        </button>
+                        <button onClick={() => { onConfirm(); onClose(); }} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95">
+                            <CheckCircle2 size={18}/> Sim, Enviar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- CLOSE CYCLE MODAL ---
 export function CloseCycleModal({ data, onClose, onConfirm }: any) {
     const [form, setForm] = useState({
         endAt: new Date().toISOString().slice(0, 16), // Formato YYYY-MM-DDTHH:mm
@@ -126,7 +359,6 @@ export function NewOrderModal({ onClose, onSave, products, clients }: any) {
 
    const handleInputFormat = (e: any, field: string) => {
        const raw = e.target.value;
-       // Usa Title Case (Capitalize) para nomes, e Sentence Case para endereços/obs
        const val = (field === 'customer' || field === 'name') ? capitalize(raw) : toSentenceCase(raw);
        
        setForm(prev => ({...prev, [field]: val}));
@@ -284,7 +516,6 @@ export function NewOrderModal({ onClose, onSave, products, clients }: any) {
    )
 }
 
-// --- EDIT ORDER MODAL ---
 export function EditOrderModal({ order, onClose, onSave }: any) {
     const [form, setForm] = useState({
         items: order.items,
@@ -362,7 +593,6 @@ export function EditOrderModal({ order, onClose, onSave }: any) {
     )
 }
 
-// --- RECEIPT MODAL ---
 export function ReceiptModal({ order, onClose, appConfig }: any) {
     const handlePrint = () => {
         const printWindow = window.open('', '', 'width=400,height=600');
@@ -437,7 +667,6 @@ export function ReceiptModal({ order, onClose, appConfig }: any) {
     )
 }
 
-// --- NEW DRIVER MODAL ---
 export function NewDriverModal({ onClose, onSave, initialData }: any) {
     const [form, setForm] = useState(initialData || { name: '', password: '', phone: '', vehicle: '', cpf: '', plate: '', avatar: '' });
     const [isProcessingImage, setIsProcessingImage] = useState(false);
@@ -485,6 +714,8 @@ export function NewDriverModal({ onClose, onSave, initialData }: any) {
     )
 }
 
+import { Settings as SettingsIcon } from 'lucide-react';
+
 export function SettingsModal({ config, onSave, onClose }: any) {
     const [form, setForm] = useState(config);
     const [isProcessingImage, setIsProcessingImage] = useState(false);
@@ -510,8 +741,6 @@ export function SettingsModal({ config, onSave, onClose }: any) {
         </div>
     )
 }
-
-import { Settings as SettingsIcon } from 'lucide-react';
 
 export function ImportModal({ onClose, onImportCSV }: any) {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

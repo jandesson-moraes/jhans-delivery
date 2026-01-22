@@ -3,10 +3,10 @@ import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { collection, addDoc, updateDoc, doc, onSnapshot, serverTimestamp, deleteDoc, setDoc, writeBatch, Timestamp } from "firebase/firestore";
 import { auth, db } from './services/firebase';
 import { UserType, Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement } from './types';
-import { BrandLogo } from './components/Shared';
+import { BrandLogo, Footer } from './components/Shared';
 import DriverInterface from './components/DriverInterface';
 import AdminInterface from './components/AdminInterface';
-import { NewOrderModal, NewDriverModal, SettingsModal, ImportModal, NewExpenseModal, NewValeModal, EditClientModal, CloseCycleModal } from './components/Modals';
+import { NewDriverModal, SettingsModal, ImportModal, NewExpenseModal, NewValeModal, EditClientModal, CloseCycleModal } from './components/Modals';
 import { Loader2, TrendingUp, ChevronRight, Bike } from 'lucide-react';
 import { normalizePhone, capitalize, formatCurrency } from './utils';
 
@@ -15,14 +15,86 @@ const GlobalStyles = () => {
     useEffect(() => {
       const style = document.createElement('style');
       style.innerHTML = `
-        @keyframes driveX { 0% { transform: translate(0, 0) scaleX(1); } 45% { transform: translate(160px, 0) scaleX(1); } 50% { transform: translate(160px, 0) scaleX(-1); } 95% { transform: translate(0, 0) scaleX(-1); } 100% { transform: translate(0, 0) scaleX(1); } }
-        @keyframes driveY { 0% { transform: translate(0, 0); } 45% { transform: translate(0, 160px); } 50% { transform: translate(0, 160px); } 95% { transform: translate(0, 0); } 100% { transform: translate(0, 0); } }
-        @keyframes driveL { 0% { transform: translate(0, 0); } 25% { transform: translate(80px, 0); } 50% { transform: translate(80px, 80px); } 75% { transform: translate(0, 80px); } 100% { transform: translate(0, 0); } }
-        .animate-drive-x { animation: driveX 20s linear infinite; }
-        .animate-drive-y { animation: driveY 25s linear infinite; }
-        .animate-drive-l { animation: driveL 30s linear infinite; }
-        .city-map-bg { background-color: #0f172a; background-image: linear-gradient(rgba(148, 163, 184, 0.1) 4px, transparent 4px), linear-gradient(90deg, rgba(148, 163, 184, 0.1) 4px, transparent 4px); background-size: 80px 80px; background-position: -2px -2px; }
-        .headlight { box-shadow: 0 0 20px 5px rgba(245, 158, 11, 0.4); }
+        /* Rotas de Movimento Aleatórias e Suaves */
+        /* Rota 1: Circular Suave */
+        @keyframes pathA { 
+            0% { transform: translate3d(0,0,0); }
+            25% { transform: translate3d(60px, 40px, 0); }
+            50% { transform: translate3d(0, 80px, 0); }
+            75% { transform: translate3d(-60px, 40px, 0); }
+            100% { transform: translate3d(0,0,0); }
+        }
+        /* Rota 2: Zig Zag Horizontal */
+        @keyframes pathB { 
+            0% { transform: translate3d(0,0,0); }
+            30% { transform: translate3d(100px, -20px, 0); }
+            60% { transform: translate3d(50px, 40px, 0); }
+            100% { transform: translate3d(0,0,0); }
+        }
+        /* Rota 3: Bloco Quadrado */
+        @keyframes pathC { 
+            0% { transform: translate3d(0,0,0); }
+            25% { transform: translate3d(0, 100px, 0); }
+            50% { transform: translate3d(100px, 100px, 0); }
+            75% { transform: translate3d(100px, 0, 0); }
+            100% { transform: translate3d(0,0,0); }
+        }
+        /* Rota 4: Patrulha Vertical */
+        @keyframes pathD { 
+            0% { transform: translate3d(0,0,0); }
+            50% { transform: translate3d(20px, 150px, 0); }
+            100% { transform: translate3d(0,0,0); }
+        }
+        /* Rota 5: Aleatório Curto */
+        @keyframes pathE { 
+            0% { transform: translate3d(0,0,0); }
+            33% { transform: translate3d(-50px, 30px, 0); }
+            66% { transform: translate3d(30px, 50px, 0); }
+            100% { transform: translate3d(0,0,0); }
+        }
+        
+        /* Classes de Animação com durações variadas */
+        .animate-path-0 { animation: pathA 45s ease-in-out infinite; }
+        .animate-path-1 { animation: pathB 50s ease-in-out infinite; }
+        .animate-path-2 { animation: pathC 60s linear infinite; }
+        .animate-path-3 { animation: pathD 55s ease-in-out infinite; }
+        .animate-path-4 { animation: pathE 40s ease-in-out infinite; }
+
+        /* Mapa Perspectiva - Fundo Estilo Satélite Noturno */
+        .perspective-container {
+            perspective: 1000px;
+            overflow: hidden;
+            background: #020617;
+        }
+        .map-plane {
+            transform: rotateX(40deg) scale(1.4);
+            transform-style: preserve-3d;
+            background-color: #0f172a;
+            /* Simulação de Ruas e Quarteirões */
+            background-image: 
+                linear-gradient(rgba(30, 41, 59, 0.8) 2px, transparent 2px),
+                linear-gradient(90deg, rgba(30, 41, 59, 0.8) 2px, transparent 2px),
+                linear-gradient(rgba(30, 41, 59, 0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(30, 41, 59, 0.3) 1px, transparent 1px);
+            background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+            box-shadow: inset 0 0 200px #020617;
+        }
+        
+        /* Radar Clean */
+        @keyframes radar-pulse {
+            0% { transform: scale(0); opacity: 0.5; }
+            100% { transform: scale(3); opacity: 0; }
+        }
+        .radar-pulse {
+            animation: radar-pulse 2s infinite;
+        }
+
+        /* Billboard para corrigir rotação */
+        .billboard-corrector {
+            transform: rotateX(-40deg); 
+        }
+
+        /* Scrollbars */
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
@@ -117,7 +189,6 @@ export default function App() {
   // Função para fechar ciclo do motoboy
   const handleCloseCycle = (data: any) => handleAction(async () => {
       if (!driverToEdit) return;
-      // Permite definir a data manualmente (retroativo) ou usa o serverTimestamp
       const timestamp = data.endAt ? Timestamp.fromDate(new Date(data.endAt)) : serverTimestamp();
       
       await addDoc(collection(db, 'settlements'), {
@@ -125,7 +196,6 @@ export default function App() {
           driverId: driverToEdit.id,
           endAt: timestamp
       });
-      // Atualizar a data de corte do motorista para a data escolhida
       await updateDoc(doc(db, 'drivers', driverToEdit.id), {
           lastSettlementAt: timestamp
       });
@@ -179,7 +249,10 @@ export default function App() {
           </button>
         </div>
       </div>
-      <p className="absolute bottom-6 text-slate-600 text-xs">Versão 17.0 (App Moto Pro) • {appConfig.appName}</p>
+      
+      <div className="absolute bottom-4 z-20">
+          <Footer />
+      </div>
     </div>
   );
 
@@ -197,7 +270,6 @@ export default function App() {
     );
   }
 
-  // Admin View
   return (
     <>
       <GlobalStyles />
@@ -206,12 +278,12 @@ export default function App() {
           onAssignOrder={assignOrder} onCreateDriver={createDriver} onUpdateDriver={updateDriver} onDeleteDriver={deleteDriver} 
           onCreateOrder={createOrder} onDeleteOrder={deleteOrder} onUpdateOrder={updateOrder} onCreateVale={createVale} onCreateExpense={createExpense}
           onCreateProduct={createProduct} onDeleteProduct={deleteProduct} onUpdateProduct={updateProduct} onUpdateClient={updateClientData} onLogout={handleLogout}
-          onCloseCycle={(driverId, data) => handleCloseCycle(data)} // Não usado diretamente, modal chama onConfirm
+          onCloseCycle={(driverId, data) => handleCloseCycle(data)} 
           isMobile={isMobile} appConfig={appConfig} setAppConfig={setAppConfig} setModal={setModal} setModalData={setModalData}
           setDriverToEdit={setDriverToEdit} setClientToEdit={setClientToEdit}
+          {...{modal}} 
       />
       {modal === 'settings' && <SettingsModal config={appConfig} onSave={(newConfig: AppConfig) => { setAppConfig(newConfig); setModal(null); }} onClose={() => setModal(null)} />}
-      {modal === 'order' && <NewOrderModal onClose={()=>setModal(null)} onSave={(data: any) => { createOrder(data); }} products={products} clients={clients} />}
       {modal === 'driver' && <NewDriverModal onClose={()=>{setModal(null); setDriverToEdit(null);}} onSave={driverToEdit ? (data: any) => updateDriver(driverToEdit.id, data) : createDriver} initialData={driverToEdit} />}
       {modal === 'vale' && driverToEdit && <NewValeModal driver={driverToEdit} onClose={() => { setModal(null); setDriverToEdit(null); }} onSave={createVale} />}
       {modal === 'import' && <ImportModal onClose={() => setModal(null)} onImportCSV={handleImportCSV} />}
@@ -257,6 +329,9 @@ function DriverSelection({ drivers, onSelect, onBack }: { drivers: Driver[], onS
                    <button type="submit" className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl shadow-lg transition-colors">Acessar Painel</button>
                </form>
                <button onClick={() => setSelectedId(null)} className="w-full mt-4 text-slate-500 text-sm hover:text-amber-500 transition-colors">← Voltar</button>
+               <div className="mt-6 border-t border-slate-800 pt-4">
+                   <Footer />
+               </div>
            </div>
         </div>
       );
@@ -275,6 +350,9 @@ function DriverSelection({ drivers, onSelect, onBack }: { drivers: Driver[], onS
           ))}
         </div>
         <button onClick={onBack} className="mt-6 w-full py-3 text-slate-500 text-sm hover:bg-slate-800 rounded-xl font-medium transition-colors">Voltar</button>
+        <div className="mt-2">
+            <Footer />
+        </div>
       </div>
     </div>
   )

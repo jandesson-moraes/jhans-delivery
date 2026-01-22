@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Order, Driver } from '../types';
 import { isToday, formatTime, formatCurrency } from '../utils';
-import { StatBox } from './Shared';
+import { StatBox, Footer } from './Shared';
 import { ClipboardList, DollarSign, Trash2, Edit, FileText } from 'lucide-react';
 import { EditOrderModal, ReceiptModal } from './Modals';
 
@@ -67,6 +67,8 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
             {modalType === 'receipt' && selectedOrder && (
                 <ReceiptModal order={selectedOrder} onClose={() => { setModalType(null); setSelectedOrder(null); }} appConfig={appConfig} />
             )}
+            
+            <Footer />
         </div>
     );
 }

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package } from 'lucide-react';
 import { Driver, Order } from '../types';
 import { isToday, formatTime, formatCurrency, formatDate } from '../utils';
+import { Footer } from './Shared';
 
 interface DriverAppProps {
     driver: Driver;
@@ -22,6 +23,11 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
 
   // Refs para controle de áudio
   const prevAssignedCountRef = useRef(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    audioRef.current = new Audio(NOTIFICATION_SOUND);
+  }, []);
 
   // Data do último fechamento para filtrar o ciclo atual
   const lastSettlementTime = driver.lastSettlementAt?.seconds || 0;
@@ -43,8 +49,14 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
       
       // Se a contagem atual for maior que a anterior, toca o som
       if (assignedCount > prevAssignedCountRef.current) {
-          const audio = new Audio(NOTIFICATION_SOUND);
-          audio.play().catch(e => console.log("Áudio bloqueado pelo navegador até interação do usuário:", e));
+          if(audioRef.current) {
+              const playPromise = audioRef.current.play();
+              if (playPromise !== undefined) {
+                  playPromise.catch(error => {
+                      console.log("Áudio bloqueado pelo navegador (requer interação do usuário):", error);
+                  });
+              }
+          }
           
           // Se o navegador suportar vibração (celular)
           if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
@@ -248,6 +260,7 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
              </div>
           </div>
         )}
+        <Footer />
       </div>
     </div>
   )
