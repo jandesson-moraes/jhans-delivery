@@ -19,6 +19,9 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
   const [historyFilter, setHistoryFilter] = useState<'today' | 'all'>('today');
   const [visibleItems, setVisibleItems] = useState(20);
 
+  // Data do último fechamento para filtrar o ciclo atual
+  const lastSettlementTime = driver.lastSettlementAt?.seconds || 0;
+
   const todaysOrders = useMemo(() => {
      return orders.filter((o: Order) => 
         o.driverId === driver.id && 
@@ -30,10 +33,20 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
      });
   }, [orders, driver.id]);
   
+  // Histórico completo para a aba de Histórico
   const allDeliveries = useMemo(() => {
      return orders.filter((o: Order) => o.status === 'completed' && o.driverId === driver.id)
             .sort((a: Order, b: Order) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
   }, [orders, driver.id]);
+
+  // Entregas APENAS do ciclo atual para a aba Finanças
+  const cycleDeliveries = useMemo(() => {
+      return orders.filter((o: Order) => 
+         o.status === 'completed' && 
+         o.driverId === driver.id &&
+         (o.completedAt?.seconds || 0) > lastSettlementTime
+      ).sort((a: Order, b: Order) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
+  }, [orders, driver.id, lastSettlementTime]);
 
   const displayedHistory = useMemo(() => {
       if (historyFilter === 'today') {
@@ -44,10 +57,13 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
 
   const visibleHistory = displayedHistory.slice(0, visibleItems);
   
+  // Cálculos Financeiros
   const todayEarnings = allDeliveries.filter((o:Order) => isToday(o.completedAt)).length * TAXA_ENTREGA;
-  const totalEarnings = allDeliveries.length * TAXA_ENTREGA;
   const todayCount = allDeliveries.filter((o:Order) => isToday(o.completedAt)).length;
-  const totalCount = allDeliveries.length;
+  
+  // O "Saldo Total" agora reflete o Ciclo Atual
+  const cycleEarnings = cycleDeliveries.length * TAXA_ENTREGA;
+  const cycleCount = cycleDeliveries.length;
 
   return (
     <div className="bg-slate-950 min-h-screen w-screen flex flex-col">
@@ -137,7 +153,7 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
           </div>
         )}
 
-        {/* --- ABA HISTÓRICO (NOVO) --- */}
+        {/* --- ABA HISTÓRICO --- */}
         {activeTab === 'history' && (
             <div className="space-y-4">
                 <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
@@ -185,7 +201,7 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
             </div>
         )}
 
-        {/* --- ABA FINANÇAS (RESUMO) --- */}
+        {/* --- ABA FINANÇAS (RESUMO CICLO ATUAL) --- */}
         {activeTab === 'wallet' && (
           <div className="space-y-6 pt-2">
              <div className="grid grid-cols-2 gap-3">
@@ -195,9 +211,9 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
                     <p className="text-[10px] text-slate-500 mt-1">{todayCount} entregas</p>
                  </div>
                  <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl shadow-xl border border-emerald-500/30 ring-1 ring-emerald-500/20">
-                    <p className="text-slate-400 text-[10px] font-bold uppercase mb-2">Saldo Total</p>
-                    <h3 className="text-3xl font-black text-emerald-400">{formatCurrency(totalEarnings)}</h3>
-                    <p className="text-[10px] text-slate-500 mt-1">{totalCount} entregas</p>
+                    <p className="text-slate-400 text-[10px] font-bold uppercase mb-2">Saldo Ciclo Atual</p>
+                    <h3 className="text-3xl font-black text-emerald-400">{formatCurrency(cycleEarnings)}</h3>
+                    <p className="text-[10px] text-slate-500 mt-1">{cycleCount} entregas (após fechamento)</p>
                  </div>
              </div>
 
