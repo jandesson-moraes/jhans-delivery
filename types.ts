@@ -23,6 +23,18 @@ export interface Driver {
   rating: number;
   totalDeliveries: number;
   lastUpdate?: any; 
+  lastSettlementAt?: any; // Data do último fechamento de caixa
+}
+
+export interface Settlement {
+    id: string;
+    driverId: string;
+    startAt: any;
+    endAt: any;
+    deliveriesCount: number;
+    deliveriesTotal: number;
+    valesTotal: number;
+    finalAmount: number;
 }
 
 export interface OrderHistory {

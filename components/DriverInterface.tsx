@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown } from 'lucide-react';
+import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package } from 'lucide-react';
 import { Driver, Order } from '../types';
 import { isToday, formatTime, formatCurrency, formatDate } from '../utils';
 
@@ -15,7 +15,7 @@ interface DriverAppProps {
 const TAXA_ENTREGA = 5.00;
 
 export default function DriverInterface({ driver, orders, onToggleStatus, onAcceptOrder, onCompleteOrder, onLogout }: DriverAppProps) {
-  const [activeTab, setActiveTab] = useState<'home' | 'wallet'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'history' | 'wallet'>('home');
   const [historyFilter, setHistoryFilter] = useState<'today' | 'all'>('today');
   const [visibleItems, setVisibleItems] = useState(20);
 
@@ -35,23 +35,23 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
             .sort((a: Order, b: Order) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
   }, [orders, driver.id]);
 
-  const displayedDeliveries = useMemo(() => {
-      let filtered = allDeliveries;
+  const displayedHistory = useMemo(() => {
       if (historyFilter === 'today') {
-          filtered = filtered.filter((o: Order) => isToday(o.completedAt));
+          return allDeliveries.filter((o: Order) => isToday(o.completedAt));
       }
-      return filtered;
+      return allDeliveries;
   }, [allDeliveries, historyFilter]);
 
-  const visibleDeliveries = displayedDeliveries.slice(0, visibleItems);
-  const totalEarnings = allDeliveries.length * TAXA_ENTREGA;
+  const visibleHistory = displayedHistory.slice(0, visibleItems);
+  
   const todayEarnings = allDeliveries.filter((o:Order) => isToday(o.completedAt)).length * TAXA_ENTREGA;
+  const totalEarnings = allDeliveries.length * TAXA_ENTREGA;
   const todayCount = allDeliveries.filter((o:Order) => isToday(o.completedAt)).length;
   const totalCount = allDeliveries.length;
 
   return (
     <div className="bg-slate-950 min-h-screen w-screen flex flex-col">
-      <div className="bg-slate-900 p-5 pb-10 rounded-b-[2rem] shadow-xl relative z-10 border-b border-slate-800">
+      <div className="bg-slate-900 p-5 pb-8 rounded-b-[2rem] shadow-xl relative z-10 border-b border-slate-800">
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-3">
             <img src={driver.avatar} className="w-14 h-14 rounded-full border-2 border-slate-700 bg-slate-800 object-cover" alt="Driver" />
@@ -62,14 +62,25 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
           </div>
           <button onClick={onLogout} className="p-2 bg-slate-800 rounded-xl hover:bg-slate-700 text-white transition-colors"><LogOut size={18}/></button>
         </div>
-        <div className="flex bg-slate-950 p-1 rounded-lg">
-           <button onClick={() => setActiveTab('home')} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-2 ${activeTab==='home' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><Bike size={14}/> Entregas</button>
-           <button onClick={() => setActiveTab('wallet')} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-2 ${activeTab==='wallet' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}><History size={14}/> Extrato</button>
+        
+        {/* Navigation Tabs */}
+        <div className="flex bg-slate-950 p-1 rounded-xl shadow-inner border border-slate-800">
+           <button onClick={() => setActiveTab('home')} className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab==='home' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>
+               <Bike size={16}/> Entregas
+           </button>
+           <button onClick={() => setActiveTab('history')} className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab==='history' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>
+               <ClipboardList size={16}/> Histórico
+           </button>
+           <button onClick={() => setActiveTab('wallet')} className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab==='wallet' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>
+               <Wallet size={16}/> Finanças
+           </button>
         </div>
       </div>
 
-      <div className="flex-1 px-4 -mt-6 pb-4 overflow-y-auto z-20 custom-scrollbar">
-        {activeTab === 'home' ? (
+      <div className="flex-1 px-4 -mt-4 pb-4 overflow-y-auto z-20 custom-scrollbar pt-6">
+        
+        {/* --- ABA HOME (ENTREGAS ATUAIS) --- */}
+        {activeTab === 'home' && (
           <div className="space-y-4">
             <div className={`p-4 rounded-xl border shadow-lg flex items-center justify-between transition-all ${driver.status === 'offline' ? 'bg-slate-900 border-slate-800' : 'bg-emerald-900/20 border-emerald-800'}`}>
                <div><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Status</p><span className={`font-bold text-sm ${driver.status === 'offline' ? 'text-slate-300' : 'text-emerald-400'}`}>{driver.status === 'offline' ? 'Você está Offline' : 'Online e Disponível'}</span></div>
@@ -118,59 +129,86 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
             ))}
             
             {driver.status !== 'offline' && todaysOrders.length === 0 && (
-                <div className="text-center py-10 text-slate-500">
-                    <p>Nenhuma entrega hoje.</p>
+                <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+                    <Package size={48} className="mb-4 opacity-20"/>
+                    <p className="text-sm font-medium">Nenhuma entrega ativa no momento.</p>
                 </div>
             )}
           </div>
-        ) : (
-          <div className="space-y-6 pt-2 pb-10">
-             <div className="grid grid-cols-2 gap-3">
-                 <button onClick={() => { setHistoryFilter('today'); setVisibleItems(20); }} className={`bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-2xl shadow-xl border text-left transition-all active:scale-95 ${historyFilter === 'today' ? 'border-amber-500 ring-1 ring-amber-500/50' : 'border-slate-700'}`}>
-                    <p className="text-slate-400 text-[10px] font-bold uppercase mb-1">Hoje ({todayCount})</p>
-                    <h3 className="text-2xl font-bold text-white">R$ {todayEarnings.toFixed(2)}</h3>
-                 </button>
-                 <button onClick={() => { setHistoryFilter('all'); setVisibleItems(20); }} className={`bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-2xl shadow-xl border text-left transition-all active:scale-95 ${historyFilter === 'all' ? 'border-amber-500 ring-1 ring-amber-500/50' : 'border-slate-700'}`}>
-                    <p className="text-slate-400 text-[10px] font-bold uppercase mb-1">Total ({totalCount})</p>
-                    <h3 className="text-2xl font-bold text-emerald-400">R$ {totalEarnings.toFixed(2)}</h3>
-                 </button>
-             </div>
+        )}
 
-             <div>
-                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center justify-between">
-                    <span className="flex items-center gap-2"><History size={16}/> {historyFilter === 'today' ? 'Corridas de Hoje' : 'Histórico Geral'}</span>
-                    <span className="text-[10px] bg-slate-900 px-2 py-0.5 rounded text-slate-400">{displayedDeliveries.length} entregas</span>
-                </h3>
+        {/* --- ABA HISTÓRICO (NOVO) --- */}
+        {activeTab === 'history' && (
+            <div className="space-y-4">
+                <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+                    <button onClick={() => setHistoryFilter('today')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${historyFilter === 'today' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Hoje</button>
+                    <button onClick={() => setHistoryFilter('all')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${historyFilter === 'all' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Tudo</button>
+                </div>
+
                 <div className="space-y-3">
-                    {visibleDeliveries.length === 0 ? (
-                        <div className="text-center py-10 text-slate-600 text-sm italic border border-dashed border-slate-800 rounded-xl">Nenhuma entrega encontrada neste período.</div>
+                    {visibleHistory.length === 0 ? (
+                        <div className="text-center py-10 bg-slate-900 rounded-xl border border-dashed border-slate-800 text-slate-500 text-sm">Nenhum histórico encontrado.</div>
                     ) : (
-                        visibleDeliveries.map((order: Order) => (
-                            <div key={order.id} className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                <div className="flex-1 min-w-0 mr-2">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <Calendar size={12} className="text-slate-500"/>
-                                        <span className="text-[10px] font-bold text-slate-400">{formatDate(order.completedAt)} • {formatTime(order.completedAt)}</span>
+                        visibleHistory.map((order: Order) => (
+                            <div key={order.id} className="bg-slate-900 rounded-xl border border-slate-800 p-4 animate-in fade-in slide-in-from-bottom-2">
+                                <div className="flex justify-between items-start mb-2 border-b border-slate-800 pb-2">
+                                    <div className="flex items-center gap-2 text-slate-400">
+                                        <Calendar size={14}/>
+                                        <span className="text-xs font-bold">{formatDate(order.completedAt)} • {formatTime(order.completedAt)}</span>
                                     </div>
-                                    <p className="text-sm font-bold text-white truncate">{order.customer}</p>
-                                    <p className="text-xs text-slate-400 truncate">{order.address}</p>
+                                    <span className="text-[10px] font-bold bg-emerald-900/30 text-emerald-400 px-2 py-0.5 rounded">CONCLUÍDO</span>
                                 </div>
-                                <div className="text-right">
-                                    <span className="block text-[10px] text-slate-500 font-bold uppercase">Taxa</span>
-                                    <span className="text-emerald-400 font-bold">+ {formatCurrency(TAXA_ENTREGA)}</span>
+                                <div className="mb-2">
+                                    <p className="font-bold text-white text-base">{order.customer}</p>
+                                    <div className="flex items-start gap-1 mt-1">
+                                        <MapPin size={12} className="text-slate-500 mt-0.5 shrink-0"/>
+                                        <p className="text-xs text-slate-400 leading-tight">{order.address}</p>
+                                    </div>
+                                </div>
+                                <div className="bg-slate-950 p-2 rounded-lg mb-2">
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">Itens</p>
+                                    <p className="text-xs text-slate-300 line-clamp-2">{order.items}</p>
+                                </div>
+                                <div className="flex justify-between items-center pt-1">
+                                    <span className="text-xs text-slate-500">Taxa de Entrega</span>
+                                    <span className="font-bold text-emerald-400">+ {formatCurrency(TAXA_ENTREGA)}</span>
                                 </div>
                             </div>
                         ))
                     )}
-                    {displayedDeliveries.length > visibleItems && (
-                        <button 
-                            onClick={() => setVisibleItems(prev => prev + 20)}
-                            className="w-full py-3 mt-4 text-xs font-bold text-slate-400 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800 hover:text-white transition-colors flex items-center justify-center gap-2"
-                        >
-                            <ChevronDown size={14}/> Carregar mais antigas
+                    {displayedHistory.length > visibleItems && (
+                        <button onClick={() => setVisibleItems(prev => prev + 20)} className="w-full py-3 text-xs font-bold text-slate-400 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800 hover:text-white transition-colors flex items-center justify-center gap-2">
+                            <ChevronDown size={14}/> Carregar mais
                         </button>
                     )}
                 </div>
+            </div>
+        )}
+
+        {/* --- ABA FINANÇAS (RESUMO) --- */}
+        {activeTab === 'wallet' && (
+          <div className="space-y-6 pt-2">
+             <div className="grid grid-cols-2 gap-3">
+                 <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl shadow-xl border border-amber-500/30 ring-1 ring-amber-500/20">
+                    <p className="text-slate-400 text-[10px] font-bold uppercase mb-2">Ganhos Hoje</p>
+                    <h3 className="text-3xl font-black text-white">{formatCurrency(todayEarnings)}</h3>
+                    <p className="text-[10px] text-slate-500 mt-1">{todayCount} entregas</p>
+                 </div>
+                 <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl shadow-xl border border-emerald-500/30 ring-1 ring-emerald-500/20">
+                    <p className="text-slate-400 text-[10px] font-bold uppercase mb-2">Saldo Total</p>
+                    <h3 className="text-3xl font-black text-emerald-400">{formatCurrency(totalEarnings)}</h3>
+                    <p className="text-[10px] text-slate-500 mt-1">{totalCount} entregas</p>
+                 </div>
+             </div>
+
+             <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 text-center">
+                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-800 mb-4">
+                     <Wallet className="text-slate-400" size={24}/>
+                 </div>
+                 <h3 className="text-white font-bold text-lg mb-2">Carteira Digital</h3>
+                 <p className="text-slate-500 text-sm leading-relaxed">
+                     O fechamento do caixa e repasse dos valores é realizado pelo gerente. Solicite seu extrato completo ou vales diretamente no balcão.
+                 </p>
              </div>
           </div>
         )}

@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { collection, addDoc, updateDoc, doc, onSnapshot, serverTimestamp, deleteDoc, setDoc, writeBatch, Timestamp } from "firebase/firestore";
 import { auth, db } from './services/firebase';
-import { UserType, Driver, Order, Vale, Expense, Product, Client, AppConfig } from './types';
+import { UserType, Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement } from './types';
 import { BrandLogo } from './components/Shared';
 import DriverInterface from './components/DriverInterface';
 import AdminInterface from './components/AdminInterface';
-import { NewOrderModal, NewDriverModal, SettingsModal, ImportModal, NewExpenseModal, NewValeModal, EditClientModal } from './components/Modals';
+import { NewOrderModal, NewDriverModal, SettingsModal, ImportModal, NewExpenseModal, NewValeModal, EditClientModal, CloseCycleModal } from './components/Modals';
 import { Loader2, TrendingUp, ChevronRight, Bike } from 'lucide-react';
 import { normalizePhone, capitalize, formatCurrency } from './utils';
 
@@ -45,9 +45,11 @@ export default function App() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [modal, setModal] = useState<any>(null);
+  const [modalData, setModalData] = useState<any>(null); // Dados temporários para passar aos modais
   const [driverToEdit, setDriverToEdit] = useState<Driver | null>(null);
   const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
 
@@ -75,6 +77,7 @@ export default function App() {
         onSnapshot(collection(db, 'vales'), s => setVales(s.docs.map(d => ({id: d.id, ...d.data()} as Vale)))),
         onSnapshot(collection(db, 'expenses'), s => setExpenses(s.docs.map(d => ({id: d.id, ...d.data()} as Expense)))),
         onSnapshot(collection(db, 'products'), s => setProducts(s.docs.map(d => ({id: d.id, ...d.data()} as Product)))),
+        onSnapshot(collection(db, 'settlements'), s => setSettlements(s.docs.map(d => ({id: d.id, ...d.data()} as Settlement)))),
         onSnapshot(collection(db, 'clients'), s => { setClients(s.docs.map(d => ({id: d.id, ...d.data()} as Client))); setLoading(false); })
     ];
     return () => unsubs.forEach(u => u());
@@ -111,6 +114,24 @@ export default function App() {
   const deleteProduct = (id: string) => handleAction(async () => { if(confirm("Excluir produto?")) await deleteDoc(doc(db, 'products', id)); });
   const updateClientData = (id: string, data: any) => handleAction(async () => { await setDoc(doc(db, 'clients', id), data, { merge: true }); });
   
+  // Função para fechar ciclo do motoboy
+  const handleCloseCycle = (data: any) => handleAction(async () => {
+      if (!driverToEdit) return;
+      // Permite definir a data manualmente (retroativo) ou usa o serverTimestamp
+      const timestamp = data.endAt ? Timestamp.fromDate(new Date(data.endAt)) : serverTimestamp();
+      
+      await addDoc(collection(db, 'settlements'), {
+          ...data,
+          driverId: driverToEdit.id,
+          endAt: timestamp
+      });
+      // Atualizar a data de corte do motorista para a data escolhida
+      await updateDoc(doc(db, 'drivers', driverToEdit.id), {
+          lastSettlementAt: timestamp
+      });
+      alert('Ciclo fechado com sucesso! Os valores foram zerados para o próximo período.');
+  });
+
   const handleImportCSV = async (csvText: string) => {
       if (!csvText) return;
       const dbBatch = writeBatch(db);
@@ -181,11 +202,13 @@ export default function App() {
     <>
       <GlobalStyles />
       <AdminInterface 
-          drivers={drivers} orders={orders} vales={vales} expenses={expenses} products={products} clients={clients}
+          drivers={drivers} orders={orders} vales={vales} expenses={expenses} products={products} clients={clients} settlements={settlements}
           onAssignOrder={assignOrder} onCreateDriver={createDriver} onUpdateDriver={updateDriver} onDeleteDriver={deleteDriver} 
           onCreateOrder={createOrder} onDeleteOrder={deleteOrder} onUpdateOrder={updateOrder} onCreateVale={createVale} onCreateExpense={createExpense}
-          onCreateProduct={createProduct} onDeleteProduct={deleteProduct} onUpdateProduct={updateProduct} onUpdateClient={updateClientData} onLogout={handleLogout} 
-          isMobile={isMobile} appConfig={appConfig} setAppConfig={setAppConfig} setModal={setModal} setDriverToEdit={setDriverToEdit} setClientToEdit={setClientToEdit}
+          onCreateProduct={createProduct} onDeleteProduct={deleteProduct} onUpdateProduct={updateProduct} onUpdateClient={updateClientData} onLogout={handleLogout}
+          onCloseCycle={(driverId, data) => handleCloseCycle(data)} // Não usado diretamente, modal chama onConfirm
+          isMobile={isMobile} appConfig={appConfig} setAppConfig={setAppConfig} setModal={setModal} setModalData={setModalData}
+          setDriverToEdit={setDriverToEdit} setClientToEdit={setClientToEdit}
       />
       {modal === 'settings' && <SettingsModal config={appConfig} onSave={(newConfig: AppConfig) => { setAppConfig(newConfig); setModal(null); }} onClose={() => setModal(null)} />}
       {modal === 'order' && <NewOrderModal onClose={()=>setModal(null)} onSave={(data: any) => { createOrder(data); }} products={products} clients={clients} />}
@@ -194,6 +217,13 @@ export default function App() {
       {modal === 'import' && <ImportModal onClose={() => setModal(null)} onImportCSV={handleImportCSV} />}
       {modal === 'expense' && <NewExpenseModal onClose={() => setModal(null)} onSave={createExpense} />}
       {modal === 'client' && clientToEdit && <EditClientModal client={clientToEdit} orders={orders} onClose={() => setModal(null)} onUpdateOrder={updateOrder} onSave={(data: any) => { updateClientData(clientToEdit.id, data); setModal(null); }} />}
+      {modal === 'closeCycle' && driverToEdit && modalData && (
+          <CloseCycleModal 
+            data={modalData} 
+            onClose={() => { setModal(null); setDriverToEdit(null); setModalData(null); }}
+            onConfirm={(data: any) => handleCloseCycle(data)} 
+          />
+      )}
     </>
   );
 }
@@ -223,7 +253,7 @@ function DriverSelection({ drivers, onSelect, onBack }: { drivers: Driver[], onS
                </div>
                <form onSubmit={handleLogin} className="space-y-4">
                    <input type="password" autoFocus className="w-full border-2 border-slate-700 bg-slate-950 rounded-xl p-3 text-center text-lg font-normal text-white outline-none focus:border-amber-500" placeholder="Senha" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} />
-                   {error && <p className="text-red-500 text-sm text-center font-bold animate-pulse">{error}</p>}
+                   {error && <p className="text-red-500 text-center font-bold animate-pulse text-sm">{error}</p>}
                    <button type="submit" className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl shadow-lg transition-colors">Acessar Painel</button>
                </form>
                <button onClick={() => setSelectedId(null)} className="w-full mt-4 text-slate-500 text-sm hover:text-amber-500 transition-colors">← Voltar</button>

@@ -1,7 +1,119 @@
-import React, { useState, useMemo } from 'react';
-import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History } from 'lucide-react';
 import { Product, Client, AppConfig, Driver, Order, Vale } from '../types';
 import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase } from '../utils';
+
+// --- CLOSE CYCLE MODAL (NOVO) ---
+export function CloseCycleModal({ data, onClose, onConfirm }: any) {
+    const [form, setForm] = useState({
+        endAt: new Date().toISOString().slice(0, 16), // Formato YYYY-MM-DDTHH:mm
+        deliveriesCount: data.ordersCount,
+        deliveriesTotal: data.total,
+        valesTotal: data.vales,
+        finalAmount: data.net
+    });
+
+    useEffect(() => {
+        // Recalcula o total final se o usuário editar os valores brutos
+        const net = Number(form.deliveriesTotal) - Number(form.valesTotal);
+        if (net !== form.finalAmount) {
+            setForm(prev => ({ ...prev, finalAmount: net }));
+        }
+    }, [form.deliveriesTotal, form.valesTotal]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onConfirm({
+            ...form,
+            endAt: form.endAt, // Passa a data string, será convertida no App.tsx
+            deliveriesCount: Number(form.deliveriesCount),
+            deliveriesTotal: Number(form.deliveriesTotal),
+            valesTotal: Number(form.valesTotal),
+            finalAmount: Number(form.finalAmount)
+        });
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-800 animate-in zoom-in">
+                <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
+                    <h3 className="font-bold text-xl text-white flex items-center gap-2">
+                        <History className="text-emerald-500"/> Fechar Ciclo
+                    </h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                </div>
+                
+                <div className="bg-amber-900/20 p-3 rounded-xl border border-amber-900/50 mb-4 flex gap-2 items-start">
+                    <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={16}/>
+                    <p className="text-xs text-amber-200">
+                        Confira os valores abaixo. Ao confirmar, o ciclo atual será encerrado e um novo histórico será criado.
+                    </p>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Data/Hora do Fechamento</label>
+                        <input 
+                            type="datetime-local"
+                            className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-emerald-500"
+                            value={form.endAt}
+                            onChange={e => setForm({...form, endAt: e.target.value})}
+                            required
+                        />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Qtd. Entregas</label>
+                            <input 
+                                type="number"
+                                className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-emerald-500"
+                                value={form.deliveriesCount}
+                                onChange={e => setForm({...form, deliveriesCount: Number(e.target.value)})}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Total Bruto (R$)</label>
+                            <input 
+                                type="number"
+                                step="0.01"
+                                className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-emerald-500"
+                                value={form.deliveriesTotal}
+                                onChange={e => setForm({...form, deliveriesTotal: Number(e.target.value)})}
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Total Vales (R$)</label>
+                        <input 
+                            type="number"
+                            step="0.01"
+                            className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-red-400 outline-none focus:border-red-500"
+                            value={form.valesTotal}
+                            onChange={e => setForm({...form, valesTotal: Number(e.target.value)})}
+                        />
+                    </div>
+
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <span className="text-sm font-bold text-slate-400">Valor Final a Pagar:</span>
+                        <span className="text-xl font-black text-emerald-400">
+                            {formatCurrency(form.finalAmount)}
+                        </span>
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                        <button type="button" onClick={onClose} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-800 rounded-xl transition-colors">Cancelar</button>
+                        <button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2">
+                            <CheckCircle2 size={18}/> Confirmar Fechamento
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
 
 // --- NEW ORDER MODAL ---
 export function NewOrderModal({ onClose, onSave, products, clients }: any) {

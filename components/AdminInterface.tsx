@@ -1,13 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { Driver, Order, Vale, Expense, Product, Client, AppConfig } from '../types';
+import { Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement } from '../types';
 import { BrandLogo, SidebarBtn, StatBox } from './Shared';
-import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart } from 'lucide-react';
+import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart, History, CheckCircle2 } from 'lucide-react';
 import { formatCurrency, formatTime, formatDate, isToday } from '../utils';
 import { MenuManager } from './MenuManager';
 import { ClientsView } from './ClientsView';
 import { DailyOrdersView } from './DailyOrdersView';
 import { KitchenDisplay } from './KitchenDisplay';
 import { ItemReportView } from './ItemReportView';
+
+type AdminViewMode = 'map' | 'list' | 'history' | 'menu' | 'clients' | 'daily' | 'kds' | 'reports';
 
 interface AdminProps {
     drivers: Driver[];
@@ -16,6 +18,7 @@ interface AdminProps {
     expenses: Expense[];
     products: Product[];
     clients: Client[];
+    settlements: Settlement[];
     onAssignOrder: (oid: string, did: string) => void;
     onCreateDriver: (data: any) => void;
     onUpdateDriver: (id: string, data: any) => void;
@@ -29,23 +32,25 @@ interface AdminProps {
     onUpdateProduct: (id: string, data: any) => void;
     onDeleteProduct: (id: string) => void;
     onUpdateClient: (id: string, data: any) => void;
+    onCloseCycle: (driverId: string, data: any) => void;
     onLogout: () => void;
     isMobile: boolean;
     appConfig: AppConfig;
     setAppConfig: (config: AppConfig) => void;
     setModal: (modal: any) => void;
+    setModalData: (data: any) => void;
     setDriverToEdit: (d: Driver | null) => void;
     setClientToEdit: (c: Client | null) => void;
 }
 
 export default function AdminInterface(props: AdminProps) {
     const { 
-        drivers, orders, vales, expenses, products, clients, appConfig, 
-        isMobile, setModal, onLogout, onDeleteOrder, onAssignOrder, 
+        drivers, orders, vales, expenses, products, clients, settlements, appConfig, 
+        isMobile, setModal, setModalData, onLogout, onDeleteOrder, onAssignOrder, 
         setDriverToEdit, onDeleteDriver, setClientToEdit, onUpdateOrder
     } = props;
     
-    const [view, setView] = useState<'map' | 'list' | 'history' | 'menu' | 'clients' | 'daily' | 'kds' | 'reports'>('map');
+    const [view, setView] = useState<AdminViewMode>('map');
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
     const [driverSidebarTab, setDriverSidebarTab] = useState<'assign' | 'history' | 'finance'>('assign');
 
@@ -70,19 +75,54 @@ export default function AdminInterface(props: AdminProps) {
     const TAXA_ENTREGA = 5.00;
     
     const driverFinancials = useMemo(() => {
-        if (!selectedDriver) return { total: 0, vales: 0, net: 0, valeList: [] };
-        const myDeliveriesCount = orders.filter((o: Order) => o.driverId === selectedDriver.id && o.status === 'completed').length;
-        const totalEarnings = myDeliveriesCount * TAXA_ENTREGA;
-        const myVales = vales.filter((v: Vale) => v.driverId === selectedDriver.id);
-        const totalVales = myVales.reduce((acc: number, v: Vale) => acc + (Number(v.amount) || 0), 0);
-        return { total: totalEarnings, vales: totalVales, net: totalEarnings - totalVales, valeList: myVales };
-    }, [orders, vales, selectedDriver]);
+        if (!selectedDriver) return { total: 0, vales: 0, net: 0, valeList: [], history: [] };
+        
+        // Data do último fechamento (Timestamp ou 0 se nunca houve)
+        const lastSettlementTime = selectedDriver.lastSettlementAt?.seconds || 0;
+
+        // Filtra entregas APÓS o último fechamento
+        const currentCycleOrders = orders.filter((o: Order) => 
+            o.driverId === selectedDriver.id && 
+            o.status === 'completed' &&
+            (o.completedAt?.seconds || 0) > lastSettlementTime
+        );
+
+        // Filtra vales APÓS o último fechamento
+        const currentCycleVales = vales.filter((v: Vale) => 
+            v.driverId === selectedDriver.id &&
+            (v.createdAt?.seconds || 0) > lastSettlementTime
+        );
+        
+        // Histórico de fechamentos passados
+        const driverSettlements = settlements.filter(s => s.driverId === selectedDriver.id)
+            .sort((a, b) => (b.endAt?.seconds || 0) - (a.endAt?.seconds || 0));
+
+        const totalEarnings = currentCycleOrders.length * TAXA_ENTREGA;
+        const totalVales = currentCycleVales.reduce((acc: number, v: Vale) => acc + (Number(v.amount) || 0), 0);
+
+        return { 
+            total: totalEarnings, 
+            vales: totalVales, 
+            net: totalEarnings - totalVales, 
+            valeList: currentCycleVales,
+            ordersCount: currentCycleOrders.length,
+            history: driverSettlements,
+            lastSettlementDate: selectedDriver.lastSettlementAt
+        };
+    }, [orders, vales, selectedDriver, settlements]);
 
     const selectedDriverOrders = useMemo(() => {
         if (!selectedDriver) return [];
         return orders.filter((o: Order) => o.driverId === selectedDriver.id && o.status === 'completed')
           .sort((a: Order, b: Order) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
     }, [orders, selectedDriver]);
+
+    const handleCloseCycleClick = () => {
+        if(!selectedDriver) return;
+        setDriverToEdit(selectedDriver);
+        setModalData(driverFinancials);
+        setModal('closeCycle');
+    };
 
     // Ocultar a interface padrão se estiver no modo KDS
     if (view === 'kds') {
@@ -272,7 +312,7 @@ export default function AdminInterface(props: AdminProps) {
                       <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                          <div className="flex w-full mt-6 bg-slate-950 p-1 rounded-xl mb-6">
                             <button onClick={() => setDriverSidebarTab('assign')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${driverSidebarTab==='assign'?'bg-slate-800 text-white shadow-md':'text-slate-500 hover:text-slate-300'}`}>Atribuir</button>
-                            <button onClick={() => setDriverSidebarTab('history')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${driverSidebarTab==='history'?'bg-slate-800 text-white shadow-md':'text-slate-500 hover:text-slate-300'}`}>Histórico</button>
+                            <button onClick={() => setDriverSidebarTab('history')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${driverSidebarTab==='history'?'bg-slate-800 text-white shadow-md':'text-slate-500 hover:text-slate-300'}`}>Entregas</button>
                             <button onClick={() => setDriverSidebarTab('finance')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${driverSidebarTab==='finance'?'bg-slate-800 text-white shadow-md':'text-slate-500 hover:text-slate-300'}`}>Financeiro</button>
                          </div>
 
@@ -312,14 +352,38 @@ export default function AdminInterface(props: AdminProps) {
 
                          {driverSidebarTab === 'finance' && (
                              <div className="space-y-6 pb-20">
-                                 <div className="grid grid-cols-2 gap-3">
-                                     <div className="bg-slate-900 p-3 rounded-xl border border-slate-800"><p className="text-[10px] uppercase font-bold text-slate-500">Entregas</p><p className="text-xl font-bold text-white">{selectedDriverOrders.length}</p></div>
-                                     <div className="bg-slate-900 p-3 rounded-xl border border-slate-800"><p className="text-[10px] uppercase font-bold text-slate-500">Produção</p><p className="text-xl font-bold text-emerald-400">{formatCurrency(driverFinancials.total)}</p></div>
+                                 <div className="bg-slate-900 p-4 rounded-xl border border-emerald-900/50 relative overflow-hidden">
+                                     <div className="absolute top-0 right-0 p-2 opacity-10"><Wallet size={64}/></div>
+                                     <h4 className="text-xs font-bold text-emerald-400 uppercase mb-4 tracking-wider">Ciclo Atual</h4>
+                                     <div className="grid grid-cols-2 gap-4 mb-4">
+                                         <div><p className="text-[10px] text-slate-500 font-bold uppercase">Entregas</p><p className="text-xl font-bold text-white">{driverFinancials.ordersCount}</p></div>
+                                         <div><p className="text-[10px] text-slate-500 font-bold uppercase">Valor Bruto</p><p className="text-xl font-bold text-white">{formatCurrency(driverFinancials.total)}</p></div>
+                                     </div>
+                                     <div className="flex justify-between items-center mb-2 pt-2 border-t border-slate-800/50"><span className="text-xs font-bold text-slate-400">Descontos / Vales</span><span className="text-sm font-bold text-red-400">- {formatCurrency(driverFinancials.vales)}</span></div>
+                                     <div className="flex justify-between items-center pt-2 border-t border-slate-800"><span className="text-sm font-bold text-white">Líquido a Pagar</span><span className="text-xl font-black text-emerald-400">{formatCurrency(driverFinancials.net)}</span></div>
+                                     
+                                     <button onClick={handleCloseCycleClick} className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-colors">
+                                        <CheckCircle2 size={18}/> Fechar Ciclo & Pagar
+                                     </button>
+                                     <p className="text-[10px] text-slate-500 mt-2 text-center">Isso zera os valores e salva no histórico.</p>
                                  </div>
-                                 <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
-                                     <div className="flex justify-between items-center mb-2"><span className="text-xs font-bold text-slate-400">Total Vales</span><span className="text-sm font-bold text-red-400">- {formatCurrency(driverFinancials.vales)}</span></div>
-                                     <div className="flex justify-between items-center pt-2 border-t border-slate-800"><span className="text-sm font-bold text-white">A Pagar</span><span className="text-xl font-bold text-emerald-400">{formatCurrency(driverFinancials.net)}</span></div>
-                                 </div>
+
+                                 {driverFinancials.history.length > 0 && (
+                                     <div>
+                                         <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2"><History size={14}/> Histórico de Fechamentos</h4>
+                                         <div className="space-y-2">
+                                             {driverFinancials.history.map((settlement, idx) => (
+                                                 <div key={idx} className="bg-slate-900 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                                                     <div>
+                                                         <p className="text-xs font-bold text-white">{formatDate(settlement.endAt)}</p>
+                                                         <p className="text-[10px] text-slate-500">{settlement.deliveriesCount} entregas</p>
+                                                     </div>
+                                                     <span className="text-sm font-bold text-emerald-400">{formatCurrency(settlement.finalAmount)}</span>
+                                                 </div>
+                                             ))}
+                                         </div>
+                                     </div>
+                                 )}
                              </div>
                          )}
                       </div>
