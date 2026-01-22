@@ -131,7 +131,15 @@ export default function App() {
       return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Persiste a configuração do app
   useEffect(() => { localStorage.setItem('jhans_app_config', JSON.stringify(appConfig)); }, [appConfig]);
+
+  // Persiste o modo de visualização (Admin ou Driver) para não perder ao atualizar
+  useEffect(() => {
+      if (viewMode) {
+          localStorage.setItem('jhans_viewMode', viewMode);
+      }
+  }, [viewMode]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -251,7 +259,12 @@ export default function App() {
       try { await dbBatch.commit(); alert("Dados importados!"); setModal(null); } catch(e) { console.error(e); alert("Erro ao importar."); }
   };
 
-  const handleLogout = () => { localStorage.clear(); window.location.reload(); };
+  const handleLogout = () => { 
+      // Remove apenas as chaves de sessão, mantendo a configuração do app
+      localStorage.removeItem('jhans_viewMode');
+      localStorage.removeItem('jhans_driverId');
+      window.location.reload(); 
+  };
 
   if (loading && !user) return <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 text-white"><Loader2 className="animate-spin w-10 h-10 text-amber-500 mb-4"/> <span className="font-medium animate-pulse">Carregando Sistema...</span></div>;
 
