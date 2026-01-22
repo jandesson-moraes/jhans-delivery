@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Order, Product } from '../types';
 import { formatTime, toSentenceCase } from '../utils';
-import { Clock, CheckCircle2, Flame, ChefHat, Bell, ArrowLeft } from 'lucide-react';
+import { Clock, CheckCircle2, Flame, ChefHat, ArrowLeft, AlertTriangle } from 'lucide-react';
 
 interface KDSProps {
     orders: Order[];
@@ -10,8 +10,11 @@ interface KDSProps {
     onBack?: () => void;
 }
 
+const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
+
 export function KitchenDisplay({ orders, products = [], onUpdateStatus, onBack }: KDSProps) {
     const [currentTime, setCurrentTime] = useState(new Date());
+    const prevPendingCountRef = useRef(0);
 
     // Filtra apenas pedidos ativos na cozinha
     const kitchenOrders = orders.filter(o => 
@@ -25,11 +28,16 @@ export function KitchenDisplay({ orders, products = [], onUpdateStatus, onBack }
 
     // Efeito sonoro simples ao chegar novo pedido
     useEffect(() => {
-        const newOrders = orders.filter(o => o.status === 'pending');
-        if (newOrders.length > 0) {
-            // Placeholder para som
+        const pendingCount = orders.filter(o => o.status === 'pending').length;
+        
+        // Se aumentou o número de pedidos pendentes, toca o som
+        if (pendingCount > prevPendingCountRef.current) {
+            const audio = new Audio(NOTIFICATION_SOUND);
+            audio.play().catch(e => console.log('Áudio autoplay bloqueado', e));
         }
-    }, [orders.length]);
+        
+        prevPendingCountRef.current = pendingCount;
+    }, [orders]);
 
     const getElapsedTime = (timestamp: any) => {
         if (!timestamp) return '00:00';
@@ -42,80 +50,90 @@ export function KitchenDisplay({ orders, products = [], onUpdateStatus, onBack }
     };
 
     const getCardColor = (status: string, elapsedSec: number) => {
-        if (status === 'ready') return 'bg-emerald-900 border-emerald-500';
-        if (elapsedSec > 1800) return 'bg-red-900 border-red-500 animate-pulse'; // Atrasado (30min)
-        if (status === 'preparing') return 'bg-orange-900/50 border-orange-500'; // Em preparo (Laranja)
-        return 'bg-amber-900/40 border-amber-500'; // Pendente (Amarelo)
+        if (status === 'ready') return 'bg-emerald-900 border-emerald-500 shadow-emerald-900/20';
+        if (elapsedSec > 1800) return 'bg-red-900 border-red-500 animate-pulse shadow-red-900/20'; 
+        if (status === 'preparing') return 'bg-orange-900/40 border-orange-500 shadow-orange-900/10'; 
+        return 'bg-slate-800 border-amber-500 shadow-amber-900/10'; 
     };
 
     const findProductDescription = (line: string) => {
         if(!line) return '';
-        // Remove quantidade (ex: "2x ") para buscar o nome
         const cleanName = line.replace(/^\d+[xX\s]+/, '').trim();
-        // Tenta encontrar produto exato
         const product = products.find(p => p.name.toLowerCase() === cleanName.toLowerCase());
         return product?.description || '';
     };
 
     return (
-        <div className="flex flex-col h-full bg-black text-white p-4 overflow-hidden">
-            <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-800">
-                <div className="flex items-center gap-4">
+        <div className="flex flex-col h-full bg-slate-950 text-white overflow-hidden">
+            {/* Header */}
+            <div className="bg-slate-900 p-3 md:p-4 border-b border-slate-800 shadow-md flex justify-between items-center shrink-0 z-10">
+                <div className="flex items-center gap-3">
                     {onBack && (
-                        <button onClick={onBack} className="bg-slate-800 hover:bg-slate-700 text-white p-3 rounded-xl flex items-center gap-2 font-bold transition-colors">
-                            <ArrowLeft size={24} /> Voltar
+                        <button onClick={onBack} className="bg-slate-800 hover:bg-slate-700 p-2 rounded-xl text-slate-300 hover:text-white transition-colors">
+                            <ArrowLeft size={20} />
                         </button>
                     )}
-                    <ChefHat size={32} className="text-white"/>
-                    <h1 className="text-3xl font-black uppercase tracking-widest hidden md:block">Cozinha (KDS)</h1>
+                    <div className="flex items-center gap-2">
+                        <ChefHat className="text-amber-500" size={24} />
+                        <h1 className="font-black text-xl md:text-2xl tracking-tight text-white">KDS <span className="text-slate-500 hidden sm:inline">COZINHA</span></h1>
+                    </div>
                 </div>
-                <div className="text-4xl font-mono font-bold text-amber-500">
+                <div className="font-mono font-bold text-xl md:text-3xl text-slate-200 bg-slate-800 px-3 py-1 rounded-lg border border-slate-700">
                     {currentTime.toLocaleTimeString()}
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20 custom-scrollbar">
+            {/* Grid de Pedidos */}
+            <div className="flex-1 overflow-y-auto p-2 md:p-4 custom-scrollbar">
                 {kitchenOrders.length === 0 ? (
-                    <div className="col-span-full flex flex-col items-center justify-center h-96 text-slate-600">
-                        <Flame size={64} className="mb-4 opacity-20"/>
-                        <p className="text-2xl font-bold">Cozinha Livre</p>
+                    <div className="flex flex-col items-center justify-center h-[80vh] text-slate-600 animate-in fade-in zoom-in">
+                        <div className="bg-slate-900 p-8 rounded-full mb-4 border border-slate-800">
+                            <Flame size={64} className="text-slate-700"/>
+                        </div>
+                        <p className="text-2xl font-bold text-slate-500">Cozinha Livre</p>
+                        <p className="text-sm">Nenhum pedido pendente</p>
                     </div>
                 ) : (
-                    kitchenOrders.map(order => {
-                        const elapsedSec = (currentTime.getTime() - (order.createdAt?.seconds * 1000)) / 1000;
-                        const cardColor = getCardColor(order.status, elapsedSec);
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 pb-20">
+                        {kitchenOrders.map(order => {
+                            const elapsedSec = (currentTime.getTime() - (order.createdAt?.seconds * 1000)) / 1000;
+                            const cardColor = getCardColor(order.status, elapsedSec);
 
-                        return (
-                            <div key={order.id} className={`relative flex flex-col justify-between rounded-xl border-l-8 shadow-2xl p-4 transition-all ${cardColor} min-h-[350px]`}>
-                                <div>
-                                    <div className="flex justify-between items-start mb-4 border-b border-white/10 pb-2">
-                                        <div className="flex flex-col">
-                                            <span className="font-black text-2xl leading-none text-white mb-1">{order.customer}</span>
-                                            <span className="text-xs font-mono text-white/70">#{order.id.slice(-4)}</span>
+                            return (
+                                <div key={order.id} className={`flex flex-col w-full rounded-xl border-l-[6px] shadow-lg transition-all ${cardColor} h-auto`}>
+                                    {/* Header do Card */}
+                                    <div className="p-3 md:p-4 border-b border-white/10 flex justify-between items-start bg-black/10">
+                                        <div className="flex flex-col overflow-hidden mr-2">
+                                            <span className="font-black text-lg md:text-xl leading-tight text-white truncate w-full" title={order.customer}>
+                                                {order.customer}
+                                            </span>
+                                            <span className="text-xs font-mono text-white/60">#{order.id.slice(-4)}</span>
                                         </div>
-                                        <span className="font-mono text-2xl font-bold flex items-center gap-2 bg-black/40 px-2 py-1 rounded">
-                                            <Clock size={20}/> {getElapsedTime(order.createdAt)}
-                                        </span>
-                                    </div>
-                                    <div className="mb-4">
-                                        <span className={`text-sm font-bold px-2 py-1 rounded uppercase ${order.serviceType === 'pickup' ? 'bg-purple-600 text-white' : 'bg-slate-700 text-slate-300'}`}>
-                                            {order.serviceType === 'pickup' ? 'Retirada' : 'Delivery'}
-                                        </span>
+                                        <div className="flex flex-col items-end shrink-0">
+                                            <div className="flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded mb-1">
+                                                <Clock size={14} className="text-white/80"/> 
+                                                <span className="font-mono font-bold text-base md:text-lg">{getElapsedTime(order.createdAt)}</span>
+                                            </div>
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${order.serviceType === 'pickup' ? 'bg-purple-500/20 text-purple-200' : 'bg-blue-500/20 text-blue-200'}`}>
+                                                {order.serviceType === 'pickup' ? 'Retirada' : 'Delivery'}
+                                            </span>
+                                        </div>
                                     </div>
                                     
-                                    <div className="space-y-4 mb-4">
-                                        {order.items.split('\n').map((line, i) => {
-                                            if (line.includes('---')) return <hr key={i} className="border-white/20 my-2"/>;
+                                    {/* Lista de Itens */}
+                                    <div className="p-3 md:p-4 flex-1 space-y-4">
+                                        {order.items.split('\n').filter(l => l.trim()).map((line, i) => {
+                                            if (line.includes('---')) return <hr key={i} className="border-white/10"/>;
                                             const isObs = line.toLowerCase().startsWith('obs:');
                                             const description = !isObs ? findProductDescription(line) : '';
 
                                             return (
-                                                <div key={i}>
-                                                    <p className={`${isObs ? 'text-yellow-300 text-lg italic bg-black/30 p-1 rounded mt-1' : 'text-2xl font-bold leading-tight'}`}>
+                                                <div key={i} className="flex flex-col">
+                                                    <p className={`font-bold leading-snug ${isObs ? 'text-yellow-300 text-sm bg-yellow-900/30 p-2 rounded border border-yellow-700/30' : 'text-white text-base md:text-lg'}`}>
                                                         {toSentenceCase(line)}
                                                     </p>
                                                     {description && (
-                                                        <p className="text-sm text-white/60 font-medium leading-tight mt-0.5 ml-1">
+                                                        <p className="text-xs md:text-sm text-white/50 leading-tight mt-1 pl-1 border-l-2 border-white/10">
                                                             {toSentenceCase(description)}
                                                         </p>
                                                     )}
@@ -123,28 +141,29 @@ export function KitchenDisplay({ orders, products = [], onUpdateStatus, onBack }
                                             )
                                         })}
                                     </div>
-                                </div>
 
-                                <div className="mt-auto pt-4 border-t border-white/10">
-                                    {order.status === 'pending' && (
-                                        <button onClick={() => onUpdateStatus(order.id, {status: 'preparing'})} className="w-full bg-orange-600 hover:bg-orange-500 text-white py-4 rounded-lg text-xl font-black uppercase shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2">
-                                            <Flame/> Iniciar Preparo
-                                        </button>
-                                    )}
-                                    {order.status === 'preparing' && (
-                                        <button onClick={() => onUpdateStatus(order.id, {status: 'ready'})} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-lg text-xl font-black uppercase shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2">
-                                            <CheckCircle2/> Pronto
-                                        </button>
-                                    )}
-                                    {order.status === 'ready' && (
-                                        <div className="text-center bg-black/20 p-2 rounded text-emerald-300 font-bold text-lg animate-pulse">
-                                            AGUARDANDO ENTREGA
-                                        </div>
-                                    )}
+                                    {/* Ações */}
+                                    <div className="p-3 md:p-4 mt-auto border-t border-white/10 bg-black/10">
+                                        {order.status === 'pending' && (
+                                            <button onClick={() => onUpdateStatus(order.id, {status: 'preparing'})} className="w-full bg-orange-600 hover:bg-orange-500 text-white py-3 rounded-lg font-black uppercase text-sm md:text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                                                <Flame size={18}/> Iniciar Preparo
+                                            </button>
+                                        )}
+                                        {order.status === 'preparing' && (
+                                            <button onClick={() => onUpdateStatus(order.id, {status: 'ready'})} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-lg font-black uppercase text-sm md:text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                                                <CheckCircle2 size={18}/> Marcar Pronto
+                                            </button>
+                                        )}
+                                        {order.status === 'ready' && (
+                                            <div className="w-full bg-emerald-900/30 border border-emerald-500/30 text-emerald-400 py-3 rounded-lg font-bold uppercase text-xs md:text-sm flex items-center justify-center gap-2 animate-pulse">
+                                                <CheckCircle2 size={16}/> Aguardando Entrega
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        )
-                    })
+                            )
+                        })}
+                    </div>
                 )}
             </div>
         </div>

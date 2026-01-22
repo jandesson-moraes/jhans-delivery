@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package } from 'lucide-react';
 import { Driver, Order } from '../types';
 import { isToday, formatTime, formatCurrency, formatDate } from '../utils';
@@ -13,11 +13,15 @@ interface DriverAppProps {
 }
 
 const TAXA_ENTREGA = 5.00;
+const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; // Som de sino
 
 export default function DriverInterface({ driver, orders, onToggleStatus, onAcceptOrder, onCompleteOrder, onLogout }: DriverAppProps) {
   const [activeTab, setActiveTab] = useState<'home' | 'history' | 'wallet'>('home');
   const [historyFilter, setHistoryFilter] = useState<'today' | 'all'>('today');
   const [visibleItems, setVisibleItems] = useState(20);
+
+  // Refs para controle de áudio
+  const prevAssignedCountRef = useRef(0);
 
   // Data do último fechamento para filtrar o ciclo atual
   const lastSettlementTime = driver.lastSettlementAt?.seconds || 0;
@@ -33,6 +37,22 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
      });
   }, [orders, driver.id]);
   
+  // Efeito para tocar som quando houver novos pedidos ATRIBUÍDOS ('assigned')
+  useEffect(() => {
+      const assignedCount = orders.filter(o => o.driverId === driver.id && o.status === 'assigned').length;
+      
+      // Se a contagem atual for maior que a anterior, toca o som
+      if (assignedCount > prevAssignedCountRef.current) {
+          const audio = new Audio(NOTIFICATION_SOUND);
+          audio.play().catch(e => console.log("Áudio bloqueado pelo navegador até interação do usuário:", e));
+          
+          // Se o navegador suportar vibração (celular)
+          if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      }
+      
+      prevAssignedCountRef.current = assignedCount;
+  }, [orders, driver.id]);
+
   // Histórico completo para a aba de Histórico
   const allDeliveries = useMemo(() => {
      return orders.filter((o: Order) => o.status === 'completed' && o.driverId === driver.id)
@@ -119,7 +139,7 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
                     {order.status === 'assigned' ? (
                         <div className="p-8 text-center space-y-4">
                             <h3 className="text-xl font-bold text-white mb-1">Nova entrega!</h3>
-                            <button onClick={() => onAcceptOrder(order.id)} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-extrabold py-4 rounded-xl shadow-lg transition-transform active:scale-95">ACEITAR</button>
+                            <button onClick={() => onAcceptOrder(order.id)} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-extrabold py-4 rounded-xl shadow-lg transition-transform active:scale-95 animate-bounce">ACEITAR</button>
                         </div>
                     ) : order.status === 'delivering' ? (
                         <div className="p-5 space-y-4">
