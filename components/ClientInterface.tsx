@@ -268,13 +268,13 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         text += `*Total:* ${formatCurrency(data.value)}\n`;
         text += `*Pagamento:* ${data.paymentMethod}\n\n`;
 
-        // INCLUSÃO DA CHAVE PIX NO WHATSAPP COM COPIA E COLA
+        // INCLUSÃO DA CHAVE PIX NO WHATSAPP COM COPIA E COLA (FORMATO BLOCO DE CÓDIGO)
         if (data.paymentMethod && data.paymentMethod.includes('PIX') && appConfig.pixKey) {
             const payload = generatePixPayload(appConfig.pixKey, appConfig.pixName, appConfig.pixCity, data.value, data.id);
             text += `--------------------------------\n`;
-            text += `*PAGAMENTO PIX (COPIA E COLA):*\n\n`;
-            text += `${payload}\n\n`;
-            text += `_(Copie o código acima e cole no seu banco)_\n`;
+            text += `*PAGAMENTO PIX (COPIA E COLA):*\n`;
+            text += `Copie o código abaixo:\n\n`;
+            text += `\`\`\`${payload}\`\`\`\n\n`; // Três crases para criar bloco de código no WhatsApp
             text += `--------------------------------\n\n`;
         }
 
@@ -285,6 +285,11 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     };
 
     if (view === 'success' && lastOrderData) {
+        // Recalcula payload para a tela de sucesso, se necessário
+        const successPixPayload = (lastOrderData.paymentMethod.includes('PIX') && appConfig.pixKey) 
+            ? generatePixPayload(appConfig.pixKey, appConfig.pixName, appConfig.pixCity, lastOrderData.value, lastOrderData.id) 
+            : null;
+
         return (
             <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4 text-center animate-in fade-in zoom-in">
                 
@@ -295,6 +300,32 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                     <h2 className="text-2xl font-black text-white">Pedido Enviado!</h2>
                     <p className="text-slate-400 text-sm">Agora é só aguardar a confirmação.</p>
                 </div>
+
+                {/* AREA DE PAGAMENTO PIX (SE FOR PIX) */}
+                {successPixPayload && (
+                    <div className="w-full max-w-sm bg-emerald-900/20 border border-emerald-500/50 p-4 rounded-xl mb-6 animate-in slide-in-from-bottom-2">
+                        <div className="flex flex-col items-center">
+                            <p className="text-xs text-emerald-400 font-bold mb-3 uppercase flex items-center gap-2">
+                                <QrCode size={14}/> Pagamento Pendente
+                            </p>
+                            <div className="flex gap-2 w-full">
+                                <input 
+                                    readOnly 
+                                    value={successPixPayload} 
+                                    className="flex-1 bg-slate-950 border border-emerald-500/30 rounded-lg p-3 text-[10px] font-mono text-white truncate"
+                                />
+                                <button 
+                                    type="button"
+                                    onClick={() => copyToClipboard(successPixPayload)}
+                                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors text-xs"
+                                >
+                                    <Copy size={16}/> Copiar
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-emerald-500/70 mt-2">Copie e pague no app do seu banco</p>
+                        </div>
+                    </div>
+                )}
 
                 {/* CUPOM / RECIBO DIGITAL */}
                 <div className="w-full max-w-sm bg-white text-slate-900 rounded-xl p-0 overflow-hidden shadow-2xl mb-6 relative">

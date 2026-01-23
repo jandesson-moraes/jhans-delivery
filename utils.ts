@@ -217,8 +217,9 @@ export const generateReceiptText = (order: any, appName: string, pixData?: any) 
          
          text += `\n\n*--------------------------------*\n`;
          text += `*PAGAMENTO PIX (COPIA E COLA):*\n`;
-         text += `${payload}\n`;
-         text += `\n(Copie o código acima e cole no app do banco na opção 'Pix Copia e Cola')`;
+         text += `Copie o código abaixo:\n\n`;
+         text += `\`\`\`${payload}\`\`\`\n\n`; // FORMATO DE CÓDIGO MONOSPACE
+         text += `--------------------------------\n\n`;
     }
     
     return text;
