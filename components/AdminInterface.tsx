@@ -1,8 +1,6 @@
 
 
 
-
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement } from '../types';
 import { BrandLogo, SidebarBtn, StatBox, Footer } from './Shared';
@@ -90,6 +88,21 @@ export default function AdminInterface(props: AdminProps) {
     // Controle de notificações de som para não repetir
     const notifiedOrderIds = useRef<Set<string>>(new Set());
     const newOrderAudioRef = useRef<HTMLAudioElement | null>(null);
+
+    // FUNÇÃO WRAPPER PARA ATRIBUIÇÃO DE PEDIDO
+    // Garante que o modal de sucesso abra tanto via KDS quanto via Sidebar
+    const handleAssignAndNotify = (oid: string, did: string) => {
+        // 1. Executa a ação original (atualiza DB)
+        onAssignOrder(oid, did);
+        
+        // 2. Prepara os dados para o modal de sucesso
+        const order = orders.find(o => o.id === oid);
+        const driver = drivers.find(d => d.id === did);
+        
+        if (order && driver) {
+            setDispatchedOrderData({ order, driverName: driver.name });
+        }
+    };
 
     const initiateAssignment = (order: Order) => {
         setOrderToAssign(order);
@@ -266,7 +279,8 @@ export default function AdminInterface(props: AdminProps) {
                     {view === 'menu' && <MenuManager products={products} onCreate={props.onCreateProduct} onUpdate={props.onUpdateProduct} onDelete={props.onDeleteProduct} />}
                     {view === 'clients' && <ClientsView clients={clients} orders={delivered} setModal={setModal} setClientToEdit={setClientToEdit} />}
                     {view === 'reports' && <ItemReportView orders={orders} />}
-                    {view === 'kds' && <KitchenDisplay orders={orders} products={products} drivers={drivers} onUpdateStatus={onUpdateOrder} onAssignOrder={onAssignOrder} />}
+                    {/* ATUALIZADO: Passando handleAssignAndNotify para o KDS */}
+                    {view === 'kds' && <KitchenDisplay orders={orders} products={products} drivers={drivers} onUpdateStatus={onUpdateOrder} onAssignOrder={handleAssignAndNotify} />}
                     {view === 'history' && (
                        <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-24 custom-scrollbar">
                           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4"><h3 className="font-bold text-2xl text-slate-200">Fluxo de Caixa</h3><button onClick={() => setModal('expense')} className="bg-red-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex gap-2 shadow-md"><MinusCircle size={18}/> Lançar Custo</button></div>
@@ -348,10 +362,9 @@ export default function AdminInterface(props: AdminProps) {
                 onClose={() => setModal(null)} 
                 onConfirm={() => { 
                     if (orderToAssign && selectedDriver) {
-                        onAssignOrder(orderToAssign.id, selectedDriver.id); 
-                        // Agora abrimos o modal em vez de mandar para o zap direto
-                        setDispatchedOrderData({ order: orderToAssign, driverName: selectedDriver.name });
+                        handleAssignAndNotify(orderToAssign.id, selectedDriver.id);
                     }
+                    setModal(null);
                     setOrderToAssign(null); 
                 }} 
                 order={orderToAssign} 
