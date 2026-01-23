@@ -112,7 +112,16 @@ export default function App() {
     return () => unsubs.forEach(u => u());
   }, [user]);
 
-  const handleAction = async (action: () => Promise<void>) => { try { await action(); } catch(e: any) { console.error(e); alert('Erro: ' + e.message); } };
+  // HandleAction genérico agora retorna o resultado da promessa
+  const handleAction = async (action: () => Promise<any>) => { 
+      try { 
+          return await action(); 
+      } catch(e: any) { 
+          console.error(e); 
+          alert('Erro: ' + e.message); 
+          return null;
+      } 
+  };
 
   const saveSettings = (newConfig: AppConfig) => handleAction(async () => {
       await setDoc(doc(db, 'config', 'general'), newConfig);
@@ -120,11 +129,15 @@ export default function App() {
   });
 
   const createOrder = (data: any) => handleAction(async () => {
-    await addDoc(collection(db, 'orders'), { ...data, status: 'pending', createdAt: serverTimestamp() });
+    // Agora retorna o ID do documento criado
+    const docRef = await addDoc(collection(db, 'orders'), { ...data, status: 'pending', createdAt: serverTimestamp() });
+    
     if (data.phone) {
         const cleanPhone = normalizePhone(data.phone);
         if (cleanPhone) await setDoc(doc(db, 'clients', cleanPhone), { name: data.customer, phone: data.phone, address: data.address, mapsLink: data.mapsLink || '', lastOrderAt: serverTimestamp() }, { merge: true });
     }
+    
+    return docRef.id; // Retorna o ID Real
   });
 
   const createDriver = (data: any) => handleAction(async () => { await addDoc(collection(db, 'drivers'), data); });

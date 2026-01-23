@@ -8,7 +8,7 @@ import { BrandLogo, Footer } from './Shared';
 interface ClientInterfaceProps {
     products: Product[];
     appConfig: AppConfig;
-    onCreateOrder: (data: any) => Promise<void>;
+    onCreateOrder: (data: any) => Promise<any>;
     onBack?: () => void;
     allowSystemAccess?: boolean;
     onSystemAccess?: (type: 'admin' | 'driver') => void;
@@ -232,10 +232,16 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         };
 
         try {
-            await onCreateOrder(orderData);
-            const generatedId = `PED-${Math.floor(Math.random()*10000)}`;
-            setOrderId(generatedId); 
-            setLastOrderData({ ...orderData, id: generatedId });
+            // AGORA CAPTURAMOS O ID REAL RETORNADO PELO FIREBASE
+            const returnedId = await onCreateOrder(orderData);
+            
+            // Fallback caso a promise não retorne ID (mas agora deve retornar)
+            const finalId = (typeof returnedId === 'string' && returnedId.length > 0) 
+                ? returnedId 
+                : `PED-${Math.floor(Math.random()*10000)}`;
+
+            setOrderId(finalId); 
+            setLastOrderData({ ...orderData, id: finalId });
             setView('success');
             setCart([]);
             setCheckout(prev => ({ ...prev, trocoPara: '' })); 
