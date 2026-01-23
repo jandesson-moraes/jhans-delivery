@@ -1,4 +1,5 @@
 
+
 export const formatTime = (timestamp: any) => {
   if (!timestamp || !timestamp.seconds) return '-';
   return new Date(timestamp.seconds * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -164,7 +165,18 @@ export const generatePixPayload = (key: string, name: string, city: string, amou
 
     const cleanName = normalizeText(name || 'RECEBEDOR').substring(0, 25) || 'RECEBEDOR';
     const cleanCity = normalizeText(city || 'BRASIL').substring(0, 15) || 'BRASIL';
-    const cleanTxId = sanitizeAscii(txId || '***').substring(0, 25) || '***';
+    
+    // CORREÇÃO CRÍTICA: TxID deve ser alfanumérico. Removemos hífens e outros caracteres especiais.
+    // Mantemos '***' se for o valor padrão.
+    let cleanTxId = sanitizeAscii(txId || '***');
+    if (cleanTxId !== '***') {
+        // Remove tudo que não for letra ou número
+        cleanTxId = cleanTxId.replace(/[^a-zA-Z0-9]/g, '');
+    }
+    // Se ficou vazio após limpeza, volta para ***
+    if (!cleanTxId) cleanTxId = '***';
+    cleanTxId = cleanTxId.substring(0, 25);
+
     const amountStr = amount.toFixed(2);
 
     let payload = 
