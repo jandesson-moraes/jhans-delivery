@@ -106,10 +106,26 @@ export const parseOrderItems = (itemsString: string) => {
     return items;
 };
 
-export const generateReceiptText = (order: any, appName: string) => {
+export const generateReceiptText = (order: any, appName: string, pixData?: any) => {
     const date = formatDate(order.createdAt);
     const time = formatTime(order.createdAt);
-    return `*${appName.toUpperCase()}*\n*Pedido #${order.id.slice(-4)}*\n📅 ${date} - ${time}\n\n*Cliente:* ${order.customer}\n*Tel:* ${order.phone}\n*End:* ${order.address}\n\n*--------------------------------*\n*ITENS:*\n${order.items}\n\n*--------------------------------*\n*TOTAL:* ${formatCurrency(order.value || 0)}\n\n*Pagamento:* ${order.paymentMethod || 'Dinheiro'}\n${order.obs ? `\n*Obs:* ${order.obs}` : ''}`;
+    
+    // Constrói o texto base
+    let text = `*${appName.toUpperCase()}*\n*Pedido #${order.id.slice(-4)}*\n📅 ${date} - ${time}\n\n*Cliente:* ${order.customer}\n*Tel:* ${order.phone}\n*End:* ${order.address}\n\n*--------------------------------*\n*ITENS:*\n${order.items}\n\n*--------------------------------*\n*TOTAL:* ${formatCurrency(order.value || 0)}\n\n`;
+    
+    // Adiciona informação de Entrega Grátis se aplicável
+    if (order.deliveryFee === 0 || !order.deliveryFee) {
+        text += `*Entrega:* GRÁTIS (Presente da Casa) 🎁\n`;
+    }
+
+    text += `*Pagamento:* ${order.paymentMethod || 'Dinheiro'}\n${order.obs ? `\n*Obs:* ${order.obs}` : ''}`;
+    
+    // Adiciona Chave PIX se necessário
+    if (pixData && order.paymentMethod && order.paymentMethod.toUpperCase().includes('PIX') && pixData.pixKey) {
+         text += `\n\n*DADOS PIX:*\n🔑 Chave: ${pixData.pixKey}\n👤 Nome: ${pixData.pixName || ''}\n📍 Cidade: ${pixData.pixCity || ''}`;
+    }
+    
+    return text;
 };
 
 export const downloadCSV = (content: string, fileName: string) => {
@@ -124,18 +140,18 @@ export const downloadCSV = (content: string, fileName: string) => {
 
 // --- FUNÇÕES GERADORAS DE PIX (PADRÃO BR CODE) ---
 
-const crc16ccitt = (str: string) => {
+const crc16ccitt = (payload: string) => {
     let crc = 0xFFFF;
-    for (let c = 0; c < str.length; c++) {
-        crc ^= str.charCodeAt(c) << 8;
-        for (let i = 0; i < 8; i++) {
-            if ((crc & 0x8000) !== 0)
+    for (let i = 0; i < payload.length; i++) {
+        let c = payload.charCodeAt(i);
+        crc ^= c << 8;
+        for (let j = 0; j < 8; j++) {
+            if ((crc & 0x8000) !== 0) {
                 crc = (crc << 1) ^ 0x1021;
-            else
+            } else {
                 crc = crc << 1;
-            
-            // Importante: garantir que continue sendo 16 bits
-            crc = crc & 0xFFFF;
+            }
+            crc = crc & 0xFFFF; // Garante 16 bits
         }
     }
     return crc.toString(16).toUpperCase().padStart(4, '0');
@@ -146,49 +162,66 @@ const formatField = (id: string, value: string) => {
     return `${id}${len}${value}`;
 };
 
+// Normalização Agressiva: Apenas Letras, Números e Espaço. Tudo maiúsculo.
 const normalizeText = (text: string) => {
     return text
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "") // Remove acentos
-        .replace(/[^a-zA-Z0-9\s]/g, "") // Remove caracteres especiais (exceto espaço)
+        .replace(/[^a-zA-Z0-9 ]/g, "")   // Remove TUDO que não for letra, número ou espaço (remove pontos, traços, etc)
+        .replace(/\s+/g, ' ')            // Remove espaços duplos
+        .trim()
         .toUpperCase();
 };
 
+const sanitizeAscii = (str: string) => str.replace(/[^\x20-\x7E]/g, '');
+
 export const generatePixPayload = (key: string, name: string, city: string, amount: number, txId: string = '***') => {
-    // 1. Limpeza da Chave PIX
-    let cleanKey = key.trim();
+    // 1. Limpeza e Validação da Chave
+    let cleanKey = sanitizeAscii(key || '').trim();
     
-    // Se não for email, remove espaços e parênteses que podem quebrar o QR Code
+    // Heurísticas
     if (!cleanKey.includes('@')) {
-        cleanKey = cleanKey.replace(/[\(\)\s]/g, '');
-        
-        // Se for telefone celular (11 dígitos e começa com DDD+9), sugerir +55 se não tiver
-        // (Isso é uma tentativa de correção automática, mas o ideal é o usuário cadastrar com +55)
-        if (/^\d{11}$/.test(cleanKey) && cleanKey[2] === '9') {
-             cleanKey = '+55' + cleanKey;
+        const isEVP = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanKey);
+        if (!isEVP) {
+            const raw = cleanKey.replace(/[\(\)\-\.\s\/]/g, '');
+            if (/^\d+$/.test(raw)) {
+                 // Celular
+                 if (raw.length === 11 && raw[2] === '9') {
+                     cleanKey = '+55' + raw;
+                 } else {
+                     cleanKey = raw; // CPF/CNPJ/Outros
+                 }
+            } else if (cleanKey.startsWith('+')) {
+                 cleanKey = '+' + raw.replace('+', ''); 
+            } else {
+                cleanKey = raw;
+            }
         }
     }
 
-    const cleanName = normalizeText(name).substring(0, 25).trim();
-    const cleanCity = normalizeText(city).substring(0, 15).trim();
+    // 2. Normalização dos campos (Obrigatório: Nome sem caracteres especiais)
+    const cleanName = normalizeText(name || 'RECEBEDOR').substring(0, 25) || 'RECEBEDOR';
+    const cleanCity = normalizeText(city || 'BRASIL').substring(0, 15) || 'BRASIL';
+    const cleanTxId = sanitizeAscii(txId || '***').substring(0, 25) || '***';
     const amountStr = amount.toFixed(2);
 
+    // 3. Montagem do Payload (GUI OBRIGATORIAMENTE MAIÚSCULO)
     let payload = 
-        formatField('00', '01') +                              // Payload Format Indicator
-        formatField('26',                                      // Merchant Account Information
-            formatField('00', 'BR.GOV.BCB.PIX') + 
+        formatField('00', '01') +                              
+        formatField('26',                                      
+            formatField('00', 'BR.GOV.BCB.PIX') + // FIX: Forçar Maiúsculo
             formatField('01', cleanKey)
         ) +
-        formatField('52', '0000') +                           // Merchant Category Code
-        formatField('53', '986') +                            // Transaction Currency (BRL)
-        formatField('54', amountStr) +                        // Transaction Amount
-        formatField('58', 'BR') +                             // Country Code
-        formatField('59', cleanName) +                        // Merchant Name
-        formatField('60', cleanCity) +                        // Merchant City
-        formatField('62',                                     // Additional Data Field Template
-            formatField('05', txId)                           // Reference Label
+        formatField('52', '0000') +                           
+        formatField('53', '986') +                            
+        formatField('54', amountStr) +                        
+        formatField('58', 'BR') +                             
+        formatField('59', cleanName) +                        
+        formatField('60', cleanCity) +                        
+        formatField('62',                                     
+            formatField('05', cleanTxId)                      
         ) +
-        '6304';                                               // CRC16 ID + Length
+        '6304';                                               
 
     payload += crc16ccitt(payload);
     return payload;

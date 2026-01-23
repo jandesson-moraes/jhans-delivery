@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check } from 'lucide-react';
 import { Product, Client, AppConfig, Driver, Order, Vale } from '../types';
@@ -305,16 +306,17 @@ export function SettingsModal({ config, onSave, onClose }: any) {
                              <Bike className="rotate-45" size={16}/> Configuração PIX
                          </div>
                          <div>
-                            <label className="text-[10px] font-bold text-slate-500 ml-1 uppercase mb-1 block">Chave PIX (CPF/CNPJ/Tel)</label>
+                            <label className="text-[10px] font-bold text-slate-500 ml-1 uppercase mb-1 block">Chave PIX (CPF/CNPJ/Tel/Email)</label>
                             <input className="w-full border border-slate-700 bg-slate-950 rounded-xl p-2.5 outline-none text-white text-sm" placeholder="Sua chave aqui" value={form.pixKey || ''} onChange={e => setForm({...form, pixKey: e.target.value})} />
                          </div>
                          <div>
-                            <label className="text-[10px] font-bold text-slate-500 ml-1 uppercase mb-1 block">Nome do Titular (Sem acentos)</label>
-                            <input className="w-full border border-slate-700 bg-slate-950 rounded-xl p-2.5 outline-none text-white text-sm" placeholder="Ex: JOAO SILVA" value={form.pixName || ''} onChange={e => setForm({...form, pixName: e.target.value.toUpperCase()})} />
+                            <label className="text-[10px] font-bold text-slate-500 ml-1 uppercase mb-1 block">Nome do Titular (Nome da Loja ou Pessoal)</label>
+                            <input className="w-full border border-slate-700 bg-slate-950 rounded-xl p-2.5 outline-none text-white text-sm" placeholder="Ex: JHANS BURGERS" value={form.pixName || ''} onChange={e => setForm({...form, pixName: e.target.value.toUpperCase()})} />
+                            <p className="text-[9px] text-amber-500 mt-1 flex items-center gap-1"><AlertCircle size={10}/> Importante: Não coloque CPF/CNPJ neste campo, apenas o nome (max 25 letras).</p>
                          </div>
                          <div>
-                            <label className="text-[10px] font-bold text-slate-500 ml-1 uppercase mb-1 block">Cidade do Titular (Sem acentos)</label>
-                            <input className="w-full border border-slate-700 bg-slate-950 rounded-xl p-2.5 outline-none text-white text-sm" placeholder="Ex: SAO PAULO" value={form.pixCity || ''} onChange={e => setForm({...form, pixCity: e.target.value.toUpperCase()})} />
+                            <label className="text-[10px] font-bold text-slate-500 ml-1 uppercase mb-1 block">Cidade do Titular</label>
+                            <input className="w-full border border-slate-700 bg-slate-950 rounded-xl p-2.5 outline-none text-white text-sm" placeholder="Ex: RIO DE JANEIRO" value={form.pixCity || ''} onChange={e => setForm({...form, pixCity: e.target.value.toUpperCase()})} />
                          </div>
                     </div>
 
@@ -786,7 +788,7 @@ export function ReceiptModal({ order, onClose, appConfig }: any) {
     };
 
     const handleCopy = () => {
-        const text = generateReceiptText(order, appConfig.appName);
+        const text = generateReceiptText(order, appConfig.appName, appConfig);
         copyToClipboard(text);
     };
 
@@ -799,7 +801,7 @@ export function ReceiptModal({ order, onClose, appConfig }: any) {
                 </div>
                 
                 <div className="bg-white text-black p-4 rounded-lg font-mono text-xs mb-6 shadow-inner overflow-y-auto max-h-[400px]">
-                    <pre className="whitespace-pre-wrap">{generateReceiptText(order, appConfig.appName)}</pre>
+                    <pre className="whitespace-pre-wrap">{generateReceiptText(order, appConfig.appName, appConfig)}</pre>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">

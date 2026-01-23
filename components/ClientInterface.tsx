@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, AppConfig, Order } from '../types';
 import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard, formatTime, formatDate, generatePixPayload } from '../utils';
-import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode } from 'lucide-react';
+import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode, Gift } from 'lucide-react';
 import { BrandLogo, Footer } from './Shared';
 
 interface ClientInterfaceProps {
@@ -111,7 +112,9 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         return cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
     }, [cart]);
 
-    const deliveryFee = checkout.serviceType === 'delivery' ? 5.00 : 0; 
+    // LÓGICA DE ENTREGA GRÁTIS
+    // Mesmo sendo delivery, o custo para o cliente é 0
+    const deliveryFee = 0; 
     const finalTotal = cartTotal + deliveryFee;
 
     // Geração do Payload do PIX
@@ -222,7 +225,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             value: finalTotal,
             paymentMethod: checkout.paymentMethod === 'Dinheiro' && checkout.trocoPara ? `Dinheiro (Troco p/ ${checkout.trocoPara})` : checkout.paymentMethod,
             serviceType: checkout.serviceType,
-            deliveryFee: deliveryFee,
+            deliveryFee: 0, // Salva explicitamente como 0
             discount: 0,
             origin: 'menu',
             createdAt: { seconds: Date.now() / 1000 } // Simulando timestamp para exibição imediata
@@ -244,10 +247,36 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     const sendToWhatsApp = () => {
         if (!appConfig.storePhone) return;
         
+        // Garante o uso dos dados mais recentes (do pedido confirmado)
+        const data = lastOrderData || { 
+            customer: checkout.name, 
+            id: orderId, 
+            value: finalTotal, 
+            paymentMethod: checkout.paymentMethod 
+        };
+
         let text = `*Olá! Acabei de fazer um pedido pelo Site.*\n\n`;
-        text += `*Cliente:* ${checkout.name}\n`;
-        text += `*ID:* ${orderId}\n`;
-        text += `*Total:* ${formatCurrency(cartTotal + (checkout.serviceType === 'delivery' ? 5 : 0))}\n\n`;
+        text += `*Pedido:* #${data.id.slice(-4)}\n`;
+        text += `*Cliente:* ${data.customer}\n`;
+        text += `*Itens:* ${data.items.replace(/\n---\n/g, ', ')}\n`; // Resumo rápido
+        
+        // Destaque para entrega grátis
+        if (checkout.serviceType === 'delivery') {
+            text += `*Entrega:* GRÁTIS (Presente da Casa) 🎁\n`;
+        }
+        
+        text += `*Total:* ${formatCurrency(data.value)}\n`;
+        text += `*Pagamento:* ${data.paymentMethod}\n\n`;
+
+        // INCLUSÃO DA CHAVE PIX NO WHATSAPP
+        if (data.paymentMethod && data.paymentMethod.includes('PIX') && appConfig.pixKey) {
+            text += `--------------------------------\n`;
+            text += `*DADOS PARA PAGAMENTO (PIX):*\n`;
+            text += `🔑 Chave: ${appConfig.pixKey}\n`;
+            if (appConfig.pixName) text += `👤 Nome: ${appConfig.pixName}\n`;
+            text += `--------------------------------\n\n`;
+        }
+
         text += `Podem confirmar?`;
 
         const link = `https://wa.me/55${normalizePhone(appConfig.storePhone)}?text=${encodeURIComponent(text)}`;
@@ -294,6 +323,12 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                             </pre>
                         </div>
 
+                        {/* LINHA DE ENTREGA GRÁTIS NO RECIBO */}
+                        <div className="flex justify-between items-center text-xs border-t border-dashed border-slate-300 pt-2">
+                            <span className="font-bold text-slate-500">Entrega</span>
+                            <span className="font-bold text-emerald-600 flex items-center gap-1"><Gift size={12}/> GRÁTIS (Presente)</span>
+                        </div>
+
                         <div className="flex justify-between items-center pt-2 border-t border-slate-900">
                             <span className="font-bold text-lg">TOTAL A PAGAR</span>
                             <span className="font-black text-xl text-emerald-600">{formatCurrency(lastOrderData.value)}</span>
@@ -318,7 +353,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         )
     }
 
-    // ... (restante do código igual)
+    // MENU VIEW (Mantido igual)
     if (view === 'cart') {
         return (
             <div className="min-h-screen bg-slate-950 text-white flex flex-col animate-in slide-in-from-right">
@@ -493,7 +528,10 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                     <div className="p-4 bg-slate-900 border-t border-slate-800 pb-safe">
                         <div className="space-y-2 mb-4 text-sm">
                             <div className="flex justify-between text-slate-400"><span>Subtotal</span><span>{formatCurrency(cartTotal)}</span></div>
-                            <div className="flex justify-between text-slate-400"><span>Taxa de Entrega</span><span>{checkout.serviceType === 'delivery' ? formatCurrency(5) : 'Grátis'}</span></div>
+                            <div className="flex justify-between text-emerald-400">
+                                <span>Taxa de Entrega</span>
+                                <span className="flex items-center gap-1 font-bold"><Gift size={14}/> GRÁTIS (Presente)</span>
+                            </div>
                             <div className="flex justify-between text-white font-bold text-lg pt-2 border-t border-slate-800"><span>Total</span><span>{formatCurrency(finalTotal)}</span></div>
                         </div>
                         <button form="checkout-form" type="submit" className="w-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 text-lg active:scale-95 transition-transform">
