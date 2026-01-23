@@ -11,8 +11,9 @@ import { KitchenDisplay } from './KitchenDisplay';
 import { ItemReportView } from './ItemReportView';
 import { NewOrderModal, ConfirmAssignmentModal, NewIncomingOrderModal } from './Modals'; 
 
-const SUCCESS_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3';
-const NEW_ORDER_SOUND = 'https://assets.mixkit.co/active_storage/sfx/1070/1070-preview.mp3'; // Som de sino nítido (Service Bell)
+// Som de Caixa Registradora ou Sino (Curto, não loop)
+const SUCCESS_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3'; 
+const NEW_ORDER_SOUND = 'https://assets.mixkit.co/active_storage/sfx/1070/1070-preview.mp3'; // Sino curto
 
 type AdminViewMode = 'map' | 'list' | 'history' | 'menu' | 'clients' | 'daily' | 'kds' | 'reports';
 
@@ -80,42 +81,49 @@ export default function AdminInterface(props: AdminProps) {
     const [newIncomingOrder, setNewIncomingOrder] = useState<Order | null>(null);
     const [soundEnabled, setSoundEnabled] = useState(false);
 
-    // Controle de notificações de som para não repetir
+    // FIX: Usar um Set para rastrear IDs que JÁ tocaram o som. 
+    // Assim, o som não repete no loop de renderização.
     const notifiedOrderIds = useRef<Set<string>>(new Set());
-    const successAudioRef = useRef<HTMLAudioElement | null>(null);
     const newOrderAudioRef = useRef<HTMLAudioElement | null>(null);
 
-    // Função para iniciar atribuição (estava faltando)
     const initiateAssignment = (order: Order) => {
         setOrderToAssign(order);
         setModal('confirmAssign');
     };
 
     useEffect(() => {
-        successAudioRef.current = new Audio(SUCCESS_SOUND);
+        // Inicializa o áudio apenas uma vez
         newOrderAudioRef.current = new Audio(NEW_ORDER_SOUND);
         
-        // Inicializa o conjunto de IDs já notificados com os pedidos existentes ao carregar
-        orders.forEach(o => notifiedOrderIds.current.add(o.id));
-    }, []);
+        // Popula o Set inicial com pedidos já existentes para não tocar som na carga da página
+        // (A menos que queira tocar para todos os pendentes ao abrir)
+        orders.forEach(o => {
+            // Se já existe, marcamos como notificado para não tocar agora
+            if(o.status !== 'pending') notifiedOrderIds.current.add(o.id);
+        });
+    }, []); // Array vazio = roda só na montagem
 
     const toggleSound = () => {
-        // Toca um som mudo ou baixo para "acordar" o sistema de áudio do navegador
-        if (newOrderAudioRef.current) {
+        if (!soundEnabled && newOrderAudioRef.current) {
+            // Toca mudo para desbloquear autoplay do browser
             newOrderAudioRef.current.volume = 0;
             newOrderAudioRef.current.play().then(() => {
                 newOrderAudioRef.current!.volume = 1.0;
                 setSoundEnabled(true);
             }).catch(e => console.log("Erro ao habilitar áudio", e));
+        } else {
+            setSoundEnabled(false);
         }
     };
 
+    // Monitora mudanças nos pedidos para tocar som
     useEffect(() => {
         if (!soundEnabled) return;
 
-        // Detecta novos pedidos PENDENTES que ainda não foram notificados
         orders.forEach(order => {
+            // Se o pedido é pendente E ainda não foi notificado (não está no Set)
             if (order.status === 'pending' && !notifiedOrderIds.current.has(order.id)) {
+                
                 // Toca o som
                 if(newOrderAudioRef.current) {
                     newOrderAudioRef.current.currentTime = 0;
@@ -123,17 +131,15 @@ export default function AdminInterface(props: AdminProps) {
                     if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
                 }
                 
-                // Marca como notificado e abre o modal
+                // Marca como notificado IMEDIATAMENTE para não tocar de novo
                 notifiedOrderIds.current.add(order.id);
+                
+                // Mostra o modal (apenas para o último)
                 setNewIncomingOrder(order);
             }
         });
-
-        // Opcional: Som de sucesso (pode ser mantido ou removido se incomodar)
-        // A lógica de som de sucesso pode ser complexa de rastrear sem um estado anterior
-        // Por enquanto, focamos no som de NOVO PEDIDO que era o "pertubador"
         
-    }, [orders, soundEnabled]);
+    }, [orders, soundEnabled]); // Roda sempre que a lista de pedidos mudar
 
     const trackDriver = (driver: Driver) => {
         if (driver.lat && driver.lng) window.open(`https://www.google.com/maps/search/?api=1&query=${driver.lat},${driver.lng}`, '_blank');

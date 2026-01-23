@@ -191,7 +191,6 @@ export const generatePixPayload = (key: string, name: string, city: string, amou
 // AUXILIAR PARA FORMATAR ID - AGORA NUNCA CORTA
 export const formatOrderId = (id: string) => {
     if (!id) return '???';
-    // Remove qualquer # existente para evitar duplicação e adiciona novamente
     const cleanId = id.replace(/^#/, '');
     return '#' + cleanId;
 };
@@ -209,6 +208,9 @@ export const generateReceiptText = (order: any, appName: string, pixData?: any) 
 
     text += `*Pagamento:* ${order.paymentMethod || 'Dinheiro'}\n${order.obs ? `\n*Obs:* ${order.obs}` : ''}`;
     
+    // Frase de acolhimento no rodapé do recibo interno/cliente
+    text += `\n\n*Status:* Fique tranquilo! Seu pedido será preparado com muito carinho. ❤️🍔`;
+
     if (pixData && order.paymentMethod && order.paymentMethod.toUpperCase().includes('PIX') && pixData.pixKey) {
          const payload = generatePixPayload(pixData.pixKey, pixData.pixName, pixData.pixCity, order.value, order.id);
          
@@ -236,7 +238,7 @@ export const getOrderReceivedText = (order: any, appName: string) => {
     const isPix = order.paymentMethod?.toLowerCase().includes('pix');
     const displayId = formatOrderId(order.id);
     
-    return `Olá *${order.customer}*! 👋\nRecebemos seu pedido no *${appName}*!\n\n*Status: EM PREPARO* 👨‍🍳🔥\nSeu pedido ${displayId} já foi aceito.\n\n💰 Total: *${formatCurrency(order.value)}*\n${isPix ? '⚠️ *Aguardamos o comprovante PIX.*' : ''}\n\n🛵 Avisaremos quando sair para entrega!`;
+    return `Olá *${order.customer}*! 👋\nRecebemos seu pedido no *${appName}* e ficamos muito felizes!\n\n*Fique tranquilo!* 🥰\nSeu pedido ${displayId} já entrou no nosso sistema e será aceito e preparado com todo o cuidado.\n\n💰 Total: *${formatCurrency(order.value)}*\n${isPix ? '⚠️ *Assim que puder, nos envie o comprovante PIX.*' : ''}\n\n🛵 Avisaremos assim que sair para entrega!`;
 };
 
 export const sendOrderConfirmation = (order: any, appName: string) => {
@@ -248,6 +250,6 @@ export const sendOrderConfirmation = (order: any, appName: string) => {
 export const sendDeliveryNotification = (order: any, driverName: string, vehicle: string) => {
     const phone = normalizePhone(order.phone);
     if (!phone) return;
-    const text = `Olá *${order.customer}*! 🛵💨\n*Seu pedido saiu para entrega!*\n\nEntregador: *${driverName}*\nVeículo: *${vehicle}*\n\nPagamento: *${order.paymentMethod}* - *${formatCurrency(order.value)}*`;
+    const text = `Olá *${order.customer}*! 🛵💨\n*Boas notícias!*\nSeu pedido saiu para entrega e está a caminho.\n\nEntregador: *${driverName}*\nVeículo: *${vehicle}*\n\nObrigado pela preferência e bom apetite! 🍔❤️`;
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
 };

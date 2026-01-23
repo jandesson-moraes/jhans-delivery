@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, AppConfig, Order } from '../types';
 import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard, formatTime, formatDate, generatePixPayload } from '../utils';
-import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode, Gift } from 'lucide-react';
+import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode, Gift, LogOut } from 'lucide-react';
 import { BrandLogo, Footer } from './Shared';
 
 interface ClientInterfaceProps {
@@ -33,8 +33,6 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         try {
             const savedOrder = localStorage.getItem('jhans_last_order');
             if (savedOrder) {
-                // Se existe um pedido salvo, podemos já iniciar na tela de sucesso se foi recente (ex: última hora)
-                // Para simplificar, se tiver dados, assumimos que o usuário deu F5 na tela de sucesso
                 return JSON.parse(savedOrder);
             }
             return null;
@@ -152,14 +150,10 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     }, [cart]);
 
     // LÓGICA DE ENTREGA GRÁTIS
-    // Mesmo sendo delivery, o custo para o cliente é 0
     const deliveryFee = 0; 
     const finalTotal = cartTotal + deliveryFee;
 
-    // Geração do Payload do PIX
     const pixPayload = useMemo(() => {
-        // Se já tivermos um orderId gerado (no sucesso), use-o. Se não, é pré-cálculo
-        // Prioriza o ID do lastOrderData se existir
         const txId = (lastOrderData && lastOrderData.id) ? lastOrderData.id : (orderId || '***'); 
         if (checkout.paymentMethod === 'PIX' && appConfig.pixKey && appConfig.pixName && appConfig.pixCity) {
             return generatePixPayload(appConfig.pixKey, appConfig.pixName, appConfig.pixCity, finalTotal, txId);
@@ -199,26 +193,17 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         });
     };
 
-    // Função para pegar Geolocalização
     const handleGetLocation = () => {
         if (!navigator.geolocation) {
             alert("Seu navegador não suporta geolocalização.");
             return;
         }
-
         setLoadingLocation(true);
-
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude } = position.coords;
-                // Gera o link exato do GPS
                 const mapsLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
-                
-                setCheckout(prev => ({
-                    ...prev,
-                    mapsLink: mapsLink,
-                }));
-                
+                setCheckout(prev => ({ ...prev, mapsLink: mapsLink }));
                 setLoadingLocation(false);
                 const addressInput = document.getElementById('address-input');
                 if(addressInput) addressInput.focus();
@@ -245,7 +230,6 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             return `${i.quantity}x ${i.product.name}${i.obs ? `\n(Obs: ${i.obs})` : ''}`;
         }).join('\n---\n');
 
-        // SALVAR DADOS DE CONTATO NO LOCALSTORAGE
         try {
             localStorage.setItem('jhans_client_info', JSON.stringify({
                 name: checkout.name,
@@ -257,12 +241,10 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             console.error("Erro ao salvar dados locais", err);
         }
 
-        // --- GERAÇÃO DO ID ÚNICO E FIXO ---
-        // Exemplo: PED-293845 (Baseado nos últimos 6 digitos do timestamp atual)
         const generatedId = `PED-${Date.now().toString().slice(-6)}`;
 
         const orderData = {
-            id: generatedId, // ID Definido aqui para ser igual em todo lugar
+            id: generatedId, 
             customer: capitalize(checkout.name),
             phone: checkout.phone,
             address: checkout.serviceType === 'delivery' ? toSentenceCase(checkout.address) : 'RETIRADA NO BALCÃO',
@@ -272,21 +254,19 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             value: finalTotal,
             paymentMethod: checkout.paymentMethod === 'Dinheiro' && checkout.trocoPara ? `Dinheiro (Troco p/ ${checkout.trocoPara})` : checkout.paymentMethod,
             serviceType: checkout.serviceType,
-            deliveryFee: 0, // Salva explicitamente como 0
+            deliveryFee: 0, 
             discount: 0,
             origin: 'menu',
-            createdAt: { seconds: Date.now() / 1000 } // Simulando timestamp para exibição imediata
+            createdAt: { seconds: Date.now() / 1000 }
         };
 
         try {
-            // Envia o pedido com o ID já definido
             await onCreateOrder(orderData);
-            
             setOrderId(generatedId); 
             setLastOrderData({ ...orderData, id: generatedId });
             setView('success');
-            setCart([]); // Limpa o carrinho
-            localStorage.removeItem('jhans_cart'); // Remove carrinho do storage
+            setCart([]); 
+            localStorage.removeItem('jhans_cart'); 
             setCheckout(prev => ({ ...prev, trocoPara: '' })); 
         } catch (error) {
             alert("Erro ao enviar pedido. Tente novamente.");
@@ -301,46 +281,35 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
 
     const sendToWhatsApp = () => {
         if (!appConfig.storePhone) return;
-        
-        // Garante o uso dos dados mais recentes (do pedido confirmado)
-        const data = lastOrderData || { 
-            customer: checkout.name, 
-            id: orderId, 
-            value: finalTotal, 
-            paymentMethod: checkout.paymentMethod 
-        };
-
+        const data = lastOrderData || { customer: checkout.name, id: orderId, value: finalTotal, paymentMethod: checkout.paymentMethod };
         let text = `*Olá! Acabei de fazer um pedido pelo Site.*\n\n`;
-        text += `*Pedido:* #${data.id}\n`; // ID completo (PED-XXXXXX)
+        text += `*Pedido:* #${data.id}\n`;
         text += `*Cliente:* ${data.customer}\n`;
-        text += `*Itens:* ${data.items.replace(/\n---\n/g, ', ')}\n`; // Resumo rápido
-        
-        // Destaque para entrega grátis
+        text += `*Itens:* ${data.items.replace(/\n---\n/g, ', ')}\n`;
         if (checkout.serviceType === 'delivery') {
             text += `*Entrega:* GRÁTIS (Presente da Casa) 🎁\n`;
         }
-        
         text += `*Total:* ${formatCurrency(data.value)}\n`;
         text += `*Pagamento:* ${data.paymentMethod}\n\n`;
-
-        // INCLUSÃO DA CHAVE PIX NO WHATSAPP COM COPIA E COLA (FORMATO BLOCO DE CÓDIGO)
         if (data.paymentMethod && data.paymentMethod.includes('PIX') && appConfig.pixKey) {
             const payload = generatePixPayload(appConfig.pixKey, appConfig.pixName, appConfig.pixCity, data.value, data.id);
-            text += `--------------------------------\n`;
-            text += `*PAGAMENTO PIX (COPIA E COLA):*\n`;
-            text += `Copie o código abaixo:\n\n`;
-            text += `\`\`\`${payload}\`\`\`\n\n`; // Três crases para criar bloco de código no WhatsApp
-            text += `--------------------------------\n\n`;
+            text += `--------------------------------\n*PAGAMENTO PIX (COPIA E COLA):*\nCopie o código abaixo:\n\n\`\`\`${payload}\`\`\`\n\n--------------------------------\n\n`;
         }
-
         text += `Podem confirmar?`;
-
         const link = `https://wa.me/55${normalizePhone(appConfig.storePhone)}?text=${encodeURIComponent(text)}`;
         window.open(link, '_blank');
     };
 
+    const handleBackToWhatsApp = () => {
+        // Tenta voltar no histórico, se não funcionar, abre o whatsapp geral
+        if (document.referrer.includes('whatsapp') || window.history.length > 1) {
+            window.history.back();
+        } else {
+            window.location.href = "whatsapp://";
+        }
+    };
+
     if (view === 'success' && lastOrderData) {
-        // Recalcula payload para a tela de sucesso usando o ID correto
         const successPixPayload = (lastOrderData.paymentMethod.includes('PIX') && appConfig.pixKey) 
             ? generatePixPayload(appConfig.pixKey, appConfig.pixName, appConfig.pixCity, lastOrderData.value, lastOrderData.id) 
             : null;
@@ -352,11 +321,10 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                     <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mb-4 shadow-lg shadow-emerald-900/40 animate-bounce">
                         <CheckCircle2 size={40} className="text-white"/>
                     </div>
-                    <h2 className="text-2xl font-black text-white">Pedido Enviado!</h2>
-                    <p className="text-slate-400 text-sm">Agora é só aguardar a confirmação.</p>
+                    <h2 className="text-2xl font-black text-white">Fique Tranquilo!</h2>
+                    <p className="text-slate-400 text-sm">Recebemos seu pedido e ele será preparado com carinho.</p>
                 </div>
 
-                {/* AREA DE PAGAMENTO PIX (SE FOR PIX) */}
                 {successPixPayload && (
                     <div className="w-full max-w-sm bg-emerald-900/20 border border-emerald-500/50 p-4 rounded-xl mb-6 animate-in slide-in-from-bottom-2">
                         <div className="flex flex-col items-center">
@@ -364,63 +332,42 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                                 <QrCode size={14}/> Pagamento Pendente
                             </p>
                             <div className="flex gap-2 w-full">
-                                <input 
-                                    readOnly 
-                                    value={successPixPayload} 
-                                    className="flex-1 bg-slate-950 border border-emerald-500/30 rounded-lg p-3 text-[10px] font-mono text-white truncate"
-                                />
-                                <button 
-                                    type="button"
-                                    onClick={() => copyToClipboard(successPixPayload)}
-                                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors text-xs"
-                                >
-                                    <Copy size={16}/> Copiar
-                                </button>
+                                <input readOnly value={successPixPayload} className="flex-1 bg-slate-950 border border-emerald-500/30 rounded-lg p-3 text-[10px] font-mono text-white truncate"/>
+                                <button type="button" onClick={() => copyToClipboard(successPixPayload)} className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors text-xs"><Copy size={16}/> Copiar</button>
                             </div>
                             <p className="text-[10px] text-emerald-500/70 mt-2">Copie e pague no app do seu banco</p>
                         </div>
                     </div>
                 )}
 
-                {/* CUPOM / RECIBO DIGITAL */}
                 <div className="w-full max-w-sm bg-white text-slate-900 rounded-xl p-0 overflow-hidden shadow-2xl mb-6 relative">
-                    {/* Borda serrilhada CSS trick */}
                     <div className="bg-red-600 p-4 text-white text-center relative">
                         <h3 className="font-bold text-lg uppercase tracking-wider">{appConfig.appName}</h3>
                         <p className="text-[10px] opacity-80">COMPROVANTE DO CLIENTE</p>
                         <div className="absolute -bottom-2 left-0 w-full h-4 bg-white" style={{maskImage: 'radial-gradient(circle, transparent 50%, black 50%)', maskSize: '10px 20px', WebkitMaskImage: 'radial-gradient(circle, transparent 50%, black 50%)', WebkitMaskSize: '15px 15px'}}></div>
                     </div>
-                    
                     <div className="p-6 pt-6 space-y-4">
                         <div className="flex justify-between items-center border-b border-dashed border-slate-300 pb-2">
                             <span className="text-xs font-bold text-slate-500">DATA</span>
                             <span className="text-xs font-bold">{formatDate(lastOrderData.createdAt)} • {formatTime(lastOrderData.createdAt)}</span>
                         </div>
-                        
                         <div className="text-left space-y-1">
                             <p className="text-xs text-slate-500 font-bold">CLIENTE</p>
                             <p className="font-bold text-lg leading-none">{lastOrderData.customer}</p>
                             <p className="text-xs text-slate-500">{lastOrderData.phone}</p>
                         </div>
-
                         <div className="bg-slate-100 p-3 rounded-lg text-left">
                             <p className="text-[10px] text-slate-500 font-bold mb-1">RESUMO DO PEDIDO</p>
-                            <pre className="text-xs font-mono text-slate-700 whitespace-pre-wrap leading-snug font-bold">
-                                {lastOrderData.items}
-                            </pre>
+                            <pre className="text-xs font-mono text-slate-700 whitespace-pre-wrap leading-snug font-bold">{lastOrderData.items}</pre>
                         </div>
-
-                        {/* LINHA DE ENTREGA GRÁTIS NO RECIBO */}
                         <div className="flex justify-between items-center text-xs border-t border-dashed border-slate-300 pt-2">
                             <span className="font-bold text-slate-500">Entrega</span>
                             <span className="font-bold text-emerald-600 flex items-center gap-1"><Gift size={12}/> GRÁTIS (Presente)</span>
                         </div>
-
                         <div className="flex justify-between items-center pt-2 border-t border-slate-900">
                             <span className="font-bold text-lg">TOTAL A PAGAR</span>
                             <span className="font-black text-xl text-emerald-600">{formatCurrency(lastOrderData.value)}</span>
                         </div>
-                        
                         <div className="text-[10px] text-slate-400 text-center pt-2">
                             ID do Pedido: <span className="font-mono text-slate-900 font-bold">{lastOrderData.id}</span>
                         </div>
@@ -432,6 +379,10 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                         <MessageCircle size={20}/> Enviar Comprovante ao Restaurante
                     </button>
                 )}
+
+                <button onClick={handleBackToWhatsApp} className="w-full max-w-sm bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 mb-3 active:scale-95 transition-transform">
+                    <ArrowLeft size={18}/> Voltar para o WhatsApp
+                </button>
                 
                 <button onClick={handleNewOrder} className="text-slate-500 font-bold text-sm hover:text-white transition-colors py-2">
                     Fazer Novo Pedido
@@ -440,7 +391,6 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         )
     }
 
-    // MENU VIEW (Mantido igual)
     if (view === 'cart') {
         return (
             <div className="min-h-screen bg-slate-950 text-white flex flex-col animate-in slide-in-from-right">
@@ -460,7 +410,6 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {/* Lista de Itens */}
                             <div className="space-y-3">
                                 {cart.map((item, idx) => (
                                     <div key={idx} className="bg-slate-900 p-3 rounded-xl border border-slate-800 flex flex-col gap-3">
@@ -478,152 +427,69 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                                                 <button onClick={() => updateQuantity(idx, 1)} className="p-2 text-slate-400 hover:text-white"><Plus size={14}/></button>
                                             </div>
                                         </div>
-                                        <input 
-                                            placeholder="Observação (ex: sem cebola)" 
-                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white outline-none focus:border-amber-500"
-                                            value={item.obs}
-                                            onChange={e => updateObs(idx, e.target.value)}
-                                        />
+                                        <input placeholder="Observação (ex: sem cebola)" className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white outline-none focus:border-amber-500" value={item.obs} onChange={e => updateObs(idx, e.target.value)}/>
                                     </div>
                                 ))}
                             </div>
-
-                            {/* Formulário de Checkout */}
                             <form id="checkout-form" onSubmit={handlePlaceOrder} className="space-y-4 pt-4 border-t border-slate-800">
                                 <h3 className="font-bold text-slate-400 text-sm uppercase">Dados da Entrega</h3>
-                                
                                 <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 mb-2">
-                                    <button type="button" onClick={() => setCheckout({...checkout, serviceType: 'delivery'})} className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${checkout.serviceType === 'delivery' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500'}`}>
-                                        <Bike size={14}/> Entrega
-                                    </button>
-                                    <button type="button" onClick={() => setCheckout({...checkout, serviceType: 'pickup'})} className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${checkout.serviceType === 'pickup' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500'}`}>
-                                        <Store size={14}/> Retirada
-                                    </button>
+                                    <button type="button" onClick={() => setCheckout({...checkout, serviceType: 'delivery'})} className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${checkout.serviceType === 'delivery' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500'}`}><Bike size={14}/> Entrega</button>
+                                    <button type="button" onClick={() => setCheckout({...checkout, serviceType: 'pickup'})} className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${checkout.serviceType === 'pickup' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500'}`}><Store size={14}/> Retirada</button>
                                 </div>
-
                                 <div className="space-y-3">
                                     <input required placeholder="Seu Nome" className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-sm" value={checkout.name} onChange={e => setCheckout({...checkout, name: e.target.value})} />
                                     <input required type="tel" placeholder="Seu Telefone / WhatsApp" className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-sm" value={checkout.phone} onChange={e => setCheckout({...checkout, phone: e.target.value})} />
-                                    
                                     {checkout.serviceType === 'delivery' && (
                                         <div className="space-y-3 animate-in fade-in slide-in-from-top-1">
-                                            {/* Botão de Geolocalização */}
-                                            <button 
-                                                type="button" 
-                                                onClick={handleGetLocation} 
-                                                disabled={loadingLocation}
-                                                className={`w-full p-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all active:scale-95 border ${checkout.mapsLink ? 'bg-emerald-900/30 text-emerald-400 border-emerald-500/50' : 'bg-blue-900/30 text-blue-300 border-blue-500/30 hover:bg-blue-900/50'}`}
-                                            >
+                                            <button type="button" onClick={handleGetLocation} disabled={loadingLocation} className={`w-full p-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all active:scale-95 border ${checkout.mapsLink ? 'bg-emerald-900/30 text-emerald-400 border-emerald-500/50' : 'bg-blue-900/30 text-blue-300 border-blue-500/30 hover:bg-blue-900/50'}`}>
                                                 {loadingLocation ? <Loader2 className="animate-spin" size={16}/> : checkout.mapsLink ? <CheckCircle2 size={16}/> : <Navigation size={16}/>}
                                                 {loadingLocation ? "Obtendo GPS..." : checkout.mapsLink ? "GPS Capturado! (Atualizar)" : "Usar GPS (Localização Exata)"}
                                             </button>
-
-                                            {/* Input de Endereço - OBRIGATÓRIO PARA O NÚMERO */}
                                             <div className="relative">
-                                                <input 
-                                                    id="address-input"
-                                                    required 
-                                                    placeholder={checkout.mapsLink ? "GPS OK! Agora digite: Rua, Número e Bairro" : "Endereço Completo (Rua, Número, Bairro)"}
-                                                    className={`w-full p-3 bg-slate-900 border rounded-xl outline-none text-sm transition-all ${checkout.mapsLink ? 'border-emerald-500/50 focus:border-emerald-500 ring-1 ring-emerald-500/20' : 'border-slate-800 focus:border-amber-500'}`}
-                                                    value={checkout.address} 
-                                                    onChange={e => setCheckout({...checkout, address: e.target.value})} 
-                                                />
-                                                {checkout.mapsLink && (
-                                                    <div className="absolute right-3 top-3 text-emerald-500">
-                                                        <MapPin size={18}/>
-                                                    </div>
-                                                )}
+                                                <input id="address-input" required placeholder={checkout.mapsLink ? "GPS OK! Agora digite: Rua, Número e Bairro" : "Endereço Completo (Rua, Número, Bairro)"} className={`w-full p-3 bg-slate-900 border rounded-xl outline-none text-sm transition-all ${checkout.mapsLink ? 'border-emerald-500/50 focus:border-emerald-500 ring-1 ring-emerald-500/20' : 'border-slate-800 focus:border-amber-500'}`} value={checkout.address} onChange={e => setCheckout({...checkout, address: e.target.value})} />
+                                                {checkout.mapsLink && <div className="absolute right-3 top-3 text-emerald-500"><MapPin size={18}/></div>}
                                             </div>
-                                            
-                                            {checkout.mapsLink && !checkout.address && (
-                                                <p className="text-[10px] text-amber-500 flex items-center gap-1 animate-pulse">
-                                                    <AlertCircle size={10}/> Importante: Digite o número da casa acima!
-                                                </p>
-                                            )}
+                                            {checkout.mapsLink && !checkout.address && <p className="text-[10px] text-amber-500 flex items-center gap-1 animate-pulse"><AlertCircle size={10}/> Importante: Digite o número da casa acima!</p>}
                                         </div>
                                     )}
                                 </div>
-
                                 <h3 className="font-bold text-slate-400 text-sm uppercase pt-2">Pagamento</h3>
                                 <div className="grid grid-cols-3 gap-2">
                                     {['PIX', 'Dinheiro', 'Cartão'].map(method => (
-                                        <button 
-                                            key={method}
-                                            type="button"
-                                            onClick={() => setCheckout({...checkout, paymentMethod: method})}
-                                            className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition-all ${checkout.paymentMethod === method ? 'bg-emerald-900/30 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-600'}`}
-                                        >
-                                            {method === 'PIX' && <QrCode size={18}/>}
-                                            {method === 'Dinheiro' && <Banknote size={18}/>}
-                                            {method === 'Cartão' && <CreditCard size={18}/>}
+                                        <button key={method} type="button" onClick={() => setCheckout({...checkout, paymentMethod: method})} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition-all ${checkout.paymentMethod === method ? 'bg-emerald-900/30 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-600'}`}>
+                                            {method === 'PIX' && <QrCode size={18}/>}{method === 'Dinheiro' && <Banknote size={18}/>}{method === 'Cartão' && <CreditCard size={18}/>}
                                             <span className="text-[10px] font-bold uppercase">{method}</span>
                                         </button>
                                     ))}
                                 </div>
-                                
                                 {checkout.paymentMethod === 'PIX' && (
                                     <div className="bg-emerald-900/20 border border-emerald-500/30 p-4 rounded-xl animate-in slide-in-from-top-2">
                                         {pixPayload ? (
                                             <div className="flex flex-col items-center">
-                                                <p className="text-xs text-emerald-400 font-bold mb-3 uppercase flex items-center gap-2">
-                                                    <QrCode size={14}/> Escaneie para pagar
-                                                </p>
-                                                {/* QR CODE GERADO VIA API PARA SIMPLICIDADE */}
-                                                <div className="bg-white p-2 rounded-lg mb-3">
-                                                    <img 
-                                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(pixPayload)}`} 
-                                                        alt="QR Code PIX" 
-                                                        className="w-32 h-32"
-                                                    />
-                                                </div>
+                                                <p className="text-xs text-emerald-400 font-bold mb-3 uppercase flex items-center gap-2"><QrCode size={14}/> Escaneie para pagar</p>
+                                                <div className="bg-white p-2 rounded-lg mb-3"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(pixPayload)}`} alt="QR Code PIX" className="w-32 h-32"/></div>
                                                 <div className="w-full">
                                                     <p className="text-[10px] text-slate-500 mb-1 text-center">Ou copie o código:</p>
-                                                    <div className="flex gap-2">
-                                                        <input 
-                                                            readOnly 
-                                                            value={pixPayload} 
-                                                            className="flex-1 bg-slate-950 border border-emerald-500/30 rounded-lg p-2 text-[10px] font-mono text-white truncate"
-                                                        />
-                                                        <button 
-                                                            type="button"
-                                                            onClick={() => copyToClipboard(pixPayload)}
-                                                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 rounded-lg font-bold flex items-center justify-center transition-colors"
-                                                        >
-                                                            <Copy size={14}/>
-                                                        </button>
-                                                    </div>
+                                                    <div className="flex gap-2"><input readOnly value={pixPayload} className="flex-1 bg-slate-950 border border-emerald-500/30 rounded-lg p-2 text-[10px] font-mono text-white truncate"/><button type="button" onClick={() => copyToClipboard(pixPayload)} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 rounded-lg font-bold flex items-center justify-center transition-colors"><Copy size={14}/></button></div>
                                                 </div>
                                             </div>
-                                        ) : (
-                                            <div className="text-center">
-                                                <p className="text-xs text-amber-500 font-bold mb-2">Chave PIX não configurada pelo restaurante.</p>
-                                                <p className="text-[10px] text-slate-500">Pague na entrega ou combine via WhatsApp.</p>
-                                            </div>
-                                        )}
+                                        ) : (<div className="text-center"><p className="text-xs text-amber-500 font-bold mb-2">Chave PIX não configurada.</p><p className="text-[10px] text-slate-500">Pague na entrega.</p></div>)}
                                     </div>
                                 )}
-
-                                {checkout.paymentMethod === 'Dinheiro' && (
-                                    <input placeholder="Precisa de troco para quanto?" className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl outline-none focus:border-emerald-500 text-sm" value={checkout.trocoPara} onChange={e => setCheckout({...checkout, trocoPara: e.target.value})} />
-                                )}
+                                {checkout.paymentMethod === 'Dinheiro' && <input placeholder="Precisa de troco para quanto?" className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl outline-none focus:border-emerald-500 text-sm" value={checkout.trocoPara} onChange={e => setCheckout({...checkout, trocoPara: e.target.value})} />}
                             </form>
                         </div>
                     )}
                 </div>
-
                 {cart.length > 0 && (
                     <div className="p-4 bg-slate-900 border-t border-slate-800 pb-safe">
                         <div className="space-y-2 mb-4 text-sm">
                             <div className="flex justify-between text-slate-400"><span>Subtotal</span><span>{formatCurrency(cartTotal)}</span></div>
-                            <div className="flex justify-between text-emerald-400">
-                                <span>Taxa de Entrega</span>
-                                <span className="flex items-center gap-1 font-bold"><Gift size={14}/> GRÁTIS (Presente)</span>
-                            </div>
+                            <div className="flex justify-between text-emerald-400"><span>Taxa de Entrega</span><span className="flex items-center gap-1 font-bold"><Gift size={14}/> GRÁTIS (Presente)</span></div>
                             <div className="flex justify-between text-white font-bold text-lg pt-2 border-t border-slate-800"><span>Total</span><span>{formatCurrency(finalTotal)}</span></div>
                         </div>
-                        <button form="checkout-form" type="submit" className="w-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 text-lg active:scale-95 transition-transform">
-                            <CheckCircle2 size={24}/> Enviar Pedido
-                        </button>
+                        <button form="checkout-form" type="submit" className="w-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 text-lg active:scale-95 transition-transform"><CheckCircle2 size={24}/> Enviar Pedido</button>
                     </div>
                 )}
             </div>
@@ -633,126 +499,64 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     // MENU VIEW
     return (
         <div className="min-h-screen bg-slate-950 text-white flex flex-col">
-            {/* Header / Hero Section - NOVA PALETA APPETITE (Vermelho + Âmbar) */}
             <div className="bg-gradient-to-br from-red-700 via-red-600 to-amber-600 p-6 pt-8 pb-10 border-b border-slate-800 sticky top-0 z-30 shadow-xl">
                 <div className="flex justify-between items-center mb-6">
                     <BrandLogo size="small" config={appConfig} />
-                    
-                    {/* Botões de Acesso ao Sistema */}
                     {allowSystemAccess && onSystemAccess && (
                         <div className="flex items-center gap-2">
-                             <button 
-                                onClick={() => onSystemAccess('admin')} 
-                                className="flex items-center gap-2 px-3 py-1.5 bg-black/20 hover:bg-black/40 rounded-lg text-amber-100 hover:text-white transition-colors border border-white/10 backdrop-blur-sm"
-                                title="Acesso Gerente"
-                             >
-                                <Lock size={14} className="text-amber-300"/>
-                                <span className="text-[10px] font-bold uppercase hidden md:inline">Gerente</span>
-                             </button>
-                             <button 
-                                onClick={() => onSystemAccess('driver')} 
-                                className="flex items-center gap-2 px-3 py-1.5 bg-black/20 hover:bg-black/40 rounded-lg text-amber-100 hover:text-white transition-colors border border-white/10 backdrop-blur-sm"
-                                title="Acesso Motoboy"
-                             >
-                                <Bike size={14} className="text-amber-300"/>
-                                <span className="text-[10px] font-bold uppercase hidden md:inline">Motoboy</span>
-                             </button>
+                             <button onClick={() => onSystemAccess('admin')} className="flex items-center gap-2 px-3 py-1.5 bg-black/20 hover:bg-black/40 rounded-lg text-amber-100 hover:text-white transition-colors border border-white/10 backdrop-blur-sm" title="Acesso Gerente"><Lock size={14} className="text-amber-300"/><span className="text-[10px] font-bold uppercase hidden md:inline">Gerente</span></button>
+                             <button onClick={() => onSystemAccess('driver')} className="flex items-center gap-2 px-3 py-1.5 bg-black/20 hover:bg-black/40 rounded-lg text-amber-100 hover:text-white transition-colors border border-white/10 backdrop-blur-sm" title="Acesso Motoboy"><Bike size={14} className="text-amber-300"/><span className="text-[10px] font-bold uppercase hidden md:inline">Motoboy</span></button>
                         </div>
                     )}
                 </div>
-                
-                <h1 className="text-2xl font-black text-white mb-4 leading-tight drop-shadow-sm">
-                    Bateu a fome? <br/>
-                    <span className="text-amber-200">Peça agora mesmo!</span> 🍔
-                </h1>
-
-                {/* Search */}
+                <h1 className="text-2xl font-black text-white mb-4 leading-tight drop-shadow-sm">Bateu a fome? <br/><span className="text-amber-200">Peça agora mesmo!</span> 🍔</h1>
                 <div className="relative mb-6">
                     <Search className="absolute left-3 top-3 text-slate-400" size={18}/>
-                    <input 
-                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-10 pr-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors focus:bg-slate-900 shadow-inner"
-                        placeholder="Buscar lanche, bebida..."
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                    />
+                    <input className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-10 pr-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors focus:bg-slate-900 shadow-inner" placeholder="Buscar lanche, bebida..." value={search} onChange={e => setSearch(e.target.value)}/>
                 </div>
-
-                {/* Categories */}
                 <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar hide-scrollbar -mx-2 px-2">
                     {categories.map(cat => (
-                        <button 
-                            key={cat}
-                            onClick={() => setSelectedCategory(cat)}
-                            className={`px-5 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border shadow-sm ${selectedCategory === cat ? 'bg-white text-red-700 shadow-lg border-white' : 'bg-black/20 text-amber-100 border-white/10 hover:bg-black/30'}`}
-                        >
-                            {cat}
-                        </button>
+                        <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-5 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border shadow-sm ${selectedCategory === cat ? 'bg-white text-red-700 shadow-lg border-white' : 'bg-black/20 text-amber-100 border-white/10 hover:bg-black/30'}`}>{cat}</button>
                     ))}
                 </div>
             </div>
 
-            {/* Product List Agrupada */}
             <div className="flex-1 p-4 pb-24 overflow-y-auto">
                 {groupedProducts.map((group) => (
                     <div key={group.category} className="mb-8 animate-in slide-in-from-bottom-4 duration-500">
-                        {/* Se estiver mostrando Todos, exibe o título da categoria */}
-                        {selectedCategory === 'Todos' && (
-                            <h3 className="text-xl font-black text-white mb-4 border-l-4 border-amber-500 pl-3 flex items-center gap-2 uppercase tracking-wide">
-                                {group.category}
-                            </h3>
-                        )}
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {selectedCategory === 'Todos' && <h3 className="text-xl font-black text-white mb-4 border-l-4 border-amber-500 pl-3 flex items-center gap-2 uppercase tracking-wide">{group.category}</h3>}
+                        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3">
                             {group.items.map(product => (
-                                <div key={product.id} onClick={() => addToCart(product)} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex justify-between gap-4 cursor-pointer hover:border-amber-500/50 transition-all active:scale-95 group hover:bg-slate-800/80 shadow-md relative overflow-hidden">
-                                    {/* Efeito hover de brilho em Laranja/Vermelho */}
+                                <div key={product.id} onClick={() => addToCart(product)} className="bg-slate-900 p-3 rounded-2xl border border-slate-800 flex flex-col justify-between gap-2 cursor-pointer hover:border-amber-500/50 transition-all active:scale-95 group hover:bg-slate-800/80 shadow-md relative overflow-hidden h-full">
                                     <div className="absolute inset-0 bg-gradient-to-r from-amber-500/0 via-amber-500/5 to-amber-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none"></div>
-                                    
-                                    <div className="flex-1 z-10">
-                                        <h3 className="font-bold text-white text-lg mb-1 group-hover:text-amber-400 transition-colors">{product.name}</h3>
-                                        <p className="text-xs text-slate-400 line-clamp-2 mb-3 leading-relaxed">{product.description}</p>
-                                        <p className="font-black text-amber-500 text-lg">{formatCurrency(product.price)}</p>
+                                    <div className="flex-1 z-10 flex flex-col">
+                                        <h3 className="font-bold text-white text-sm leading-tight mb-1 group-hover:text-amber-400 transition-colors line-clamp-2">{product.name}</h3>
+                                        <p className="text-[10px] text-slate-400 line-clamp-2 mb-2 leading-relaxed">{product.description}</p>
                                     </div>
-                                    <div className="flex flex-col justify-end z-10">
-                                        <div className="bg-slate-800 p-3 rounded-xl text-slate-400 group-hover:bg-red-600 group-hover:text-white transition-colors shadow-sm">
-                                            <Plus size={20}/>
-                                        </div>
+                                    <div className="flex justify-between items-end z-10 mt-auto">
+                                        <p className="font-black text-amber-500 text-sm">{formatCurrency(product.price)}</p>
+                                        <div className="bg-slate-800 p-1.5 rounded-lg text-slate-400 group-hover:bg-red-600 group-hover:text-white transition-colors shadow-sm"><Plus size={16}/></div>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </div>
                 ))}
-
-                {groupedProducts.length === 0 && (
-                    <div className="text-center py-20 text-slate-500 animate-in fade-in">
-                        <Utensils size={48} className="mx-auto mb-3 opacity-20"/>
-                        <p>Nenhum item encontrado.</p>
-                    </div>
-                )}
+                {groupedProducts.length === 0 && <div className="text-center py-20 text-slate-500 animate-in fade-in"><Utensils size={48} className="mx-auto mb-3 opacity-20"/><p>Nenhum item encontrado.</p></div>}
             </div>
 
-            {/* Floating Cart Button */}
             {cart.length > 0 && (
                 <div className="fixed bottom-4 left-0 w-full px-4 z-40">
                     <button onClick={() => setView('cart')} className="w-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white p-4 rounded-2xl shadow-xl shadow-red-900/40 flex items-center justify-between border border-red-500/30 animate-in slide-in-from-bottom-4 active:scale-95 transition-transform">
                         <div className="flex items-center gap-3">
-                            <div className="bg-black/20 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">
-                                {cart.reduce((a,b) => a + b.quantity, 0)}
-                            </div>
+                            <div className="bg-black/20 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">{cart.reduce((a,b) => a + b.quantity, 0)}</div>
                             <span className="font-bold text-sm uppercase tracking-wide">Ver Carrinho</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <span className="font-black text-lg">{formatCurrency(cartTotal)}</span>
-                            <ChevronRight size={20}/>
-                        </div>
+                        <div className="flex items-center gap-2"><span className="font-black text-lg">{formatCurrency(cartTotal)}</span><ChevronRight size={20}/></div>
                     </button>
                 </div>
             )}
-            
-            <div className="pb-safe bg-slate-950">
-                <Footer />
-            </div>
+            <div className="pb-safe bg-slate-950"><Footer /></div>
         </div>
     );
 }

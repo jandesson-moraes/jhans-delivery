@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package, Zap, ZapOff, Edit, Trash2, Send } from 'lucide-react';
 import { Driver, Order } from '../types';
@@ -25,12 +26,18 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
   const [visibleItems, setVisibleItems] = useState(20);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
 
-  // Refs para controle de áudio
-  const prevAssignedCountRef = useRef(0);
+  // Controle de áudio com Set para não repetir
+  const notifiedAssignedIds = useRef<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     audioRef.current = new Audio(NOTIFICATION_SOUND);
+    // Popula inicial para não tocar o que já está na tela
+    orders.forEach(o => {
+        if(o.driverId === driver.id && o.status === 'assigned') {
+            notifiedAssignedIds.current.add(o.id);
+        }
+    });
   }, []);
 
   // Data do último fechamento para filtrar o ciclo atual
@@ -49,10 +56,17 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
   
   // Efeito para tocar som quando houver novos pedidos ATRIBUÍDOS ('assigned')
   useEffect(() => {
-      const assignedCount = orders.filter(o => o.driverId === driver.id && o.status === 'assigned').length;
+      let hasNew = false;
       
-      // Se a contagem atual for maior que a anterior, toca o som
-      if (assignedCount > prevAssignedCountRef.current) {
+      orders.forEach(o => {
+          // Se o pedido é para mim E está atribuído E eu ainda não fui notificado
+          if (o.driverId === driver.id && o.status === 'assigned' && !notifiedAssignedIds.current.has(o.id)) {
+              notifiedAssignedIds.current.add(o.id);
+              hasNew = true;
+          }
+      });
+      
+      if (hasNew) {
           if(audioRef.current) {
               const playPromise = audioRef.current.play();
               if (playPromise !== undefined) {
@@ -66,7 +80,6 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
           if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
       }
       
-      prevAssignedCountRef.current = assignedCount;
   }, [orders, driver.id]);
 
   // Histórico completo para a aba de Histórico
