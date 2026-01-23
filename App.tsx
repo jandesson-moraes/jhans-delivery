@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
-import { collection, addDoc, updateDoc, doc, onSnapshot, serverTimestamp, deleteDoc, setDoc, writeBatch, Timestamp, deleteField } from "firebase/firestore";
+import { collection, addDoc, updateDoc, doc, onSnapshot, serverTimestamp, deleteDoc, setDoc, writeBatch, Timestamp, deleteField, getDoc } from "firebase/firestore";
 import { auth, db } from './services/firebase';
 import { UserType, Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement } from './types';
 import { BrandLogo, Footer } from './components/Shared';
@@ -11,109 +12,32 @@ import { NewDriverModal, SettingsModal, ImportModal, NewExpenseModal, NewValeMod
 import { Loader2, TrendingUp, ChevronRight, Bike, ShoppingBag } from 'lucide-react';
 import { normalizePhone, capitalize, formatCurrency } from './utils';
 
-// --- STYLES INJECTION ---
 const GlobalStyles = () => {
     useEffect(() => {
       const style = document.createElement('style');
       style.innerHTML = `
-        /* Rotas de Movimento Aleatórias e Suaves */
-        /* Rota 1: Circular Suave */
-        @keyframes pathA { 
-            0% { transform: translate3d(0,0,0); }
-            25% { transform: translate3d(60px, 40px, 0); }
-            50% { transform: translate3d(0, 80px, 0); }
-            75% { transform: translate3d(-60px, 40px, 0); }
-            100% { transform: translate3d(0,0,0); }
-        }
-        /* Rota 2: Zig Zag Horizontal */
-        @keyframes pathB { 
-            0% { transform: translate3d(0,0,0); }
-            30% { transform: translate3d(100px, -20px, 0); }
-            60% { transform: translate3d(50px, 40px, 0); }
-            100% { transform: translate3d(0,0,0); }
-        }
-        /* Rota 3: Bloco Quadrado */
-        @keyframes pathC { 
-            0% { transform: translate3d(0,0,0); }
-            25% { transform: translate3d(0, 100px, 0); }
-            50% { transform: translate3d(100px, 100px, 0); }
-            75% { transform: translate3d(100px, 0, 0); }
-            100% { transform: translate3d(0,0,0); }
-        }
-        /* Rota 4: Patrulha Vertical */
-        @keyframes pathD { 
-            0% { transform: translate3d(0,0,0); }
-            50% { transform: translate3d(20px, 150px, 0); }
-            100% { transform: translate3d(0,0,0); }
-        }
-        /* Rota 5: Aleatório Curto */
-        @keyframes pathE { 
-            0% { transform: translate3d(0,0,0); }
-            33% { transform: translate3d(-50px, 30px, 0); }
-            66% { transform: translate3d(30px, 50px, 0); }
-            100% { transform: translate3d(0,0,0); }
-        }
-        
-        /* Classes de Animação com durações variadas */
+        @keyframes pathA { 0% { transform: translate3d(0,0,0); } 25% { transform: translate3d(60px, 40px, 0); } 50% { transform: translate3d(0, 80px, 0); } 75% { transform: translate3d(-60px, 40px, 0); } 100% { transform: translate3d(0,0,0); } }
+        @keyframes pathB { 0% { transform: translate3d(0,0,0); } 30% { transform: translate3d(100px, -20px, 0); } 60% { transform: translate3d(50px, 40px, 0); } 100% { transform: translate3d(0,0,0); } }
+        @keyframes pathC { 0% { transform: translate3d(0,0,0); } 25% { transform: translate3d(0, 100px, 0); } 50% { transform: translate3d(100px, 100px, 0); } 75% { transform: translate3d(100px, 0, 0); } 100% { transform: translate3d(0,0,0); } }
+        @keyframes pathD { 0% { transform: translate3d(0,0,0); } 50% { transform: translate3d(20px, 150px, 0); } 100% { transform: translate3d(0,0,0); } }
+        @keyframes pathE { 0% { transform: translate3d(0,0,0); } 33% { transform: translate3d(-50px, 30px, 0); } 66% { transform: translate3d(30px, 50px, 0); } 100% { transform: translate3d(0,0,0); } }
         .animate-path-0 { animation: pathA 45s ease-in-out infinite; }
         .animate-path-1 { animation: pathB 50s ease-in-out infinite; }
         .animate-path-2 { animation: pathC 60s linear infinite; }
         .animate-path-3 { animation: pathD 55s ease-in-out infinite; }
         .animate-path-4 { animation: pathE 40s ease-in-out infinite; }
-
-        /* Mapa Perspectiva - Fundo Estilo Satélite Noturno */
-        .perspective-container {
-            perspective: 1000px;
-            overflow: hidden;
-            background: #020617;
-        }
-        .map-plane {
-            transform: rotateX(40deg) scale(1.4);
-            transform-style: preserve-3d;
-            background-color: #0f172a;
-            /* Simulação de Ruas e Quarteirões */
-            background-image: 
-                linear-gradient(rgba(30, 41, 59, 0.8) 2px, transparent 2px),
-                linear-gradient(90deg, rgba(30, 41, 59, 0.8) 2px, transparent 2px),
-                linear-gradient(rgba(30, 41, 59, 0.3) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(30, 41, 59, 0.3) 1px, transparent 1px);
-            background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
-            box-shadow: inset 0 0 200px #020617;
-        }
-        
-        /* Radar Clean */
-        @keyframes radar-pulse {
-            0% { transform: scale(0); opacity: 0.5; }
-            100% { transform: scale(3); opacity: 0; }
-        }
-        .radar-pulse {
-            animation: radar-pulse 2s infinite;
-        }
-
-        /* Billboard para corrigir rotação */
-        .billboard-corrector {
-            transform: rotateX(-40deg); 
-        }
-
-        /* Scrollbars */
+        .perspective-container { perspective: 1000px; overflow: hidden; background: #020617; }
+        .map-plane { transform: rotateX(40deg) scale(1.4); transform-style: preserve-3d; background-color: #0f172a; background-image: linear-gradient(rgba(30, 41, 59, 0.8) 2px, transparent 2px), linear-gradient(90deg, rgba(30, 41, 59, 0.8) 2px, transparent 2px), linear-gradient(rgba(30, 41, 59, 0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(30, 41, 59, 0.3) 1px, transparent 1px); background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px; box-shadow: inset 0 0 200px #020617; }
+        @keyframes radar-pulse { 0% { transform: scale(0); opacity: 0.5; } 100% { transform: scale(3); opacity: 0; } }
+        .radar-pulse { animation: radar-pulse 2s infinite; }
+        .billboard-corrector { transform: rotateX(-40deg); }
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         * { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
-        
-        /* Hide Scrollbar for Chrome, Safari and Opera */
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        /* Hide scrollbar for IE, Edge and Firefox */
-        .hide-scrollbar {
-          -ms-overflow-style: none;  /* IE and Edge */
-          scrollbar-width: none;  /* Firefox */
-        }
-        
-        .pb-safe {
-            padding-bottom: env(safe-area-inset-bottom);
-        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
       `;
       document.head.appendChild(style);
       return () => { if(document.head.contains(style)) document.head.removeChild(style); };
@@ -123,23 +47,16 @@ const GlobalStyles = () => {
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
-  
-  // Verifica se há parametro na URL para modo cliente
-  // Detecção robusta (suporta Search Params normal e Hash Params)
   const [viewMode, setViewMode] = useState<UserType>(() => { 
       try { 
           const params = new URLSearchParams(window.location.search);
-          const hashParts = window.location.hash.split('?');
-          const hashParams = hashParts.length > 1 ? new URLSearchParams(hashParts[1]) : null;
-
-          if (params.get('mode') === 'client' || hashParams?.get('mode') === 'client') return 'client';
-          
+          if (params.get('mode') === 'client') return 'client';
           return (localStorage.getItem('jhans_viewMode') as UserType) || 'landing'; 
       } catch { return 'landing'; } 
   });
   
   const [currentDriverId, setCurrentDriverId] = useState<string | null>(() => { try { return localStorage.getItem('jhans_driverId'); } catch { return null; } });
-  const [appConfig, setAppConfig] = useState<AppConfig>(() => { try { const saved = localStorage.getItem('jhans_app_config'); return saved ? JSON.parse(saved) : { appName: "Jhans Burgers", appLogoUrl: "" }; } catch { return { appName: "Jhans Burgers", appLogoUrl: "" }; } });
+  const [appConfig, setAppConfig] = useState<AppConfig>({ appName: "Jhans Burgers", appLogoUrl: "" });
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [vales, setVales] = useState<Vale[]>([]);
@@ -150,7 +67,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [modal, setModal] = useState<any>(null);
-  const [modalData, setModalData] = useState<any>(null); // Dados temporários para passar aos modais
+  const [modalData, setModalData] = useState<any>(null);
   const [driverToEdit, setDriverToEdit] = useState<Driver | null>(null);
   const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
 
@@ -160,45 +77,30 @@ export default function App() {
       return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Persiste a configuração do app
-  useEffect(() => { localStorage.setItem('jhans_app_config', JSON.stringify(appConfig)); }, [appConfig]);
-
-  // Persiste o modo de visualização, mas IGNORA se for cliente via link
-  // Isso evita que o admin fique preso no modo cliente se testar o link
   useEffect(() => {
       if (viewMode && viewMode !== 'client') {
           localStorage.setItem('jhans_viewMode', viewMode);
       }
   }, [viewMode]);
 
-  // VERIFICAÇÃO EXTRA: Garante que o modo cliente seja ativado se o link tiver o parametro
-  // Isso cobre casos onde o estado inicial falhou ou o React Router interferiu
   useEffect(() => {
-      const checkParams = () => {
-          const params = new URLSearchParams(window.location.search);
-          const hashParts = window.location.hash.split('?');
-          const hashParams = hashParts.length > 1 ? new URLSearchParams(hashParts[1]) : null;
-
-          if (params.get('mode') === 'client' || hashParams?.get('mode') === 'client') {
-              setViewMode('client');
-          }
-      };
-      checkParams();
-      window.addEventListener('popstate', checkParams); // Ouve navegação
-      return () => window.removeEventListener('popstate', checkParams);
-  }, []);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
+    const unsubAuth = onAuthStateChanged(auth, (u) => {
       if (u) setUser(u);
       else signInAnonymously(auth).catch(console.error);
     });
-    return () => unsub();
+    return () => unsubAuth();
   }, []);
 
   useEffect(() => {
     if (!user) return;
     const unsubs = [
+        onSnapshot(doc(db, 'config', 'general'), (d) => {
+            if (d.exists()) setAppConfig(d.data() as AppConfig);
+            else {
+                // Se não existe no banco, cria com dados padrão
+                setDoc(doc(db, 'config', 'general'), { appName: "Jhans Burgers", appLogoUrl: "" });
+            }
+        }),
         onSnapshot(collection(db, 'drivers'), s => setDrivers(s.docs.map(d => ({id: d.id, ...d.data()} as Driver)))),
         onSnapshot(collection(db, 'orders'), s => setOrders(s.docs.map(d => ({id: d.id, ...d.data()} as Order)))),
         onSnapshot(collection(db, 'vales'), s => setVales(s.docs.map(d => ({id: d.id, ...d.data()} as Vale)))),
@@ -211,6 +113,11 @@ export default function App() {
   }, [user]);
 
   const handleAction = async (action: () => Promise<void>) => { try { await action(); } catch(e: any) { console.error(e); alert('Erro: ' + e.message); } };
+
+  const saveSettings = (newConfig: AppConfig) => handleAction(async () => {
+      await setDoc(doc(db, 'config', 'general'), newConfig);
+      setAppConfig(newConfig);
+  });
 
   const createOrder = (data: any) => handleAction(async () => {
     await addDoc(collection(db, 'orders'), { ...data, status: 'pending', createdAt: serverTimestamp() });
@@ -258,7 +165,7 @@ export default function App() {
       const timestamp = data.endAt ? Timestamp.fromDate(new Date(data.endAt)) : serverTimestamp();
       await addDoc(collection(db, 'settlements'), { ...data, driverId: driverToEdit.id, endAt: timestamp });
       await updateDoc(doc(db, 'drivers', driverToEdit.id), { lastSettlementAt: timestamp });
-      alert('Ciclo fechado com sucesso! Os valores foram zerados para o próximo período.');
+      alert('Ciclo fechado com sucesso!');
   });
 
   const handleImportCSV = async (csvText: string) => {
@@ -267,93 +174,37 @@ export default function App() {
       const lines = csvText.split('\n');
       lines.slice(1).forEach((line) => {
           if (!line.trim()) return;
-          const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
-          const cols = matches.map(c => c.replace(/^"|"$/g, ''));
+          const cols = line.split(',').map(c => c.replace(/^"|"$/g, ''));
           if (cols.length >= 15) {
-             const [id, date, time, desc, valStr, type, cat, , , , clientName, , phone, addr, mapLink] = cols;
+             const [id, date, time, desc, valStr, type] = cols;
              const val = parseFloat(valStr);
              if (isNaN(val)) return;
              const timestamp = new Date(`${date}T${time || '12:00'}`);
              if (type === 'income') {
-                 const orderId = id || 'ord_' + Date.now() + Math.random();
-                 const orderRef = doc(db, 'orders', orderId);
-                 dbBatch.set(orderRef, { customer: capitalize(clientName), phone: phone || '', address: capitalize(addr) || '', mapsLink: mapLink || '', items: desc, amount: formatCurrency(val), value: val, status: 'completed', completedAt: Timestamp.fromDate(timestamp), createdAt: Timestamp.fromDate(timestamp), origin: 'manual' });
-                 const cleanPhone = normalizePhone(phone);
-                 if (cleanPhone) { const clientRef = doc(db, 'clients', cleanPhone); dbBatch.set(clientRef, { name: capitalize(clientName), phone: phone, address: capitalize(addr) || '', mapsLink: mapLink || '', lastOrderAt: Timestamp.fromDate(timestamp) }, { merge: true }); }
-             } else if (type === 'expense') {
-                 const expenseId = id || 'exp_' + Date.now() + Math.random();
-                 const expRef = doc(db, 'expenses', expenseId);
-                 dbBatch.set(expRef, { description: capitalize(desc), amount: val, category: cat || 'outros', createdAt: Timestamp.fromDate(timestamp) });
+                 const orderRef = doc(db, 'orders', id || 'ord_' + Date.now() + Math.random());
+                 dbBatch.set(orderRef, { customer: cols[10], phone: cols[12] || '', address: cols[13] || '', items: desc, amount: formatCurrency(val), value: val, status: 'completed', completedAt: Timestamp.fromDate(timestamp), createdAt: Timestamp.fromDate(timestamp), origin: 'manual' });
              }
           }
       });
-      try { await dbBatch.commit(); alert("Dados importados!"); setModal(null); } catch(e) { console.error(e); alert("Erro ao importar."); }
+      try { await dbBatch.commit(); alert("Dados importados!"); setModal(null); } catch(e) { console.error(e); }
   };
 
   const handleLogout = () => { 
       localStorage.removeItem('jhans_viewMode');
       localStorage.removeItem('jhans_driverId');
-      // Recarrega a página removendo parâmetros de URL para garantir logout limpo
       window.location.href = window.location.href.split('?')[0]; 
   };
 
-  if (loading && !user) return <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 text-white"><Loader2 className="animate-spin w-10 h-10 text-amber-500 mb-4"/> <span className="font-medium animate-pulse">Carregando Sistema...</span></div>;
+  if (loading && !user) return <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 text-white"><Loader2 className="animate-spin w-10 h-10 text-amber-500 mb-4"/> <span className="font-medium">Iniciando...</span></div>;
 
-  if (viewMode === 'client') {
-      return (
-          <>
-            <GlobalStyles />
-            <ClientInterface 
-                products={products} 
-                appConfig={appConfig}
-                onCreateOrder={async (data) => await createOrder(data)}
-                // Sem acesso administrativo quando acessado via link exclusivo
-            />
-          </>
-      )
-  }
-
-  // A TELA DE LANDING AGORA É O CARDÁPIO PRINCIPAL (Com acesso admin)
-  if (viewMode === 'landing') {
-    return (
-        <>
-            <GlobalStyles />
-            <ClientInterface 
-                products={products} 
-                appConfig={appConfig}
-                onCreateOrder={async (data) => await createOrder(data)}
-                // Habilita os botões de acesso no cabeçalho
-                allowSystemAccess={true}
-                onSystemAccess={(type) => {
-                    if (type === 'driver') setCurrentDriverId('select');
-                    setViewMode(type);
-                }}
-            />
-        </>
-    );
-  }
+  if (viewMode === 'client') return <><GlobalStyles /><ClientInterface products={products} appConfig={appConfig} onCreateOrder={async (data) => await createOrder(data)} /></>;
+  if (viewMode === 'landing') return <><GlobalStyles /><ClientInterface products={products} appConfig={appConfig} onCreateOrder={async (data) => await createOrder(data)} allowSystemAccess={true} onSystemAccess={(type) => { if (type === 'driver') setCurrentDriverId('select'); setViewMode(type); }} /></>;
 
   if (viewMode === 'driver') {
-    if (currentDriverId === 'select' || !currentDriverId) {
-        return <DriverSelection drivers={drivers} onSelect={(id) => { setCurrentDriverId(id); localStorage.setItem('jhans_driverId', id); }} onBack={handleLogout} />;
-    }
+    if (currentDriverId === 'select' || !currentDriverId) return <DriverSelection drivers={drivers} onSelect={(id) => { setCurrentDriverId(id); localStorage.setItem('jhans_driverId', id); }} onBack={handleLogout} />;
     const driver = drivers.find(d => d.id === currentDriverId);
-    if (!driver) return <div className="p-10 text-center text-white bg-slate-900 h-screen"><p>Motorista não encontrado.</p><button onClick={handleLogout}>Sair</button></div>;
-    return (
-        <>
-            <GlobalStyles />
-            <DriverInterface 
-                driver={driver} 
-                orders={orders} 
-                onToggleStatus={() => toggleStatus(driver.id)} 
-                onAcceptOrder={acceptOrder} 
-                onCompleteOrder={completeOrder} 
-                onUpdateOrder={updateOrder}
-                onDeleteOrder={deleteOrder}
-                onLogout={handleLogout} 
-            />
-        </>
-    );
+    if (!driver) return <div className="p-10 text-center text-white bg-slate-900 h-screen"><button onClick={handleLogout}>Sair</button></div>;
+    return <><GlobalStyles /><DriverInterface driver={driver} orders={orders} onToggleStatus={() => toggleStatus(driver.id)} onAcceptOrder={acceptOrder} onCompleteOrder={completeOrder} onUpdateOrder={updateOrder} onDeleteOrder={deleteOrder} onLogout={handleLogout} /></>;
   }
 
   return (
@@ -369,18 +220,14 @@ export default function App() {
           setDriverToEdit={setDriverToEdit} setClientToEdit={setClientToEdit}
           {...{modal}} 
       />
-      {modal === 'settings' && <SettingsModal config={appConfig} onSave={(newConfig: AppConfig) => { setAppConfig(newConfig); setModal(null); }} onClose={() => setModal(null)} />}
+      {modal === 'settings' && <SettingsModal config={appConfig} onSave={saveSettings} onClose={() => setModal(null)} />}
       {modal === 'driver' && <NewDriverModal onClose={()=>{setModal(null); setDriverToEdit(null);}} onSave={driverToEdit ? (data: any) => updateDriver(driverToEdit.id, data) : createDriver} initialData={driverToEdit} />}
       {modal === 'vale' && driverToEdit && <NewValeModal driver={driverToEdit} onClose={() => { setModal(null); setDriverToEdit(null); }} onSave={createVale} />}
       {modal === 'import' && <ImportModal onClose={() => setModal(null)} onImportCSV={handleImportCSV} />}
       {modal === 'expense' && <NewExpenseModal onClose={() => setModal(null)} onSave={createExpense} />}
       {modal === 'client' && clientToEdit && <EditClientModal client={clientToEdit} orders={orders} onClose={() => setModal(null)} onUpdateOrder={updateOrder} onSave={(data: any) => { updateClientData(clientToEdit.id, data); setModal(null); }} />}
       {modal === 'closeCycle' && driverToEdit && modalData && (
-          <CloseCycleModal 
-            data={modalData} 
-            onClose={() => { setModal(null); setDriverToEdit(null); setModalData(null); }}
-            onConfirm={(data: any) => handleCloseCycle(data)} 
-          />
+          <CloseCycleModal data={modalData} onClose={() => { setModal(null); setDriverToEdit(null); setModalData(null); }} onConfirm={(data: any) => handleCloseCycle(data)} />
       )}
     </>
   );
@@ -390,55 +237,31 @@ function DriverSelection({ drivers, onSelect, onBack }: { drivers: Driver[], onS
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    const driver = drivers.find((d) => d.id === selectedId);
-    if (!driver?.password) { onSelect(driver?.id || ''); return; }
-    if (driver.password === password) { onSelect(driver.id); } else { setError("Senha incorreta"); }
-  };
-
+  const handleLogin = (e: React.FormEvent) => { e.preventDefault(); const driver = drivers.find((d) => d.id === selectedId); if (!driver?.password) { onSelect(driver?.id || ''); return; } if (driver.password === password) { onSelect(driver.id); } else { setError("Senha incorreta"); } };
   if (selectedId) {
       const driver = drivers.find((d) => d.id === selectedId);
       return (
         <div className="min-h-screen w-screen bg-slate-950 flex items-center justify-center p-4">
            <div className="bg-slate-900 rounded-3xl shadow-2xl p-8 w-full max-w-sm border border-slate-800">
-               <div className="text-center mb-6">
-                   <div className="w-20 h-20 rounded-full mx-auto mb-4 border-4 border-slate-800 shadow-md overflow-hidden relative">
-                       <img src={driver?.avatar} className="w-full h-full object-cover" alt="avatar" />
-                   </div>
-                   <h3 className="font-bold text-xl text-white">Olá, {driver?.name}!</h3>
-               </div>
-               <form onSubmit={handleLogin} className="space-y-4">
-                   <input type="password" autoFocus className="w-full border-2 border-slate-700 bg-slate-950 rounded-xl p-3 text-center text-lg font-normal text-white outline-none focus:border-amber-500" placeholder="Senha" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} />
-                   {error && <p className="text-red-500 text-center font-bold animate-pulse text-sm">{error}</p>}
-                   <button type="submit" className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl shadow-lg transition-colors">Acessar Painel</button>
-               </form>
-               <button onClick={() => setSelectedId(null)} className="w-full mt-4 text-slate-500 text-sm hover:text-amber-500 transition-colors">← Voltar</button>
-               <div className="mt-6 border-t border-slate-800 pt-4">
-                   <Footer />
-               </div>
+               <div className="text-center mb-6"><div className="w-20 h-20 rounded-full mx-auto mb-4 border-4 border-slate-800 shadow-md overflow-hidden relative"><img src={driver?.avatar} className="w-full h-full object-cover" alt="avatar" /></div><h3 className="font-bold text-xl text-white">Olá, {driver?.name}!</h3></div>
+               <form onSubmit={handleLogin} className="space-y-4"><input type="password" autoFocus className="w-full border-2 border-slate-700 bg-slate-950 rounded-xl p-3 text-center text-lg font-normal text-white outline-none focus:border-amber-500" placeholder="Senha" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} />{error && <p className="text-red-500 text-center font-bold text-sm">{error}</p>}<button type="submit" className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl shadow-lg transition-colors">Entrar</button></form>
+               <button onClick={() => setSelectedId(null)} className="w-full mt-4 text-slate-500 text-sm">Voltar</button>
            </div>
         </div>
       );
   }
-
   return (
     <div className="min-h-screen w-screen bg-slate-950 flex items-center justify-center p-4">
       <div className="bg-slate-900 rounded-3xl shadow-2xl p-6 w-full max-w-md border border-slate-800 flex flex-col max-h-[85vh]">
-        <h2 className="text-xl font-bold mb-6 text-white text-center">Quem é você?</h2>
+        <h2 className="text-xl font-bold mb-6 text-white text-center">Acesso Motoboy</h2>
         <div className="space-y-2 flex-1 overflow-y-auto pr-2 custom-scrollbar">
           {drivers.map((d: Driver) => (
-            <button key={d.id} onClick={() => setSelectedId(d.id)} className="w-full flex items-center gap-4 p-3 border border-slate-800 rounded-xl hover:bg-slate-800 hover:border-amber-500/50 transition-all group bg-slate-950">
-              <img src={d.avatar} className="w-10 h-10 rounded-full bg-slate-800 shadow-sm object-cover" alt={d.name}/>
-              <div className="text-left flex-1"><span className="font-bold text-slate-200 block">{d.name}</span><span className="text-xs text-slate-500 uppercase font-semibold">{d.vehicle}</span></div>
+            <button key={d.id} onClick={() => setSelectedId(d.id)} className="w-full flex items-center gap-4 p-3 border border-slate-800 rounded-xl hover:bg-slate-800 transition-all bg-slate-950">
+              <img src={d.avatar} className="w-10 h-10 rounded-full object-cover" alt={d.name}/><div className="text-left"><span className="font-bold text-slate-200 block">{d.name}</span><span className="text-xs text-slate-500 uppercase">{d.vehicle}</span></div>
             </button>
           ))}
         </div>
-        <button onClick={onBack} className="mt-6 w-full py-3 text-slate-500 text-sm hover:bg-slate-800 rounded-xl font-medium transition-colors">Voltar</button>
-        <div className="mt-2">
-            <Footer />
-        </div>
+        <button onClick={onBack} className="mt-6 w-full py-3 text-slate-500 text-sm">Voltar</button>
       </div>
     </div>
   )

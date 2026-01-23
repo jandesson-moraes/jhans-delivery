@@ -51,9 +51,7 @@ export const toSentenceCase = (str: string) => {
 
 export const copyToClipboard = (text: string) => {
     if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(() => {
-            // Feedback visual pode ser implementado no componente
-        });
+        navigator.clipboard.writeText(text).catch(err => console.error("Erro ao copiar", err));
     } else {
         const textArea = document.createElement("textarea");
         textArea.value = text;
@@ -94,26 +92,16 @@ export const compressImage = (file: File): Promise<string> => {
     });
 };
 
-// Funções novas para Relatórios e Recibos
-
 export const parseOrderItems = (itemsString: string) => {
     if (!itemsString) return [];
-    // Tenta separar por quebra de linha
     const lines = itemsString.split('\n');
     const items: {qty: number, name: string}[] = [];
-    
     lines.forEach(line => {
         const cleanLine = line.trim();
         if(!cleanLine || cleanLine.startsWith('---') || cleanLine.startsWith('Obs:')) return;
-        
-        // Tenta achar padrão "2x Burger" ou "2 Burger"
         const match = cleanLine.match(/^(\d+)[xX\s]+(.+)/);
-        if(match) {
-            items.push({ qty: parseInt(match[1]), name: match[2].trim() });
-        } else {
-            // Se não achar numero, assume 1
-            items.push({ qty: 1, name: cleanLine });
-        }
+        if(match) items.push({ qty: parseInt(match[1]), name: match[2].trim() });
+        else items.push({ qty: 1, name: cleanLine });
     });
     return items;
 };
@@ -121,28 +109,7 @@ export const parseOrderItems = (itemsString: string) => {
 export const generateReceiptText = (order: any, appName: string) => {
     const date = formatDate(order.createdAt);
     const time = formatTime(order.createdAt);
-    
-    return `*${appName.toUpperCase()}*
-*Pedido #${order.id.slice(-4)}*
-📅 ${date} - ${time}
-
-*Cliente:* ${order.customer}
-*Tel:* ${order.phone}
-*End:* ${order.address}
-
-*--------------------------------*
-*ITENS:*
-${order.items}
-
-*--------------------------------*
-*Subtotal:* ${formatCurrency((order.value || 0) + (order.discount || 0) - (order.deliveryFee || 0))}
-*Entrega:* ${formatCurrency(order.deliveryFee || 0)}
-*Desconto:* -${formatCurrency(order.discount || 0)}
-*TOTAL:* ${formatCurrency(order.value || 0)}
-
-*Pagamento:* ${order.paymentMethod || 'Dinheiro'}
-${order.obs ? `\n*Obs:* ${order.obs}` : ''}
-`;
+    return `*${appName.toUpperCase()}*\n*Pedido #${order.id.slice(-4)}*\n📅 ${date} - ${time}\n\n*Cliente:* ${order.customer}\n*Tel:* ${order.phone}\n*End:* ${order.address}\n\n*--------------------------------*\n*ITENS:*\n${order.items}\n\n*--------------------------------*\n*TOTAL:* ${formatCurrency(order.value || 0)}\n\n*Pagamento:* ${order.paymentMethod || 'Dinheiro'}\n${order.obs ? `\n*Obs:* ${order.obs}` : ''}`;
 };
 
 export const downloadCSV = (content: string, fileName: string) => {
@@ -155,7 +122,7 @@ export const downloadCSV = (content: string, fileName: string) => {
     document.body.removeChild(link);
 };
 
-// --- FUNÇÕES GERADORAS DE PIX (BR CODE) ---
+// --- FUNÇÕES GERADORAS DE PIX (PADRÃO BR CODE) ---
 
 const crc16ccitt = (str: string) => {
     let crc = 0xFFFF;
@@ -174,17 +141,23 @@ const formatField = (id: string, value: string) => {
     return `${id}${len}${value}`;
 };
 
+const normalizeText = (text: string) => {
+    return text
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // Remove acentos
+        .replace(/[^a-zA-Z0-9\s]/g, "") // Remove caracteres especiais (exceto espaço)
+        .toUpperCase();
+};
+
 export const generatePixPayload = (key: string, name: string, city: string, amount: number, txId: string = '***') => {
-    // Normaliza os dados
-    const cleanKey = key.trim();
-    // Remove acentos e caracteres especiais para evitar erro no CRC
-    const cleanName = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 25).trim();
-    const cleanCity = city.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 15).trim();
+    const cleanKey = key.trim(); // Chave pode ter caracteres especiais (email, telefone), não normalizar
+    const cleanName = normalizeText(name).substring(0, 25).trim();
+    const cleanCity = normalizeText(city).substring(0, 15).trim();
     const amountStr = amount.toFixed(2);
 
     let payload = 
-        formatField('00', '01') +                             // Payload Format Indicator
-        formatField('26',                                     // Merchant Account Information
+        formatField('00', '01') +                              // Payload Format Indicator
+        formatField('26',                                      // Merchant Account Information
             formatField('00', 'BR.GOV.BCB.PIX') + 
             formatField('01', cleanKey)
         ) +
@@ -194,62 +167,29 @@ export const generatePixPayload = (key: string, name: string, city: string, amou
         formatField('58', 'BR') +                             // Country Code
         formatField('59', cleanName) +                        // Merchant Name
         formatField('60', cleanCity) +                        // Merchant City
-        formatField('62',                                     // Additional Data Field
-            formatField('05', txId)                           // Reference Label (TxID)
+        formatField('62',                                     // Additional Data Field Template
+            formatField('05', txId)                           // Reference Label
         ) +
         '6304';                                               // CRC16 ID + Length
 
     payload += crc16ccitt(payload);
-
     return payload;
 };
 
-// --- FUNÇÕES DE MENSAGENS WHATSAPP ---
-
-// Apenas GERA O TEXTO para ser copiado
 export const getOrderReceivedText = (order: any, appName: string) => {
     const isPix = order.paymentMethod?.toLowerCase().includes('pix');
-
-    return `Olá *${order.customer}*! 👋
-Recebemos seu pedido no *${appName}*!
-
-*Status: EM PREPARO* 👨‍🍳🔥
-Seu pedido #${order.id.slice(-4)} já foi aceito e foi enviado para a cozinha.
-
-*Resumo:*
-${order.items}
-
-💰 Total: *${formatCurrency(order.value)}*
-${isPix ? '⚠️ *Se possível, nos envie o comprovante PIX.*' : ''}
-
-🛵 Fique tranquilo(a), avisaremos assim que o motoboy sair para entrega!`;
+    return `Olá *${order.customer}*! 👋\nRecebemos seu pedido no *${appName}*!\n\n*Status: EM PREPARO* 👨‍🍳🔥\nSeu pedido #${order.id.slice(-4)} já foi aceito.\n\n💰 Total: *${formatCurrency(order.value)}*\n${isPix ? '⚠️ *Aguardamos o comprovante PIX.*' : ''}\n\n🛵 Avisaremos quando sair para entrega!`;
 };
 
-// Mantendo compatibilidade com código antigo que chama essa função, mas redirecionando para janela se necessário
-export const sendOrderReceivedMessage = (order: any, appName: string) => {
+export const sendOrderConfirmation = (order: any, appName: string) => {
     const text = getOrderReceivedText(order, appName);
     const phone = normalizePhone(order.phone);
     if(phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
 };
 
-export const sendOrderConfirmation = (order: any, appName: string) => {
-    sendOrderReceivedMessage(order, appName);
-};
-
 export const sendDeliveryNotification = (order: any, driverName: string, vehicle: string) => {
     const phone = normalizePhone(order.phone);
-    if (!phone) return alert("Telefone do cliente inválido.");
-
-    const text = `Olá *${order.customer}*! 🛵💨
-Boas notícias: *Seu pedido saiu para entrega!*
-
-Entregador: *${driverName}*
-Veículo: *${vehicle}*
-
-📍 Por favor, fique atento à campainha/interfone.
-Pagamento: *${order.paymentMethod}* - *${formatCurrency(order.value)}*
-
-Bom apetite! 🍔😋`;
-
+    if (!phone) return;
+    const text = `Olá *${order.customer}*! 🛵💨\n*Seu pedido saiu para entrega!*\n\nEntregador: *${driverName}*\nVeículo: *${vehicle}*\n\nPagamento: *${order.paymentMethod}* - *${formatCurrency(order.value)}*`;
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
 };
