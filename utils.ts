@@ -51,7 +51,9 @@ export const toSentenceCase = (str: string) => {
 
 export const copyToClipboard = (text: string) => {
     if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(() => alert("Copiado com sucesso!"));
+        navigator.clipboard.writeText(text).then(() => {
+            // Feedback visual pode ser implementado no componente
+        });
     } else {
         const textArea = document.createElement("textarea");
         textArea.value = text;
@@ -63,9 +65,8 @@ export const copyToClipboard = (text: string) => {
         textArea.select();
         try {
             document.execCommand('copy');
-            alert("Copiado com sucesso!");
         } catch (err) {
-            alert("Erro ao copiar.");
+            console.error("Erro ao copiar", err);
         }
         document.body.removeChild(textArea);
     }
@@ -205,14 +206,11 @@ export const generatePixPayload = (key: string, name: string, city: string, amou
 
 // --- FUNÇÕES DE MENSAGENS WHATSAPP ---
 
-// Esta é a mensagem que o ADMIN manda para o CLIENTE avisando que o pedido CHEGOU
-export const sendOrderReceivedMessage = (order: any, appName: string) => {
-    const phone = normalizePhone(order.phone);
-    if (!phone) return alert("Telefone do cliente inválido.");
-
+// Apenas GERA O TEXTO para ser copiado
+export const getOrderReceivedText = (order: any, appName: string) => {
     const isPix = order.paymentMethod?.toLowerCase().includes('pix');
 
-    const text = `Olá *${order.customer}*! 👋
+    return `Olá *${order.customer}*! 👋
 Recebemos seu pedido no *${appName}*!
 
 *Status: EM PREPARO* 👨‍🍳🔥
@@ -222,15 +220,19 @@ Seu pedido #${order.id.slice(-4)} já foi aceito e foi enviado para a cozinha.
 ${order.items}
 
 💰 Total: *${formatCurrency(order.value)}*
-${isPix ? '⚠️ *Aguardando Comprovante PIX*' : ''}
+${isPix ? '⚠️ *Se possível, nos envie o comprovante PIX.*' : ''}
 
 🛵 Fique tranquilo(a), avisaremos assim que o motoboy sair para entrega!`;
+};
 
-    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
+// Mantendo compatibilidade com código antigo que chama essa função, mas redirecionando para janela se necessário
+export const sendOrderReceivedMessage = (order: any, appName: string) => {
+    const text = getOrderReceivedText(order, appName);
+    const phone = normalizePhone(order.phone);
+    if(phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
 };
 
 export const sendOrderConfirmation = (order: any, appName: string) => {
-    // Mantendo para compatibilidade, mas a de cima é a nova principal
     sendOrderReceivedMessage(order, appName);
 };
 

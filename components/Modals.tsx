@@ -1,15 +1,22 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle } from 'lucide-react';
+import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check } from 'lucide-react';
 import { Product, Client, AppConfig, Driver, Order, Vale } from '../types';
-import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, sendOrderReceivedMessage } from '../utils';
+import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, getOrderReceivedText } from '../utils';
 
 // --- NEW INCOMING ORDER MODAL (ALERTA DE NOVO PEDIDO) ---
 export function NewIncomingOrderModal({ order, onClose, appConfig }: any) {
+    const [copied, setCopied] = useState(false);
+
     if (!order) return null;
 
-    const handleNotifyClient = () => {
-        sendOrderReceivedMessage(order, appConfig.appName);
-        onClose(); // Fecha o modal após enviar
+    const handleCopyMessage = () => {
+        const text = getOrderReceivedText(order, appConfig.appName);
+        copyToClipboard(text);
+        setCopied(true);
+        // Feedback visual rápido
+        setTimeout(() => {
+            onClose(); // Fecha o modal automaticamente após copiar para agilizar
+        }, 1500);
     };
 
     return (
@@ -47,11 +54,11 @@ export function NewIncomingOrderModal({ order, onClose, appConfig }: any) {
 
                 <div className="space-y-3">
                     <button 
-                        onClick={handleNotifyClient}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95"
+                        onClick={handleCopyMessage}
+                        className={`w-full py-4 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 ${copied ? 'bg-emerald-500 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
                     >
-                        <MessageCircle size={20} />
-                        Confirmar Recebimento (WhatsApp)
+                        {copied ? <Check size={20}/> : <Copy size={20}/>}
+                        {copied ? 'Copiado! Cole no WhatsApp' : 'Copiar Msg de Confirmação'}
                     </button>
                     
                     <button 
@@ -68,7 +75,6 @@ export function NewIncomingOrderModal({ order, onClose, appConfig }: any) {
 
 // --- PRODUCT FORM MODAL ---
 export function ProductFormModal({ product, isOpen, onClose, onSave, existingCategories }: any) {
-    // ... (MANTÉM O CÓDIGO EXISTENTE - SEM ALTERAÇÕES)
     if (!isOpen) return null;
 
     const [form, setForm] = useState({ 
@@ -199,7 +205,6 @@ export function ProductFormModal({ product, isOpen, onClose, onSave, existingCat
     );
 }
 
-// ... (MANTÉM O RESTANTE DO ARQUIVO MODALS.TSX IGUAL)
 export function KitchenHistoryModal({ order, onClose, products }: any) {
     if (!order) return null;
 
@@ -267,9 +272,8 @@ export function KitchenHistoryModal({ order, onClose, products }: any) {
     );
 }
 
-// ... (MANTÉM O RESTANTE: SettingsModal, ConfirmAssignmentModal, CloseCycleModal, NewOrderModal, EditOrderModal, ReceiptModal, NewDriverModal, ImportModal, NewExpenseModal, NewValeModal, EditClientModal)
+// --- SETTINGS MODAL (ATUALIZADO PARA PIX) ---
 export function SettingsModal({ config, onSave, onClose }: any) {
-    // ...
     const [form, setForm] = useState(config);
     const [isProcessingImage, setIsProcessingImage] = useState(false);
 
@@ -364,7 +368,6 @@ export function ConfirmAssignmentModal({ onClose, onConfirm, order, driverName }
     );
 }
 
-// ... Resto dos Modals (CloseCycleModal, NewOrderModal, etc) sem mudanças
 export function CloseCycleModal({ data, onClose, onConfirm }: any) {
     const [form, setForm] = useState({
         endAt: new Date().toISOString().slice(0, 16),
@@ -812,7 +815,8 @@ export function ReceiptModal({ order, onClose, appConfig }: any) {
     )
 }
 
-// ... Resto dos Modals (NewDriverModal, ImportModal, etc) sem mudanças
+// ... Rest of the modals (NewDriverModal, ImportModal, NewExpenseModal, NewValeModal, CloseCycleModal, ConfirmAssignmentModal, ReceiptModal, EditOrderModal, NewOrderModal, EditClientModal) - KEEP AS IS, just ensuring SettingsModal is updated.
+
 export function NewDriverModal({ onClose, onSave, initialData }: any) {
     const [form, setForm] = useState(initialData || { name: '', password: '', phone: '', vehicle: '', cpf: '', plate: '', avatar: '' });
     const [isProcessingImage, setIsProcessingImage] = useState(false);

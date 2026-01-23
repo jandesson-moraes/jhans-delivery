@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Order, Product, Driver } from '../types';
-import { formatTime, toSentenceCase, formatDate } from '../utils';
-import { Clock, CheckCircle2, Flame, ChefHat, ArrowLeft, AlertTriangle, History, ArrowRight, Bike } from 'lucide-react';
+import { formatTime, toSentenceCase, formatDate, getOrderReceivedText, copyToClipboard } from '../utils';
+import { Clock, CheckCircle2, Flame, ChefHat, ArrowLeft, AlertTriangle, History, ArrowRight, Bike, Copy } from 'lucide-react';
 import { KitchenHistoryModal } from './Modals';
 import { Footer } from './Shared';
 
@@ -22,6 +22,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
     const [selectedHistoryOrder, setSelectedHistoryOrder] = useState<Order | null>(null);
     const prevPendingCountRef = useRef(0);
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const [appConfig] = useState(() => { try { return JSON.parse(localStorage.getItem('jhans_app_config') || '{}'); } catch { return { appName: "Jhans Burgers" }; } });
 
     // Filtra apenas pedidos ativos na cozinha
     const kitchenOrders = orders.filter(o => 
@@ -91,6 +92,24 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
         return product?.description || '';
     };
 
+    const handleCopyStatus = (e: React.MouseEvent, order: Order) => {
+        e.stopPropagation();
+        const text = getOrderReceivedText(order, appConfig.appName);
+        copyToClipboard(text);
+        
+        // Efeito visual no botão (opcional, já que copyToClipboard pode não dar feedback visual direto aqui)
+        const btn = e.currentTarget as HTMLButtonElement;
+        const originalContent = btn.innerHTML;
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copiado`;
+        btn.classList.add('bg-emerald-600', 'text-white');
+        btn.classList.remove('bg-black/30', 'text-white/80');
+        setTimeout(() => {
+            btn.innerHTML = originalContent;
+            btn.classList.remove('bg-emerald-600', 'text-white');
+            btn.classList.add('bg-black/30', 'text-white/80');
+        }, 2000);
+    };
+
     return (
         <div className="flex flex-col h-full bg-slate-950 text-white overflow-hidden p-6 md:p-10 pb-20 md:pb-8">
             <div className="flex justify-between items-center mb-6">
@@ -137,14 +156,20 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                                 </span>
                                                 <span className="text-xs font-mono text-white/60">#{order.id.slice(-4)}</span>
                                             </div>
-                                            <div className="flex flex-col items-end shrink-0">
+                                            <div className="flex flex-col items-end shrink-0 gap-1">
                                                 <div className="flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded mb-1">
                                                     <Clock size={14} className="text-white/80"/> 
                                                     <span className="font-mono font-bold text-base md:text-lg">{getElapsedTime(order.createdAt)}</span>
                                                 </div>
-                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${order.serviceType === 'pickup' ? 'bg-purple-500/20 text-purple-200' : 'bg-blue-500/20 text-blue-200'}`}>
-                                                    {order.serviceType === 'pickup' ? 'Retirada' : 'Delivery'}
-                                                </span>
+                                                
+                                                {/* BOTÃO COPIAR MENSAGEM */}
+                                                <button 
+                                                    onClick={(e) => handleCopyStatus(e, order)}
+                                                    className="flex items-center gap-1 bg-black/30 text-white/80 hover:bg-emerald-600 hover:text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide transition-all border border-white/10"
+                                                    title="Copiar confirmação de pedido para área de transferência"
+                                                >
+                                                    <Copy size={10} /> Copiar Msg
+                                                </button>
                                             </div>
                                         </div>
                                         
@@ -233,8 +258,6 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                 <tbody className="divide-y divide-slate-800">
                                     {historyOrders.map((order) => {
                                         // Usa assignedAt ou timestamp atual se ainda não saiu pra entrega, apenas para fins de calculo relativo ao KDS
-                                        // O ideal seria ter um campo 'readyAt'. Vamos assumir que se status não é pending/preparing, ele já passou pelo KDS.
-                                        // Usaremos o completedAt se existir, ou o momento atual se estiver esperando entrega.
                                         const finishTime = order.completedAt || order.assignedAt || null; 
                                         
                                         return (

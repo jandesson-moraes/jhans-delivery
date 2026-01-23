@@ -5,8 +5,8 @@ export interface AppConfig {
     appName: string;
     appLogoUrl: string;
     storePhone?: string; 
-    pixKey?: string;      // Chave PIX (CPF, CNPJ, Email, Tel ou Aleatória)
-    pixName?: string;     // Nome do Titular da Conta (Sem acentos é melhor)
+    pixKey?: string;      // Chave PIX
+    pixName?: string;     // Nome do Titular
     pixCity?: string;     // Cidade do Titular
 }
 
