@@ -268,12 +268,13 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         text += `*Total:* ${formatCurrency(data.value)}\n`;
         text += `*Pagamento:* ${data.paymentMethod}\n\n`;
 
-        // INCLUSÃO DA CHAVE PIX NO WHATSAPP
+        // INCLUSÃO DA CHAVE PIX NO WHATSAPP COM COPIA E COLA
         if (data.paymentMethod && data.paymentMethod.includes('PIX') && appConfig.pixKey) {
+            const payload = generatePixPayload(appConfig.pixKey, appConfig.pixName, appConfig.pixCity, data.value, data.id);
             text += `--------------------------------\n`;
-            text += `*DADOS PARA PAGAMENTO (PIX):*\n`;
-            text += `🔑 Chave: ${appConfig.pixKey}\n`;
-            if (appConfig.pixName) text += `👤 Nome: ${appConfig.pixName}\n`;
+            text += `*PAGAMENTO PIX (COPIA E COLA):*\n\n`;
+            text += `${payload}\n\n`;
+            text += `_(Copie o código acima e cole no seu banco)_\n`;
             text += `--------------------------------\n\n`;
         }
 

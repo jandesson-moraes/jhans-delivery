@@ -106,39 +106,8 @@ export const parseOrderItems = (itemsString: string) => {
     return items;
 };
 
-export const generateReceiptText = (order: any, appName: string, pixData?: any) => {
-    const date = formatDate(order.createdAt);
-    const time = formatTime(order.createdAt);
-    
-    // Constrói o texto base
-    let text = `*${appName.toUpperCase()}*\n*Pedido #${order.id.slice(-4)}*\n📅 ${date} - ${time}\n\n*Cliente:* ${order.customer}\n*Tel:* ${order.phone}\n*End:* ${order.address}\n\n*--------------------------------*\n*ITENS:*\n${order.items}\n\n*--------------------------------*\n*TOTAL:* ${formatCurrency(order.value || 0)}\n\n`;
-    
-    // Adiciona informação de Entrega Grátis se aplicável
-    if (order.deliveryFee === 0 || !order.deliveryFee) {
-        text += `*Entrega:* GRÁTIS (Presente da Casa) 🎁\n`;
-    }
-
-    text += `*Pagamento:* ${order.paymentMethod || 'Dinheiro'}\n${order.obs ? `\n*Obs:* ${order.obs}` : ''}`;
-    
-    // Adiciona Chave PIX se necessário
-    if (pixData && order.paymentMethod && order.paymentMethod.toUpperCase().includes('PIX') && pixData.pixKey) {
-         text += `\n\n*DADOS PIX:*\n🔑 Chave: ${pixData.pixKey}\n👤 Nome: ${pixData.pixName || ''}\n📍 Cidade: ${pixData.pixCity || ''}`;
-    }
-    
-    return text;
-};
-
-export const downloadCSV = (content: string, fileName: string) => {
-    const encodedUri = encodeURI("data:text/csv;charset=utf-8," + content);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", fileName);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-};
-
 // --- FUNÇÕES GERADORAS DE PIX (PADRÃO BR CODE) ---
+// Movidas para cima para serem usadas por generateReceiptText
 
 const crc16ccitt = (payload: string) => {
     let crc = 0xFFFF;
@@ -225,6 +194,44 @@ export const generatePixPayload = (key: string, name: string, city: string, amou
 
     payload += crc16ccitt(payload);
     return payload;
+};
+
+export const generateReceiptText = (order: any, appName: string, pixData?: any) => {
+    const date = formatDate(order.createdAt);
+    const time = formatTime(order.createdAt);
+    
+    // Constrói o texto base
+    let text = `*${appName.toUpperCase()}*\n*Pedido #${order.id.slice(-4)}*\n📅 ${date} - ${time}\n\n*Cliente:* ${order.customer}\n*Tel:* ${order.phone}\n*End:* ${order.address}\n\n*--------------------------------*\n*ITENS:*\n${order.items}\n\n*--------------------------------*\n*TOTAL:* ${formatCurrency(order.value || 0)}\n\n`;
+    
+    // Adiciona informação de Entrega Grátis se aplicável
+    if (order.deliveryFee === 0 || !order.deliveryFee) {
+        text += `*Entrega:* GRÁTIS (Presente da Casa) 🎁\n`;
+    }
+
+    text += `*Pagamento:* ${order.paymentMethod || 'Dinheiro'}\n${order.obs ? `\n*Obs:* ${order.obs}` : ''}`;
+    
+    // Adiciona PIX COPIA E COLA se necessário
+    if (pixData && order.paymentMethod && order.paymentMethod.toUpperCase().includes('PIX') && pixData.pixKey) {
+         // Gera o Payload (Copia e Cola)
+         const payload = generatePixPayload(pixData.pixKey, pixData.pixName, pixData.pixCity, order.value, order.id);
+         
+         text += `\n\n*--------------------------------*\n`;
+         text += `*PAGAMENTO PIX (COPIA E COLA):*\n`;
+         text += `${payload}\n`;
+         text += `\n(Copie o código acima e cole no app do banco na opção 'Pix Copia e Cola')`;
+    }
+    
+    return text;
+};
+
+export const downloadCSV = (content: string, fileName: string) => {
+    const encodedUri = encodeURI("data:text/csv;charset=utf-8," + content);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 };
 
 export const getOrderReceivedText = (order: any, appName: string) => {
