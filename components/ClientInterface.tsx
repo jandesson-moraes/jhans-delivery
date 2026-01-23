@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, AppConfig, Order } from '../types';
 import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard, formatTime, formatDate, generatePixPayload } from '../utils';
-import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode, Gift, LogOut } from 'lucide-react';
+import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode, Gift, LogOut, ShieldCheck } from 'lucide-react';
 import { BrandLogo, Footer } from './Shared';
 
 interface ClientInterfaceProps {
@@ -300,15 +300,6 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         window.open(link, '_blank');
     };
 
-    const handleBackToWhatsApp = () => {
-        // Tenta voltar no histórico, se não funcionar, abre o whatsapp geral
-        if (document.referrer.includes('whatsapp') || window.history.length > 1) {
-            window.history.back();
-        } else {
-            window.location.href = "whatsapp://";
-        }
-    };
-
     if (view === 'success' && lastOrderData) {
         const successPixPayload = (lastOrderData.paymentMethod.includes('PIX') && appConfig.pixKey) 
             ? generatePixPayload(appConfig.pixKey, appConfig.pixName, appConfig.pixCity, lastOrderData.value, lastOrderData.id) 
@@ -379,10 +370,6 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                         <MessageCircle size={20}/> Enviar Comprovante ao Restaurante
                     </button>
                 )}
-
-                <button onClick={handleBackToWhatsApp} className="w-full max-w-sm bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 mb-3 active:scale-95 transition-transform">
-                    <ArrowLeft size={18}/> Voltar para o WhatsApp
-                </button>
                 
                 <button onClick={handleNewOrder} className="text-slate-500 font-bold text-sm hover:text-white transition-colors py-2">
                     Fazer Novo Pedido
@@ -489,6 +476,15 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                             <div className="flex justify-between text-emerald-400"><span>Taxa de Entrega</span><span className="flex items-center gap-1 font-bold"><Gift size={14}/> GRÁTIS (Presente)</span></div>
                             <div className="flex justify-between text-white font-bold text-lg pt-2 border-t border-slate-800"><span>Total</span><span>{formatCurrency(finalTotal)}</span></div>
                         </div>
+                        
+                        {/* AVISO LEGAL LGPD SIMPLIFICADO */}
+                        <div className="mb-4 p-3 bg-slate-800/50 rounded-xl border border-slate-700 text-[10px] text-slate-400 flex items-start gap-2">
+                            <ShieldCheck size={14} className="shrink-0 text-emerald-500 mt-0.5" />
+                            <p>
+                                Ao enviar o pedido, você concorda que utilizemos seus dados (nome, telefone e endereço) exclusivamente para realizar a entrega e entrar em contato sobre seu pedido, conforme a Lei Geral de Proteção de Dados (LGPD).
+                            </p>
+                        </div>
+
                         <button form="checkout-form" type="submit" className="w-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 text-lg active:scale-95 transition-transform"><CheckCircle2 size={24}/> Enviar Pedido</button>
                     </div>
                 )}

@@ -11,9 +11,8 @@ import { KitchenDisplay } from './KitchenDisplay';
 import { ItemReportView } from './ItemReportView';
 import { NewOrderModal, ConfirmAssignmentModal, NewIncomingOrderModal } from './Modals'; 
 
-// Som de Caixa Registradora ou Sino (Curto, não loop)
-const SUCCESS_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3'; 
-const NEW_ORDER_SOUND = 'https://assets.mixkit.co/active_storage/sfx/1070/1070-preview.mp3'; // Sino curto
+// Som de Campainha/Sino (Mais agradável que caixa registradora para alertas)
+const NEW_ORDER_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; 
 
 type AdminViewMode = 'map' | 'list' | 'history' | 'menu' | 'clients' | 'daily' | 'kds' | 'reports';
 
@@ -81,8 +80,7 @@ export default function AdminInterface(props: AdminProps) {
     const [newIncomingOrder, setNewIncomingOrder] = useState<Order | null>(null);
     const [soundEnabled, setSoundEnabled] = useState(false);
 
-    // FIX: Usar um Set para rastrear IDs que JÁ tocaram o som. 
-    // Assim, o som não repete no loop de renderização.
+    // Controle de notificações de som para não repetir
     const notifiedOrderIds = useRef<Set<string>>(new Set());
     const newOrderAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -95,25 +93,16 @@ export default function AdminInterface(props: AdminProps) {
         // Inicializa o áudio apenas uma vez
         newOrderAudioRef.current = new Audio(NEW_ORDER_SOUND);
         
-        // Popula o Set inicial com pedidos já existentes para não tocar som na carga da página
-        // (A menos que queira tocar para todos os pendentes ao abrir)
+        // Marca pedidos existentes como notificados para não tocar som ao abrir o app
         orders.forEach(o => {
-            // Se já existe, marcamos como notificado para não tocar agora
             if(o.status !== 'pending') notifiedOrderIds.current.add(o.id);
         });
-    }, []); // Array vazio = roda só na montagem
+    }, []); 
 
     const toggleSound = () => {
-        if (!soundEnabled && newOrderAudioRef.current) {
-            // Toca mudo para desbloquear autoplay do browser
-            newOrderAudioRef.current.volume = 0;
-            newOrderAudioRef.current.play().then(() => {
-                newOrderAudioRef.current!.volume = 1.0;
-                setSoundEnabled(true);
-            }).catch(e => console.log("Erro ao habilitar áudio", e));
-        } else {
-            setSoundEnabled(false);
-        }
+        // Apenas alterna o estado. NÃO toca som forçado.
+        // O navegador geralmente permite áudio subsequente se o usuário interagiu com a página (clicou no botão).
+        setSoundEnabled(prev => !prev);
     };
 
     // Monitora mudanças nos pedidos para tocar som
@@ -121,25 +110,32 @@ export default function AdminInterface(props: AdminProps) {
         if (!soundEnabled) return;
 
         orders.forEach(order => {
-            // Se o pedido é pendente E ainda não foi notificado (não está no Set)
+            // Só toca se for PENDENTE e ainda NÃO tiver tocado para este ID específico
             if (order.status === 'pending' && !notifiedOrderIds.current.has(order.id)) {
                 
-                // Toca o som
+                // Tenta tocar o som
                 if(newOrderAudioRef.current) {
                     newOrderAudioRef.current.currentTime = 0;
-                    newOrderAudioRef.current.play().catch(e => console.log("Play bloqueado", e));
+                    const playPromise = newOrderAudioRef.current.play();
+                    
+                    if (playPromise !== undefined) {
+                        playPromise.catch(error => {
+                            console.log("Audio bloqueado (aguardando interação):", error);
+                        });
+                    }
+
                     if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
                 }
                 
-                // Marca como notificado IMEDIATAMENTE para não tocar de novo
+                // Marca como notificado IMEDIATAMENTE para nunca mais tocar para este pedido
                 notifiedOrderIds.current.add(order.id);
                 
-                // Mostra o modal (apenas para o último)
+                // Abre o modal de alerta visual
                 setNewIncomingOrder(order);
             }
         });
         
-    }, [orders, soundEnabled]); // Roda sempre que a lista de pedidos mudar
+    }, [orders, soundEnabled]); 
 
     const trackDriver = (driver: Driver) => {
         if (driver.lat && driver.lng) window.open(`https://www.google.com/maps/search/?api=1&query=${driver.lat},${driver.lng}`, '_blank');
@@ -199,13 +195,13 @@ export default function AdminInterface(props: AdminProps) {
                          <h1 className="text-lg md:text-2xl font-extrabold text-white truncate min-w-0">{view === 'map' ? 'Central de Comando' : view === 'list' ? 'Gestão de Equipe' : view === 'menu' ? 'Cardápio Digital' : view === 'clients' ? 'Gestão de Clientes' : view === 'daily' ? 'Pedidos do Dia' : view === 'kds' ? 'Fila da Cozinha' : view === 'reports' ? 'Relatórios de Itens' : 'Financeiro'}</h1>
                      </div>
                      <div className="flex items-center gap-2">
-                         {/* BOTÃO ATIVAR SOM */}
+                         {/* BOTÃO DE SOM (AGORA SILENCIOSO AO CLICAR) */}
                          <button 
                             onClick={toggleSound} 
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-[10px] md:text-xs transition-all border shadow-lg ${soundEnabled ? 'bg-emerald-900/30 text-emerald-400 border-emerald-500/50' : 'bg-red-900/30 text-red-400 border-red-500/50 animate-pulse'}`}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-[10px] md:text-xs transition-all border shadow-lg ${soundEnabled ? 'bg-emerald-900/30 text-emerald-400 border-emerald-500/50' : 'bg-slate-800 text-slate-400 border-slate-700'}`}
                          >
                             {soundEnabled ? <Volume2 size={16}/> : <VolumeX size={16}/>}
-                            {soundEnabled ? 'SOM ON' : 'ATIVAR SOM'}
+                            {soundEnabled ? 'SOM ATIVADO' : 'ATIVAR SOM'}
                          </button>
                          <button onClick={() => setModal('settings')} className="md:hidden p-2 text-slate-400 bg-slate-800 rounded-xl"><Settings size={20}/></button>
                          <button onClick={onLogout} className="md:hidden p-2 text-slate-400 bg-slate-800 rounded-xl"><LogOut size={20}/></button>
