@@ -129,11 +129,16 @@ const crc16ccitt = (str: string) => {
     for (let c = 0; c < str.length; c++) {
         crc ^= str.charCodeAt(c) << 8;
         for (let i = 0; i < 8; i++) {
-            if (crc & 0x8000) crc = (crc << 1) ^ 0x1021;
-            else crc = crc << 1;
+            if ((crc & 0x8000) !== 0)
+                crc = (crc << 1) ^ 0x1021;
+            else
+                crc = crc << 1;
+            
+            // Importante: garantir que continue sendo 16 bits
+            crc = crc & 0xFFFF;
         }
     }
-    return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+    return crc.toString(16).toUpperCase().padStart(4, '0');
 };
 
 const formatField = (id: string, value: string) => {
@@ -150,7 +155,20 @@ const normalizeText = (text: string) => {
 };
 
 export const generatePixPayload = (key: string, name: string, city: string, amount: number, txId: string = '***') => {
-    const cleanKey = key.trim(); // Chave pode ter caracteres especiais (email, telefone), não normalizar
+    // 1. Limpeza da Chave PIX
+    let cleanKey = key.trim();
+    
+    // Se não for email, remove espaços e parênteses que podem quebrar o QR Code
+    if (!cleanKey.includes('@')) {
+        cleanKey = cleanKey.replace(/[\(\)\s]/g, '');
+        
+        // Se for telefone celular (11 dígitos e começa com DDD+9), sugerir +55 se não tiver
+        // (Isso é uma tentativa de correção automática, mas o ideal é o usuário cadastrar com +55)
+        if (/^\d{11}$/.test(cleanKey) && cleanKey[2] === '9') {
+             cleanKey = '+55' + cleanKey;
+        }
+    }
+
     const cleanName = normalizeText(name).substring(0, 25).trim();
     const cleanCity = normalizeText(city).substring(0, 15).trim();
     const amountStr = amount.toFixed(2);
