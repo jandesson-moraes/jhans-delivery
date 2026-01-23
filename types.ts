@@ -4,7 +4,10 @@ export type DriverStatus = 'available' | 'delivering' | 'offline';
 export interface AppConfig {
     appName: string;
     appLogoUrl: string;
-    storePhone?: string; // Telefone do estabelecimento para contato/zap
+    storePhone?: string; 
+    pixKey?: string;      // Chave PIX (CPF, CNPJ, Email, Tel ou Aleatória)
+    pixName?: string;     // Nome do Titular da Conta (Sem acentos é melhor)
+    pixCity?: string;     // Cidade do Titular
 }
 
 export interface Driver {
@@ -24,7 +27,7 @@ export interface Driver {
   rating: number;
   totalDeliveries: number;
   lastUpdate?: any; 
-  lastSettlementAt?: any; // Data do último fechamento de caixa
+  lastSettlementAt?: any; 
 }
 
 export interface Settlement {

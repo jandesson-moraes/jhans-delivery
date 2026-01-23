@@ -154,27 +154,84 @@ export const downloadCSV = (content: string, fileName: string) => {
     document.body.removeChild(link);
 };
 
-// --- NOVAS FUNÇÕES DE MENSAGENS WHATSAPP ---
+// --- FUNÇÕES GERADORAS DE PIX (BR CODE) ---
 
-export const sendOrderConfirmation = (order: any, appName: string) => {
+const crc16ccitt = (str: string) => {
+    let crc = 0xFFFF;
+    for (let c = 0; c < str.length; c++) {
+        crc ^= str.charCodeAt(c) << 8;
+        for (let i = 0; i < 8; i++) {
+            if (crc & 0x8000) crc = (crc << 1) ^ 0x1021;
+            else crc = crc << 1;
+        }
+    }
+    return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+};
+
+const formatField = (id: string, value: string) => {
+    const len = value.length.toString().padStart(2, '0');
+    return `${id}${len}${value}`;
+};
+
+export const generatePixPayload = (key: string, name: string, city: string, amount: number, txId: string = '***') => {
+    // Normaliza os dados
+    const cleanKey = key.trim();
+    // Remove acentos e caracteres especiais para evitar erro no CRC
+    const cleanName = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 25).trim();
+    const cleanCity = city.normalize("NFD").replace(/[\u0300-\u036f]/g, "").substring(0, 15).trim();
+    const amountStr = amount.toFixed(2);
+
+    let payload = 
+        formatField('00', '01') +                             // Payload Format Indicator
+        formatField('26',                                     // Merchant Account Information
+            formatField('00', 'BR.GOV.BCB.PIX') + 
+            formatField('01', cleanKey)
+        ) +
+        formatField('52', '0000') +                           // Merchant Category Code
+        formatField('53', '986') +                            // Transaction Currency (BRL)
+        formatField('54', amountStr) +                        // Transaction Amount
+        formatField('58', 'BR') +                             // Country Code
+        formatField('59', cleanName) +                        // Merchant Name
+        formatField('60', cleanCity) +                        // Merchant City
+        formatField('62',                                     // Additional Data Field
+            formatField('05', txId)                           // Reference Label (TxID)
+        ) +
+        '6304';                                               // CRC16 ID + Length
+
+    payload += crc16ccitt(payload);
+
+    return payload;
+};
+
+// --- FUNÇÕES DE MENSAGENS WHATSAPP ---
+
+// Esta é a mensagem que o ADMIN manda para o CLIENTE avisando que o pedido CHEGOU
+export const sendOrderReceivedMessage = (order: any, appName: string) => {
     const phone = normalizePhone(order.phone);
     if (!phone) return alert("Telefone do cliente inválido.");
+
+    const isPix = order.paymentMethod?.toLowerCase().includes('pix');
 
     const text = `Olá *${order.customer}*! 👋
 Recebemos seu pedido no *${appName}*!
 
 *Status: EM PREPARO* 👨‍🍳🔥
-Seu pedido #${order.id.slice(-4)} já foi aceito e está sendo preparado com carinho.
+Seu pedido #${order.id.slice(-4)} já foi aceito e foi enviado para a cozinha.
 
 *Resumo:*
 ${order.items}
 
 💰 Total: *${formatCurrency(order.value)}*
-🛵 Avisaremos assim que sair para entrega!
+${isPix ? '⚠️ *Aguardando Comprovante PIX*' : ''}
 
-Obrigado pela preferência!`;
+🛵 Fique tranquilo(a), avisaremos assim que o motoboy sair para entrega!`;
 
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
+};
+
+export const sendOrderConfirmation = (order: any, appName: string) => {
+    // Mantendo para compatibilidade, mas a de cima é a nova principal
+    sendOrderReceivedMessage(order, appName);
 };
 
 export const sendDeliveryNotification = (order: any, driverName: string, vehicle: string) => {

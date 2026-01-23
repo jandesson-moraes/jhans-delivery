@@ -1,10 +1,74 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils } from 'lucide-react';
+import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle } from 'lucide-react';
 import { Product, Client, AppConfig, Driver, Order, Vale } from '../types';
-import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase } from '../utils';
+import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, sendOrderReceivedMessage } from '../utils';
 
-// --- PRODUCT FORM MODAL (NOVO) ---
+// --- NEW INCOMING ORDER MODAL (ALERTA DE NOVO PEDIDO) ---
+export function NewIncomingOrderModal({ order, onClose, appConfig }: any) {
+    if (!order) return null;
+
+    const handleNotifyClient = () => {
+        sendOrderReceivedMessage(order, appConfig.appName);
+        onClose(); // Fecha o modal após enviar
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-300">
+            <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md p-6 border-2 border-emerald-500 shadow-emerald-500/20 relative overflow-hidden">
+                {/* Efeito de Ping no fundo */}
+                <div className="absolute top-0 right-0 p-4 opacity-10">
+                    <span className="flex h-32 w-32">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    </span>
+                </div>
+
+                <div className="flex flex-col items-center text-center mb-6">
+                    <div className="bg-emerald-500/20 p-4 rounded-full mb-3 animate-bounce">
+                        <MessageCircle size={32} className="text-emerald-400" />
+                    </div>
+                    <h3 className="font-black text-2xl text-white uppercase tracking-wide">Novo Pedido!</h3>
+                    <p className="text-emerald-400 font-bold text-lg">#{order.id.slice(-4)}</p>
+                </div>
+
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 mb-6 text-left">
+                    <div className="flex justify-between mb-2">
+                        <span className="text-slate-400 text-xs font-bold uppercase">Cliente</span>
+                        <span className="text-white font-bold">{order.customer}</span>
+                    </div>
+                    <div className="flex justify-between mb-2">
+                        <span className="text-slate-400 text-xs font-bold uppercase">Pagamento</span>
+                        <span className="text-amber-400 font-bold">{order.paymentMethod}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-slate-800 pt-2">
+                        <span className="text-slate-400 text-xs font-bold uppercase">Total</span>
+                        <span className="text-emerald-400 font-black text-lg">{order.amount}</span>
+                    </div>
+                </div>
+
+                <div className="space-y-3">
+                    <button 
+                        onClick={handleNotifyClient}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95"
+                    >
+                        <MessageCircle size={20} />
+                        Confirmar Recebimento (WhatsApp)
+                    </button>
+                    
+                    <button 
+                        onClick={onClose}
+                        className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 py-3 rounded-xl font-bold text-sm transition-colors"
+                    >
+                        Fechar (Já vi)
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- PRODUCT FORM MODAL ---
 export function ProductFormModal({ product, isOpen, onClose, onSave, existingCategories }: any) {
+    // ... (MANTÉM O CÓDIGO EXISTENTE - SEM ALTERAÇÕES)
     if (!isOpen) return null;
 
     const [form, setForm] = useState({ 
@@ -15,7 +79,6 @@ export function ProductFormModal({ product, isOpen, onClose, onSave, existingCat
     });
     const [customCategory, setCustomCategory] = useState('');
 
-    // Carrega dados se for edição
     useEffect(() => {
         if (product) {
             setForm({
@@ -136,7 +199,7 @@ export function ProductFormModal({ product, isOpen, onClose, onSave, existingCat
     );
 }
 
-// --- KITCHEN HISTORY MODAL (NOVO) ---
+// ... (MANTÉM O RESTANTE DO ARQUIVO MODALS.TSX IGUAL)
 export function KitchenHistoryModal({ order, onClose, products }: any) {
     if (!order) return null;
 
@@ -204,7 +267,72 @@ export function KitchenHistoryModal({ order, onClose, products }: any) {
     );
 }
 
-// --- CONFIRM ASSIGNMENT MODAL ---
+// ... (MANTÉM O RESTANTE: SettingsModal, ConfirmAssignmentModal, CloseCycleModal, NewOrderModal, EditOrderModal, ReceiptModal, NewDriverModal, ImportModal, NewExpenseModal, NewValeModal, EditClientModal)
+export function SettingsModal({ config, onSave, onClose }: any) {
+    // ...
+    const [form, setForm] = useState(config);
+    const [isProcessingImage, setIsProcessingImage] = useState(false);
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setIsProcessingImage(true);
+            try { setForm({ ...form, appLogoUrl: await compressImage(file) }); } catch { alert("Erro ao processar imagem."); } finally { setIsProcessingImage(false); }
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-sm p-6 border border-slate-800 max-h-[90vh] overflow-y-auto custom-scrollbar">
+                <h3 className="font-bold text-xl mb-4 text-white flex items-center gap-2"><SettingsIcon size={20}/> Configurações</h3>
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 ml-1 uppercase mb-1 block">Nome do Sistema</label>
+                        <input className="w-full border-2 border-slate-700 bg-slate-950 rounded-xl p-3 outline-none font-bold text-white" value={form.appName} onChange={e => setForm({...form, appName: e.target.value})} />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 ml-1 uppercase mb-1 block">Telefone Loja (WhatsApp)</label>
+                        <input className="w-full border-2 border-slate-700 bg-slate-950 rounded-xl p-3 outline-none font-bold text-white" placeholder="ex: 11999999999" value={form.storePhone || ''} onChange={e => setForm({...form, storePhone: e.target.value})} />
+                    </div>
+                    
+                    {/* CONFIGURAÇÃO PIX */}
+                    <div className="bg-emerald-900/10 p-4 rounded-xl border border-emerald-500/20 space-y-3">
+                         <div className="flex items-center gap-2 text-emerald-500 font-bold text-sm mb-1">
+                             <Bike className="rotate-45" size={16}/> Configuração PIX
+                         </div>
+                         <div>
+                            <label className="text-[10px] font-bold text-slate-500 ml-1 uppercase mb-1 block">Chave PIX (CPF/CNPJ/Tel)</label>
+                            <input className="w-full border border-slate-700 bg-slate-950 rounded-xl p-2.5 outline-none text-white text-sm" placeholder="Sua chave aqui" value={form.pixKey || ''} onChange={e => setForm({...form, pixKey: e.target.value})} />
+                         </div>
+                         <div>
+                            <label className="text-[10px] font-bold text-slate-500 ml-1 uppercase mb-1 block">Nome do Titular (Sem acentos)</label>
+                            <input className="w-full border border-slate-700 bg-slate-950 rounded-xl p-2.5 outline-none text-white text-sm" placeholder="Ex: JOAO SILVA" value={form.pixName || ''} onChange={e => setForm({...form, pixName: e.target.value.toUpperCase()})} />
+                         </div>
+                         <div>
+                            <label className="text-[10px] font-bold text-slate-500 ml-1 uppercase mb-1 block">Cidade do Titular (Sem acentos)</label>
+                            <input className="w-full border border-slate-700 bg-slate-950 rounded-xl p-2.5 outline-none text-white text-sm" placeholder="Ex: SAO PAULO" value={form.pixCity || ''} onChange={e => setForm({...form, pixCity: e.target.value.toUpperCase()})} />
+                         </div>
+                    </div>
+
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 ml-1 uppercase mb-1 block">Logotipo</label>
+                        <div className="flex flex-col items-center gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800">
+                            <div className="relative w-20 h-20 rounded-xl border-2 border-slate-700 bg-slate-900 overflow-hidden group">
+                                {form.appLogoUrl ? <img src={form.appLogoUrl} className="w-full h-full object-cover" alt="Logo" /> : <div className="w-full h-full flex items-center justify-center text-slate-600">Logo</div>}
+                                <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"><Camera className="text-white" size={24}/><input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} /></label>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex gap-3 pt-4 border-t border-slate-800">
+                        <button onClick={onClose} className="flex-1 border border-slate-700 rounded-xl py-3 font-bold text-slate-500 hover:bg-slate-800">Cancelar</button>
+                        <button onClick={() => onSave(form)} disabled={isProcessingImage} className="flex-1 bg-amber-600 hover:bg-amber-700 text-white rounded-xl py-3 font-bold shadow-lg disabled:opacity-50">Salvar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 export function ConfirmAssignmentModal({ onClose, onConfirm, order, driverName }: any) {
     if (!order) return null;
 
@@ -236,10 +364,10 @@ export function ConfirmAssignmentModal({ onClose, onConfirm, order, driverName }
     );
 }
 
-// --- CLOSE CYCLE MODAL ---
+// ... Resto dos Modals (CloseCycleModal, NewOrderModal, etc) sem mudanças
 export function CloseCycleModal({ data, onClose, onConfirm }: any) {
     const [form, setForm] = useState({
-        endAt: new Date().toISOString().slice(0, 16), // Formato YYYY-MM-DDTHH:mm
+        endAt: new Date().toISOString().slice(0, 16),
         deliveriesCount: data.ordersCount,
         deliveriesTotal: data.total,
         valesTotal: data.vales,
@@ -247,7 +375,6 @@ export function CloseCycleModal({ data, onClose, onConfirm }: any) {
     });
 
     useEffect(() => {
-        // Recalcula o total final se o usuário editar os valores brutos
         const net = Number(form.deliveriesTotal) - Number(form.valesTotal);
         if (net !== form.finalAmount) {
             setForm(prev => ({ ...prev, finalAmount: net }));
@@ -258,7 +385,7 @@ export function CloseCycleModal({ data, onClose, onConfirm }: any) {
         e.preventDefault();
         onConfirm({
             ...form,
-            endAt: form.endAt, // Passa a data string, será convertida no App.tsx
+            endAt: form.endAt,
             deliveriesCount: Number(form.deliveriesCount),
             deliveriesTotal: Number(form.deliveriesTotal),
             valesTotal: Number(form.valesTotal),
@@ -348,7 +475,6 @@ export function CloseCycleModal({ data, onClose, onConfirm }: any) {
     );
 }
 
-// --- NEW ORDER MODAL ---
 export function NewOrderModal({ onClose, onSave, products, clients }: any) {
    const [cart, setCart] = useState<{product: Product, quantity: number}[]>([]);
    const [form, setForm] = useState({ customer: '', phone: '', address: '', items: '', amount: '', mapsLink: '', paymentMethod: 'PIX', serviceType: 'delivery', paymentStatus: 'paid', obs: '', origin: 'manual' });
@@ -686,6 +812,7 @@ export function ReceiptModal({ order, onClose, appConfig }: any) {
     )
 }
 
+// ... Resto dos Modals (NewDriverModal, ImportModal, etc) sem mudanças
 export function NewDriverModal({ onClose, onSave, initialData }: any) {
     const [form, setForm] = useState(initialData || { name: '', password: '', phone: '', vehicle: '', cpf: '', plate: '', avatar: '' });
     const [isProcessingImage, setIsProcessingImage] = useState(false);
@@ -728,35 +855,6 @@ export function NewDriverModal({ onClose, onSave, initialData }: any) {
                     </div>
                     <div className="flex gap-3 pt-4 border-t border-slate-800 mt-2"><button type="button" onClick={onClose} className="flex-1 py-3 text-slate-400 font-bold hover:text-white transition-colors">Cancelar</button><button type="submit" disabled={isProcessingImage} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-3 font-bold shadow-lg disabled:opacity-50">{initialData ? 'Salvar' : 'Cadastrar'}</button></div>
                 </form>
-            </div>
-        </div>
-    )
-}
-
-import { Settings as SettingsIcon } from 'lucide-react';
-
-export function SettingsModal({ config, onSave, onClose }: any) {
-    const [form, setForm] = useState(config);
-    const [isProcessingImage, setIsProcessingImage] = useState(false);
-
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setIsProcessingImage(true);
-            try { setForm({ ...form, appLogoUrl: await compressImage(file) }); } catch { alert("Erro ao processar imagem."); } finally { setIsProcessingImage(false); }
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-            <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-sm p-6 border border-slate-800">
-                <h3 className="font-bold text-xl mb-4 text-white flex items-center gap-2"><SettingsIcon size={20}/> Configurações</h3>
-                <div className="space-y-4">
-                    <div><label className="text-xs font-bold text-slate-500 ml-1 uppercase mb-1 block">Nome do Sistema</label><input className="w-full border-2 border-slate-700 bg-slate-950 rounded-xl p-3 outline-none font-bold text-white" value={form.appName} onChange={e => setForm({...form, appName: e.target.value})} /></div>
-                    <div><label className="text-xs font-bold text-slate-500 ml-1 uppercase mb-1 block">Telefone Loja (WhatsApp)</label><input className="w-full border-2 border-slate-700 bg-slate-950 rounded-xl p-3 outline-none font-bold text-white" placeholder="ex: 11999999999" value={form.storePhone || ''} onChange={e => setForm({...form, storePhone: e.target.value})} /></div>
-                    <div><label className="text-xs font-bold text-slate-500 ml-1 uppercase mb-1 block">Logotipo</label><div className="flex flex-col items-center gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800"><div className="relative w-20 h-20 rounded-xl border-2 border-slate-700 bg-slate-900 overflow-hidden group">{form.appLogoUrl ? <img src={form.appLogoUrl} className="w-full h-full object-cover" alt="Logo" /> : <div className="w-full h-full flex items-center justify-center text-slate-600">Logo</div>}<label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"><Camera className="text-white" size={24}/><input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} /></label></div></div></div>
-                    <div className="flex gap-3 pt-4"><button onClick={onClose} className="flex-1 border border-slate-700 rounded-xl py-3 font-bold text-slate-500 hover:bg-slate-800">Cancelar</button><button onClick={() => onSave(form)} disabled={isProcessingImage} className="flex-1 bg-amber-600 hover:bg-amber-700 text-white rounded-xl py-3 font-bold shadow-lg disabled:opacity-50">Salvar</button></div>
-                </div>
             </div>
         </div>
     )

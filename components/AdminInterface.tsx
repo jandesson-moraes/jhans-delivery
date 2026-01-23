@@ -8,7 +8,7 @@ import { ClientsView } from './ClientsView';
 import { DailyOrdersView } from './DailyOrdersView';
 import { KitchenDisplay } from './KitchenDisplay';
 import { ItemReportView } from './ItemReportView';
-import { NewOrderModal, ConfirmAssignmentModal } from './Modals'; 
+import { NewOrderModal, ConfirmAssignmentModal, NewIncomingOrderModal } from './Modals'; 
 
 // Som de "Caixa/Sucesso" para entrega finalizada
 const SUCCESS_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3';
@@ -103,10 +103,12 @@ export default function AdminInterface(props: AdminProps) {
     const [driverSidebarTab, setDriverSidebarTab] = useState<'assign' | 'history' | 'finance'>('assign');
     const [orderToAssign, setOrderToAssign] = useState<Order | null>(null);
     const [showIntro, setShowIntro] = useState(true);
+    
+    // NOVO STATE: Alerta de Novo Pedido
+    const [newIncomingOrder, setNewIncomingOrder] = useState<Order | null>(null);
 
-    // Refs para controle de áudio
-    const prevCompletedCountRef = useRef(0);
-    const prevPendingCountRef = useRef(0);
+    // Refs para controle de áudio e estado anterior
+    const prevOrdersRef = useRef<Order[]>([]);
     const successAudioRef = useRef<HTMLAudioElement | null>(null);
     const newOrderAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -117,30 +119,47 @@ export default function AdminInterface(props: AdminProps) {
         newOrderAudioRef.current.volume = 0.8;
     }, []);
 
-    // Monitora entregas finalizadas E novos pedidos para tocar sons
+    // Monitora entregas finalizadas E novos pedidos para tocar sons e abrir modal
     useEffect(() => {
+        const prevOrders = prevOrdersRef.current;
+        
+        // Se for a primeira carga, apenas salva o estado atual e retorna (não alerta tudo de uma vez)
+        if (prevOrders.length === 0 && orders.length > 0) {
+            prevOrdersRef.current = orders;
+            return;
+        }
+
         const completedCount = orders.filter(o => o.status === 'completed').length;
-        const pendingCount = orders.filter(o => o.status === 'pending').length;
+        const prevCompletedCount = prevOrders.filter(o => o.status === 'completed').length;
         
         // Som de entrega finalizada
-        if (completedCount > prevCompletedCountRef.current && prevCompletedCountRef.current !== 0) {
+        if (completedCount > prevCompletedCount) {
             if(successAudioRef.current) {
                 const playPromise = successAudioRef.current.play();
                 if (playPromise !== undefined) playPromise.catch(e => console.log("Áudio bloqueado", e));
             }
         }
 
-        // Som de NOVO pedido (Dinheiro entrando)
-        if (pendingCount > prevPendingCountRef.current) {
+        // LÓGICA DE NOVO PEDIDO CHEGANDO (Detectar adições)
+        const newOrdersList = orders.filter(o => !prevOrders.find(p => p.id === o.id));
+        const hasNewPendingOrder = newOrdersList.some(o => o.status === 'pending');
+
+        if (hasNewPendingOrder) {
+             // Toca som
              if(newOrderAudioRef.current) {
                 const playPromise = newOrderAudioRef.current.play();
                 if (playPromise !== undefined) playPromise.catch(e => console.log("Áudio bloqueado", e));
                 if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
             }
+            
+            // Pega o pedido mais recente que chegou e abre o modal
+            const newest = newOrdersList.find(o => o.status === 'pending');
+            if (newest) {
+                setNewIncomingOrder(newest);
+            }
         }
 
-        prevCompletedCountRef.current = completedCount;
-        prevPendingCountRef.current = pendingCount;
+        prevOrdersRef.current = orders;
     }, [orders]);
 
     const trackDriver = (driver: Driver) => {
@@ -521,6 +540,15 @@ export default function AdminInterface(props: AdminProps) {
                    </div>
                  )}
             </aside>
+
+            {/* MODAL DE ALERTA DE NOVO PEDIDO (Popup Automático) */}
+            {newIncomingOrder && (
+                <NewIncomingOrderModal 
+                    order={newIncomingOrder} 
+                    onClose={() => setNewIncomingOrder(null)} 
+                    appConfig={appConfig}
+                />
+            )}
 
             {/* Renderização do Modal de Confirmação Localmente */}
             {(props as any).modal === 'confirmAssign' && (

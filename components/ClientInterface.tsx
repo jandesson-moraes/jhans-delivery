@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, AppConfig, Order } from '../types';
-import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard, formatTime, formatDate } from '../utils';
-import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock } from 'lucide-react';
+import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard, formatTime, formatDate, generatePixPayload } from '../utils';
+import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode } from 'lucide-react';
 import { BrandLogo, Footer } from './Shared';
 
 interface ClientInterfaceProps {
@@ -111,6 +111,17 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         return cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
     }, [cart]);
 
+    const deliveryFee = checkout.serviceType === 'delivery' ? 5.00 : 0; 
+    const finalTotal = cartTotal + deliveryFee;
+
+    // Geração do Payload do PIX
+    const pixPayload = useMemo(() => {
+        if (checkout.paymentMethod === 'PIX' && appConfig.pixKey && appConfig.pixName && appConfig.pixCity) {
+            return generatePixPayload(appConfig.pixKey, appConfig.pixName, appConfig.pixCity, finalTotal);
+        }
+        return null;
+    }, [checkout.paymentMethod, appConfig, finalTotal]);
+
     const addToCart = (product: Product) => {
         setCart(prev => {
             const existing = prev.find(i => i.product.id === product.id);
@@ -189,9 +200,6 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             return `${i.quantity}x ${i.product.name}${i.obs ? `\n(Obs: ${i.obs})` : ''}`;
         }).join('\n---\n');
 
-        const deliveryFee = checkout.serviceType === 'delivery' ? 5.00 : 0; 
-        const finalValue = cartTotal + deliveryFee;
-
         // SALVAR DADOS NO LOCALSTORAGE
         try {
             localStorage.setItem('jhans_client_info', JSON.stringify({
@@ -210,8 +218,8 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             address: checkout.serviceType === 'delivery' ? toSentenceCase(checkout.address) : 'RETIRADA NO BALCÃO',
             mapsLink: checkout.mapsLink, 
             items: itemsText,
-            amount: formatCurrency(finalValue),
-            value: finalValue,
+            amount: formatCurrency(finalTotal),
+            value: finalTotal,
             paymentMethod: checkout.paymentMethod === 'Dinheiro' && checkout.trocoPara ? `Dinheiro (Troco p/ ${checkout.trocoPara})` : checkout.paymentMethod,
             serviceType: checkout.serviceType,
             deliveryFee: deliveryFee,
@@ -423,7 +431,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                                             onClick={() => setCheckout({...checkout, paymentMethod: method})}
                                             className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition-all ${checkout.paymentMethod === method ? 'bg-emerald-900/30 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-600'}`}
                                         >
-                                            {method === 'PIX' && <Bike size={18} className="rotate-45"/>}
+                                            {method === 'PIX' && <QrCode size={18}/>}
                                             {method === 'Dinheiro' && <Banknote size={18}/>}
                                             {method === 'Cartão' && <CreditCard size={18}/>}
                                             <span className="text-[10px] font-bold uppercase">{method}</span>
@@ -433,20 +441,43 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                                 
                                 {checkout.paymentMethod === 'PIX' && (
                                     <div className="bg-emerald-900/20 border border-emerald-500/30 p-4 rounded-xl animate-in slide-in-from-top-2">
-                                        <p className="text-xs text-emerald-400 font-bold mb-2 uppercase">Chave PIX (CNPJ)</p>
-                                        <div className="flex gap-2">
-                                            <div className="flex-1 bg-slate-950 border border-emerald-500/30 rounded-lg p-3 text-sm font-mono text-white flex items-center justify-center select-all">
-                                                52.873.147/0001-90
+                                        {pixPayload ? (
+                                            <div className="flex flex-col items-center">
+                                                <p className="text-xs text-emerald-400 font-bold mb-3 uppercase flex items-center gap-2">
+                                                    <QrCode size={14}/> Escaneie para pagar
+                                                </p>
+                                                {/* QR CODE GERADO VIA API PARA SIMPLICIDADE */}
+                                                <div className="bg-white p-2 rounded-lg mb-3">
+                                                    <img 
+                                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(pixPayload)}`} 
+                                                        alt="QR Code PIX" 
+                                                        className="w-32 h-32"
+                                                    />
+                                                </div>
+                                                <div className="w-full">
+                                                    <p className="text-[10px] text-slate-500 mb-1 text-center">Ou copie o código:</p>
+                                                    <div className="flex gap-2">
+                                                        <input 
+                                                            readOnly 
+                                                            value={pixPayload} 
+                                                            className="flex-1 bg-slate-950 border border-emerald-500/30 rounded-lg p-2 text-[10px] font-mono text-white truncate"
+                                                        />
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => copyToClipboard(pixPayload)}
+                                                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 rounded-lg font-bold flex items-center justify-center transition-colors"
+                                                        >
+                                                            <Copy size={14}/>
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <button 
-                                                type="button"
-                                                onClick={() => copyToClipboard('52.873.147/0001-90')}
-                                                className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 rounded-lg font-bold flex items-center justify-center transition-colors"
-                                            >
-                                                <Copy size={18}/>
-                                            </button>
-                                        </div>
-                                        <p className="text-[10px] text-slate-500 mt-2 text-center">Copie a chave acima e pague no seu app de banco.</p>
+                                        ) : (
+                                            <div className="text-center">
+                                                <p className="text-xs text-amber-500 font-bold mb-2">Chave PIX não configurada pelo restaurante.</p>
+                                                <p className="text-[10px] text-slate-500">Pague na entrega ou combine via WhatsApp.</p>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
@@ -463,7 +494,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                         <div className="space-y-2 mb-4 text-sm">
                             <div className="flex justify-between text-slate-400"><span>Subtotal</span><span>{formatCurrency(cartTotal)}</span></div>
                             <div className="flex justify-between text-slate-400"><span>Taxa de Entrega</span><span>{checkout.serviceType === 'delivery' ? formatCurrency(5) : 'Grátis'}</span></div>
-                            <div className="flex justify-between text-white font-bold text-lg pt-2 border-t border-slate-800"><span>Total</span><span>{formatCurrency(cartTotal + (checkout.serviceType === 'delivery' ? 5 : 0))}</span></div>
+                            <div className="flex justify-between text-white font-bold text-lg pt-2 border-t border-slate-800"><span>Total</span><span>{formatCurrency(finalTotal)}</span></div>
                         </div>
                         <button form="checkout-form" type="submit" className="w-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 text-lg active:scale-95 transition-transform">
                             <CheckCircle2 size={24}/> Enviar Pedido
