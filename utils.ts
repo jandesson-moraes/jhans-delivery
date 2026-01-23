@@ -200,8 +200,11 @@ export const generateReceiptText = (order: any, appName: string, pixData?: any) 
     const date = formatDate(order.createdAt);
     const time = formatTime(order.createdAt);
     
+    // Se o ID for personalizado (PED-XXXX), usa ele inteiro. Se não, usa os ultimos 4 digitos
+    const displayId = order.id.startsWith('PED-') ? order.id : `#${order.id.slice(-4)}`;
+    
     // Constrói o texto base
-    let text = `*${appName.toUpperCase()}*\n*Pedido #${order.id.slice(-4)}*\n📅 ${date} - ${time}\n\n*Cliente:* ${order.customer}\n*Tel:* ${order.phone}\n*End:* ${order.address}\n\n*--------------------------------*\n*ITENS:*\n${order.items}\n\n*--------------------------------*\n*TOTAL:* ${formatCurrency(order.value || 0)}\n\n`;
+    let text = `*${appName.toUpperCase()}*\n*Pedido ${displayId}*\n📅 ${date} - ${time}\n\n*Cliente:* ${order.customer}\n*Tel:* ${order.phone}\n*End:* ${order.address}\n\n*--------------------------------*\n*ITENS:*\n${order.items}\n\n*--------------------------------*\n*TOTAL:* ${formatCurrency(order.value || 0)}\n\n`;
     
     // Adiciona informação de Entrega Grátis se aplicável
     if (order.deliveryFee === 0 || !order.deliveryFee) {
@@ -237,7 +240,9 @@ export const downloadCSV = (content: string, fileName: string) => {
 
 export const getOrderReceivedText = (order: any, appName: string) => {
     const isPix = order.paymentMethod?.toLowerCase().includes('pix');
-    return `Olá *${order.customer}*! 👋\nRecebemos seu pedido no *${appName}*!\n\n*Status: EM PREPARO* 👨‍🍳🔥\nSeu pedido #${order.id.slice(-4)} já foi aceito.\n\n💰 Total: *${formatCurrency(order.value)}*\n${isPix ? '⚠️ *Aguardamos o comprovante PIX.*' : ''}\n\n🛵 Avisaremos quando sair para entrega!`;
+    const displayId = order.id.startsWith('PED-') ? order.id : `#${order.id.slice(-4)}`;
+    
+    return `Olá *${order.customer}*! 👋\nRecebemos seu pedido no *${appName}*!\n\n*Status: EM PREPARO* 👨‍🍳🔥\nSeu pedido ${displayId} já foi aceito.\n\n💰 Total: *${formatCurrency(order.value)}*\n${isPix ? '⚠️ *Aguardamos o comprovante PIX.*' : ''}\n\n🛵 Avisaremos quando sair para entrega!`;
 };
 
 export const sendOrderConfirmation = (order: any, appName: string) => {

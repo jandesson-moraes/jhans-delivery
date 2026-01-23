@@ -119,11 +119,13 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
 
     // Geração do Payload do PIX
     const pixPayload = useMemo(() => {
+        // Se já tivermos um orderId gerado (no sucesso), use-o. Se não, é pré-cálculo
+        const txId = orderId || '***'; 
         if (checkout.paymentMethod === 'PIX' && appConfig.pixKey && appConfig.pixName && appConfig.pixCity) {
-            return generatePixPayload(appConfig.pixKey, appConfig.pixName, appConfig.pixCity, finalTotal);
+            return generatePixPayload(appConfig.pixKey, appConfig.pixName, appConfig.pixCity, finalTotal, txId);
         }
         return null;
-    }, [checkout.paymentMethod, appConfig, finalTotal]);
+    }, [checkout.paymentMethod, appConfig, finalTotal, orderId]);
 
     const addToCart = (product: Product) => {
         setCart(prev => {
@@ -215,7 +217,12 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             console.error("Erro ao salvar dados locais", err);
         }
 
+        // --- GERAÇÃO DO ID ÚNICO E FIXO ---
+        // Exemplo: PED-293845 (Baseado nos últimos 6 digitos do timestamp atual)
+        const generatedId = `PED-${Date.now().toString().slice(-6)}`;
+
         const orderData = {
+            id: generatedId, // ID Definido aqui para ser igual em todo lugar
             customer: capitalize(checkout.name),
             phone: checkout.phone,
             address: checkout.serviceType === 'delivery' ? toSentenceCase(checkout.address) : 'RETIRADA NO BALCÃO',
@@ -232,16 +239,11 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         };
 
         try {
-            // AGORA CAPTURAMOS O ID REAL RETORNADO PELO FIREBASE
-            const returnedId = await onCreateOrder(orderData);
+            // Envia o pedido com o ID já definido
+            await onCreateOrder(orderData);
             
-            // Fallback caso a promise não retorne ID (mas agora deve retornar)
-            const finalId = (typeof returnedId === 'string' && returnedId.length > 0) 
-                ? returnedId 
-                : `PED-${Math.floor(Math.random()*10000)}`;
-
-            setOrderId(finalId); 
-            setLastOrderData({ ...orderData, id: finalId });
+            setOrderId(generatedId); 
+            setLastOrderData({ ...orderData, id: generatedId });
             setView('success');
             setCart([]);
             setCheckout(prev => ({ ...prev, trocoPara: '' })); 
@@ -262,7 +264,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         };
 
         let text = `*Olá! Acabei de fazer um pedido pelo Site.*\n\n`;
-        text += `*Pedido:* #${data.id.slice(-4)}\n`;
+        text += `*Pedido:* #${data.id}\n`; // ID completo (PED-XXXXXX)
         text += `*Cliente:* ${data.customer}\n`;
         text += `*Itens:* ${data.items.replace(/\n---\n/g, ', ')}\n`; // Resumo rápido
         
@@ -291,7 +293,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     };
 
     if (view === 'success' && lastOrderData) {
-        // Recalcula payload para a tela de sucesso, se necessário
+        // Recalcula payload para a tela de sucesso usando o ID correto
         const successPixPayload = (lastOrderData.paymentMethod.includes('PIX') && appConfig.pixKey) 
             ? generatePixPayload(appConfig.pixKey, appConfig.pixName, appConfig.pixCity, lastOrderData.value, lastOrderData.id) 
             : null;
@@ -373,7 +375,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                         </div>
                         
                         <div className="text-[10px] text-slate-400 text-center pt-2">
-                            ID do Pedido: <span className="font-mono text-slate-900">{lastOrderData.id}</span>
+                            ID do Pedido: <span className="font-mono text-slate-900 font-bold">{lastOrderData.id}</span>
                         </div>
                     </div>
                 </div>
