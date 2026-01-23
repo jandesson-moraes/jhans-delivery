@@ -1,15 +1,125 @@
 
-
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send } from 'lucide-react';
+import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame } from 'lucide-react';
 import { Product, Client, AppConfig, Driver, Order, Vale } from '../types';
-import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, getOrderReceivedText, formatOrderId, getDispatchMessage } from '../utils';
+import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, getOrderReceivedText, formatOrderId, getDispatchMessage, getProductionMessage } from '../utils';
+
+// --- MODAL: CONFIRMAR FECHAMENTO NA COZINHA (NOVO) ---
+export function ConfirmCloseOrderModal({ onClose, onConfirm, order }: { onClose: () => void, onConfirm: () => void, order: Order }) {
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-300">
+            <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-sm p-6 border-2 border-red-500/50 shadow-red-500/20 relative overflow-hidden">
+                <div className="flex flex-col items-center text-center mb-6">
+                    <div className="bg-red-500/20 p-4 rounded-full mb-3 animate-bounce">
+                        <X size={32} className="text-red-400" />
+                    </div>
+                    <h3 className="font-black text-2xl text-white uppercase tracking-wide">Fechar Pedido?</h3>
+                    <p className="text-slate-400 font-medium text-sm mt-2">
+                        Você vai remover o pedido <strong>{formatOrderId(order.id)}</strong> da tela da cozinha.
+                    </p>
+                    <p className="text-red-400 text-xs mt-2 font-bold bg-red-900/20 p-2 rounded border border-red-900/50">
+                        Isso marcará o pedido como CONCLUÍDO.
+                    </p>
+                </div>
+
+                <div className="flex gap-3">
+                    <button 
+                        onClick={onClose}
+                        className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-3 rounded-xl font-bold text-sm transition-colors border border-slate-700"
+                    >
+                        Cancelar
+                    </button>
+                    <button 
+                        onClick={onConfirm}
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold text-sm transition-colors shadow-lg flex items-center justify-center gap-2"
+                    >
+                        <Trash2 size={16}/> Sim, Fechar
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- MODAL: SUCESSO DE PREPARO (NOVO) ---
+export function ProductionSuccessModal({ onClose, order, appName }: { onClose: () => void, order: Order, appName: string }) {
+    const [copied, setCopied] = useState(false);
+    // FALLBACK DE SEGURANÇA
+    const safeAppName = appName || "Jhans Burgers";
+    const message = getProductionMessage(order, safeAppName);
+    const phone = normalizePhone(order.phone);
+
+    const handleCopy = () => {
+        copyToClipboard(message);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleOpenWhatsapp = () => {
+        if (phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-300">
+            <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md p-6 border-2 border-orange-500 shadow-orange-500/20 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-10">
+                    <span className="flex h-32 w-32">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                    </span>
+                </div>
+
+                <div className="flex flex-col items-center text-center mb-6">
+                    <div className="bg-orange-500/20 p-4 rounded-full mb-3 animate-bounce">
+                        <Flame size={32} className="text-orange-400" />
+                    </div>
+                    <h3 className="font-black text-2xl text-white uppercase tracking-wide">Pedido em Preparo!</h3>
+                    <p className="text-orange-400 font-bold text-sm">Cozinha iniciou a produção</p>
+                </div>
+
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 mb-6 text-left relative">
+                    <p className="text-slate-400 text-xs font-bold uppercase mb-2">Mensagem para o Cliente:</p>
+                    <div className="text-slate-300 text-sm whitespace-pre-wrap font-medium bg-slate-900 p-3 rounded-lg border border-slate-800 max-h-40 overflow-y-auto custom-scrollbar">
+                        {message}
+                    </div>
+                </div>
+
+                <div className="space-y-3">
+                    <button 
+                        onClick={handleCopy}
+                        className={`w-full py-4 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 ${copied ? 'bg-orange-500 text-white' : 'bg-orange-600 hover:bg-orange-700 text-white'}`}
+                    >
+                        {copied ? <Check size={20}/> : <Copy size={20}/>}
+                        {copied ? 'Mensagem Copiada!' : 'Copiar Mensagem'}
+                    </button>
+                    
+                    <div className="flex gap-3">
+                        <button 
+                            onClick={onClose}
+                            className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-3 rounded-xl font-bold text-sm transition-colors"
+                        >
+                            Fechar
+                        </button>
+                        {phone && (
+                            <button 
+                                onClick={handleOpenWhatsapp}
+                                className="flex-1 bg-slate-800 hover:bg-slate-700 text-orange-400 border border-orange-500/30 py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                            >
+                                <MessageCircle size={16}/> Abrir WhatsApp
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 // --- NOVO MODAL: SUCESSO DE DESPACHO ---
 export function DispatchSuccessModal({ onClose, data, appName }: { onClose: () => void, data: { order: Order, driverName: string }, appName: string }) {
     const [copied, setCopied] = useState(false);
-    const message = getDispatchMessage(data.order, data.driverName, appName);
+    // FALLBACK DE SEGURANÇA
+    const safeAppName = appName || "Jhans Burgers";
+    const message = getDispatchMessage(data.order, data.driverName, safeAppName);
     const phone = normalizePhone(data.order.phone);
 
     const handleCopy = () => {

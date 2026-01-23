@@ -208,11 +208,12 @@ export const formatOrderId = (id: string) => {
 };
 
 export const generateReceiptText = (order: any, appName: string, pixData?: any) => {
+    const safeName = appName || 'Jhans Burgers';
     const date = formatDate(order.createdAt);
     const time = formatTime(order.createdAt);
     const displayId = formatOrderId(order.id);
     
-    let text = `*${appName.toUpperCase()}*\n*Pedido ${displayId}*\n📅 ${date} - ${time}\n\n*Cliente:* ${order.customer}\n*Tel:* ${order.phone}\n*End:* ${order.address}\n\n*--------------------------------*\n*ITENS:*\n${order.items}\n\n*--------------------------------*\n*TOTAL:* ${formatCurrency(order.value || 0)}\n\n`;
+    let text = `*${safeName.toUpperCase()}*\n*Pedido ${displayId}*\n📅 ${date} - ${time}\n\n*Cliente:* ${order.customer}\n*Tel:* ${order.phone}\n*End:* ${order.address}\n\n*--------------------------------*\n*ITENS:*\n${order.items}\n\n*--------------------------------*\n*TOTAL:* ${formatCurrency(order.value || 0)}\n\n`;
     
     if (order.deliveryFee === 0 || !order.deliveryFee) {
         text += `*Entrega:* GRÁTIS (Presente da Casa) 🎁\n`;
@@ -247,14 +248,16 @@ export const downloadCSV = (content: string, fileName: string) => {
 };
 
 export const getOrderReceivedText = (order: any, appName: string) => {
+    const safeName = appName || 'Jhans Burgers';
     const isPix = order.paymentMethod?.toLowerCase().includes('pix');
     const displayId = formatOrderId(order.id);
     
-    return `Olá *${order.customer}*! 👋\nRecebemos seu pedido no *${appName}* e ficamos muito felizes!\n\n*Fique tranquilo!* 🥰\nSeu pedido ${displayId} já entrou no nosso sistema e será aceito e preparado com todo o cuidado.\n\n💰 Total: *${formatCurrency(order.value)}*\n${isPix ? '⚠️ *Assim que puder, nos envie o comprovante PIX.*\n\nCaso já tenha feito o pagamento, favor desconsiderar a cobrança 😀' : ''}\n\n🛵 Avisaremos assim que sair para entrega!`;
+    return `Olá *${order.customer}*! 👋\nRecebemos seu pedido no *${safeName}* e ficamos muito felizes!\n\n*Fique tranquilo!* 🥰\nSeu pedido ${displayId} já entrou no nosso sistema e será aceito e preparado com todo o cuidado.\n\n💰 Total: *${formatCurrency(order.value)}*\n${isPix ? '⚠️ *Assim que puder, nos envie o comprovante PIX.*\n\nCaso já tenha feito o pagamento, favor desconsiderar a cobrança 😀' : ''}\n\n🛵 Avisaremos assim que sair para entrega!`;
 };
 
 export const sendOrderConfirmation = (order: any, appName: string) => {
-    const text = getOrderReceivedText(order, appName);
+    const safeName = appName || 'Jhans Burgers';
+    const text = getOrderReceivedText(order, safeName);
     const phone = normalizePhone(order.phone);
     if(phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
 };
@@ -266,16 +269,25 @@ export const sendDeliveryNotification = (order: any, driverName: string, vehicle
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
 };
 
-// NOVA FUNÇÃO APENAS PARA GERAR O TEXTO
+// NOVA FUNÇÃO APENAS PARA GERAR O TEXTO DE DESPACHO
 export const getDispatchMessage = (order: any, driverName: string, appName: string) => {
+    const safeName = appName || 'Jhans Burgers';
     const displayId = formatOrderId(order.id);
-    return `Olá *${order.customer}*! 👋\n\nO seu pedido *${displayId}* ficou pronto aqui no *${appName}* e já entregamos ao motoboy *${driverName}*! 🛵💨\n\nEle já saiu para entrega e logo chega no seu endereço.\n\nObrigado! ❤️`;
+    return `Olá *${order.customer}*! 👋\n\nO seu pedido *${displayId}* ficou pronto aqui no *${safeName}* e já entregamos ao motoboy *${driverName}*! 🛵💨\n\nEle já saiu para entrega e logo chega no seu endereço.\n\nObrigado! ❤️`;
+};
+
+// NOVA FUNÇÃO PARA GERAR TEXTO DE INICIO DE PREPARO
+export const getProductionMessage = (order: any, appName: string) => {
+    const safeName = appName || 'Jhans Burgers';
+    const displayId = formatOrderId(order.id);
+    return `Olá *${order.customer}*! 👋\n\nBoas notícias! O seu pedido *${displayId}* foi ACEITO e já começou a ser preparado aqui no *${safeName}*! 👨‍🍳🔥\n\nAvisaremos assim que ele sair para entrega.\n\nObrigado! ❤️`;
 };
 
 // MANTIDA PARA COMPATIBILIDADE, MAS AGORA USA A FUNÇÃO GERADORA
 export const sendDispatchNotification = (order: any, driverName: string, appName: string) => {
+    const safeName = appName || 'Jhans Burgers';
     const phone = normalizePhone(order.phone);
     if (!phone) return;
-    const text = getDispatchMessage(order, driverName, appName);
+    const text = getDispatchMessage(order, driverName, safeName);
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
 };

@@ -1,10 +1,12 @@
 
+
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Order, Product, Driver } from '../types';
+import { Order, Product, Driver, AppConfig } from '../types';
 import { formatTime, toSentenceCase, formatDate, getOrderReceivedText, copyToClipboard, formatOrderId } from '../utils';
-import { Clock, CheckCircle2, Flame, ChefHat, ArrowLeft, AlertTriangle, History, ArrowRight, Bike, Copy } from 'lucide-react';
-import { KitchenHistoryModal } from './Modals';
+import { Clock, CheckCircle2, Flame, ChefHat, ArrowLeft, AlertTriangle, History, ArrowRight, Bike, Copy, X } from 'lucide-react';
+import { KitchenHistoryModal, ProductionSuccessModal, ConfirmCloseOrderModal } from './Modals';
 import { Footer } from './Shared';
+import { serverTimestamp } from 'firebase/firestore';
 
 interface KDSProps {
     orders: Order[];
@@ -13,17 +15,22 @@ interface KDSProps {
     onUpdateStatus: (id: string, status: any) => void;
     onAssignOrder?: (oid: string, did: string) => void;
     onBack?: () => void;
+    appConfig: AppConfig;
 }
 
 const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
-export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateStatus, onAssignOrder }: KDSProps) {
+export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateStatus, onAssignOrder, appConfig }: KDSProps) {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [viewMode, setViewMode] = useState<'active' | 'history'>('active');
     const [selectedHistoryOrder, setSelectedHistoryOrder] = useState<Order | null>(null);
+    const [productionOrder, setProductionOrder] = useState<Order | null>(null); // State para o modal de produção
+    const [orderToClose, setOrderToClose] = useState<Order | null>(null); // NOVO: Pedido sendo fechado manualmente
     const prevPendingCountRef = useRef(0);
     const audioRef = useRef<HTMLAudioElement | null>(null);
-    const [appConfig] = useState(() => { try { return JSON.parse(localStorage.getItem('jhans_app_config') || '{}'); } catch { return { appName: "Jhans Burgers" }; } });
+    
+    // Fallback de segurança REFORÇADO para evitar 'undefined' no KDS
+    const effectiveAppName = (appConfig && appConfig.appName && appConfig.appName !== 'undefined') ? appConfig.appName : "Jhans Burgers";
 
     // Filtra apenas pedidos ativos na cozinha
     const kitchenOrders = orders.filter(o => 
@@ -95,7 +102,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
 
     const handleCopyStatus = (e: React.MouseEvent, order: Order) => {
         e.stopPropagation();
-        const text = getOrderReceivedText(order, appConfig.appName);
+        const text = getOrderReceivedText(order, effectiveAppName);
         copyToClipboard(text);
         
         // Efeito visual no botão
@@ -148,7 +155,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                 const cardColor = getCardColor(order.status, elapsedSec);
 
                                 return (
-                                    <div key={order.id} className={`flex flex-col w-full rounded-xl border-l-[6px] shadow-lg transition-all ${cardColor} h-auto`}>
+                                    <div key={order.id} className={`flex flex-col w-full rounded-xl border-l-[6px] shadow-lg transition-all ${cardColor} h-auto relative group`}>
                                         {/* Header do Card */}
                                         <div className="p-3 md:p-4 border-b border-white/10 flex justify-between items-start bg-black/10">
                                             <div className="flex flex-col overflow-hidden mr-2">
@@ -158,7 +165,16 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                                 <span className="text-xs font-mono text-white/60">{formatOrderId(order.id)}</span>
                                             </div>
                                             <div className="flex flex-col items-end shrink-0 gap-1">
-                                                <div className="flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded mb-1">
+                                                {/* BOTÃO FECHAR (X) */}
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setOrderToClose(order); }}
+                                                    className="absolute top-2 right-2 p-1.5 bg-black/40 hover:bg-red-600 text-white/70 hover:text-white rounded-lg transition-colors z-20"
+                                                    title="Fechar/Remover Pedido da Tela"
+                                                >
+                                                    <X size={14} strokeWidth={3}/>
+                                                </button>
+
+                                                <div className="flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded mb-1 mt-6">
                                                     <Clock size={14} className="text-white/80"/> 
                                                     <span className="font-mono font-bold text-base md:text-lg">{getElapsedTime(order.createdAt)}</span>
                                                 </div>
@@ -199,7 +215,13 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                         {/* Ações */}
                                         <div className="p-3 md:p-4 mt-auto border-t border-white/10 bg-black/10">
                                             {order.status === 'pending' && (
-                                                <button onClick={() => onUpdateStatus(order.id, {status: 'preparing'})} className="w-full bg-orange-600 hover:bg-orange-500 text-white py-3 rounded-lg font-black uppercase text-sm md:text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                                                <button 
+                                                    onClick={() => {
+                                                        onUpdateStatus(order.id, {status: 'preparing'});
+                                                        setProductionOrder(order); // Abre o modal de sucesso
+                                                    }} 
+                                                    className="w-full bg-orange-600 hover:bg-orange-500 text-white py-3 rounded-lg font-black uppercase text-sm md:text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+                                                >
                                                     <Flame size={18}/> Iniciar Preparo
                                                 </button>
                                             )}
@@ -302,6 +324,27 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                     order={selectedHistoryOrder} 
                     onClose={() => setSelectedHistoryOrder(null)} 
                     products={products}
+                />
+            )}
+
+            {/* Modal de Sucesso de Preparo */}
+            {productionOrder && (
+                <ProductionSuccessModal 
+                    order={productionOrder} 
+                    onClose={() => setProductionOrder(null)} 
+                    appName={effectiveAppName}
+                />
+            )}
+
+            {/* NOVO: Modal de Confirmação de Fechamento */}
+            {orderToClose && (
+                <ConfirmCloseOrderModal
+                    order={orderToClose}
+                    onClose={() => setOrderToClose(null)}
+                    onConfirm={() => {
+                        onUpdateStatus(orderToClose.id, { status: 'completed', completedAt: serverTimestamp() });
+                        setOrderToClose(null);
+                    }}
                 />
             )}
             

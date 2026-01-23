@@ -279,8 +279,8 @@ export default function AdminInterface(props: AdminProps) {
                     {view === 'menu' && <MenuManager products={products} onCreate={props.onCreateProduct} onUpdate={props.onUpdateProduct} onDelete={props.onDeleteProduct} />}
                     {view === 'clients' && <ClientsView clients={clients} orders={delivered} setModal={setModal} setClientToEdit={setClientToEdit} />}
                     {view === 'reports' && <ItemReportView orders={orders} />}
-                    {/* ATUALIZADO: Passando handleAssignAndNotify para o KDS */}
-                    {view === 'kds' && <KitchenDisplay orders={orders} products={products} drivers={drivers} onUpdateStatus={onUpdateOrder} onAssignOrder={handleAssignAndNotify} />}
+                    {/* ATUALIZADO: Passando appConfig para o KDS */}
+                    {view === 'kds' && <KitchenDisplay orders={orders} products={products} drivers={drivers} onUpdateStatus={onUpdateOrder} onAssignOrder={handleAssignAndNotify} appConfig={appConfig} />}
                     {view === 'history' && (
                        <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-24 custom-scrollbar">
                           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4"><h3 className="font-bold text-2xl text-slate-200">Fluxo de Caixa</h3><button onClick={() => setModal('expense')} className="bg-red-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex gap-2 shadow-md"><MinusCircle size={18}/> Lançar Custo</button></div>
