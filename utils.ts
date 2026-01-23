@@ -266,10 +266,16 @@ export const sendDeliveryNotification = (order: any, driverName: string, vehicle
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
 };
 
+// NOVA FUNÇÃO APENAS PARA GERAR O TEXTO
+export const getDispatchMessage = (order: any, driverName: string, appName: string) => {
+    const displayId = formatOrderId(order.id);
+    return `Olá *${order.customer}*! 👋\n\nO seu pedido *${displayId}* ficou pronto aqui no *${appName}* e já entregamos ao motoboy *${driverName}*! 🛵💨\n\nEle já saiu para entrega e logo chega no seu endereço.\n\nObrigado! ❤️`;
+};
+
+// MANTIDA PARA COMPATIBILIDADE, MAS AGORA USA A FUNÇÃO GERADORA
 export const sendDispatchNotification = (order: any, driverName: string, appName: string) => {
     const phone = normalizePhone(order.phone);
     if (!phone) return;
-    const displayId = formatOrderId(order.id);
-    const text = `Olá *${order.customer}*! 👋\n\nO seu pedido *${displayId}* ficou pronto aqui no *${appName}* e já entregamos ao motoboy *${driverName}*! 🛵💨\n\nEle já saiu para entrega e logo chega no seu endereço.\n\nObrigado! ❤️`;
+    const text = getDispatchMessage(order, driverName, appName);
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
 };

@@ -1,8 +1,81 @@
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check } from 'lucide-react';
+import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send } from 'lucide-react';
 import { Product, Client, AppConfig, Driver, Order, Vale } from '../types';
-import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, getOrderReceivedText, formatOrderId } from '../utils';
+import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, getOrderReceivedText, formatOrderId, getDispatchMessage } from '../utils';
+
+// --- NOVO MODAL: SUCESSO DE DESPACHO ---
+export function DispatchSuccessModal({ onClose, data, appName }: { onClose: () => void, data: { order: Order, driverName: string }, appName: string }) {
+    const [copied, setCopied] = useState(false);
+    const message = getDispatchMessage(data.order, data.driverName, appName);
+    const phone = normalizePhone(data.order.phone);
+
+    const handleCopy = () => {
+        copyToClipboard(message);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleOpenWhatsapp = () => {
+        if (phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-300">
+            <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md p-6 border-2 border-emerald-500 shadow-emerald-500/20 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-10">
+                    <span className="flex h-32 w-32">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    </span>
+                </div>
+
+                <div className="flex flex-col items-center text-center mb-6">
+                    <div className="bg-emerald-500/20 p-4 rounded-full mb-3 animate-bounce">
+                        <Bike size={32} className="text-emerald-400" />
+                    </div>
+                    <h3 className="font-black text-2xl text-white uppercase tracking-wide">Pedido Despachado!</h3>
+                    <p className="text-emerald-400 font-bold text-sm">Entregue ao motoboy {data.driverName}</p>
+                </div>
+
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 mb-6 text-left relative">
+                    <p className="text-slate-400 text-xs font-bold uppercase mb-2">Mensagem para o Cliente:</p>
+                    <div className="text-slate-300 text-sm whitespace-pre-wrap font-medium bg-slate-900 p-3 rounded-lg border border-slate-800 max-h-40 overflow-y-auto custom-scrollbar">
+                        {message}
+                    </div>
+                </div>
+
+                <div className="space-y-3">
+                    <button 
+                        onClick={handleCopy}
+                        className={`w-full py-4 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 ${copied ? 'bg-emerald-500 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+                    >
+                        {copied ? <Check size={20}/> : <Copy size={20}/>}
+                        {copied ? 'Mensagem Copiada!' : 'Copiar Mensagem'}
+                    </button>
+                    
+                    <div className="flex gap-3">
+                        <button 
+                            onClick={onClose}
+                            className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-3 rounded-xl font-bold text-sm transition-colors"
+                        >
+                            Fechar
+                        </button>
+                        {phone && (
+                            <button 
+                                onClick={handleOpenWhatsapp}
+                                className="flex-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                            >
+                                <MessageCircle size={16}/> Abrir WhatsApp
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 // --- NEW INCOMING ORDER MODAL (ALERTA DE NOVO PEDIDO) ---
 export function NewIncomingOrderModal({ order, onClose, appConfig }: any) {
@@ -194,7 +267,7 @@ export function ConfirmAssignmentModal({ onClose, onConfirm, order, driverName }
                     <div className="bg-amber-500/10 p-4 rounded-full mb-4"><AlertTriangle className="text-amber-500 w-10 h-10" /></div>
                     <h3 className="font-bold text-xl text-white mb-2">Confirmar Envio?</h3>
                     <p className="text-slate-400 text-sm mb-6 leading-relaxed">Você está atribuindo o pedido <strong>{formatOrderId(order.id)}</strong> para <strong>{driverName}</strong>.<br/><br/><span className="text-amber-400 font-bold">O pedido já está pronto e embalado na cozinha?</span></p>
-                    <div className="flex gap-3 w-full"><button onClick={onClose} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-800 rounded-xl transition-colors border border-transparent hover:border-slate-700">Cancelar</button><button onClick={() => { onConfirm(); onClose(); }} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95"><CheckCircle2 size={18}/> Sim, Enviar</button></div>
+                    <div className="flex gap-3 w-full"><button onClick={onClose} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-800 rounded-xl transition-colors border border-transparent hover:border-slate-700">Cancelar</button><button onClick={() => { onConfirm(); }} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95"><CheckCircle2 size={18}/> Sim, Enviar</button></div>
                 </div>
             </div>
         </div>

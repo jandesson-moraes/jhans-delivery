@@ -1,17 +1,19 @@
 
 
 
+
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement } from '../types';
 import { BrandLogo, SidebarBtn, StatBox, Footer } from './Shared';
 import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart, History, CheckCircle2, Radar, Volume2, VolumeX } from 'lucide-react';
-import { formatCurrency, formatTime, formatDate, isToday, sendDispatchNotification } from '../utils';
+import { formatCurrency, formatTime, formatDate, isToday } from '../utils';
 import { MenuManager } from './MenuManager';
 import { ClientsView } from './ClientsView';
 import { DailyOrdersView } from './DailyOrdersView';
 import { KitchenDisplay } from './KitchenDisplay';
 import { ItemReportView } from './ItemReportView';
-import { NewOrderModal, ConfirmAssignmentModal, NewIncomingOrderModal } from './Modals'; 
+import { NewOrderModal, ConfirmAssignmentModal, NewIncomingOrderModal, DispatchSuccessModal } from './Modals'; 
 
 // Som de Campainha/Sino (Mais agradável que caixa registradora para alertas)
 const NEW_ORDER_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; 
@@ -81,6 +83,9 @@ export default function AdminInterface(props: AdminProps) {
     const [showIntro, setShowIntro] = useState(true);
     const [newIncomingOrder, setNewIncomingOrder] = useState<Order | null>(null);
     const [soundEnabled, setSoundEnabled] = useState(false);
+    
+    // Estado para o modal de sucesso do despacho
+    const [dispatchedOrderData, setDispatchedOrderData] = useState<{order: Order, driverName: string} | null>(null);
 
     // Controle de notificações de som para não repetir
     const notifiedOrderIds = useRef<Set<string>>(new Set());
@@ -331,13 +336,21 @@ export default function AdminInterface(props: AdminProps) {
                  )}
             </aside>
             {newIncomingOrder && <NewIncomingOrderModal order={newIncomingOrder} onClose={() => setNewIncomingOrder(null)} appConfig={appConfig} />}
+            {/* Modal de Sucesso de Despacho (Exibe mensagem para copiar) */}
+            {dispatchedOrderData && (
+                <DispatchSuccessModal 
+                    data={dispatchedOrderData} 
+                    onClose={() => setDispatchedOrderData(null)} 
+                    appName={appConfig.appName}
+                />
+            )}
             {(props as any).modal === 'confirmAssign' && <ConfirmAssignmentModal 
                 onClose={() => setModal(null)} 
                 onConfirm={() => { 
                     if (orderToAssign && selectedDriver) {
                         onAssignOrder(orderToAssign.id, selectedDriver.id); 
-                        // DISPARA NOTIFICAÇÃO DO WHATSAPP AQUI
-                        sendDispatchNotification(orderToAssign, selectedDriver.name, appConfig.appName);
+                        // Agora abrimos o modal em vez de mandar para o zap direto
+                        setDispatchedOrderData({ order: orderToAssign, driverName: selectedDriver.name });
                     }
                     setOrderToAssign(null); 
                 }} 
