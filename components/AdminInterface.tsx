@@ -80,7 +80,8 @@ export default function AdminInterface(props: AdminProps) {
     const [newIncomingOrder, setNewIncomingOrder] = useState<Order | null>(null);
     const [soundEnabled, setSoundEnabled] = useState(false);
 
-    const prevOrdersRef = useRef<Order[]>([]);
+    // Controle de notificações de som para não repetir
+    const notifiedOrderIds = useRef<Set<string>>(new Set());
     const successAudioRef = useRef<HTMLAudioElement | null>(null);
     const newOrderAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -93,6 +94,9 @@ export default function AdminInterface(props: AdminProps) {
     useEffect(() => {
         successAudioRef.current = new Audio(SUCCESS_SOUND);
         newOrderAudioRef.current = new Audio(NEW_ORDER_SOUND);
+        
+        // Inicializa o conjunto de IDs já notificados com os pedidos existentes ao carregar
+        orders.forEach(o => notifiedOrderIds.current.add(o.id));
     }, []);
 
     const toggleSound = () => {
@@ -107,31 +111,28 @@ export default function AdminInterface(props: AdminProps) {
     };
 
     useEffect(() => {
-        const prevOrders = prevOrdersRef.current;
-        if (prevOrders.length === 0 && orders.length > 0) { prevOrdersRef.current = orders; return; }
+        if (!soundEnabled) return;
 
-        // Novos pedidos (Som de sino)
-        const newOrdersList = orders.filter(o => !prevOrders.find(p => p.id === o.id));
-        const hasNewPendingOrder = newOrdersList.some(o => o.status === 'pending');
-
-        if (hasNewPendingOrder && soundEnabled) {
-            if(newOrderAudioRef.current) {
-                newOrderAudioRef.current.currentTime = 0;
-                newOrderAudioRef.current.play().catch(e => console.log("Play bloqueado", e));
-                if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
+        // Detecta novos pedidos PENDENTES que ainda não foram notificados
+        orders.forEach(order => {
+            if (order.status === 'pending' && !notifiedOrderIds.current.has(order.id)) {
+                // Toca o som
+                if(newOrderAudioRef.current) {
+                    newOrderAudioRef.current.currentTime = 0;
+                    newOrderAudioRef.current.play().catch(e => console.log("Play bloqueado", e));
+                    if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
+                }
+                
+                // Marca como notificado e abre o modal
+                notifiedOrderIds.current.add(order.id);
+                setNewIncomingOrder(order);
             }
-            const newest = newOrdersList.find(o => o.status === 'pending');
-            if (newest) setNewIncomingOrder(newest);
-        }
+        });
 
-        // Entregas finalizadas (Som de sucesso)
-        const completedCount = orders.filter(o => o.status === 'completed').length;
-        const prevCompletedCount = prevOrders.filter(o => o.status === 'completed').length;
-        if (completedCount > prevCompletedCount && soundEnabled) {
-            if(successAudioRef.current) successAudioRef.current.play().catch(e => {});
-        }
-
-        prevOrdersRef.current = orders;
+        // Opcional: Som de sucesso (pode ser mantido ou removido se incomodar)
+        // A lógica de som de sucesso pode ser complexa de rastrear sem um estado anterior
+        // Por enquanto, focamos no som de NOVO PEDIDO que era o "pertubador"
+        
     }, [orders, soundEnabled]);
 
     const trackDriver = (driver: Driver) => {

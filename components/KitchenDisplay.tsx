@@ -1,6 +1,7 @@
+
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Order, Product, Driver } from '../types';
-import { formatTime, toSentenceCase, formatDate, getOrderReceivedText, copyToClipboard } from '../utils';
+import { formatTime, toSentenceCase, formatDate, getOrderReceivedText, copyToClipboard, formatOrderId } from '../utils';
 import { Clock, CheckCircle2, Flame, ChefHat, ArrowLeft, AlertTriangle, History, ArrowRight, Bike, Copy } from 'lucide-react';
 import { KitchenHistoryModal } from './Modals';
 import { Footer } from './Shared';
@@ -97,7 +98,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
         const text = getOrderReceivedText(order, appConfig.appName);
         copyToClipboard(text);
         
-        // Efeito visual no botão (opcional, já que copyToClipboard pode não dar feedback visual direto aqui)
+        // Efeito visual no botão
         const btn = e.currentTarget as HTMLButtonElement;
         const originalContent = btn.innerHTML;
         btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copiado`;
@@ -154,7 +155,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                                 <span className="font-black text-lg md:text-xl leading-tight text-white truncate w-full" title={order.customer}>
                                                     {order.customer}
                                                 </span>
-                                                <span className="text-xs font-mono text-white/60">#{order.id.slice(-4)}</span>
+                                                <span className="text-xs font-mono text-white/60">{formatOrderId(order.id)}</span>
                                             </div>
                                             <div className="flex flex-col items-end shrink-0 gap-1">
                                                 <div className="flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded mb-1">
@@ -263,7 +264,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                         return (
                                             <tr key={order.id} className="hover:bg-slate-800/50 transition-colors cursor-pointer group" onClick={() => setSelectedHistoryOrder(order)}>
                                                 <td className="p-4">
-                                                    <span className="font-mono text-white font-bold block">#{order.id.slice(-4)}</span>
+                                                    <span className="font-mono text-white font-bold block">{formatOrderId(order.id)}</span>
                                                     <span className="text-xs text-slate-500">{order.customer}</span>
                                                 </td>
                                                 <td className="p-4">

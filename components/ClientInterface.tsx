@@ -16,13 +16,40 @@ interface ClientInterfaceProps {
 
 export default function ClientInterface({ products, appConfig, onCreateOrder, onBack, allowSystemAccess, onSystemAccess }: ClientInterfaceProps) {
     const [view, setView] = useState<'menu' | 'cart' | 'success'>('menu');
-    const [cart, setCart] = useState<{product: Product, quantity: number, obs: string}[]>([]);
+    
+    // --- ESTADOS INICIAIS COM CARREGAMENTO DO LOCALSTORAGE ---
+    const [cart, setCart] = useState<{product: Product, quantity: number, obs: string}[]>(() => {
+        try {
+            const savedCart = localStorage.getItem('jhans_cart');
+            return savedCart ? JSON.parse(savedCart) : [];
+        } catch { return []; }
+    });
+
     const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
     const [search, setSearch] = useState('');
     const [orderId, setOrderId] = useState('');
-    const [lastOrderData, setLastOrderData] = useState<any>(null); // Armazena dados do ultimo pedido para o recibo
+    
+    const [lastOrderData, setLastOrderData] = useState<any>(() => {
+        try {
+            const savedOrder = localStorage.getItem('jhans_last_order');
+            if (savedOrder) {
+                // Se existe um pedido salvo, podemos já iniciar na tela de sucesso se foi recente (ex: última hora)
+                // Para simplificar, se tiver dados, assumimos que o usuário deu F5 na tela de sucesso
+                return JSON.parse(savedOrder);
+            }
+            return null;
+        } catch { return null; }
+    });
+
     const [loadingLocation, setLoadingLocation] = useState(false);
     
+    // Recupera se devemos mostrar a tela de sucesso no refresh
+    useEffect(() => {
+        if (lastOrderData && cart.length === 0) {
+            setView('success');
+        }
+    }, []);
+
     // Checkout State
     const [checkout, setCheckout] = useState({
         name: '',
@@ -34,7 +61,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         trocoPara: ''
     });
 
-    // --- PERSISTÊNCIA DE DADOS ---
+    // --- PERSISTÊNCIA DE DADOS (EFEITOS) ---
     useEffect(() => {
         try {
             const savedData = localStorage.getItem('jhans_client_info');
@@ -52,6 +79,18 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             console.error("Erro ao carregar dados salvos", e);
         }
     }, []);
+
+    // Salva o carrinho sempre que mudar
+    useEffect(() => {
+        localStorage.setItem('jhans_cart', JSON.stringify(cart));
+    }, [cart]);
+
+    // Salva o último pedido para recuperar no F5
+    useEffect(() => {
+        if (lastOrderData) {
+            localStorage.setItem('jhans_last_order', JSON.stringify(lastOrderData));
+        }
+    }, [lastOrderData]);
 
     // Ordem de prioridade para exibição (Psicologia de Venda)
     const PRIORITY_ORDER = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
@@ -120,12 +159,13 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     // Geração do Payload do PIX
     const pixPayload = useMemo(() => {
         // Se já tivermos um orderId gerado (no sucesso), use-o. Se não, é pré-cálculo
-        const txId = orderId || '***'; 
+        // Prioriza o ID do lastOrderData se existir
+        const txId = (lastOrderData && lastOrderData.id) ? lastOrderData.id : (orderId || '***'); 
         if (checkout.paymentMethod === 'PIX' && appConfig.pixKey && appConfig.pixName && appConfig.pixCity) {
             return generatePixPayload(appConfig.pixKey, appConfig.pixName, appConfig.pixCity, finalTotal, txId);
         }
         return null;
-    }, [checkout.paymentMethod, appConfig, finalTotal, orderId]);
+    }, [checkout.paymentMethod, appConfig, finalTotal, orderId, lastOrderData]);
 
     const addToCart = (product: Product) => {
         setCart(prev => {
@@ -205,7 +245,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             return `${i.quantity}x ${i.product.name}${i.obs ? `\n(Obs: ${i.obs})` : ''}`;
         }).join('\n---\n');
 
-        // SALVAR DADOS NO LOCALSTORAGE
+        // SALVAR DADOS DE CONTATO NO LOCALSTORAGE
         try {
             localStorage.setItem('jhans_client_info', JSON.stringify({
                 name: checkout.name,
@@ -245,12 +285,19 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             setOrderId(generatedId); 
             setLastOrderData({ ...orderData, id: generatedId });
             setView('success');
-            setCart([]);
+            setCart([]); // Limpa o carrinho
+            localStorage.removeItem('jhans_cart'); // Remove carrinho do storage
             setCheckout(prev => ({ ...prev, trocoPara: '' })); 
         } catch (error) {
             alert("Erro ao enviar pedido. Tente novamente.");
         }
     };
+
+    const handleNewOrder = () => {
+        setLastOrderData(null);
+        localStorage.removeItem('jhans_last_order');
+        setView('menu');
+    }
 
     const sendToWhatsApp = () => {
         if (!appConfig.storePhone) return;
@@ -386,7 +433,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                     </button>
                 )}
                 
-                <button onClick={() => setView('menu')} className="text-slate-500 font-bold text-sm hover:text-white transition-colors py-2">
+                <button onClick={handleNewOrder} className="text-slate-500 font-bold text-sm hover:text-white transition-colors py-2">
                     Fazer Novo Pedido
                 </button>
             </div>

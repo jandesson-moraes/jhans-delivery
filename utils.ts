@@ -107,7 +107,6 @@ export const parseOrderItems = (itemsString: string) => {
 };
 
 // --- FUNÇÕES GERADORAS DE PIX (PADRÃO BR CODE) ---
-// Movidas para cima para serem usadas por generateReceiptText
 
 const crc16ccitt = (payload: string) => {
     let crc = 0xFFFF;
@@ -131,13 +130,12 @@ const formatField = (id: string, value: string) => {
     return `${id}${len}${value}`;
 };
 
-// Normalização Agressiva: Apenas Letras, Números e Espaço. Tudo maiúsculo.
 const normalizeText = (text: string) => {
     return text
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "") // Remove acentos
-        .replace(/[^a-zA-Z0-9 ]/g, "")   // Remove TUDO que não for letra, número ou espaço (remove pontos, traços, etc)
-        .replace(/\s+/g, ' ')            // Remove espaços duplos
+        .replace(/[\u0300-\u036f]/g, "") 
+        .replace(/[^a-zA-Z0-9 ]/g, "")   
+        .replace(/\s+/g, ' ')            
         .trim()
         .toUpperCase();
 };
@@ -145,20 +143,16 @@ const normalizeText = (text: string) => {
 const sanitizeAscii = (str: string) => str.replace(/[^\x20-\x7E]/g, '');
 
 export const generatePixPayload = (key: string, name: string, city: string, amount: number, txId: string = '***') => {
-    // 1. Limpeza e Validação da Chave
     let cleanKey = sanitizeAscii(key || '').trim();
-    
-    // Heurísticas
     if (!cleanKey.includes('@')) {
         const isEVP = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanKey);
         if (!isEVP) {
             const raw = cleanKey.replace(/[\(\)\-\.\s\/]/g, '');
             if (/^\d+$/.test(raw)) {
-                 // Celular
                  if (raw.length === 11 && raw[2] === '9') {
                      cleanKey = '+55' + raw;
                  } else {
-                     cleanKey = raw; // CPF/CNPJ/Outros
+                     cleanKey = raw; 
                  }
             } else if (cleanKey.startsWith('+')) {
                  cleanKey = '+' + raw.replace('+', ''); 
@@ -168,17 +162,15 @@ export const generatePixPayload = (key: string, name: string, city: string, amou
         }
     }
 
-    // 2. Normalização dos campos (Obrigatório: Nome sem caracteres especiais)
     const cleanName = normalizeText(name || 'RECEBEDOR').substring(0, 25) || 'RECEBEDOR';
     const cleanCity = normalizeText(city || 'BRASIL').substring(0, 15) || 'BRASIL';
     const cleanTxId = sanitizeAscii(txId || '***').substring(0, 25) || '***';
     const amountStr = amount.toFixed(2);
 
-    // 3. Montagem do Payload (GUI OBRIGATORIAMENTE MAIÚSCULO)
     let payload = 
         formatField('00', '01') +                              
         formatField('26',                                      
-            formatField('00', 'BR.GOV.BCB.PIX') + // FIX: Forçar Maiúsculo
+            formatField('00', 'BR.GOV.BCB.PIX') + 
             formatField('01', cleanKey)
         ) +
         formatField('52', '0000') +                           
@@ -196,32 +188,34 @@ export const generatePixPayload = (key: string, name: string, city: string, amou
     return payload;
 };
 
+// AUXILIAR PARA FORMATAR ID - AGORA NUNCA CORTA
+export const formatOrderId = (id: string) => {
+    if (!id) return '???';
+    // Remove qualquer # existente para evitar duplicação e adiciona novamente
+    const cleanId = id.replace(/^#/, '');
+    return '#' + cleanId;
+};
+
 export const generateReceiptText = (order: any, appName: string, pixData?: any) => {
     const date = formatDate(order.createdAt);
     const time = formatTime(order.createdAt);
+    const displayId = formatOrderId(order.id);
     
-    // Se o ID for personalizado (PED-XXXX), usa ele inteiro. Se não, usa os ultimos 4 digitos
-    const displayId = order.id.startsWith('PED-') ? order.id : `#${order.id.slice(-4)}`;
-    
-    // Constrói o texto base
     let text = `*${appName.toUpperCase()}*\n*Pedido ${displayId}*\n📅 ${date} - ${time}\n\n*Cliente:* ${order.customer}\n*Tel:* ${order.phone}\n*End:* ${order.address}\n\n*--------------------------------*\n*ITENS:*\n${order.items}\n\n*--------------------------------*\n*TOTAL:* ${formatCurrency(order.value || 0)}\n\n`;
     
-    // Adiciona informação de Entrega Grátis se aplicável
     if (order.deliveryFee === 0 || !order.deliveryFee) {
         text += `*Entrega:* GRÁTIS (Presente da Casa) 🎁\n`;
     }
 
     text += `*Pagamento:* ${order.paymentMethod || 'Dinheiro'}\n${order.obs ? `\n*Obs:* ${order.obs}` : ''}`;
     
-    // Adiciona PIX COPIA E COLA se necessário
     if (pixData && order.paymentMethod && order.paymentMethod.toUpperCase().includes('PIX') && pixData.pixKey) {
-         // Gera o Payload (Copia e Cola)
          const payload = generatePixPayload(pixData.pixKey, pixData.pixName, pixData.pixCity, order.value, order.id);
          
          text += `\n\n*--------------------------------*\n`;
          text += `*PAGAMENTO PIX (COPIA E COLA):*\n`;
          text += `Copie o código abaixo:\n\n`;
-         text += `\`\`\`${payload}\`\`\`\n\n`; // FORMATO DE CÓDIGO MONOSPACE
+         text += `\`\`\`${payload}\`\`\`\n\n`; 
          text += `--------------------------------\n\n`;
     }
     
@@ -240,7 +234,7 @@ export const downloadCSV = (content: string, fileName: string) => {
 
 export const getOrderReceivedText = (order: any, appName: string) => {
     const isPix = order.paymentMethod?.toLowerCase().includes('pix');
-    const displayId = order.id.startsWith('PED-') ? order.id : `#${order.id.slice(-4)}`;
+    const displayId = formatOrderId(order.id);
     
     return `Olá *${order.customer}*! 👋\nRecebemos seu pedido no *${appName}*!\n\n*Status: EM PREPARO* 👨‍🍳🔥\nSeu pedido ${displayId} já foi aceito.\n\n💰 Total: *${formatCurrency(order.value)}*\n${isPix ? '⚠️ *Aguardamos o comprovante PIX.*' : ''}\n\n🛵 Avisaremos quando sair para entrega!`;
 };

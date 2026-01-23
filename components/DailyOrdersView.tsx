@@ -1,6 +1,7 @@
+
 import React, { useMemo, useState } from 'react';
 import { Order, Driver } from '../types';
-import { isToday, formatTime, formatCurrency, sendOrderConfirmation } from '../utils';
+import { isToday, formatTime, formatCurrency, sendOrderConfirmation, formatOrderId } from '../utils';
 import { StatBox, Footer } from './Shared';
 import { ClipboardList, DollarSign, Trash2, Edit, FileText, MessageCircle } from 'lucide-react';
 import { EditOrderModal, ReceiptModal } from './Modals';
@@ -38,12 +39,13 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm text-slate-400">
                         <thead className="bg-slate-950 text-slate-200 font-bold uppercase tracking-wider border-b border-slate-800">
-                            <tr><th className="p-4">Hora</th><th className="p-4">Status</th><th className="p-4">Cliente</th><th className="p-4 hidden md:table-cell">Endereço</th><th className="p-4 text-right">Valor</th><th className="p-4 text-center">Ações</th></tr>
+                            <tr><th className="p-4">Hora</th><th className="p-4">ID</th><th className="p-4">Status</th><th className="p-4">Cliente</th><th className="p-4 hidden md:table-cell">Endereço</th><th className="p-4 text-right">Valor</th><th className="p-4 text-center">Ações</th></tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800">
                             {dailyData.todayOrders.map((o: Order) => (
                                 <tr key={o.id} className="hover:bg-slate-800/50 transition-colors cursor-pointer group" onClick={() => { setSelectedOrder(o); setModalType('edit'); }}>
                                     <td className="p-4 font-bold text-white">{formatTime(o.createdAt)}</td>
+                                    <td className="p-4 font-mono text-xs">{formatOrderId(o.id)}</td>
                                     <td className="p-4"><span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${o.status === 'completed' ? 'bg-emerald-900/30 text-emerald-400' : o.status === 'pending' ? 'bg-red-900/30 text-red-400' : o.status === 'preparing' ? 'bg-blue-900/30 text-blue-400' : 'bg-amber-900/30 text-amber-400'}`}>{o.status === 'completed' ? 'Entregue' : o.status === 'pending' ? 'Pendente' : o.status === 'preparing' ? 'Cozinha' : 'Em Rota'}</span></td>
                                     <td className="p-4 font-medium text-slate-300">{o.customer}</td>
                                     <td className="p-4 hidden md:table-cell truncate max-w-xs">{o.address}</td>

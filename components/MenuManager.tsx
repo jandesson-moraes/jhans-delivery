@@ -102,7 +102,6 @@ export function MenuManager({ products, onCreate, onUpdate, onDelete }: MenuProp
                                 </h3>
                                 <p className="text-sm text-slate-400">Este é o link que seus clientes usarão para fazer pedidos.</p>
                             </div>
-
                             <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
                                 <div className="flex flex-col md:flex-row gap-3">
                                     <div className="flex-1 relative">
