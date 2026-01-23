@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, AppConfig, Order } from '../types';
 import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard } from '../utils';
-import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock } from 'lucide-react';
+import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle } from 'lucide-react';
 import { BrandLogo, Footer } from './Shared';
 
 interface ClientInterfaceProps {
@@ -9,7 +9,6 @@ interface ClientInterfaceProps {
     appConfig: AppConfig;
     onCreateOrder: (data: any) => Promise<void>;
     onBack?: () => void;
-    // Novas props para controle de acesso
     allowSystemAccess?: boolean;
     onSystemAccess?: (type: 'admin' | 'driver') => void;
 }
@@ -20,27 +19,58 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
     const [search, setSearch] = useState('');
     const [orderId, setOrderId] = useState('');
+    const [loadingLocation, setLoadingLocation] = useState(false);
     
     // Checkout State
     const [checkout, setCheckout] = useState({
         name: '',
         phone: '',
         address: '',
+        mapsLink: '', 
         paymentMethod: 'PIX',
         serviceType: 'delivery',
         trocoPara: ''
     });
 
+    // --- PERSISTÊNCIA DE DADOS ---
+    // Ao carregar a página, tenta buscar dados salvos do cliente
+    useEffect(() => {
+        try {
+            const savedData = localStorage.getItem('jhans_client_info');
+            if (savedData) {
+                const parsed = JSON.parse(savedData);
+                setCheckout(prev => ({
+                    ...prev,
+                    name: parsed.name || '',
+                    phone: parsed.phone || '',
+                    address: parsed.address || '',
+                    mapsLink: parsed.mapsLink || '' // Opcional: lembrar o GPS anterior ou forçar novo? Vamos lembrar.
+                }));
+            }
+        } catch (e) {
+            console.error("Erro ao carregar dados salvos", e);
+        }
+    }, []);
+
+    // Ordem de prioridade para exibição (Psicologia de Venda)
+    const PRIORITY_ORDER = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
+
     const categories = useMemo(() => {
         const cats = Array.from(new Set(products.map(p => p.category)));
-        return ['Todos', ...cats.sort()];
+        return ['Todos', ...cats.sort((a, b) => {
+            const idxA = PRIORITY_ORDER.indexOf(a);
+            const idxB = PRIORITY_ORDER.indexOf(b);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            return a.localeCompare(b);
+        })];
     }, [products]);
 
-    // Agrupa produtos por categoria para exibição organizada
+    // Agrupa produtos
     const groupedProducts = useMemo(() => {
         let filtered = products;
         
-        // Filtro de Busca
         if (search) {
             filtered = products.filter(p => 
                 p.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -48,7 +78,6 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             );
         }
 
-        // Se uma categoria específica (diferente de Todos) for selecionada, filtra apenas ela
         if (selectedCategory !== 'Todos') {
             return [{
                 category: selectedCategory,
@@ -56,15 +85,22 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             }];
         }
 
-        // Se 'Todos' for selecionado, agrupa por categoria
         const groups: {[key: string]: Product[]} = {};
         filtered.forEach(p => {
             if (!groups[p.category]) groups[p.category] = [];
             groups[p.category].push(p);
         });
 
-        // Ordena as categorias (opcional: pode usar uma ordem fixa se desejar)
-        return Object.keys(groups).sort().map(cat => ({
+        const sortedKeys = Object.keys(groups).sort((a, b) => {
+            const idxA = PRIORITY_ORDER.indexOf(a);
+            const idxB = PRIORITY_ORDER.indexOf(b);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            return a.localeCompare(b);
+        });
+
+        return sortedKeys.map(cat => ({
             category: cat,
             items: groups[cat]
         }));
@@ -107,21 +143,76 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         });
     };
 
+    // Função para pegar Geolocalização
+    const handleGetLocation = () => {
+        if (!navigator.geolocation) {
+            alert("Seu navegador não suporta geolocalização.");
+            return;
+        }
+
+        setLoadingLocation(true);
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                // Gera o link exato do GPS
+                const mapsLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
+                
+                setCheckout(prev => ({
+                    ...prev,
+                    mapsLink: mapsLink,
+                    // NÃO preenchemos o endereço com texto genérico. 
+                    // Deixamos vazio ou mantemos o que estava, focando na precisão manual.
+                }));
+                
+                setLoadingLocation(false);
+                // Pequeno feedback visual ou focar no input de endereço
+                const addressInput = document.getElementById('address-input');
+                if(addressInput) addressInput.focus();
+            },
+            (error) => {
+                console.error(error);
+                alert("Não foi possível obter o GPS. Por favor, digite o endereço manualmente.");
+                setLoadingLocation(false);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    };
+
     const handlePlaceOrder = async (e: React.FormEvent) => {
         e.preventDefault();
         if (cart.length === 0) return;
+
+        // Validação básica
+        if (checkout.serviceType === 'delivery' && !checkout.address) {
+            alert("Por favor, digite o endereço de entrega (Rua e Número).");
+            return;
+        }
 
         const itemsText = cart.map(i => {
             return `${i.quantity}x ${i.product.name}${i.obs ? `\n(Obs: ${i.obs})` : ''}`;
         }).join('\n---\n');
 
-        const deliveryFee = checkout.serviceType === 'delivery' ? 5.00 : 0; // Taxa fixa exemplo
+        const deliveryFee = checkout.serviceType === 'delivery' ? 5.00 : 0; 
         const finalValue = cartTotal + deliveryFee;
+
+        // SALVAR DADOS NO LOCALSTORAGE PARA A PRÓXIMA VEZ
+        try {
+            localStorage.setItem('jhans_client_info', JSON.stringify({
+                name: checkout.name,
+                phone: checkout.phone,
+                address: checkout.address,
+                mapsLink: checkout.mapsLink
+            }));
+        } catch (err) {
+            console.error("Erro ao salvar dados locais", err);
+        }
 
         const orderData = {
             customer: capitalize(checkout.name),
             phone: checkout.phone,
             address: checkout.serviceType === 'delivery' ? toSentenceCase(checkout.address) : 'RETIRADA NO BALCÃO',
+            mapsLink: checkout.mapsLink, 
             items: itemsText,
             amount: formatCurrency(finalValue),
             value: finalValue,
@@ -134,9 +225,12 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
 
         try {
             await onCreateOrder(orderData);
-            setOrderId(`ORD-${Math.floor(Math.random()*10000)}`); // Simulação visual
+            setOrderId(`ORD-${Math.floor(Math.random()*10000)}`); 
             setView('success');
             setCart([]);
+            // Não limpamos o checkout completamente aqui para manter a experiência se ele quiser pedir de novo logo em seguida,
+            // mas limpamos campos transientes como troco.
+            setCheckout(prev => ({ ...prev, trocoPara: '' })); 
         } catch (error) {
             alert("Erro ao enviar pedido. Tente novamente.");
         }
@@ -204,7 +298,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                                                 <div className="bg-slate-800 p-2 rounded-lg text-amber-500"><Utensils size={16}/></div>
                                                 <div>
                                                     <p className="font-bold text-sm">{item.product.name}</p>
-                                                    <p className="text-emerald-400 font-bold text-sm">{formatCurrency(item.product.price)}</p>
+                                                    <p className="text-amber-500 font-bold text-sm">{formatCurrency(item.product.price)}</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center bg-slate-950 rounded-lg border border-slate-800">
@@ -239,8 +333,43 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                                 <div className="space-y-3">
                                     <input required placeholder="Seu Nome" className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-sm" value={checkout.name} onChange={e => setCheckout({...checkout, name: e.target.value})} />
                                     <input required type="tel" placeholder="Seu Telefone / WhatsApp" className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-sm" value={checkout.phone} onChange={e => setCheckout({...checkout, phone: e.target.value})} />
+                                    
                                     {checkout.serviceType === 'delivery' && (
-                                        <input required placeholder="Endereço Completo (Rua, Nº, Bairro)" className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-sm" value={checkout.address} onChange={e => setCheckout({...checkout, address: e.target.value})} />
+                                        <div className="space-y-3 animate-in fade-in slide-in-from-top-1">
+                                            {/* Botão de Geolocalização */}
+                                            <button 
+                                                type="button" 
+                                                onClick={handleGetLocation} 
+                                                disabled={loadingLocation}
+                                                className={`w-full p-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all active:scale-95 border ${checkout.mapsLink ? 'bg-emerald-900/30 text-emerald-400 border-emerald-500/50' : 'bg-blue-900/30 text-blue-300 border-blue-500/30 hover:bg-blue-900/50'}`}
+                                            >
+                                                {loadingLocation ? <Loader2 className="animate-spin" size={16}/> : checkout.mapsLink ? <CheckCircle2 size={16}/> : <Navigation size={16}/>}
+                                                {loadingLocation ? "Obtendo GPS..." : checkout.mapsLink ? "GPS Capturado! (Atualizar)" : "Usar GPS (Localização Exata)"}
+                                            </button>
+
+                                            {/* Input de Endereço - OBRIGATÓRIO PARA O NÚMERO */}
+                                            <div className="relative">
+                                                <input 
+                                                    id="address-input"
+                                                    required 
+                                                    placeholder={checkout.mapsLink ? "GPS OK! Agora digite: Rua, Número e Bairro" : "Endereço Completo (Rua, Número, Bairro)"}
+                                                    className={`w-full p-3 bg-slate-900 border rounded-xl outline-none text-sm transition-all ${checkout.mapsLink ? 'border-emerald-500/50 focus:border-emerald-500 ring-1 ring-emerald-500/20' : 'border-slate-800 focus:border-amber-500'}`}
+                                                    value={checkout.address} 
+                                                    onChange={e => setCheckout({...checkout, address: e.target.value})} 
+                                                />
+                                                {checkout.mapsLink && (
+                                                    <div className="absolute right-3 top-3 text-emerald-500">
+                                                        <MapPin size={18}/>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            
+                                            {checkout.mapsLink && !checkout.address && (
+                                                <p className="text-[10px] text-amber-500 flex items-center gap-1 animate-pulse">
+                                                    <AlertCircle size={10}/> Importante: Digite o número da casa acima!
+                                                </p>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
 
@@ -295,7 +424,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                             <div className="flex justify-between text-slate-400"><span>Taxa de Entrega</span><span>{checkout.serviceType === 'delivery' ? formatCurrency(5) : 'Grátis'}</span></div>
                             <div className="flex justify-between text-white font-bold text-lg pt-2 border-t border-slate-800"><span>Total</span><span>{formatCurrency(cartTotal + (checkout.serviceType === 'delivery' ? 5 : 0))}</span></div>
                         </div>
-                        <button form="checkout-form" type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 text-lg active:scale-95 transition-transform">
+                        <button form="checkout-form" type="submit" className="w-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 text-lg active:scale-95 transition-transform">
                             <CheckCircle2 size={24}/> Enviar Pedido
                         </button>
                     </div>
@@ -307,52 +436,57 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     // MENU VIEW
     return (
         <div className="min-h-screen bg-slate-950 text-white flex flex-col">
-            {/* Header */}
-            <div className="bg-slate-900 p-4 border-b border-slate-800 sticky top-0 z-30 shadow-lg">
-                <div className="flex justify-between items-center mb-4">
+            {/* Header / Hero Section - NOVA PALETA APPETITE (Vermelho + Âmbar) */}
+            <div className="bg-gradient-to-br from-red-700 via-red-600 to-amber-600 p-6 pt-8 pb-10 border-b border-slate-800 sticky top-0 z-30 shadow-xl">
+                <div className="flex justify-between items-center mb-6">
                     <BrandLogo size="small" config={appConfig} />
                     
-                    {/* Botões de Acesso ao Sistema (Só aparecem se allowSystemAccess for true) */}
+                    {/* Botões de Acesso ao Sistema */}
                     {allowSystemAccess && onSystemAccess && (
                         <div className="flex items-center gap-2">
                              <button 
                                 onClick={() => onSystemAccess('admin')} 
-                                className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors border border-slate-700/50"
+                                className="flex items-center gap-2 px-3 py-1.5 bg-black/20 hover:bg-black/40 rounded-lg text-amber-100 hover:text-white transition-colors border border-white/10 backdrop-blur-sm"
                                 title="Acesso Gerente"
                              >
-                                <Lock size={14} className="text-amber-500"/>
+                                <Lock size={14} className="text-amber-300"/>
                                 <span className="text-[10px] font-bold uppercase hidden md:inline">Gerente</span>
                              </button>
                              <button 
                                 onClick={() => onSystemAccess('driver')} 
-                                className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors border border-slate-700/50"
+                                className="flex items-center gap-2 px-3 py-1.5 bg-black/20 hover:bg-black/40 rounded-lg text-amber-100 hover:text-white transition-colors border border-white/10 backdrop-blur-sm"
                                 title="Acesso Motoboy"
                              >
-                                <Bike size={14} className="text-emerald-500"/>
+                                <Bike size={14} className="text-amber-300"/>
                                 <span className="text-[10px] font-bold uppercase hidden md:inline">Motoboy</span>
                              </button>
                         </div>
                     )}
                 </div>
                 
+                <h1 className="text-2xl font-black text-white mb-4 leading-tight drop-shadow-sm">
+                    Bateu a fome? <br/>
+                    <span className="text-amber-200">Peça agora mesmo!</span> 🍔
+                </h1>
+
                 {/* Search */}
-                <div className="relative mb-4">
-                    <Search className="absolute left-3 top-2.5 text-slate-500" size={18}/>
+                <div className="relative mb-6">
+                    <Search className="absolute left-3 top-3 text-slate-400" size={18}/>
                     <input 
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-sm text-white outline-none focus:border-amber-500 transition-colors focus:bg-slate-900"
-                        placeholder="O que você quer comer hoje?"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-10 pr-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors focus:bg-slate-900 shadow-inner"
+                        placeholder="Buscar lanche, bebida..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                     />
                 </div>
 
                 {/* Categories */}
-                <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar hide-scrollbar">
+                <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar hide-scrollbar -mx-2 px-2">
                     {categories.map(cat => (
                         <button 
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}
-                            className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${selectedCategory === cat ? 'bg-amber-600 text-white shadow-lg border-amber-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'}`}
+                            className={`px-5 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border shadow-sm ${selectedCategory === cat ? 'bg-white text-red-700 shadow-lg border-white' : 'bg-black/20 text-amber-100 border-white/10 hover:bg-black/30'}`}
                         >
                             {cat}
                         </button>
@@ -364,23 +498,26 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             <div className="flex-1 p-4 pb-24 overflow-y-auto">
                 {groupedProducts.map((group) => (
                     <div key={group.category} className="mb-8 animate-in slide-in-from-bottom-4 duration-500">
-                        {/* Se estiver mostrando Todos, exibe o título da categoria. Se estiver filtrado, o título já está no botão de filtro */}
+                        {/* Se estiver mostrando Todos, exibe o título da categoria */}
                         {selectedCategory === 'Todos' && (
-                            <h3 className="text-lg font-bold text-amber-500 mb-3 border-b border-slate-800 pb-2 flex items-center gap-2">
-                                <Utensils size={16}/> {group.category}
+                            <h3 className="text-xl font-black text-white mb-4 border-l-4 border-amber-500 pl-3 flex items-center gap-2 uppercase tracking-wide">
+                                {group.category}
                             </h3>
                         )}
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {group.items.map(product => (
-                                <div key={product.id} onClick={() => addToCart(product)} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex justify-between gap-4 cursor-pointer hover:border-amber-500/50 transition-all active:scale-95 group hover:bg-slate-800/80">
-                                    <div className="flex-1">
-                                        <h3 className="font-bold text-white mb-1 group-hover:text-amber-500 transition-colors">{product.name}</h3>
-                                        <p className="text-xs text-slate-400 line-clamp-2 mb-2 leading-relaxed">{product.description}</p>
-                                        <p className="font-bold text-emerald-400">{formatCurrency(product.price)}</p>
+                                <div key={product.id} onClick={() => addToCart(product)} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex justify-between gap-4 cursor-pointer hover:border-amber-500/50 transition-all active:scale-95 group hover:bg-slate-800/80 shadow-md relative overflow-hidden">
+                                    {/* Efeito hover de brilho em Laranja/Vermelho */}
+                                    <div className="absolute inset-0 bg-gradient-to-r from-amber-500/0 via-amber-500/5 to-amber-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 pointer-events-none"></div>
+                                    
+                                    <div className="flex-1 z-10">
+                                        <h3 className="font-bold text-white text-lg mb-1 group-hover:text-amber-400 transition-colors">{product.name}</h3>
+                                        <p className="text-xs text-slate-400 line-clamp-2 mb-3 leading-relaxed">{product.description}</p>
+                                        <p className="font-black text-amber-500 text-lg">{formatCurrency(product.price)}</p>
                                     </div>
-                                    <div className="flex flex-col justify-center">
-                                        <div className="bg-slate-800 p-3 rounded-xl text-slate-400 group-hover:bg-amber-600 group-hover:text-white transition-colors shadow-sm">
+                                    <div className="flex flex-col justify-end z-10">
+                                        <div className="bg-slate-800 p-3 rounded-xl text-slate-400 group-hover:bg-red-600 group-hover:text-white transition-colors shadow-sm">
                                             <Plus size={20}/>
                                         </div>
                                     </div>
@@ -401,15 +538,15 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             {/* Floating Cart Button */}
             {cart.length > 0 && (
                 <div className="fixed bottom-4 left-0 w-full px-4 z-40">
-                    <button onClick={() => setView('cart')} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-4 rounded-2xl shadow-xl flex items-center justify-between border border-emerald-500/30 animate-in slide-in-from-bottom-4 active:scale-95 transition-transform">
+                    <button onClick={() => setView('cart')} className="w-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white p-4 rounded-2xl shadow-xl shadow-red-900/40 flex items-center justify-between border border-red-500/30 animate-in slide-in-from-bottom-4 active:scale-95 transition-transform">
                         <div className="flex items-center gap-3">
                             <div className="bg-black/20 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">
                                 {cart.reduce((a,b) => a + b.quantity, 0)}
                             </div>
-                            <span className="font-bold text-sm">Ver Carrinho</span>
+                            <span className="font-bold text-sm uppercase tracking-wide">Ver Carrinho</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <span className="font-bold">{formatCurrency(cartTotal)}</span>
+                            <span className="font-black text-lg">{formatCurrency(cartTotal)}</span>
                             <ChevronRight size={20}/>
                         </div>
                     </button>
