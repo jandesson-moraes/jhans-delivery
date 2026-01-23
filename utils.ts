@@ -1,3 +1,4 @@
+
 export const formatTime = (timestamp: any) => {
   if (!timestamp || !timestamp.seconds) return '-';
   return new Date(timestamp.seconds * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -151,4 +152,45 @@ export const downloadCSV = (content: string, fileName: string) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+};
+
+// --- NOVAS FUNÇÕES DE MENSAGENS WHATSAPP ---
+
+export const sendOrderConfirmation = (order: any, appName: string) => {
+    const phone = normalizePhone(order.phone);
+    if (!phone) return alert("Telefone do cliente inválido.");
+
+    const text = `Olá *${order.customer}*! 👋
+Recebemos seu pedido no *${appName}*!
+
+*Status: EM PREPARO* 👨‍🍳🔥
+Seu pedido #${order.id.slice(-4)} já foi aceito e está sendo preparado com carinho.
+
+*Resumo:*
+${order.items}
+
+💰 Total: *${formatCurrency(order.value)}*
+🛵 Avisaremos assim que sair para entrega!
+
+Obrigado pela preferência!`;
+
+    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
+};
+
+export const sendDeliveryNotification = (order: any, driverName: string, vehicle: string) => {
+    const phone = normalizePhone(order.phone);
+    if (!phone) return alert("Telefone do cliente inválido.");
+
+    const text = `Olá *${order.customer}*! 🛵💨
+Boas notícias: *Seu pedido saiu para entrega!*
+
+Entregador: *${driverName}*
+Veículo: *${vehicle}*
+
+📍 Por favor, fique atento à campainha/interfone.
+Pagamento: *${order.paymentMethod}* - *${formatCurrency(order.value)}*
+
+Bom apetite! 🍔😋`;
+
+    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
 };

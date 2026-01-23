@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package, Zap, ZapOff, Edit, Trash2 } from 'lucide-react';
+import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package, Zap, ZapOff, Edit, Trash2, Send } from 'lucide-react';
 import { Driver, Order } from '../types';
-import { isToday, formatTime, formatCurrency, formatDate } from '../utils';
+import { isToday, formatTime, formatCurrency, formatDate, sendDeliveryNotification } from '../utils';
 import { Footer } from './Shared';
 import { EditOrderModal } from './Modals';
 
@@ -179,15 +179,24 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
                         <div className="p-4 md:p-5 space-y-4">
                           <div>
                              <div className="flex items-start gap-2 md:gap-3 mb-2"><MapPin size={20} className="text-amber-500 shrink-0"/><p className="text-sm md:text-base text-slate-200 font-medium leading-snug break-words">{order.address}</p></div>
-                             <div className="grid grid-cols-2 gap-3">
+                             
+                             {/* BOTÕES DE AÇÃO DO MOTOBOY */}
+                             <div className="grid grid-cols-2 gap-3 mb-3">
                                 <button onClick={() => window.open(order.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.address)}`, '_blank')} className="flex flex-col items-center justify-center gap-1 bg-blue-600 text-white py-3 rounded-xl font-bold text-xs shadow-lg active:scale-95 transition-transform"><Navigation size={18}/> GPS</button>
-                                <button onClick={() => window.open(`https://wa.me/55${order.phone.replace(/\D/g, '')}`, '_blank')} className="flex flex-col items-center justify-center gap-1 bg-emerald-600 text-white py-3 rounded-xl font-bold text-xs shadow-lg active:scale-95 transition-transform"><MessageCircle size={18}/> WhatsApp</button>
+                                <button onClick={() => window.open(`https://wa.me/55${order.phone.replace(/\D/g, '')}`, '_blank')} className="flex flex-col items-center justify-center gap-1 bg-emerald-600 text-white py-3 rounded-xl font-bold text-xs shadow-lg active:scale-95 transition-transform"><MessageCircle size={18}/> Contato</button>
                              </div>
+                             
+                             {/* BOTÃO DE AVISAR SAÍDA */}
+                             <button onClick={() => sendDeliveryNotification(order, driver.name, driver.vehicle || 'Moto')} className="w-full bg-slate-800 border border-emerald-500/50 text-emerald-400 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-emerald-900/30 transition-colors">
+                                 <Send size={16}/> Avisar Cliente que Saiu para Entrega
+                             </button>
                           </div>
+
                           <div className="bg-slate-950 p-3 md:p-4 rounded-xl border border-slate-800 space-y-2">
                              <div><p className="text-[10px] text-slate-500 font-bold uppercase">Itens</p><p className="text-slate-300 font-medium text-xs md:text-sm">{order.items}</p></div>
                              {order.paymentMethod && <div className="flex items-center gap-2 pt-2 border-t border-slate-800"><DollarSign size={14} className="text-slate-500"/><span className="text-xs md:text-sm font-bold text-slate-300">Pag: {order.paymentMethod}</span></div>}
                           </div>
+                          
                           <button onClick={() => onCompleteOrder(order.id, driver.id)} className="w-full bg-slate-800 border border-slate-700 text-white font-bold py-3 md:py-4 rounded-xl flex items-center justify-center gap-2 text-sm md:text-base shadow-xl active:scale-95 transition-transform hover:bg-slate-700"><CheckSquare size={18} className="text-emerald-400"/> Finalizar Entrega</button>
                         </div>
                     ) : (

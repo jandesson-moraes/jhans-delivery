@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, AppConfig, Order } from '../types';
-import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard } from '../utils';
-import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle } from 'lucide-react';
+import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard, formatTime, formatDate } from '../utils';
+import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock } from 'lucide-react';
 import { BrandLogo, Footer } from './Shared';
 
 interface ClientInterfaceProps {
@@ -19,6 +19,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
     const [search, setSearch] = useState('');
     const [orderId, setOrderId] = useState('');
+    const [lastOrderData, setLastOrderData] = useState<any>(null); // Armazena dados do ultimo pedido para o recibo
     const [loadingLocation, setLoadingLocation] = useState(false);
     
     // Checkout State
@@ -33,7 +34,6 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     });
 
     // --- PERSISTÊNCIA DE DADOS ---
-    // Ao carregar a página, tenta buscar dados salvos do cliente
     useEffect(() => {
         try {
             const savedData = localStorage.getItem('jhans_client_info');
@@ -44,7 +44,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                     name: parsed.name || '',
                     phone: parsed.phone || '',
                     address: parsed.address || '',
-                    mapsLink: parsed.mapsLink || '' // Opcional: lembrar o GPS anterior ou forçar novo? Vamos lembrar.
+                    mapsLink: parsed.mapsLink || ''
                 }));
             }
         } catch (e) {
@@ -161,12 +161,9 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                 setCheckout(prev => ({
                     ...prev,
                     mapsLink: mapsLink,
-                    // NÃO preenchemos o endereço com texto genérico. 
-                    // Deixamos vazio ou mantemos o que estava, focando na precisão manual.
                 }));
                 
                 setLoadingLocation(false);
-                // Pequeno feedback visual ou focar no input de endereço
                 const addressInput = document.getElementById('address-input');
                 if(addressInput) addressInput.focus();
             },
@@ -183,7 +180,6 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         e.preventDefault();
         if (cart.length === 0) return;
 
-        // Validação básica
         if (checkout.serviceType === 'delivery' && !checkout.address) {
             alert("Por favor, digite o endereço de entrega (Rua e Número).");
             return;
@@ -196,7 +192,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         const deliveryFee = checkout.serviceType === 'delivery' ? 5.00 : 0; 
         const finalValue = cartTotal + deliveryFee;
 
-        // SALVAR DADOS NO LOCALSTORAGE PARA A PRÓXIMA VEZ
+        // SALVAR DADOS NO LOCALSTORAGE
         try {
             localStorage.setItem('jhans_client_info', JSON.stringify({
                 name: checkout.name,
@@ -220,16 +216,17 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             serviceType: checkout.serviceType,
             deliveryFee: deliveryFee,
             discount: 0,
-            origin: 'menu'
+            origin: 'menu',
+            createdAt: { seconds: Date.now() / 1000 } // Simulando timestamp para exibição imediata
         };
 
         try {
             await onCreateOrder(orderData);
-            setOrderId(`ORD-${Math.floor(Math.random()*10000)}`); 
+            const generatedId = `PED-${Math.floor(Math.random()*10000)}`;
+            setOrderId(generatedId); 
+            setLastOrderData({ ...orderData, id: generatedId });
             setView('success');
             setCart([]);
-            // Não limpamos o checkout completamente aqui para manter a experiência se ele quiser pedir de novo logo em seguida,
-            // mas limpamos campos transientes como troco.
             setCheckout(prev => ({ ...prev, trocoPara: '' })); 
         } catch (error) {
             alert("Erro ao enviar pedido. Tente novamente.");
@@ -241,6 +238,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         
         let text = `*Olá! Acabei de fazer um pedido pelo Site.*\n\n`;
         text += `*Cliente:* ${checkout.name}\n`;
+        text += `*ID:* ${orderId}\n`;
         text += `*Total:* ${formatCurrency(cartTotal + (checkout.serviceType === 'delivery' ? 5 : 0))}\n\n`;
         text += `Podem confirmar?`;
 
@@ -248,28 +246,71 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         window.open(link, '_blank');
     };
 
-    if (view === 'success') {
+    if (view === 'success' && lastOrderData) {
         return (
-            <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in">
-                <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6 animate-bounce">
-                    <CheckCircle2 size={48} className="text-emerald-500"/>
+            <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4 text-center animate-in fade-in zoom-in">
+                
+                <div className="mb-6 flex flex-col items-center">
+                    <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mb-4 shadow-lg shadow-emerald-900/40 animate-bounce">
+                        <CheckCircle2 size={40} className="text-white"/>
+                    </div>
+                    <h2 className="text-2xl font-black text-white">Pedido Enviado!</h2>
+                    <p className="text-slate-400 text-sm">Agora é só aguardar a confirmação.</p>
                 </div>
-                <h2 className="text-3xl font-black text-white mb-2">Pedido Recebido!</h2>
-                <p className="text-slate-400 mb-8 max-w-xs mx-auto">Sua comida já vai começar a ser preparada. Fique de olho no seu WhatsApp!</p>
+
+                {/* CUPOM / RECIBO DIGITAL */}
+                <div className="w-full max-w-sm bg-white text-slate-900 rounded-xl p-0 overflow-hidden shadow-2xl mb-6 relative">
+                    {/* Borda serrilhada CSS trick */}
+                    <div className="bg-red-600 p-4 text-white text-center relative">
+                        <h3 className="font-bold text-lg uppercase tracking-wider">{appConfig.appName}</h3>
+                        <p className="text-[10px] opacity-80">COMPROVANTE DO CLIENTE</p>
+                        <div className="absolute -bottom-2 left-0 w-full h-4 bg-white" style={{maskImage: 'radial-gradient(circle, transparent 50%, black 50%)', maskSize: '10px 20px', WebkitMaskImage: 'radial-gradient(circle, transparent 50%, black 50%)', WebkitMaskSize: '15px 15px'}}></div>
+                    </div>
+                    
+                    <div className="p-6 pt-6 space-y-4">
+                        <div className="flex justify-between items-center border-b border-dashed border-slate-300 pb-2">
+                            <span className="text-xs font-bold text-slate-500">DATA</span>
+                            <span className="text-xs font-bold">{formatDate(lastOrderData.createdAt)} • {formatTime(lastOrderData.createdAt)}</span>
+                        </div>
+                        
+                        <div className="text-left space-y-1">
+                            <p className="text-xs text-slate-500 font-bold">CLIENTE</p>
+                            <p className="font-bold text-lg leading-none">{lastOrderData.customer}</p>
+                            <p className="text-xs text-slate-500">{lastOrderData.phone}</p>
+                        </div>
+
+                        <div className="bg-slate-100 p-3 rounded-lg text-left">
+                            <p className="text-[10px] text-slate-500 font-bold mb-1">RESUMO DO PEDIDO</p>
+                            <pre className="text-xs font-mono text-slate-700 whitespace-pre-wrap leading-snug font-bold">
+                                {lastOrderData.items}
+                            </pre>
+                        </div>
+
+                        <div className="flex justify-between items-center pt-2 border-t border-slate-900">
+                            <span className="font-bold text-lg">TOTAL A PAGAR</span>
+                            <span className="font-black text-xl text-emerald-600">{formatCurrency(lastOrderData.value)}</span>
+                        </div>
+                        
+                        <div className="text-[10px] text-slate-400 text-center pt-2">
+                            ID do Pedido: <span className="font-mono text-slate-900">{lastOrderData.id}</span>
+                        </div>
+                    </div>
+                </div>
                 
                 {appConfig.storePhone && (
-                    <button onClick={sendToWhatsApp} className="w-full max-w-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 mb-4">
-                        <MessageCircle size={20}/> Confirmar no WhatsApp
+                    <button onClick={sendToWhatsApp} className="w-full max-w-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 mb-3 active:scale-95 transition-transform">
+                        <MessageCircle size={20}/> Enviar Comprovante ao Restaurante
                     </button>
                 )}
                 
-                <button onClick={() => setView('menu')} className="text-slate-500 font-bold text-sm hover:text-white transition-colors">
-                    Voltar ao Cardápio
+                <button onClick={() => setView('menu')} className="text-slate-500 font-bold text-sm hover:text-white transition-colors py-2">
+                    Fazer Novo Pedido
                 </button>
             </div>
         )
     }
 
+    // ... (restante do código igual)
     if (view === 'cart') {
         return (
             <div className="min-h-screen bg-slate-950 text-white flex flex-col animate-in slide-in-from-right">

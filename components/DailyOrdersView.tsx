@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Order, Driver } from '../types';
-import { isToday, formatTime, formatCurrency } from '../utils';
+import { isToday, formatTime, formatCurrency, sendOrderConfirmation } from '../utils';
 import { StatBox, Footer } from './Shared';
-import { ClipboardList, DollarSign, Trash2, Edit, FileText } from 'lucide-react';
+import { ClipboardList, DollarSign, Trash2, Edit, FileText, MessageCircle } from 'lucide-react';
 import { EditOrderModal, ReceiptModal } from './Modals';
 
 interface DailyProps {
@@ -16,7 +16,7 @@ interface DailyProps {
 export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUpdateOrder }: DailyProps) {
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [modalType, setModalType] = useState<'edit'|'receipt'|null>(null);
-    const [appConfig] = useState(() => { try { return JSON.parse(localStorage.getItem('jhans_app_config') || '{}'); } catch { return {}; } });
+    const [appConfig] = useState(() => { try { return JSON.parse(localStorage.getItem('jhans_app_config') || '{}'); } catch { return { appName: "Jhans Burgers" }; } });
 
     const dailyData = useMemo(() => {
         const todayOrders = orders.filter((o: Order) => isToday(o.createdAt));
@@ -49,6 +49,7 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
                                     <td className="p-4 hidden md:table-cell truncate max-w-xs">{o.address}</td>
                                     <td className="p-4 text-right text-emerald-400 font-bold">{formatCurrency(o.value || 0)}</td>
                                     <td className="p-4 text-center flex items-center justify-center gap-2">
+                                        <button onClick={(e) => { e.stopPropagation(); sendOrderConfirmation(o, appConfig.appName); }} className="p-2 text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-md" title="Confirmar Pedido (WhatsApp)"><MessageCircle size={16}/></button>
                                         <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); setModalType('receipt'); }} className="p-2 text-slate-500 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="Ver Comprovante"><FileText size={16}/></button>
                                         <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); setModalType('edit'); }} className="p-2 text-slate-500 hover:text-amber-500 hover:bg-slate-700 rounded-lg transition-colors" title="Editar"><Edit size={16}/></button>
                                         <button onClick={(e) => { e.stopPropagation(); onDeleteOrder(o.id); }} className="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-700 rounded-lg transition-colors" title="Excluir"><Trash2 size={16}/></button>
