@@ -6,8 +6,9 @@ import { UserType, Driver, Order, Vale, Expense, Product, Client, AppConfig, Set
 import { BrandLogo, Footer } from './components/Shared';
 import DriverInterface from './components/DriverInterface';
 import AdminInterface from './components/AdminInterface';
+import ClientInterface from './components/ClientInterface';
 import { NewDriverModal, SettingsModal, ImportModal, NewExpenseModal, NewValeModal, EditClientModal, CloseCycleModal } from './components/Modals';
-import { Loader2, TrendingUp, ChevronRight, Bike } from 'lucide-react';
+import { Loader2, TrendingUp, ChevronRight, Bike, ShoppingBag } from 'lucide-react';
 import { normalizePhone, capitalize, formatCurrency } from './utils';
 
 // --- STYLES INJECTION ---
@@ -99,6 +100,20 @@ const GlobalStyles = () => {
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         * { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+        
+        /* Hide Scrollbar for Chrome, Safari and Opera */
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .hide-scrollbar {
+          -ms-overflow-style: none;  /* IE and Edge */
+          scrollbar-width: none;  /* Firefox */
+        }
+        
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
       `;
       document.head.appendChild(style);
       return () => { if(document.head.contains(style)) document.head.removeChild(style); };
@@ -108,7 +123,21 @@ const GlobalStyles = () => {
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
-  const [viewMode, setViewMode] = useState<UserType>(() => { try { return (localStorage.getItem('jhans_viewMode') as UserType) || 'landing'; } catch { return 'landing'; } });
+  
+  // Verifica se há parametro na URL para modo cliente
+  // Detecção robusta (suporta Search Params normal e Hash Params)
+  const [viewMode, setViewMode] = useState<UserType>(() => { 
+      try { 
+          const params = new URLSearchParams(window.location.search);
+          const hashParts = window.location.hash.split('?');
+          const hashParams = hashParts.length > 1 ? new URLSearchParams(hashParts[1]) : null;
+
+          if (params.get('mode') === 'client' || hashParams?.get('mode') === 'client') return 'client';
+          
+          return (localStorage.getItem('jhans_viewMode') as UserType) || 'landing'; 
+      } catch { return 'landing'; } 
+  });
+  
   const [currentDriverId, setCurrentDriverId] = useState<string | null>(() => { try { return localStorage.getItem('jhans_driverId'); } catch { return null; } });
   const [appConfig, setAppConfig] = useState<AppConfig>(() => { try { const saved = localStorage.getItem('jhans_app_config'); return saved ? JSON.parse(saved) : { appName: "Jhans Burgers", appLogoUrl: "" }; } catch { return { appName: "Jhans Burgers", appLogoUrl: "" }; } });
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -134,12 +163,30 @@ export default function App() {
   // Persiste a configuração do app
   useEffect(() => { localStorage.setItem('jhans_app_config', JSON.stringify(appConfig)); }, [appConfig]);
 
-  // Persiste o modo de visualização (Admin ou Driver) para não perder ao atualizar
+  // Persiste o modo de visualização, mas IGNORA se for cliente via link
+  // Isso evita que o admin fique preso no modo cliente se testar o link
   useEffect(() => {
-      if (viewMode) {
+      if (viewMode && viewMode !== 'client') {
           localStorage.setItem('jhans_viewMode', viewMode);
       }
   }, [viewMode]);
+
+  // VERIFICAÇÃO EXTRA: Garante que o modo cliente seja ativado se o link tiver o parametro
+  // Isso cobre casos onde o estado inicial falhou ou o React Router interferiu
+  useEffect(() => {
+      const checkParams = () => {
+          const params = new URLSearchParams(window.location.search);
+          const hashParts = window.location.hash.split('?');
+          const hashParams = hashParts.length > 1 ? new URLSearchParams(hashParts[1]) : null;
+
+          if (params.get('mode') === 'client' || hashParams?.get('mode') === 'client') {
+              setViewMode('client');
+          }
+      };
+      checkParams();
+      window.addEventListener('popstate', checkParams); // Ouve navegação
+      return () => window.removeEventListener('popstate', checkParams);
+  }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -177,19 +224,11 @@ export default function App() {
   const updateDriver = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'drivers', id), data); });
   const deleteDriver = (id: string) => handleAction(async () => { if (confirm("Tem certeza?")) await deleteDoc(doc(db, 'drivers', id)); });
   
-  // Atualiza o pedido com lógica de segurança para remover motoboy se voltar status
   const updateOrder = (id: string, data: any) => handleAction(async () => {
-      // Se estiver alterando o status para algo anterior a "assigned" (pending/preparing/ready)
-      // Precisamos verificar se tinha um motorista e liberá-lo.
       if (data.status && ['pending', 'preparing', 'ready'].includes(data.status)) {
           const currentOrder = orders.find(o => o.id === id);
           if (currentOrder && currentOrder.driverId) {
-              // Libera o motorista
-              await updateDoc(doc(db, 'drivers', currentOrder.driverId), {
-                  status: 'available',
-                  currentOrderId: null
-              });
-              // Remove o vínculo do pedido
+              await updateDoc(doc(db, 'drivers', currentOrder.driverId), { status: 'available', currentOrderId: null });
               data.driverId = deleteField();
               data.assignedAt = deleteField();
           }
@@ -214,19 +253,11 @@ export default function App() {
   const deleteProduct = (id: string) => handleAction(async () => { if(confirm("Excluir produto?")) await deleteDoc(doc(db, 'products', id)); });
   const updateClientData = (id: string, data: any) => handleAction(async () => { await setDoc(doc(db, 'clients', id), data, { merge: true }); });
   
-  // Função para fechar ciclo do motoboy
   const handleCloseCycle = (data: any) => handleAction(async () => {
       if (!driverToEdit) return;
       const timestamp = data.endAt ? Timestamp.fromDate(new Date(data.endAt)) : serverTimestamp();
-      
-      await addDoc(collection(db, 'settlements'), {
-          ...data,
-          driverId: driverToEdit.id,
-          endAt: timestamp
-      });
-      await updateDoc(doc(db, 'drivers', driverToEdit.id), {
-          lastSettlementAt: timestamp
-      });
+      await addDoc(collection(db, 'settlements'), { ...data, driverId: driverToEdit.id, endAt: timestamp });
+      await updateDoc(doc(db, 'drivers', driverToEdit.id), { lastSettlementAt: timestamp });
       alert('Ciclo fechado com sucesso! Os valores foram zerados para o próximo período.');
   });
 
@@ -260,34 +291,47 @@ export default function App() {
   };
 
   const handleLogout = () => { 
-      // Remove apenas as chaves de sessão, mantendo a configuração do app
       localStorage.removeItem('jhans_viewMode');
       localStorage.removeItem('jhans_driverId');
-      window.location.reload(); 
+      // Recarrega a página removendo parâmetros de URL para garantir logout limpo
+      window.location.href = window.location.href.split('?')[0]; 
   };
 
   if (loading && !user) return <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 text-white"><Loader2 className="animate-spin w-10 h-10 text-amber-500 mb-4"/> <span className="font-medium animate-pulse">Carregando Sistema...</span></div>;
 
-  if (viewMode === 'landing') return (
-    <div className="min-h-screen w-screen bg-slate-950 flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      <GlobalStyles />
-      <div className="z-10 text-center space-y-8 max-w-md w-full animate-in fade-in duration-700 slide-in-from-bottom-4">
-        <div className="flex justify-center scale-125 mb-4"><BrandLogo size="large" config={appConfig} /></div>
-        <div className="space-y-3">
-          <button onClick={() => setViewMode('admin')} className="w-full group relative flex items-center justify-between p-5 bg-slate-900 border border-slate-800 rounded-2xl transition-all hover:border-amber-500/50 hover:bg-slate-800">
-            <div className="flex items-center gap-4"><div className="bg-blue-900/30 p-3 rounded-xl text-blue-400"><TrendingUp size={20}/></div><div className="text-left"><span className="block font-bold text-white text-lg">Sou Gerente</span><span className="text-xs text-slate-400">Painel Administrativo</span></div></div><ChevronRight className="text-slate-500 group-hover:text-white transition-colors" />
-          </button>
-          <button onClick={() => { setViewMode('driver'); setCurrentDriverId('select'); }} className="w-full group relative flex items-center justify-between p-5 bg-slate-900 border border-slate-800 rounded-2xl transition-all hover:border-emerald-500/50 hover:bg-slate-800">
-              <div className="flex items-center gap-4"><div className="bg-emerald-900/30 p-3 rounded-xl text-emerald-400"><Bike size={20}/></div><div className="text-left"><span className="block font-bold text-white text-lg">Sou Motoboy</span><span className="text-xs text-slate-400">App de Entregas</span></div></div><ChevronRight className="text-slate-500 group-hover:text-white transition-colors" />
-          </button>
-        </div>
-      </div>
-      
-      <div className="absolute bottom-4 z-20">
-          <Footer />
-      </div>
-    </div>
-  );
+  if (viewMode === 'client') {
+      return (
+          <>
+            <GlobalStyles />
+            <ClientInterface 
+                products={products} 
+                appConfig={appConfig}
+                onCreateOrder={async (data) => await createOrder(data)}
+                // Sem acesso administrativo quando acessado via link exclusivo
+            />
+          </>
+      )
+  }
+
+  // A TELA DE LANDING AGORA É O CARDÁPIO PRINCIPAL (Com acesso admin)
+  if (viewMode === 'landing') {
+    return (
+        <>
+            <GlobalStyles />
+            <ClientInterface 
+                products={products} 
+                appConfig={appConfig}
+                onCreateOrder={async (data) => await createOrder(data)}
+                // Habilita os botões de acesso no cabeçalho
+                allowSystemAccess={true}
+                onSystemAccess={(type) => {
+                    if (type === 'driver') setCurrentDriverId('select');
+                    setViewMode(type);
+                }}
+            />
+        </>
+    );
+  }
 
   if (viewMode === 'driver') {
     if (currentDriverId === 'select' || !currentDriverId) {

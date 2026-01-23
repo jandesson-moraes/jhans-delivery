@@ -12,6 +12,8 @@ import { NewOrderModal, ConfirmAssignmentModal } from './Modals';
 
 // Som de "Caixa/Sucesso" para entrega finalizada
 const SUCCESS_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3';
+// Som de "Caixa Registradora" para novo pedido (Dinheiro entrando)
+const NEW_ORDER_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3';
 
 type AdminViewMode = 'map' | 'list' | 'history' | 'menu' | 'clients' | 'daily' | 'kds' | 'reports';
 
@@ -102,31 +104,43 @@ export default function AdminInterface(props: AdminProps) {
     const [orderToAssign, setOrderToAssign] = useState<Order | null>(null);
     const [showIntro, setShowIntro] = useState(true);
 
-    // Refs para controle de áudio de entrega finalizada
+    // Refs para controle de áudio
     const prevCompletedCountRef = useRef(0);
+    const prevPendingCountRef = useRef(0);
     const successAudioRef = useRef<HTMLAudioElement | null>(null);
+    const newOrderAudioRef = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
         successAudioRef.current = new Audio(SUCCESS_SOUND);
         successAudioRef.current.volume = 0.6;
+        newOrderAudioRef.current = new Audio(NEW_ORDER_SOUND);
+        newOrderAudioRef.current.volume = 0.8;
     }, []);
 
-    // Monitora entregas finalizadas para tocar som
+    // Monitora entregas finalizadas E novos pedidos para tocar sons
     useEffect(() => {
         const completedCount = orders.filter(o => o.status === 'completed').length;
+        const pendingCount = orders.filter(o => o.status === 'pending').length;
         
-        // Se a contagem de finalizados aumentou, toca o som
+        // Som de entrega finalizada
         if (completedCount > prevCompletedCountRef.current && prevCompletedCountRef.current !== 0) {
             if(successAudioRef.current) {
                 const playPromise = successAudioRef.current.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch(error => console.log("Áudio bloqueado:", error));
-                }
-                // Vibração se suportado
-                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                if (playPromise !== undefined) playPromise.catch(e => console.log("Áudio bloqueado", e));
             }
         }
+
+        // Som de NOVO pedido (Dinheiro entrando)
+        if (pendingCount > prevPendingCountRef.current) {
+             if(newOrderAudioRef.current) {
+                const playPromise = newOrderAudioRef.current.play();
+                if (playPromise !== undefined) playPromise.catch(e => console.log("Áudio bloqueado", e));
+                if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            }
+        }
+
         prevCompletedCountRef.current = completedCount;
+        prevPendingCountRef.current = pendingCount;
     }, [orders]);
 
     const trackDriver = (driver: Driver) => {

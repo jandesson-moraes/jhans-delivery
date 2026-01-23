@@ -1,9 +1,10 @@
-export type UserType = 'admin' | 'driver' | 'landing';
+export type UserType = 'admin' | 'driver' | 'landing' | 'client';
 export type DriverStatus = 'available' | 'delivering' | 'offline';
 
 export interface AppConfig {
     appName: string;
     appLogoUrl: string;
+    storePhone?: string; // Telefone do estabelecimento para contato/zap
 }
 
 export interface Driver {
