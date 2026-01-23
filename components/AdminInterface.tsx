@@ -1,9 +1,11 @@
 
+
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement } from '../types';
 import { BrandLogo, SidebarBtn, StatBox, Footer } from './Shared';
 import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart, History, CheckCircle2, Radar, Volume2, VolumeX } from 'lucide-react';
-import { formatCurrency, formatTime, formatDate, isToday } from '../utils';
+import { formatCurrency, formatTime, formatDate, isToday, sendDispatchNotification } from '../utils';
 import { MenuManager } from './MenuManager';
 import { ClientsView } from './ClientsView';
 import { DailyOrdersView } from './DailyOrdersView';
@@ -329,7 +331,19 @@ export default function AdminInterface(props: AdminProps) {
                  )}
             </aside>
             {newIncomingOrder && <NewIncomingOrderModal order={newIncomingOrder} onClose={() => setNewIncomingOrder(null)} appConfig={appConfig} />}
-            {(props as any).modal === 'confirmAssign' && <ConfirmAssignmentModal onClose={() => setModal(null)} onConfirm={() => { if (orderToAssign && selectedDriver) onAssignOrder(orderToAssign.id, selectedDriver.id); setOrderToAssign(null); }} order={orderToAssign} driverName={selectedDriver?.name} />}
+            {(props as any).modal === 'confirmAssign' && <ConfirmAssignmentModal 
+                onClose={() => setModal(null)} 
+                onConfirm={() => { 
+                    if (orderToAssign && selectedDriver) {
+                        onAssignOrder(orderToAssign.id, selectedDriver.id); 
+                        // DISPARA NOTIFICAÇÃO DO WHATSAPP AQUI
+                        sendDispatchNotification(orderToAssign, selectedDriver.name, appConfig.appName);
+                    }
+                    setOrderToAssign(null); 
+                }} 
+                order={orderToAssign} 
+                driverName={selectedDriver?.name} 
+            />}
             {(props as any).modal === 'order' && <NewOrderModal onClose={()=>setModal(null)} onSave={handleCreateOrder} products={products} clients={clients} />}
         </div>
     );

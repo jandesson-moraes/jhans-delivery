@@ -250,7 +250,7 @@ export const getOrderReceivedText = (order: any, appName: string) => {
     const isPix = order.paymentMethod?.toLowerCase().includes('pix');
     const displayId = formatOrderId(order.id);
     
-    return `Olá *${order.customer}*! 👋\nRecebemos seu pedido no *${appName}* e ficamos muito felizes!\n\n*Fique tranquilo!* 🥰\nSeu pedido ${displayId} já entrou no nosso sistema e será aceito e preparado com todo o cuidado.\n\n💰 Total: *${formatCurrency(order.value)}*\n${isPix ? '⚠️ *Assim que puder, nos envie o comprovante PIX.*' : ''}\n\n🛵 Avisaremos assim que sair para entrega!`;
+    return `Olá *${order.customer}*! 👋\nRecebemos seu pedido no *${appName}* e ficamos muito felizes!\n\n*Fique tranquilo!* 🥰\nSeu pedido ${displayId} já entrou no nosso sistema e será aceito e preparado com todo o cuidado.\n\n💰 Total: *${formatCurrency(order.value)}*\n${isPix ? '⚠️ *Assim que puder, nos envie o comprovante PIX.*\n\nCaso já tenha feito o pagamento, favor desconsiderar a cobrança 😀' : ''}\n\n🛵 Avisaremos assim que sair para entrega!`;
 };
 
 export const sendOrderConfirmation = (order: any, appName: string) => {
@@ -263,5 +263,13 @@ export const sendDeliveryNotification = (order: any, driverName: string, vehicle
     const phone = normalizePhone(order.phone);
     if (!phone) return;
     const text = `Olá *${order.customer}*! 🛵💨\n*Boas notícias!*\nSeu pedido saiu para entrega e está a caminho.\n\nEntregador: *${driverName}*\nVeículo: *${vehicle}*\n\nObrigado pela preferência e bom apetite! 🍔❤️`;
+    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
+};
+
+export const sendDispatchNotification = (order: any, driverName: string, appName: string) => {
+    const phone = normalizePhone(order.phone);
+    if (!phone) return;
+    const displayId = formatOrderId(order.id);
+    const text = `Olá *${order.customer}*! 👋\n\nO seu pedido *${displayId}* ficou pronto aqui no *${appName}* e já entregamos ao motoboy *${driverName}*! 🛵💨\n\nEle já saiu para entrega e logo chega no seu endereço.\n\nObrigado! ❤️`;
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
 };
