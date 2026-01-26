@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, AppConfig, Order } from '../types';
-import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard, formatTime, formatDate, generatePixPayload } from '../utils';
+import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard, formatTime, formatDate, generatePixPayload, EMOJI } from '../utils';
 import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode, Gift, LogOut, ShieldCheck } from 'lucide-react';
 import { BrandLogo, Footer } from './Shared';
 
@@ -287,7 +287,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         text += `*Cliente:* ${data.customer}\n`;
         text += `*Itens:* ${data.items.replace(/\n---\n/g, ', ')}\n`;
         if (checkout.serviceType === 'delivery') {
-            text += `*Entrega:* GRÁTIS (Presente da Casa) \uD83C\uDF81\n`;
+            text += `*Entrega:* GRÁTIS (Presente da Casa) ${EMOJI.GIFT}\n`;
         }
         text += `*Total:* ${formatCurrency(data.value)}\n`;
         text += `*Pagamento:* ${data.paymentMethod}\n\n`;

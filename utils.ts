@@ -1,4 +1,5 @@
 
+
 export const formatTime = (timestamp: any) => {
   if (!timestamp || !timestamp.seconds) return '-';
   return new Date(timestamp.seconds * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -202,20 +203,20 @@ export const formatOrderId = (id: string) => {
     return '#' + cleanId;
 };
 
-// EMOJIS SEGUROS (UNICODE)
-const EMOJI = {
-    GIFT: '\uD83C\uDF81',
-    HEART: '\u2764\uFE0F',
-    BURGER: '\uD83C\uDF54',
-    WAVE: '\uD83D\uDC4B',
-    SMILE_HEARTS: '\uD83E\uDD70',
-    MONEY_BAG: '\uD83D\uDCB0',
-    WARNING: '\u26A0\uFE0F',
-    SMILE: '\uD83D\uDE00',
-    SCOOTER: '\uD83D\uDEF5',
-    DASH: '\uD83D\uDCA8',
-    CHEF: '\uD83D\uDC68\u200D\uD83C\uDF73',
-    FIRE: '\uD83D\uDD25'
+// EMOJIS SEGUROS (Literais UTF-8 funcionam melhor com encodeURIComponent moderno)
+export const EMOJI = {
+    GIFT: '🎁',
+    HEART: '❤️',
+    BURGER: '🍔',
+    WAVE: '👋',
+    SMILE_HEARTS: '🥰',
+    MONEY_BAG: '💰',
+    WARNING: '⚠️',
+    SMILE: '😀',
+    SCOOTER: '🛵',
+    DASH: '💨',
+    CHEF: '👨‍🍳',
+    FIRE: '🔥'
 };
 
 export const generateReceiptText = (order: any, appName: string, pixData?: any) => {
