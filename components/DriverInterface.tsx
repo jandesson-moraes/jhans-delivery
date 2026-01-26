@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package, Zap, ZapOff, Edit, Trash2, Send, MinusCircle, AlertCircle, TrendingUp, Radio } from 'lucide-react';
 import { Driver, Order, Vale } from '../types';
@@ -235,7 +236,7 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
                              {/* BOTÕES DE AÇÃO DO MOTOBOY */}
                              <div className="grid grid-cols-2 gap-3 mb-3">
                                 <button onClick={() => window.open(order.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.address)}`, '_blank')} className="flex flex-col items-center justify-center gap-1 bg-blue-600 text-white py-3 rounded-xl font-bold text-xs shadow-lg active:scale-95 transition-transform"><Navigation size={18}/> GPS</button>
-                                <button onClick={() => window.open(`https://wa.me/55${order.phone.replace(/\D/g, '')}`, '_blank')} className="flex flex-col items-center justify-center gap-1 bg-emerald-600 text-white py-3 rounded-xl font-bold text-xs shadow-lg active:scale-95 transition-transform"><MessageCircle size={18}/> Contato</button>
+                                <button onClick={() => window.open(`https://wa.me/55${order.phone.replace(/\D/g, '')}`, 'whatsapp-session')} className="flex flex-col items-center justify-center gap-1 bg-emerald-600 text-white py-3 rounded-xl font-bold text-xs shadow-lg active:scale-95 transition-transform"><MessageCircle size={18}/> Contato</button>
                              </div>
                              
                              {/* BOTÃO DE AVISAR SAÍDA */}

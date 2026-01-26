@@ -297,7 +297,8 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         }
         text += `Podem confirmar?`;
         const link = `https://wa.me/55${normalizePhone(appConfig.storePhone)}?text=${encodeURIComponent(text)}`;
-        window.open(link, '_blank');
+        // Usa target nomeado para tentar reutilizar aba
+        window.open(link, 'whatsapp-session');
     };
 
     if (view === 'success' && lastOrderData) {

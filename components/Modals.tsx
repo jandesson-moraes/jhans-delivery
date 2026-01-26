@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame, TrendingUp, DollarSign, ShoppingBag, ArrowRight, Play } from 'lucide-react';
 import { Product, Client, AppConfig, Driver, Order, Vale } from '../types';
@@ -56,7 +57,7 @@ export function ProductionSuccessModal({ onClose, order, appName }: { onClose: (
     };
 
     const handleOpenWhatsapp = () => {
-        if (phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
+        if (phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, 'whatsapp-session');
     };
 
     return (
@@ -129,7 +130,7 @@ export function DispatchSuccessModal({ onClose, data, appName }: { onClose: () =
     };
 
     const handleOpenWhatsapp = () => {
-        if (phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
+        if (phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, 'whatsapp-session');
     };
 
     return (
@@ -199,7 +200,7 @@ export function NewIncomingOrderModal({ order, onClose, appConfig, onAccept }: a
     const handleAcceptAndNotify = () => {
         onAccept(order.id, { status: 'preparing' });
         if (phone) {
-            window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(productionMessage)}`, '_blank');
+            window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(productionMessage)}`, 'whatsapp-session');
         }
         onClose();
     };

@@ -271,14 +271,15 @@ export const sendOrderConfirmation = (order: any, appName: string) => {
     const safeName = appName || 'Jhans Burgers';
     const text = getOrderReceivedText(order, safeName);
     const phone = normalizePhone(order.phone);
-    if(phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
+    // Usando 'whatsapp-session' para tentar reutilizar a aba
+    if(phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, 'whatsapp-session');
 };
 
 export const sendDeliveryNotification = (order: any, driverName: string, vehicle: string) => {
     const phone = normalizePhone(order.phone);
     if (!phone) return;
     const text = `Olá *${order.customer}*! ${EMOJI.SCOOTER}${EMOJI.DASH}\n*Boas notícias!*\nSeu pedido saiu para entrega e está a caminho.\n\nEntregador: *${driverName}*\nVeículo: *${vehicle}*\n\nObrigado pela preferência e bom apetite! ${EMOJI.BURGER}${EMOJI.HEART}`;
-    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
+    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, 'whatsapp-session');
 };
 
 export const getDispatchMessage = (order: any, driverName: string, appName: string) => {
@@ -298,5 +299,5 @@ export const sendDispatchNotification = (order: any, driverName: string, appName
     const phone = normalizePhone(order.phone);
     if (!phone) return;
     const text = getDispatchMessage(order, driverName, safeName);
-    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
+    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, 'whatsapp-session');
 };
