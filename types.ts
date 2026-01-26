@@ -55,7 +55,7 @@ export interface Order {
   address: string;
   mapsLink?: string; 
   items: string; 
-  status: 'pending' | 'preparing' | 'ready' | 'assigned' | 'delivering' | 'completed';
+  status: 'pending' | 'preparing' | 'ready' | 'assigned' | 'delivering' | 'completed' | 'cancelled';
   amount: string;
   value: number; 
   paymentMethod?: string;

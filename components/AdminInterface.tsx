@@ -1,22 +1,21 @@
 
-
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement } from '../types';
 import { BrandLogo, SidebarBtn, StatBox, Footer } from './Shared';
-import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart, History, CheckCircle2, Radar, Volume2, VolumeX } from 'lucide-react';
+import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart, History, CheckCircle2, Radar, Volume2, VolumeX, UserCheck, TrendingUp, FileText } from 'lucide-react';
 import { formatCurrency, formatTime, formatDate, isToday } from '../utils';
 import { MenuManager } from './MenuManager';
 import { ClientsView } from './ClientsView';
-import { DailyOrdersView } from './DailyOrdersView';
+// DailyOrdersView removido pois foi integrado/simplificado
 import { KitchenDisplay } from './KitchenDisplay';
 import { ItemReportView } from './ItemReportView';
 import { NewOrderModal, ConfirmAssignmentModal, NewIncomingOrderModal, DispatchSuccessModal } from './Modals'; 
 
-// Som de Campainha/Sino (Mais agradável que caixa registradora para alertas)
+// Som de Campainha/Sino
 const NEW_ORDER_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; 
 
-type AdminViewMode = 'map' | 'list' | 'history' | 'menu' | 'clients' | 'daily' | 'kds' | 'reports';
+// Daily e Reports removidos do tipo principal de navegação
+type AdminViewMode = 'map' | 'list' | 'history' | 'menu' | 'clients' | 'kds';
 
 interface AdminProps {
     drivers: Driver[];
@@ -82,23 +81,17 @@ export default function AdminInterface(props: AdminProps) {
     const [newIncomingOrder, setNewIncomingOrder] = useState<Order | null>(null);
     const [soundEnabled, setSoundEnabled] = useState(false);
     
-    // Estado para o modal de sucesso do despacho
+    // Sub-aba para a seção Financeira (Visão Geral vs Relatórios)
+    const [financeTab, setFinanceTab] = useState<'overview' | 'items'>('overview');
+    
     const [dispatchedOrderData, setDispatchedOrderData] = useState<{order: Order, driverName: string} | null>(null);
-
-    // Controle de notificações de som para não repetir
     const notifiedOrderIds = useRef<Set<string>>(new Set());
     const newOrderAudioRef = useRef<HTMLAudioElement | null>(null);
 
-    // FUNÇÃO WRAPPER PARA ATRIBUIÇÃO DE PEDIDO
-    // Garante que o modal de sucesso abra tanto via KDS quanto via Sidebar
     const handleAssignAndNotify = (oid: string, did: string) => {
-        // 1. Executa a ação original (atualiza DB)
         onAssignOrder(oid, did);
-        
-        // 2. Prepara os dados para o modal de sucesso
         const order = orders.find(o => o.id === oid);
         const driver = drivers.find(d => d.id === did);
-        
         if (order && driver) {
             setDispatchedOrderData({ order, driverName: driver.name });
         }
@@ -110,51 +103,34 @@ export default function AdminInterface(props: AdminProps) {
     };
 
     useEffect(() => {
-        // Inicializa o áudio apenas uma vez
         newOrderAudioRef.current = new Audio(NEW_ORDER_SOUND);
-        
-        // Marca pedidos existentes como notificados para não tocar som ao abrir o app
         orders.forEach(o => {
             if(o.status !== 'pending') notifiedOrderIds.current.add(o.id);
         });
     }, []); 
 
     const toggleSound = () => {
-        // Apenas alterna o estado. NÃO toca som forçado.
-        // O navegador geralmente permite áudio subsequente se o usuário interagiu com a página (clicou no botão).
         setSoundEnabled(prev => !prev);
     };
 
-    // Monitora mudanças nos pedidos para tocar som
     useEffect(() => {
         if (!soundEnabled) return;
-
         orders.forEach(order => {
-            // Só toca se for PENDENTE e ainda NÃO tiver tocado para este ID específico
             if (order.status === 'pending' && !notifiedOrderIds.current.has(order.id)) {
-                
-                // Tenta tocar o som
                 if(newOrderAudioRef.current) {
                     newOrderAudioRef.current.currentTime = 0;
                     const playPromise = newOrderAudioRef.current.play();
-                    
                     if (playPromise !== undefined) {
                         playPromise.catch(error => {
-                            console.log("Audio bloqueado (aguardando interação):", error);
+                            console.log("Audio bloqueado:", error);
                         });
                     }
-
                     if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
                 }
-                
-                // Marca como notificado IMEDIATAMENTE para nunca mais tocar para este pedido
                 notifiedOrderIds.current.add(order.id);
-                
-                // Abre o modal de alerta visual
                 setNewIncomingOrder(order);
             }
         });
-        
     }, [orders, soundEnabled]); 
 
     const trackDriver = (driver: Driver) => {
@@ -165,6 +141,7 @@ export default function AdminInterface(props: AdminProps) {
     const delivered = orders.filter((o: Order) => o.status === 'completed');
     const finance = useMemo(() => {
         const totalIncome = delivered.reduce((acc, order) => acc + (order.value || 0), 0);
+        // Considerando pedidos entregues HOJE
         const todayIncome = delivered.filter(o => isToday(o.completedAt)).reduce((acc, order) => acc + (order.value || 0), 0);
         const totalExpenses = expenses.reduce((acc, e) => acc + (e.amount || 0), 0);
         const todayExpenses = expenses.filter(e => isToday(e.createdAt)).reduce((acc, e) => acc + (e.amount || 0), 0);
@@ -192,15 +169,14 @@ export default function AdminInterface(props: AdminProps) {
                 <div className="p-8 border-b border-slate-800"><BrandLogo size="normal" config={appConfig} /></div>
                 <nav className="flex-1 p-6 space-y-3 overflow-y-auto custom-scrollbar">
                   <SidebarBtn icon={<LayoutDashboard/>} label="Monitoramento" active={view==='map'} onClick={()=>setView('map')}/>
-                  <SidebarBtn icon={<ClipboardList/>} label="Pedidos do Dia" active={view==='daily'} onClick={()=>setView('daily')}/>
-                  <SidebarBtn icon={<ChefHat/>} label="Cozinha (KDS)" active={view==='kds'} onClick={()=>setView('kds')}/>
+                  <SidebarBtn icon={<ChefHat/>} label="Cozinha / Pedidos Dia" active={view==='kds'} onClick={()=>setView('kds')}/>
                   <div className="h-px bg-slate-800 my-4 mx-2"></div>
                   <SidebarBtn icon={<Plus/>} label="Novo Pedido" onClick={()=>setModal('order')} highlight/>
                   <div className="h-px bg-slate-800 my-4 mx-2"></div>
+                  <SidebarBtn icon={<UserCheck/>} label="Clientes CRM" active={view==='clients'} onClick={()=>setView('clients')}/>
                   <SidebarBtn icon={<Users/>} label="Equipe" active={view==='list'} onClick={()=>setView('list')}/>
                   <SidebarBtn icon={<ShoppingBag/>} label="Cardápio Digital" active={view==='menu'} onClick={()=>setView('menu')}/>
                   <SidebarBtn icon={<Clock/>} label="Financeiro" active={view==='history'} onClick={()=>setView('history')}/>
-                  <SidebarBtn icon={<FileBarChart/>} label="Relatórios Itens" active={view==='reports'} onClick={()=>setView('reports')}/>
                 </nav>
                 <div className="p-6 space-y-2 border-t border-slate-800">
                     <button onClick={() => setModal('settings')} className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center gap-3 text-slate-400 font-bold hover:text-white"><Settings size={18}/> Config</button>
@@ -212,10 +188,9 @@ export default function AdminInterface(props: AdminProps) {
                 <header className="h-16 md:h-20 bg-slate-900 border-b border-slate-800 px-4 md:px-10 flex items-center justify-between shadow-sm z-10 w-full shrink-0">
                      <div className="flex items-center gap-3 overflow-hidden">
                          {appConfig.appLogoUrl && <img src={appConfig.appLogoUrl} className="w-8 h-8 rounded-full md:hidden object-cover" alt="Logo" />}
-                         <h1 className="text-lg md:text-2xl font-extrabold text-white truncate min-w-0">{view === 'map' ? 'Central de Comando' : view === 'list' ? 'Gestão de Equipe' : view === 'menu' ? 'Cardápio Digital' : view === 'clients' ? 'Gestão de Clientes' : view === 'daily' ? 'Pedidos do Dia' : view === 'kds' ? 'Fila da Cozinha' : view === 'reports' ? 'Relatórios de Itens' : 'Financeiro'}</h1>
+                         <h1 className="text-lg md:text-2xl font-extrabold text-white truncate min-w-0">{view === 'map' ? 'Central de Comando' : view === 'list' ? 'Gestão de Equipe' : view === 'menu' ? 'Cardápio Digital' : view === 'clients' ? 'Gestão de Clientes' : view === 'kds' ? 'Cozinha & Pedidos' : 'Financeiro'}</h1>
                      </div>
                      <div className="flex items-center gap-2">
-                         {/* BOTÃO DE SOM (AGORA SILENCIOSO AO CLICAR) */}
                          <button 
                             onClick={toggleSound} 
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-[10px] md:text-xs transition-all border shadow-lg ${soundEnabled ? 'bg-emerald-900/30 text-emerald-400 border-emerald-500/50' : 'bg-slate-800 text-slate-400 border-slate-700'}`}
@@ -275,16 +250,59 @@ export default function AdminInterface(props: AdminProps) {
                           <Footer />
                        </div>
                     )}
-                    {view === 'daily' && <DailyOrdersView orders={orders} drivers={drivers} onDeleteOrder={onDeleteOrder} setModal={setModal} onUpdateOrder={onUpdateOrder} />}
                     {view === 'menu' && <MenuManager products={products} onCreate={props.onCreateProduct} onUpdate={props.onUpdateProduct} onDelete={props.onDeleteProduct} />}
-                    {view === 'clients' && <ClientsView clients={clients} orders={delivered} setModal={setModal} setClientToEdit={setClientToEdit} />}
-                    {view === 'reports' && <ItemReportView orders={orders} />}
-                    {/* ATUALIZADO: Passando appConfig para o KDS */}
+                    {view === 'clients' && <ClientsView clients={clients} orders={orders} setModal={setModal} setClientToEdit={setClientToEdit} />}
                     {view === 'kds' && <KitchenDisplay orders={orders} products={products} drivers={drivers} onUpdateStatus={onUpdateOrder} onAssignOrder={handleAssignAndNotify} appConfig={appConfig} />}
                     {view === 'history' && (
                        <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-24 custom-scrollbar">
-                          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4"><h3 className="font-bold text-2xl text-slate-200">Fluxo de Caixa</h3><button onClick={() => setModal('expense')} className="bg-red-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex gap-2 shadow-md"><MinusCircle size={18}/> Lançar Custo</button></div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"><StatBox label="Saldo Atual" value={formatCurrency(finance.balance)} icon={<Wallet/>} color={finance.balance >= 0 ? "bg-emerald-900/20 text-emerald-400" : "bg-red-900/20 text-red-400"}/></div>
+                          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                              <h3 className="font-bold text-2xl text-slate-200">Financeiro Integrado</h3>
+                              {financeTab === 'overview' && (
+                                  <button onClick={() => setModal('expense')} className="bg-red-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex gap-2 shadow-md"><MinusCircle size={18}/> Lançar Custo</button>
+                              )}
+                          </div>
+                          
+                          {/* ABAS FINANCEIRAS */}
+                          <div className="flex gap-4 mb-6 border-b border-slate-800 pb-1">
+                              <button onClick={() => setFinanceTab('overview')} className={`pb-3 px-2 text-sm font-bold transition-all border-b-2 ${financeTab==='overview' ? 'text-amber-500 border-amber-500' : 'text-slate-500 border-transparent hover:text-white'}`}>
+                                  <div className="flex items-center gap-2"><Wallet size={16}/> Fluxo de Caixa</div>
+                              </button>
+                              <button onClick={() => setFinanceTab('items')} className={`pb-3 px-2 text-sm font-bold transition-all border-b-2 ${financeTab==='items' ? 'text-blue-500 border-blue-500' : 'text-slate-500 border-transparent hover:text-white'}`}>
+                                  <div className="flex items-center gap-2"><FileBarChart size={16}/> Relatório de Produtos</div>
+                              </button>
+                          </div>
+
+                          {financeTab === 'overview' && (
+                              <>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                                      <StatBox label="Faturamento Hoje" value={formatCurrency(finance.todayIncome)} icon={<TrendingUp/>} color="bg-emerald-600 text-white" subtext="Vendas do dia atual"/>
+                                      <StatBox label="Saldo Total (Caixa)" value={formatCurrency(finance.balance)} icon={<Wallet/>} color={finance.balance >= 0 ? "bg-emerald-900/20 text-emerald-400" : "bg-red-900/20 text-red-400"}/>
+                                      <StatBox label="Despesas" value={formatCurrency(finance.totalExpenses)} icon={<MinusCircle/>} color="bg-red-900/20 text-red-400"/>
+                                  </div>
+                                  
+                                  {/* Pequeno extrato de despesas recentes */}
+                                  <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6">
+                                      <h4 className="font-bold text-white mb-4">Despesas Recentes</h4>
+                                      <div className="space-y-3">
+                                          {expenses.slice(0, 5).map(e => (
+                                              <div key={e.id} className="flex justify-between items-center border-b border-slate-800 pb-2 last:border-0">
+                                                  <div>
+                                                      <p className="text-white font-medium text-sm">{e.description}</p>
+                                                      <p className="text-slate-500 text-xs">{formatDate(e.createdAt)}</p>
+                                                  </div>
+                                                  <span className="text-red-400 font-bold">- {formatCurrency(e.amount)}</span>
+                                              </div>
+                                          ))}
+                                          {expenses.length === 0 && <p className="text-slate-500 text-sm">Nenhuma despesa lançada.</p>}
+                                      </div>
+                                  </div>
+                              </>
+                          )}
+
+                          {financeTab === 'items' && (
+                              <ItemReportView orders={orders} />
+                          )}
+
                           <Footer />
                        </div>
                     )}
@@ -296,12 +314,12 @@ export default function AdminInterface(props: AdminProps) {
                     <div className="absolute left-1/2 -translate-x-1/2 -top-8"><button onClick={()=>setModal('order')} className="bg-gradient-to-br from-orange-500 to-red-600 rounded-full p-4 shadow-xl border-4 border-slate-950 text-white"><Plus size={32}/></button></div>
                     <div className="flex gap-6">
                         <button onClick={()=>setView('map')} className={`flex flex-col items-center gap-1 ${view==='map'?'text-orange-500':'text-slate-400'}`}><MapPin size={22}/><span className="text-[9px] font-bold">Mapa</span></button>
-                        <button onClick={()=>setView('daily')} className={`flex flex-col items-center gap-1 ${view==='daily'?'text-orange-500':'text-slate-400'}`}><ClipboardList size={22}/><span className="text-[9px] font-bold">Dia</span></button>
+                        <button onClick={()=>setView('kds')} className={`flex flex-col items-center gap-1 ${view==='kds'?'text-orange-500':'text-slate-400'}`}><ChefHat size={22}/><span className="text-[9px] font-bold">Cozinha</span></button>
                     </div>
                     <div className="w-12"></div>
                     <div className="flex gap-6">
-                        <button onClick={()=>setView('kds')} className={`flex flex-col items-center gap-1 ${view==='kds'?'text-orange-500':'text-slate-400'}`}><ChefHat size={22}/><span className="text-[9px] font-bold">KDS</span></button>
-                        <button onClick={()=>setView('history')} className={`flex flex-col items-center gap-1 ${view==='history'?'text-orange-500':'text-slate-400'}`}><Clock size={22}/><span className="text-[9px] font-bold">Caixa</span></button>
+                        <button onClick={()=>setView('clients')} className={`flex flex-col items-center gap-1 ${view==='clients'?'text-orange-500':'text-slate-400'}`}><UserCheck size={22}/><span className="text-[9px] font-bold">CRM</span></button>
+                        <button onClick={()=>setView('history')} className={`flex flex-col items-center gap-1 ${view==='history'?'text-orange-500':'text-slate-400'}`}><Clock size={22}/><span className="text-[9px] font-bold">Finanças</span></button>
                     </div>
                 </div>
             </div>
@@ -349,8 +367,16 @@ export default function AdminInterface(props: AdminProps) {
                    </div>
                  )}
             </aside>
-            {newIncomingOrder && <NewIncomingOrderModal order={newIncomingOrder} onClose={() => setNewIncomingOrder(null)} appConfig={appConfig} />}
-            {/* Modal de Sucesso de Despacho (Exibe mensagem para copiar) */}
+            {/* Atualização: Passamos onUpdateOrder para o Modal para permitir aceitação direta */}
+            {newIncomingOrder && (
+                <NewIncomingOrderModal 
+                    order={newIncomingOrder} 
+                    onClose={() => setNewIncomingOrder(null)} 
+                    appConfig={appConfig}
+                    onAccept={onUpdateOrder}
+                />
+            )}
+            
             {dispatchedOrderData && (
                 <DispatchSuccessModal 
                     data={dispatchedOrderData} 

@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame } from 'lucide-react';
+import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame, TrendingUp, DollarSign, ShoppingBag, ArrowRight, Play } from 'lucide-react';
 import { Product, Client, AppConfig, Driver, Order, Vale } from '../types';
 import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, getOrderReceivedText, formatOrderId, getDispatchMessage, getProductionMessage } from '../utils';
 
@@ -187,68 +186,121 @@ export function DispatchSuccessModal({ onClose, data, appName }: { onClose: () =
     );
 }
 
-// --- NEW INCOMING ORDER MODAL (ALERTA DE NOVO PEDIDO) ---
-export function NewIncomingOrderModal({ order, onClose, appConfig }: any) {
-    const [copied, setCopied] = useState(false);
-
+// --- NEW INCOMING ORDER MODAL (CENTRAL DE AÇÃO RÁPIDA - AGORA COM PISCA PISCA) ---
+export function NewIncomingOrderModal({ order, onClose, appConfig, onAccept }: any) {
     if (!order) return null;
 
-    const handleCopyMessage = () => {
-        const text = getOrderReceivedText(order, appConfig.appName);
-        copyToClipboard(text);
-        setCopied(true);
-        setTimeout(() => {
-            onClose(); 
-        }, 1500);
+    const safeAppName = appConfig.appName || "Jhans Burgers";
+    const phone = normalizePhone(order.phone);
+    
+    const productionMessage = getProductionMessage(order, safeAppName);
+
+    const handleAcceptAndNotify = () => {
+        onAccept(order.id, { status: 'preparing' });
+        if (phone) {
+            window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(productionMessage)}`, '_blank');
+        }
+        onClose();
+    };
+
+    const handleAcceptOnly = () => {
+        onAccept(order.id, { status: 'preparing' });
+        onClose();
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-300">
-            <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md p-6 border-2 border-emerald-500 shadow-emerald-500/20 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10">
-                    <span className="flex h-32 w-32">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    </span>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            {/* ANIMAÇÃO CSS INJETADA */}
+            <style>{`
+                @keyframes screen-flash {
+                    0%, 100% { background-color: rgba(0,0,0,0.85); }
+                    50% { background-color: rgba(127, 29, 29, 0.6); }
+                }
+                @keyframes border-flash {
+                    0%, 100% { border-color: rgb(245, 158, 11); box-shadow: 0 0 50px rgba(245,158,11,0.4); }
+                    50% { border-color: rgb(239, 68, 68); box-shadow: 0 0 100px rgba(239,68,68,0.7); }
+                }
+                .animate-screen-flash { animation: screen-flash 0.8s infinite; }
+                .animate-border-flash { animation: border-flash 0.8s infinite; }
+            `}</style>
+
+            {/* FUNDO PISCANDO */}
+            <div className="absolute inset-0 animate-screen-flash backdrop-blur-md transition-colors duration-100"></div>
+
+            {/* MODAL COM BORDA PULSANTE */}
+            <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-lg p-0 border-4 animate-border-flash relative overflow-hidden flex flex-col max-h-[90vh] z-10">
+                
+                {/* Header Urgente */}
+                <div className="bg-amber-600 p-6 text-center relative overflow-hidden">
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
+                    <div className="relative z-10">
+                        <div className="flex justify-center mb-2">
+                            <span className="bg-white text-amber-600 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest animate-pulse">Atenção Necessária</span>
+                        </div>
+                        <h2 className="text-3xl font-black text-white uppercase drop-shadow-md">Novo Pedido!</h2>
+                        <p className="text-amber-100 font-mono text-lg font-bold mt-1">{formatOrderId(order.id)}</p>
+                    </div>
                 </div>
 
-                <div className="flex flex-col items-center text-center mb-6">
-                    <div className="bg-emerald-500/20 p-4 rounded-full mb-3 animate-bounce">
-                        <MessageCircle size={32} className="text-emerald-400" />
+                {/* Corpo do Pedido */}
+                <div className="p-6 flex-1 overflow-y-auto custom-scrollbar bg-slate-950">
+                    <div className="flex justify-between items-start mb-6 border-b border-slate-800 pb-4">
+                        <div>
+                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Cliente</p>
+                            <h3 className="text-xl font-bold text-white">{order.customer}</h3>
+                            <p className="text-sm text-slate-400">{order.phone}</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Valor Total</p>
+                            <p className="text-2xl font-black text-emerald-400">{order.amount}</p>
+                            <p className="text-xs text-amber-500 font-bold">{order.paymentMethod}</p>
+                        </div>
                     </div>
-                    <h3 className="font-black text-2xl text-white uppercase tracking-wide">Novo Pedido!</h3>
-                    <p className="text-emerald-400 font-bold text-lg">{formatOrderId(order.id)}</p>
+
+                    <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 mb-4">
+                        <p className="text-[10px] text-slate-500 uppercase font-bold mb-2 flex items-center gap-2">
+                            <Utensils size={12}/> Itens do Pedido
+                        </p>
+                        <div className="space-y-2">
+                            {order.items.split('\n').filter((l:string) => l.trim()).map((line:string, i:number) => (
+                                <p key={i} className={`text-sm ${line.toLowerCase().startsWith('obs:') ? 'text-amber-300 italic bg-amber-900/20 p-2 rounded' : 'text-white font-bold'}`}>
+                                    {toSentenceCase(line)}
+                                </p>
+                            ))}
+                        </div>
+                    </div>
+                    
+                    {order.serviceType === 'delivery' && (
+                        <div className="flex items-start gap-2 text-slate-400 text-xs bg-slate-900/50 p-3 rounded-lg border border-slate-800">
+                            <MapPin size={14} className="shrink-0 mt-0.5 text-blue-500"/>
+                            <span>{order.address}</span>
+                        </div>
+                    )}
                 </div>
 
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 mb-6 text-left">
-                    <div className="flex justify-between mb-2">
-                        <span className="text-slate-400 text-xs font-bold uppercase">Cliente</span>
-                        <span className="text-white font-bold">{order.customer}</span>
-                    </div>
-                    <div className="flex justify-between mb-2">
-                        <span className="text-slate-400 text-xs font-bold uppercase">Pagamento</span>
-                        <span className="text-amber-400 font-bold">{order.paymentMethod}</span>
-                    </div>
-                    <div className="flex justify-between border-t border-slate-800 pt-2">
-                        <span className="text-slate-400 text-xs font-bold uppercase">Total</span>
-                        <span className="text-emerald-400 font-black text-lg">{order.amount}</span>
-                    </div>
-                </div>
-
-                <div className="space-y-3">
+                {/* Footer de Ação Rápida */}
+                <div className="p-4 bg-slate-900 border-t border-slate-800 flex flex-col gap-3">
                     <button 
-                        onClick={handleCopyMessage}
-                        className={`w-full py-4 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 ${copied ? 'bg-emerald-500 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+                        onClick={handleAcceptAndNotify}
+                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl font-black text-lg shadow-lg shadow-emerald-900/50 flex items-center justify-center gap-3 active:scale-95 transition-all animate-in slide-in-from-bottom-2"
                     >
-                        {copied ? <Check size={20}/> : <Copy size={20}/>}
-                        {copied ? 'Copiado! Cole no WhatsApp' : 'Copiar Msg de Confirmação'}
+                        <span>CONFIRMAR E MANDAR ZAP</span> <ArrowRight size={24} strokeWidth={3}/>
                     </button>
                     
-                    <button 
-                        onClick={onClose}
-                        className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 py-3 rounded-xl font-bold text-sm transition-colors"
-                    >
-                        Fechar (Já vi)
-                    </button>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button 
+                            onClick={handleAcceptOnly}
+                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 py-3 rounded-xl font-bold text-xs border border-slate-700 transition-colors"
+                        >
+                            Só Aceitar (Sem Zap)
+                        </button>
+                        <button 
+                            onClick={onClose}
+                            className="bg-slate-950 hover:bg-slate-800 text-slate-500 hover:text-white py-3 rounded-xl font-bold text-xs border border-slate-800 transition-colors"
+                        >
+                            Analisar Depois
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -647,40 +699,112 @@ export function NewValeModal({ driver, onClose, onSave }: any) {
 
 export function EditClientModal({ client, orders, onClose, onUpdateOrder, onSave }: any) {
     const [form, setForm] = useState(client);
-    const clientOrders = useMemo(() => orders.filter((o: Order) => normalizePhone(o.phone) === normalizePhone(client.phone)).sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)), [orders, client]);
+    
+    // Processamento de dados do cliente (Histórico e Estatísticas)
+    const { clientOrders, stats } = useMemo(() => {
+        const sortedOrders = orders.filter((o: Order) => normalizePhone(o.phone) === normalizePhone(client.phone))
+            .sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        
+        // CORRIGIDO: Só soma no 'totalSpent' se status for 'completed'
+        const totalSpent = sortedOrders.reduce((acc: number, o: Order) => acc + (o.status === 'completed' ? (o.value || 0) : 0), 0);
+        // CORRIGIDO: Conta apenas pedidos completados para estatísticas
+        const count = sortedOrders.filter((o: Order) => o.status === 'completed').length;
+        const avgTicket = count > 0 ? totalSpent / count : 0;
+
+        return { 
+            clientOrders: sortedOrders,
+            stats: { totalSpent, count, avgTicket }
+        };
+    }, [orders, client]);
     
     return (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
-            <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl h-[90vh] flex overflow-hidden border border-slate-800 animate-in zoom-in">
-                <div className="w-1/3 bg-slate-950 p-6 border-r border-slate-800 flex flex-col">
-                    <h3 className="font-bold text-xl text-white mb-6 flex items-center gap-2"><Users className="text-blue-500"/> Dados Cliente</h3>
+            <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col md:flex-row overflow-hidden border border-slate-800 animate-in zoom-in">
+                
+                {/* LADO ESQUERDO: FORMULÁRIO DE EDIÇÃO */}
+                <div className="w-full md:w-1/3 bg-slate-950 p-6 border-b md:border-b-0 md:border-r border-slate-800 flex flex-col h-full overflow-y-auto">
+                    <h3 className="font-bold text-xl text-white mb-6 flex items-center gap-2"><Users className="text-blue-500"/> Editar Cadastro</h3>
+                    
                     <div className="space-y-4 flex-1">
-                        <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Nome</label><input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white outline-none focus:border-blue-500" value={form.name} onChange={e => setForm({...form, name: capitalize(e.target.value)})}/></div>
-                        <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Telefone</label><input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white outline-none focus:border-blue-500" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})}/></div>
-                        <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Endereço</label><textarea className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white outline-none focus:border-blue-500 h-24 resize-none" value={form.address} onChange={e => setForm({...form, address: toSentenceCase(e.target.value)})}/></div>
-                        <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Link Maps</label><input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white outline-none focus:border-blue-500 text-xs" value={form.mapsLink || ''} onChange={e => setForm({...form, mapsLink: e.target.value})}/></div>
-                        <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Observações Internas</label><textarea className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white outline-none focus:border-blue-500 h-24 resize-none" value={form.obs || ''} onChange={e => setForm({...form, obs: e.target.value})} placeholder="Ex: Cliente VIP, chato com cebola..."/></div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 mb-1 block uppercase">Nome do Cliente</label>
+                            <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white outline-none focus:border-blue-500 font-bold" value={form.name} onChange={e => setForm({...form, name: capitalize(e.target.value)})}/>
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 mb-1 block uppercase">Telefone / WhatsApp</label>
+                            <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white outline-none focus:border-blue-500 font-mono" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})}/>
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 mb-1 block uppercase">Endereço Completo</label>
+                            <textarea className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white outline-none focus:border-blue-500 h-24 resize-none text-sm leading-relaxed" value={form.address} onChange={e => setForm({...form, address: toSentenceCase(e.target.value)})}/>
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 mb-1 block uppercase">Link Google Maps</label>
+                            <div className="flex gap-2">
+                                <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white outline-none focus:border-blue-500 text-xs truncate" value={form.mapsLink || ''} onChange={e => setForm({...form, mapsLink: e.target.value})}/>
+                                {form.mapsLink && <button onClick={() => window.open(form.mapsLink, '_blank')} className="bg-blue-900/30 text-blue-400 p-3 rounded-xl border border-blue-500/30 hover:bg-blue-500 hover:text-white transition-colors"><MapPin size={18}/></button>}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 mb-1 block uppercase">Notas Internas (Preferências, obs)</label>
+                            <textarea className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white outline-none focus:border-blue-500 h-24 resize-none text-sm" value={form.obs || ''} onChange={e => setForm({...form, obs: e.target.value})} placeholder="Ex: Cliente VIP, chato com cebola..."/>
+                        </div>
                     </div>
-                    <div className="pt-4 mt-4 border-t border-slate-800 flex gap-2">
-                        <button onClick={onClose} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-800 rounded-xl">Cancelar</button>
-                        <button onClick={() => onSave(form)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg">Salvar</button>
+
+                    <div className="pt-6 mt-6 border-t border-slate-800 flex gap-3">
+                        <button onClick={onClose} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-800 rounded-xl transition-colors border border-transparent hover:border-slate-700">Cancelar</button>
+                        <button onClick={() => onSave(form)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"><Save size={18}/> Salvar</button>
                     </div>
                 </div>
-                <div className="w-2/3 bg-slate-900 p-6 flex flex-col">
-                     <div className="flex justify-between items-center mb-6"><h3 className="font-bold text-xl text-white flex items-center gap-2"><History className="text-slate-500"/> Histórico de Pedidos ({clientOrders.length})</h3></div>
-                     <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3">
-                         {clientOrders.map((o: Order) => (
-                             <div key={o.id} className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between items-start">
-                                 <div>
-                                     <div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-slate-500">{formatDate(o.createdAt)} {formatTime(o.createdAt)}</span><span className={`text-[9px] px-1.5 rounded font-bold uppercase ${o.status==='completed'?'bg-emerald-900 text-emerald-400':'bg-slate-800 text-slate-400'}`}>{o.status}</span></div>
-                                     <p className="text-sm text-slate-300 font-medium line-clamp-1">{o.items.replace(/\n/g, ', ')}</p>
+
+                {/* LADO DIREITO: ESTATÍSTICAS E HISTÓRICO */}
+                <div className="w-full md:w-2/3 bg-slate-900 flex flex-col h-full">
+                     {/* STATS BAR */}
+                     <div className="p-6 border-b border-slate-800 grid grid-cols-3 gap-4">
+                         <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                             <p className="text-[10px] uppercase text-slate-500 font-bold mb-1 flex items-center gap-1"><TrendingUp size={12}/> Ticket Médio</p>
+                             <p className="text-xl font-black text-white">{formatCurrency(stats.avgTicket)}</p>
+                         </div>
+                         <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                             <p className="text-[10px] uppercase text-slate-500 font-bold mb-1 flex items-center gap-1"><ShoppingBag size={12}/> Total Pedidos</p>
+                             <p className="text-xl font-black text-white">{stats.count}</p>
+                         </div>
+                         <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                             <p className="text-[10px] uppercase text-slate-500 font-bold mb-1 flex items-center gap-1"><DollarSign size={12}/> Total Gasto</p>
+                             <p className="text-xl font-black text-emerald-400">{formatCurrency(stats.totalSpent)}</p>
+                         </div>
+                     </div>
+
+                     <div className="flex-1 flex flex-col p-6 overflow-hidden">
+                         <h3 className="font-bold text-lg text-white mb-4 flex items-center gap-2"><History className="text-slate-500"/> Histórico de Pedidos</h3>
+                         
+                         <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
+                             {clientOrders.length === 0 ? (
+                                 <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-3 opacity-50">
+                                     <History size={48} strokeWidth={1.5}/>
+                                     <p>Nenhum histórico encontrado para este número.</p>
                                  </div>
-                                 <div className="text-right">
-                                     <p className="font-bold text-emerald-400">{formatCurrency(o.value || 0)}</p>
-                                 </div>
-                             </div>
-                         ))}
-                         {clientOrders.length === 0 && <div className="text-center text-slate-500 py-10">Nenhum pedido encontrado.</div>}
+                             ) : (
+                                 clientOrders.map((o: Order) => (
+                                     <div key={o.id} className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col gap-2 group hover:border-slate-700 transition-colors">
+                                         <div className="flex justify-between items-start">
+                                             <div className="flex items-center gap-2">
+                                                 <span className="text-xs font-mono font-bold text-slate-500 bg-slate-900 px-2 py-1 rounded border border-slate-800">{formatOrderId(o.id)}</span>
+                                                 <span className="text-xs font-bold text-slate-400">{formatDate(o.createdAt)} às {formatTime(o.createdAt)}</span>
+                                             </div>
+                                             <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${o.status==='completed'?'bg-emerald-900/30 text-emerald-400': o.status==='cancelled'?'bg-red-900/30 text-red-400':'bg-slate-800 text-slate-400'}`}>{o.status}</span>
+                                         </div>
+                                         
+                                         <p className="text-sm text-slate-300 font-medium leading-snug pl-2 border-l-2 border-slate-800">{o.items}</p>
+                                         
+                                         <div className="flex justify-between items-center pt-2 border-t border-slate-800/50 mt-1">
+                                             <span className="text-xs text-slate-500">{o.paymentMethod || '-'}</span>
+                                             <span className="font-black text-emerald-400">{formatCurrency(o.value || 0)}</span>
+                                         </div>
+                                     </div>
+                                 ))
+                             )}
+                         </div>
                      </div>
                 </div>
             </div>

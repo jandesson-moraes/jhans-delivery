@@ -1,9 +1,8 @@
 
-
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Order, Product, Driver, AppConfig } from '../types';
-import { formatTime, toSentenceCase, formatDate, getOrderReceivedText, copyToClipboard, formatOrderId } from '../utils';
-import { Clock, CheckCircle2, Flame, ChefHat, ArrowLeft, AlertTriangle, History, ArrowRight, Bike, Copy, X } from 'lucide-react';
+import { formatTime, toSentenceCase, formatDate, getOrderReceivedText, copyToClipboard, formatOrderId, isToday } from '../utils';
+import { Clock, CheckCircle2, Flame, ChefHat, History, Bike, Copy, X, ListChecks, ArrowRight, PackageCheck } from 'lucide-react';
 import { KitchenHistoryModal, ProductionSuccessModal, ConfirmCloseOrderModal } from './Modals';
 import { Footer } from './Shared';
 import { serverTimestamp } from 'firebase/firestore';
@@ -22,26 +21,35 @@ const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/286
 
 export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateStatus, onAssignOrder, appConfig }: KDSProps) {
     const [currentTime, setCurrentTime] = useState(new Date());
-    const [viewMode, setViewMode] = useState<'active' | 'history'>('active');
     const [selectedHistoryOrder, setSelectedHistoryOrder] = useState<Order | null>(null);
-    const [productionOrder, setProductionOrder] = useState<Order | null>(null); // State para o modal de produção
-    const [orderToClose, setOrderToClose] = useState<Order | null>(null); // NOVO: Pedido sendo fechado manualmente
+    const [productionOrder, setProductionOrder] = useState<Order | null>(null);
+    const [orderToClose, setOrderToClose] = useState<Order | null>(null);
     const prevPendingCountRef = useRef(0);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     
-    // Fallback de segurança REFORÇADO para evitar 'undefined' no KDS
     const effectiveAppName = (appConfig && appConfig.appName && appConfig.appName !== 'undefined') ? appConfig.appName : "Jhans Burgers";
 
-    // Filtra apenas pedidos ativos na cozinha
-    const kitchenOrders = orders.filter(o => 
-        ['pending', 'preparing', 'ready'].includes(o.status)
-    ).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
-
-    // Filtra histórico de pedidos prontos (incluindo entregues)
-    const historyOrders = useMemo(() => {
+    // --- SEPARAÇÃO DOS PEDIDOS ---
+    
+    // 1. Pedidos Ativos (O que a cozinha tem que fazer AGORA)
+    const activeOrders = useMemo(() => {
         return orders.filter(o => 
-            ['ready', 'assigned', 'delivering', 'completed'].includes(o.status)
-        ).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)); // Mais recentes primeiro
+            ['pending', 'preparing'].includes(o.status)
+        ).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)); // Mais antigos primeiro (FIFO)
+    }, [orders]);
+
+    // 2. Pedidos Prontos e do Dia (Lista Lateral)
+    const finishedOrders = useMemo(() => {
+        return orders.filter(o => 
+            // Inclui 'ready' (Pronto na bancada) e outros status de finalização, mas apenas do dia
+            (['ready', 'assigned', 'delivering', 'completed'].includes(o.status)) && 
+            (isToday(o.createdAt) || o.status === 'ready') 
+        ).sort((a, b) => {
+            // Ordenar: 'ready' primeiro, depois os mais recentes finalizados
+            if (a.status === 'ready' && b.status !== 'ready') return -1;
+            if (a.status !== 'ready' && b.status === 'ready') return 1;
+            return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+        });
     }, [orders]);
 
     useEffect(() => {
@@ -50,21 +58,17 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
         return () => clearInterval(timer);
     }, []);
 
-    // Efeito sonoro simples ao chegar novo pedido
+    // Efeito sonoro
     useEffect(() => {
         const pendingCount = orders.filter(o => o.status === 'pending').length;
-        
         if (pendingCount > prevPendingCountRef.current) {
             if(audioRef.current) {
                 const playPromise = audioRef.current.play();
                 if (playPromise !== undefined) {
-                    playPromise.catch(error => {
-                        console.log("Áudio bloqueado pelo navegador (KDS):", error);
-                    });
+                    playPromise.catch(error => console.log("Áudio bloqueado:", error));
                 }
             }
         }
-        
         prevPendingCountRef.current = pendingCount;
     }, [orders]);
 
@@ -79,18 +83,18 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
     };
 
     const getPreparationTime = (start: any, end: any) => {
-        if (!start || !end) return '-';
+        if (!start) return '-';
         const s = new Date(start.seconds * 1000).getTime();
-        const e = new Date(end.seconds * 1000).getTime();
-        const diff = Math.floor((e - s) / 1000 / 60); // Em minutos
+        // Se ainda não tem end, usa agora
+        const e = end ? new Date(end.seconds * 1000).getTime() : new Date().getTime();
+        const diff = Math.floor((e - s) / 1000 / 60); 
         return `${diff} min`;
     }
 
     const getCardColor = (status: string, elapsedSec: number) => {
-        if (status === 'ready') return 'bg-emerald-900 border-emerald-500 shadow-emerald-900/20';
-        if (elapsedSec > 1800) return 'bg-red-900 border-red-500 animate-pulse shadow-red-900/20'; 
-        if (status === 'preparing') return 'bg-orange-900/40 border-orange-500 shadow-orange-900/10'; 
-        return 'bg-slate-800 border-amber-500 shadow-amber-900/10'; 
+        if (elapsedSec > 1800) return 'bg-red-900/20 border-red-500 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.2)]'; 
+        if (status === 'preparing') return 'bg-orange-900/10 border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.1)]'; 
+        return 'bg-slate-900/50 border-amber-500/50'; 
     };
 
     const findProductDescription = (line: string) => {
@@ -104,106 +108,82 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
         e.stopPropagation();
         const text = getOrderReceivedText(order, effectiveAppName);
         copyToClipboard(text);
-        
-        // Efeito visual no botão
         const btn = e.currentTarget as HTMLButtonElement;
         const originalContent = btn.innerHTML;
-        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copiado`;
-        btn.classList.add('bg-emerald-600', 'text-white');
-        btn.classList.remove('bg-black/30', 'text-white/80');
-        setTimeout(() => {
-            btn.innerHTML = originalContent;
-            btn.classList.remove('bg-emerald-600', 'text-white');
-            btn.classList.add('bg-black/30', 'text-white/80');
-        }, 2000);
+        btn.innerHTML = `<span class="text-emerald-400 font-bold">Copiado!</span>`;
+        setTimeout(() => { btn.innerHTML = originalContent; }, 2000);
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-950 text-white overflow-hidden p-6 md:p-10 pb-20 md:pb-8">
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-4">
-                    <h2 className={`text-2xl font-bold flex items-center gap-3 cursor-pointer transition-colors ${viewMode === 'active' ? 'text-white' : 'text-slate-500'}`} onClick={() => setViewMode('active')}>
-                        <Flame className={viewMode === 'active' ? 'text-orange-500' : 'text-slate-600'}/> Fila de Preparo
-                    </h2>
-                    <div className="h-6 w-px bg-slate-800"></div>
-                    <h2 className={`text-xl font-bold flex items-center gap-2 cursor-pointer transition-colors ${viewMode === 'history' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => setViewMode('history')}>
-                        <History className={viewMode === 'history' ? 'text-blue-500' : 'text-slate-600'} size={20}/> Histórico
-                    </h2>
+        <div className="flex h-full bg-slate-950 text-white overflow-hidden">
+            
+            {/* --- LADO ESQUERDO: ÁREA DE PRODUÇÃO (PENDENTE / PREPARANDO) --- */}
+            <div className="flex-1 flex flex-col border-r border-slate-800 relative">
+                <div className="p-6 border-b border-slate-800 bg-slate-950 flex justify-between items-center z-10 shadow-sm">
+                    <div className="flex items-center gap-4">
+                        <h2 className="text-2xl font-black text-white flex items-center gap-3">
+                            <Flame className="text-orange-500" size={28}/> Fila de Produção
+                        </h2>
+                        <span className="bg-slate-800 text-slate-300 px-3 py-1 rounded-full text-xs font-bold border border-slate-700">
+                            {activeOrders.length} em andamento
+                        </span>
+                    </div>
+                    <div className="font-mono font-bold text-xl text-slate-400 bg-slate-900 px-4 py-2 rounded-lg border border-slate-800 shadow-inner">
+                        {currentTime.toLocaleTimeString()}
+                    </div>
                 </div>
-                <div className="font-mono font-bold text-xl text-slate-400 bg-slate-900 px-3 py-1 rounded-lg border border-slate-800">
-                    {currentTime.toLocaleTimeString()}
-                </div>
-            </div>
 
-            {/* Conteúdo Principal */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
-                
-                {/* --- MODO ATIVO (CARDS) --- */}
-                {viewMode === 'active' && (
-                    kitchenOrders.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-slate-600 animate-in fade-in zoom-in">
-                            <div className="bg-slate-900 p-8 rounded-full mb-4 border border-slate-800">
-                                <ChefHat size={64} className="text-slate-700"/>
-                            </div>
-                            <p className="text-2xl font-bold text-slate-500">Cozinha Livre</p>
-                            <p className="text-sm">Nenhum pedido pendente</p>
+                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-slate-950/50">
+                    {activeOrders.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-600 animate-in fade-in zoom-in opacity-50">
+                            <ChefHat size={80} className="mb-4 text-slate-700"/>
+                            <p className="text-2xl font-bold">Cozinha Livre</p>
+                            <p className="text-sm">Aguardando novos pedidos...</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
-                            {kitchenOrders.map(order => {
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 pb-20">
+                            {activeOrders.map(order => {
                                 const elapsedSec = (currentTime.getTime() - (order.createdAt?.seconds * 1000)) / 1000;
                                 const cardColor = getCardColor(order.status, elapsedSec);
 
                                 return (
-                                    <div key={order.id} className={`flex flex-col w-full rounded-xl border-l-[6px] shadow-lg transition-all ${cardColor} h-auto relative group`}>
-                                        {/* Header do Card */}
-                                        <div className="p-3 md:p-4 border-b border-white/10 flex justify-between items-start bg-black/10">
+                                    <div key={order.id} className={`flex flex-col w-full rounded-2xl border-l-[6px] shadow-2xl transition-all ${cardColor} h-auto relative group overflow-hidden`}>
+                                        {/* Cabeçalho do Card */}
+                                        <div className="p-4 border-b border-white/5 bg-black/20 flex justify-between items-start">
                                             <div className="flex flex-col overflow-hidden mr-2">
-                                                <span className="font-black text-lg md:text-xl leading-tight text-white truncate w-full" title={order.customer}>
+                                                <span className="font-black text-xl text-white truncate w-full tracking-tight">
                                                     {order.customer}
                                                 </span>
-                                                <span className="text-xs font-mono text-white/60">{formatOrderId(order.id)}</span>
+                                                <span className="text-xs font-mono text-white/50">{formatOrderId(order.id)}</span>
                                             </div>
-                                            <div className="flex flex-col items-end shrink-0 gap-1">
-                                                {/* BOTÃO FECHAR (X) */}
+                                            <div className="flex flex-col items-end shrink-0 gap-2">
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); setOrderToClose(order); }}
-                                                    className="absolute top-2 right-2 p-1.5 bg-black/40 hover:bg-red-600 text-white/70 hover:text-white rounded-lg transition-colors z-20"
-                                                    title="Fechar/Remover Pedido da Tela"
+                                                    className="p-1.5 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-lg transition-colors"
+                                                    title="Cancelar/Remover"
                                                 >
-                                                    <X size={14} strokeWidth={3}/>
+                                                    <X size={14} />
                                                 </button>
-
-                                                <div className="flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded mb-1 mt-6">
-                                                    <Clock size={14} className="text-white/80"/> 
-                                                    <span className="font-mono font-bold text-base md:text-lg">{getElapsedTime(order.createdAt)}</span>
+                                                <div className="flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded text-amber-400 font-mono font-bold text-lg shadow-inner">
+                                                    {getElapsedTime(order.createdAt)}
                                                 </div>
-                                                
-                                                {/* BOTÃO COPIAR MENSAGEM */}
-                                                <button 
-                                                    onClick={(e) => handleCopyStatus(e, order)}
-                                                    className="flex items-center gap-1 bg-black/30 text-white/80 hover:bg-emerald-600 hover:text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide transition-all border border-white/10"
-                                                    title="Copiar confirmação de pedido para área de transferência"
-                                                >
-                                                    <Copy size={10} /> Copiar Msg
-                                                </button>
                                             </div>
                                         </div>
                                         
                                         {/* Lista de Itens */}
-                                        <div className="p-3 md:p-4 flex-1 space-y-4">
+                                        <div className="p-4 flex-1 space-y-3">
                                             {order.items.split('\n').filter(l => l.trim()).map((line, i) => {
-                                                if (line.includes('---')) return <hr key={i} className="border-white/10"/>;
+                                                if (line.includes('---')) return <hr key={i} className="border-white/10 my-2"/>;
                                                 const isObs = line.toLowerCase().startsWith('obs:');
                                                 const description = !isObs ? findProductDescription(line) : '';
 
                                                 return (
                                                     <div key={i} className="flex flex-col">
-                                                        <p className={`font-bold leading-snug ${isObs ? 'text-yellow-300 text-sm bg-yellow-900/30 p-2 rounded border border-yellow-700/30' : 'text-white text-base md:text-lg'}`}>
+                                                        <p className={`font-bold leading-snug ${isObs ? 'text-yellow-300 text-sm bg-yellow-900/20 p-2 rounded border border-yellow-500/20' : 'text-white text-lg'}`}>
                                                             {toSentenceCase(line)}
                                                         </p>
                                                         {description && (
-                                                            <p className="text-xs md:text-sm text-white/50 leading-tight mt-1 pl-1 border-l-2 border-white/10">
+                                                            <p className="text-xs text-white/40 leading-tight mt-0.5 pl-2 border-l-2 border-white/10">
                                                                 {toSentenceCase(description)}
                                                             </p>
                                                         )}
@@ -213,112 +193,111 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                         </div>
 
                                         {/* Ações */}
-                                        <div className="p-3 md:p-4 mt-auto border-t border-white/10 bg-black/10">
+                                        <div className="p-3 mt-auto border-t border-white/5 bg-black/20 grid grid-cols-1 gap-2">
                                             {order.status === 'pending' && (
                                                 <button 
                                                     onClick={() => {
                                                         onUpdateStatus(order.id, {status: 'preparing'});
-                                                        setProductionOrder(order); // Abre o modal de sucesso
+                                                        setProductionOrder(order); 
                                                     }} 
-                                                    className="w-full bg-orange-600 hover:bg-orange-500 text-white py-3 rounded-lg font-black uppercase text-sm md:text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+                                                    className="w-full bg-orange-600 hover:bg-orange-500 text-white py-3 rounded-xl font-black uppercase text-sm shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
                                                 >
                                                     <Flame size={18}/> Iniciar Preparo
                                                 </button>
                                             )}
                                             {order.status === 'preparing' && (
-                                                <button onClick={() => onUpdateStatus(order.id, {status: 'ready'})} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-lg font-black uppercase text-sm md:text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                                                <button onClick={() => onUpdateStatus(order.id, {status: 'ready', completedAt: serverTimestamp()})} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-black uppercase text-sm shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
                                                     <CheckCircle2 size={18}/> Marcar Pronto
                                                 </button>
                                             )}
-                                            {order.status === 'ready' && (
-                                                <div className="space-y-2">
-                                                    <div className="w-full bg-emerald-900/30 border border-emerald-500/30 text-emerald-400 py-2 rounded-lg font-bold uppercase text-xs flex items-center justify-center gap-2">
-                                                        <CheckCircle2 size={14}/> Pedido Pronto
-                                                    </div>
-                                                    {onAssignOrder && (
-                                                        <div className="relative">
-                                                            <Bike size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50" />
-                                                            <select 
-                                                                className="w-full bg-slate-900 border border-slate-700 hover:border-amber-500 text-white text-xs font-bold py-3 pl-10 pr-4 rounded-lg outline-none appearance-none cursor-pointer transition-colors"
-                                                                defaultValue=""
-                                                                onChange={(e) => {
-                                                                    if(e.target.value) onAssignOrder(order.id, e.target.value);
-                                                                }}
-                                                            >
-                                                                <option value="" disabled>Chamar Motoboy...</option>
-                                                                {drivers.map(d => (
-                                                                    <option key={d.id} value={d.id}>
-                                                                        {d.name} {d.status === 'available' ? '(Livre)' : '(Ocupado)'}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
+                                            <button 
+                                                onClick={(e) => handleCopyStatus(e, order)}
+                                                className="w-full bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg font-bold text-xs uppercase transition-colors flex items-center justify-center gap-2"
+                                            >
+                                                <Copy size={12}/> Copiar Mensagem
+                                            </button>
                                         </div>
                                     </div>
                                 )
                             })}
                         </div>
-                    )
-                )}
-
-                {/* --- MODO HISTÓRICO (LISTA) --- */}
-                {viewMode === 'history' && (
-                    <div className="w-full pb-20">
-                        <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl animate-in fade-in">
-                            <table className="w-full text-left text-sm text-slate-400">
-                                <thead className="bg-slate-950 text-slate-200 font-bold uppercase tracking-wider border-b border-slate-800">
-                                    <tr>
-                                        <th className="p-4">Pedido</th>
-                                        <th className="p-4">Hora Finalizado</th>
-                                        <th className="p-4">Tempo de Preparo</th>
-                                        <th className="p-4">Itens (Resumo)</th>
-                                        <th className="p-4 text-center">Ação</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-800">
-                                    {historyOrders.map((order) => {
-                                        // Usa assignedAt ou timestamp atual se ainda não saiu pra entrega, apenas para fins de calculo relativo ao KDS
-                                        const finishTime = order.completedAt || order.assignedAt || null; 
-                                        
-                                        return (
-                                            <tr key={order.id} className="hover:bg-slate-800/50 transition-colors cursor-pointer group" onClick={() => setSelectedHistoryOrder(order)}>
-                                                <td className="p-4">
-                                                    <span className="font-mono text-white font-bold block">{formatOrderId(order.id)}</span>
-                                                    <span className="text-xs text-slate-500">{order.customer}</span>
-                                                </td>
-                                                <td className="p-4">
-                                                    {finishTime ? formatTime(finishTime) : <span className="text-amber-500">Em espera</span>}
-                                                </td>
-                                                <td className="p-4">
-                                                    <span className="bg-slate-800 text-slate-300 px-2 py-1 rounded font-mono font-bold text-xs">
-                                                        {getPreparationTime(order.createdAt, finishTime || { seconds: Date.now()/1000 })}
-                                                    </span>
-                                                </td>
-                                                <td className="p-4 truncate max-w-xs text-slate-300">
-                                                    {order.items.split('\n')[0]}...
-                                                </td>
-                                                <td className="p-4 text-center">
-                                                    <button className="p-2 bg-slate-800 text-slate-400 rounded-lg hover:bg-blue-600 hover:text-white transition-colors">
-                                                        <ArrowRight size={16}/>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                    {historyOrders.length === 0 && (
-                                        <tr><td colSpan={5} className="p-8 text-center text-slate-500">Nenhum histórico disponível.</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
+                    )}
+                </div>
+                <div className="bg-slate-950 p-2"><Footer /></div>
             </div>
 
-            {/* Modal de Detalhes do Histórico */}
+            {/* --- LADO DIREITO: LISTA DE PRONTOS / SAÍDA --- */}
+            <div className="w-[380px] bg-slate-900 border-l border-slate-800 flex flex-col shadow-2xl z-20">
+                <div className="p-5 border-b border-slate-800 bg-slate-900 shadow-sm">
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <PackageCheck className="text-emerald-500"/> Pedidos do Dia (Prontos)
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">Histórico de saída de hoje</p>
+                </div>
+
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
+                    {finishedOrders.length === 0 && (
+                        <div className="text-center py-10 text-slate-600">
+                            <History size={40} className="mx-auto mb-2 opacity-30"/>
+                            <p className="text-sm">Nenhum pedido finalizado hoje.</p>
+                        </div>
+                    )}
+
+                    {finishedOrders.map((order) => {
+                        const isReady = order.status === 'ready';
+                        return (
+                            <div key={order.id} className={`rounded-xl border p-3 transition-all relative cursor-pointer hover:border-slate-600 ${isReady ? 'bg-emerald-900/10 border-emerald-500/50' : 'bg-slate-950 border-slate-800 opacity-70'}`} onClick={() => setSelectedHistoryOrder(order)}>
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${isReady ? 'bg-emerald-500 text-white' : 'bg-slate-700 text-slate-300'}`}>
+                                            {isReady ? 'AGUARDANDO' : order.status === 'assigned' ? 'EM ROTA' : 'ENTREGUE'}
+                                        </span>
+                                        <h4 className="font-bold text-white text-base mt-1 line-clamp-1">{order.customer}</h4>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-xs font-mono text-slate-500 block">{formatOrderId(order.id)}</span>
+                                        <span className="text-xs font-bold text-slate-400 block mt-1">{formatTime(order.createdAt)}</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="text-xs text-slate-400 line-clamp-1 mb-3">
+                                    {order.items.replace(/\n/g, ', ')}
+                                </div>
+
+                                {isReady && onAssignOrder && (
+                                    <div className="relative mt-2 animate-in fade-in">
+                                        <Bike size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50" />
+                                        <select 
+                                            className="w-full bg-emerald-900/30 border border-emerald-500/30 hover:border-emerald-500 text-emerald-100 text-xs font-bold py-2.5 pl-9 pr-2 rounded-lg outline-none appearance-none cursor-pointer transition-colors"
+                                            defaultValue=""
+                                            onChange={(e) => {
+                                                e.stopPropagation();
+                                                if(e.target.value) onAssignOrder(order.id, e.target.value);
+                                            }}
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <option value="" disabled>Chamar Motoboy...</option>
+                                            {drivers.map(d => (
+                                                <option key={d.id} value={d.id} className="text-slate-900">
+                                                    {d.name} {d.status === 'available' ? '✅' : '⏳'}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                                
+                                {!isReady && (
+                                    <div className="mt-2 text-[10px] text-slate-500 flex items-center gap-1 border-t border-slate-800 pt-2">
+                                        <Clock size={10}/> Tempo Total: {getPreparationTime(order.createdAt, order.completedAt || order.assignedAt)}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Modals */}
             {selectedHistoryOrder && (
                 <KitchenHistoryModal 
                     order={selectedHistoryOrder} 
@@ -327,7 +306,6 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                 />
             )}
 
-            {/* Modal de Sucesso de Preparo */}
             {productionOrder && (
                 <ProductionSuccessModal 
                     order={productionOrder} 
@@ -336,7 +314,6 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                 />
             )}
 
-            {/* NOVO: Modal de Confirmação de Fechamento */}
             {orderToClose && (
                 <ConfirmCloseOrderModal
                     order={orderToClose}
@@ -347,8 +324,6 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                     }}
                 />
             )}
-            
-            <Footer />
         </div>
     );
 }
