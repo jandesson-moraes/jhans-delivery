@@ -2,8 +2,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement } from '../types';
 import { BrandLogo, SidebarBtn, StatBox, Footer } from './Shared';
-import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart, History, CheckCircle2, Radar, Volume2, VolumeX, UserCheck, TrendingUp, FileText } from 'lucide-react';
-import { formatCurrency, formatTime, formatDate, isToday } from '../utils';
+import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart, History, CheckCircle2, Radar, Volume2, VolumeX, UserCheck, TrendingUp, FileText, Bike, Signal, Battery, Eye, EyeOff } from 'lucide-react';
+import { formatCurrency, formatTime, formatDate, isToday, formatOrderId } from '../utils';
 import { MenuManager } from './MenuManager';
 import { ClientsView } from './ClientsView';
 import { KitchenDisplay } from './KitchenDisplay';
@@ -13,7 +13,6 @@ import { NewOrderModal, ConfirmAssignmentModal, NewIncomingOrderModal, DispatchS
 // Som de Alarme (Sino Repetitivo)
 const NEW_ORDER_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; 
 
-// 'list' removed from type as it's now part of 'map'
 type AdminViewMode = 'map' | 'history' | 'menu' | 'clients' | 'kds';
 
 interface AdminProps {
@@ -80,11 +79,12 @@ export default function AdminInterface(props: AdminProps) {
     const [newIncomingOrder, setNewIncomingOrder] = useState<Order | null>(null);
     const [soundEnabled, setSoundEnabled] = useState(false);
     
+    // Controles de Visibilidade dos Painéis (HUD)
+    const [showRadar, setShowRadar] = useState(true);
+    const [showFleet, setShowFleet] = useState(true);
+
     // Sub-aba para a seção Financeira
     const [financeTab, setFinanceTab] = useState<'overview' | 'items'>('overview');
-    
-    // Sub-aba para Monitoramento (Map vs Team)
-    const [mapTab, setMapTab] = useState<'live' | 'team'>('live');
     
     const [dispatchedOrderData, setDispatchedOrderData] = useState<{order: Order, driverName: string} | null>(null);
     
@@ -98,15 +98,19 @@ export default function AdminInterface(props: AdminProps) {
         if ('Notification' in window && Notification.permission !== 'granted') {
             Notification.requestPermission();
         }
-        // Inicializa o objeto de áudio
         const audio = new Audio(NEW_ORDER_SOUND);
-        audio.loop = true; // IMPORTANTE: Loop infinito até atender
+        audio.loop = true; 
         audioRef.current = audio;
 
-        // Popula notificados iniciais para não tocar ao abrir o sistema (apenas novos eventos)
         orders.forEach(o => {
             if(o.status !== 'pending') notifiedOrderIds.current.add(o.id);
         });
+
+        // Responsividade inicial
+        if (window.innerWidth < 768) {
+            setShowRadar(false);
+            setShowFleet(false);
+        }
 
         return () => {
             if (audioRef.current) {
@@ -117,7 +121,6 @@ export default function AdminInterface(props: AdminProps) {
         };
     }, []); 
 
-    // Helper para piscar o título da aba
     const startTitleFlash = () => {
         if (titleIntervalRef.current) return;
         let isOriginal = true;
@@ -152,7 +155,6 @@ export default function AdminInterface(props: AdminProps) {
 
     const toggleSound = () => {
         setSoundEnabled(prev => {
-            // Se estiver ativando, tenta tocar um som mudo para desbloquear o áudio do navegador
             if (!prev && audioRef.current) {
                 audioRef.current.play().then(() => audioRef.current?.pause()).catch(() => {});
             }
@@ -160,52 +162,28 @@ export default function AdminInterface(props: AdminProps) {
         });
     };
 
-    // LÓGICA CENTRAL DE NOTIFICAÇÃO
-    // Monitora as ordens. Se surgir uma pendente nova, dispara tudo.
+    // LÓGICA DE NOTIFICAÇÃO
     useEffect(() => {
-        // Verifica se há algum pedido pendente que não foi notificado
         const newOrder = orders.find(o => o.status === 'pending' && !notifiedOrderIds.current.has(o.id));
-
         if (newOrder) {
-            // 1. Marca como notificado para não disparar 2x o mesmo evento
             notifiedOrderIds.current.add(newOrder.id);
-            
-            // 2. Abre o Modal (Prioridade Máxima na Tela)
             setNewIncomingOrder(newOrder);
-
-            // 3. Toca o Som em Loop (se ativado)
             if (soundEnabled && audioRef.current) {
                 audioRef.current.currentTime = 0;
                 const playPromise = audioRef.current.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch(error => console.log("Áudio bloqueado pelo navegador:", error));
-                }
+                if (playPromise !== undefined) playPromise.catch(console.log);
             }
-
-            // 4. Vibração (Mobile)
             if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 1000]);
-
-            // 5. Notificação Push do Navegador (Funciona em outra aba)
             if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification(`Novo Pedido de ${newOrder.customer}!`, {
-                    body: `Total: ${newOrder.amount} - ${newOrder.paymentMethod}`,
-                    icon: '/icon.png', // Fallback icon
-                    tag: newOrder.id // Evita flood
-                });
+                new Notification(`Novo Pedido de ${newOrder.customer}!`, { body: `Total: ${newOrder.amount}`, icon: '/icon.png', tag: newOrder.id });
             }
-
-            // 6. Pisca o título da aba
             startTitleFlash();
         }
-    }, [orders, soundEnabled]); // Dependência em orders dispara sempre que o Firestore atualiza
+    }, [orders, soundEnabled]);
 
-    // Parar som e alerta quando o modal é fechado ou o pedido deixa de ser pendente
     useEffect(() => {
         if (!newIncomingOrder) {
-            if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current.currentTime = 0;
-            }
+            if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
             stopTitleFlash();
         }
     }, [newIncomingOrder]);
@@ -238,9 +216,52 @@ export default function AdminInterface(props: AdminProps) {
 
     const handleCreateOrder = (data: any) => { onCreateOrder(data); setModal(null); setView('kds'); };
 
+    // --- FUNÇÕES DE STATUS DETALHADO DO MOTOBOY ---
+    const getDriverDetailStatus = (d: Driver) => {
+        // Se estiver offline
+        if (d.status === 'offline') return { label: 'Offline', color: 'text-slate-500' };
+
+        // Se tem um pedido atual (entregando)
+        if (d.currentOrderId) {
+            const currentOrder = orders.find(o => o.id === d.currentOrderId);
+            if (currentOrder) {
+                return { 
+                    label: `Entregando ${formatOrderId(currentOrder.id)}`, 
+                    sub: currentOrder.customer,
+                    color: 'text-amber-400',
+                    isBusy: true
+                };
+            }
+        }
+
+        // Se está livre, verifica a última entrega
+        const lastOrder = orders
+            .filter(o => o.driverId === d.id && o.status === 'completed')
+            .sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0))[0];
+
+        if (lastOrder && isToday(lastOrder.completedAt)) {
+            return {
+                label: 'Livre (Aguardando)',
+                sub: `Entregou ${formatOrderId(lastOrder.id)} há pouco`,
+                color: 'text-emerald-400',
+                isBusy: false
+            };
+        }
+
+        return { label: 'Livre', color: 'text-emerald-400', isBusy: false };
+    };
+
+    const isSignalFresh = (lastUpdate: any) => {
+        if (!lastUpdate || !lastUpdate.seconds) return false;
+        const diff = (Date.now() / 1000) - lastUpdate.seconds;
+        return diff < 300; // 5 minutos
+    };
+
     return (
         <div className="flex h-screen w-screen bg-slate-950 font-sans text-slate-200 overflow-hidden">
              {showIntro && <IntroAnimation appName={appConfig.appName} onComplete={() => setShowIntro(false)} />}
+             
+             {/* SIDEBAR PRINCIPAL */}
              <aside className="hidden md:flex w-72 bg-slate-900 text-white flex-col z-20 shadow-2xl h-full border-r border-slate-800">
                 <div className="p-8 border-b border-slate-800"><BrandLogo size="normal" config={appConfig} /></div>
                 <nav className="flex-1 p-6 space-y-3 overflow-y-auto custom-scrollbar">
@@ -250,7 +271,6 @@ export default function AdminInterface(props: AdminProps) {
                   <SidebarBtn icon={<Plus/>} label="Novo Pedido" onClick={()=>setModal('order')} highlight/>
                   <div className="h-px bg-slate-800 my-4 mx-2"></div>
                   <SidebarBtn icon={<UserCheck/>} label="Clientes CRM" active={view==='clients'} onClick={()=>setView('clients')}/>
-                  {/* Removed standalone Team button, integrated into Map */}
                   <SidebarBtn icon={<ShoppingBag/>} label="Cardápio Digital" active={view==='menu'} onClick={()=>setView('menu')}/>
                   <SidebarBtn icon={<Clock/>} label="Financeiro" active={view==='history'} onClick={()=>setView('history')}/>
                 </nav>
@@ -280,70 +300,130 @@ export default function AdminInterface(props: AdminProps) {
                 </header>
 
                 <div className="flex-1 overflow-hidden relative w-full h-full">
-                    {/* MONITORAMENTO COM ABAS INTERNAS */}
+                    {/* --- CENTRAL DE COMANDO (MAPA + HUD) --- */}
                     {view === 'map' && (
-                       <div className="absolute inset-0 w-full h-full flex flex-col">
-                          {/* Map Tabs */}
-                          <div className="absolute top-4 left-4 z-50 flex gap-2">
-                              <button onClick={() => setMapTab('live')} className={`px-4 py-2 rounded-xl text-xs font-bold shadow-lg border backdrop-blur-md transition-all ${mapTab === 'live' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-900/80 border-slate-700 text-slate-400 hover:text-white'}`}>
-                                  Mapa Real-Time
+                       <div className="absolute inset-0 w-full h-full flex flex-col overflow-hidden">
+                          
+                          {/* 1. HUD SUPERIOR (Métricas Rápidas) */}
+                          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-slate-900/80 backdrop-blur-md border border-slate-700 rounded-full px-6 py-2 flex items-center gap-6 shadow-2xl">
+                              <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                  <span className="text-xs font-bold text-white uppercase">{drivers.filter(d => d.status !== 'offline').length} Online</span>
+                              </div>
+                              <div className="w-px h-4 bg-slate-700"></div>
+                              <div className="flex items-center gap-2">
+                                  <Radar size={14} className="text-cyan-400"/>
+                                  <span className="text-xs font-bold text-white uppercase">{orders.filter(o => o.status === 'pending').length} Pendentes</span>
+                              </div>
+                          </div>
+
+                          {/* 2. CAMADA DO MAPA 3D */}
+                          <div className="absolute inset-0 perspective-container w-full h-full z-0">
+                              <div className="absolute inset-0 map-plane w-full h-full">
+                                  {drivers.map((d: Driver) => {
+                                     const seed = d.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                                     const gridX = 25 + (Math.floor(seed * 17) % 50); 
+                                     const gridY = 25 + (Math.floor(seed * 23) % 50); 
+                                     const statusColor = d.status === 'delivering' ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.6)]' : d.status === 'offline' ? 'border-slate-500 opacity-50' : 'border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.6)]';
+                                     return (
+                                         <div key={d.id} onClick={(e) => { e.stopPropagation(); setSelectedDriver(d); }} className={`absolute z-30 cursor-pointer animate-path-${seed % 5}`} style={{ top: `${gridY}%`, left: `${gridX}%`, animationDelay: `${(seed % 20) * -2}s` }}>
+                                              <div className="relative group billboard-corrector flex flex-col items-center">
+                                                  <div className={`relative bg-slate-900 p-1 rounded-full border-[2px] ${statusColor} w-10 h-10 flex items-center justify-center transition-all hover:scale-125 shadow-2xl`}><img src={d.avatar} className="w-full h-full object-cover rounded-full" alt={d.name} /></div>
+                                                  <div className="mt-2 bg-black/80 border border-slate-700 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-lg uppercase opacity-80 group-hover:opacity-100 whitespace-nowrap">{d.name.split(' ')[0]}</div>
+                                              </div>
+                                         </div>
+                                     )
+                                  })}
+                              </div>
+                          </div>
+
+                          {/* 3. PAINEL ESQUERDO: RADAR DE PEDIDOS */}
+                          {showRadar && (
+                              <div className="absolute top-20 left-4 bottom-24 z-30 w-80 flex flex-col gap-3 pointer-events-none">
+                                 <div className="flex items-center gap-2 mb-1 text-cyan-400 font-bold text-xs uppercase tracking-widest bg-black/60 p-3 rounded-xl backdrop-blur-md border border-cyan-500/30 shadow-lg pointer-events-auto">
+                                     <Radar size={16} className="animate-spin-slow"/> Radar de Pedidos ({orders.filter(o => o.status === 'pending' || o.status === 'preparing').length})
+                                 </div>
+                                 <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2 pb-2 mask-linear-fade">
+                                     {orders.filter((o: Order) => o.status === 'pending' || o.status === 'preparing' || o.status === 'ready').map((o: Order) => (
+                                        <div key={o.id} className={`bg-slate-900/90 backdrop-blur-md p-4 rounded-xl shadow-2xl border-l-4 relative group animate-in slide-in-from-left-4 pointer-events-auto transition-all hover:scale-105 hover:bg-slate-800 ${o.status === 'ready' ? 'border-emerald-500' : o.status === 'preparing' ? 'border-blue-500' : 'border-amber-500'}`}>
+                                           <div className="flex justify-between items-start mb-1">
+                                               <span className="font-bold text-sm text-white truncate w-32">{o.customer}</span>
+                                               <span className="text-[10px] font-bold bg-slate-950 px-2 py-1 rounded text-slate-400">{o.time}</span>
+                                           </div>
+                                           <p className="text-xs text-slate-400 truncate mb-2 flex items-center gap-1"><MapPin size={10}/> {o.address}</p>
+                                           <div className="flex justify-between items-center">
+                                               <span className="text-sm font-bold text-emerald-400">{o.amount}</span>
+                                               <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${o.status==='ready' ? 'bg-emerald-900 text-emerald-300' : o.status==='preparing' ? 'bg-blue-900 text-blue-300' : 'bg-amber-900 text-amber-300'}`}>
+                                                   {o.status==='ready' ? 'PRONTO' : o.status==='preparing' ? 'COZINHA' : 'PENDENTE'}
+                                               </span>
+                                           </div>
+                                           <button onClick={() => onDeleteOrder(o.id)} className="absolute -right-2 -top-2 bg-red-600 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"><Trash2 size={12}/></button>
+                                        </div>
+                                     ))}
+                                 </div>
+                              </div>
+                          )}
+
+                          {/* 4. PAINEL DIREITO: FROTA DETALHADA */}
+                          {showFleet && (
+                              <div className="absolute top-20 right-4 bottom-24 z-30 w-72 flex flex-col gap-3 pointer-events-none">
+                                  <div className="flex items-center gap-2 mb-1 text-amber-400 font-bold text-xs uppercase tracking-widest bg-black/60 p-3 rounded-xl backdrop-blur-md border border-amber-500/30 shadow-lg pointer-events-auto">
+                                     <Bike size={16} /> Frota Ativa ({drivers.length})
+                                  </div>
+                                  <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2 pb-2">
+                                      {drivers.map((d: Driver) => {
+                                          const statusInfo = getDriverDetailStatus(d);
+                                          const hasSignal = d.status !== 'offline' ? isSignalFresh(d.lastUpdate) : false;
+
+                                          return (
+                                              <div key={d.id} onClick={() => setSelectedDriver(d)} className="bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-slate-800 shadow-xl pointer-events-auto cursor-pointer hover:border-amber-500/50 transition-all group flex flex-col gap-2">
+                                                  <div className="flex items-center gap-3">
+                                                      <div className="relative">
+                                                          <img src={d.avatar} className="w-10 h-10 rounded-full object-cover bg-slate-800"/>
+                                                          <span className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-900 ${d.status === 'offline' ? 'bg-slate-500' : d.status === 'available' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                                                      </div>
+                                                      <div className="flex-1 min-w-0">
+                                                          <h4 className="font-bold text-white text-sm truncate">{d.name}</h4>
+                                                          <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                                                              <span className="bg-slate-950 px-1.5 py-0.5 rounded">{d.vehicle}</span>
+                                                              {d.status !== 'offline' && (
+                                                                  <span className={`flex items-center gap-0.5 ${hasSignal ? 'text-emerald-500' : 'text-red-500'}`}>
+                                                                      <Signal size={10}/> {hasSignal ? 'GPS OK' : 'Sem Sinal'}
+                                                                  </span>
+                                                              )}
+                                                          </div>
+                                                      </div>
+                                                  </div>
+                                                  
+                                                  {/* STATUS EXPANDIDO */}
+                                                  {d.status !== 'offline' && (
+                                                      <div className={`text-xs bg-slate-950/50 p-2 rounded-lg border border-slate-800 ${statusInfo.isBusy ? 'border-amber-900/30' : ''}`}>
+                                                          <p className={`font-bold ${statusInfo.color}`}>{statusInfo.label}</p>
+                                                          {statusInfo.sub && <p className="text-[10px] text-slate-500 truncate">{statusInfo.sub}</p>}
+                                                      </div>
+                                                  )}
+                                              </div>
+                                          );
+                                      })}
+                                  </div>
+                              </div>
+                          )}
+
+                          {/* 5. DOCK INFERIOR (CONTROLES) */}
+                          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 bg-slate-900/90 backdrop-blur-xl border border-slate-700 p-2 rounded-2xl shadow-2xl">
+                              <button onClick={() => setShowRadar(!showRadar)} className={`p-3 rounded-xl transition-all ${showRadar ? 'bg-cyan-900/50 text-cyan-400 border border-cyan-500/30' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`} title="Radar">
+                                  {showRadar ? <Radar size={20}/> : <Radar size={20} className="opacity-50"/>}
                               </button>
-                              <button onClick={() => setMapTab('team')} className={`px-4 py-2 rounded-xl text-xs font-bold shadow-lg border backdrop-blur-md transition-all ${mapTab === 'team' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900/80 border-slate-700 text-slate-400 hover:text-white'}`}>
-                                  Gestão de Frota
+                              <div className="w-px h-8 bg-slate-700"></div>
+                              <button onClick={() => setModal('driver')} className="bg-amber-600 hover:bg-amber-500 text-white p-3 rounded-xl shadow-lg shadow-amber-900/20 active:scale-95 transition-transform" title="Novo Motoboy">
+                                  <Plus size={24}/>
+                              </button>
+                              <div className="w-px h-8 bg-slate-700"></div>
+                              <button onClick={() => setShowFleet(!showFleet)} className={`p-3 rounded-xl transition-all ${showFleet ? 'bg-amber-900/50 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`} title="Frota">
+                                  {showFleet ? <Bike size={20}/> : <Bike size={20} className="opacity-50"/>}
                               </button>
                           </div>
 
-                          {/* Live Map Layer */}
-                          {mapTab === 'live' && (
-                              <div className="w-full h-full perspective-container">
-                                  <div className="absolute inset-0 map-plane w-full h-full">
-                                      {drivers.map((d: Driver) => {
-                                         const seed = d.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                                         const gridX = 25 + (Math.floor(seed * 17) % 50); 
-                                         const gridY = 25 + (Math.floor(seed * 23) % 50); 
-                                         const statusColor = d.status === 'delivering' ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.6)]' : d.status === 'offline' ? 'border-slate-500 opacity-50' : 'border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.6)]';
-                                         return (
-                                             <div key={d.id} onClick={(e) => { e.stopPropagation(); setSelectedDriver(d); }} className={`absolute z-30 cursor-pointer animate-path-${seed % 5}`} style={{ top: `${gridY}%`, left: `${gridX}%`, animationDelay: `${(seed % 20) * -2}s` }}>
-                                                  <div className="relative group billboard-corrector flex flex-col items-center">
-                                                      <div className={`relative bg-slate-900 p-1 rounded-full border-[2px] ${statusColor} w-10 h-10 flex items-center justify-center transition-all hover:scale-125 shadow-2xl`}><img src={d.avatar} className="w-full h-full object-cover rounded-full" alt={d.name} /></div>
-                                                      <div className="mt-2 bg-black/80 border border-slate-700 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-lg uppercase opacity-80 group-hover:opacity-100 whitespace-nowrap">{d.name.split(' ')[0]}</div>
-                                                  </div>
-                                             </div>
-                                         )
-                                      })}
-                                  </div>
-                                  <div className="absolute top-16 left-4 z-40 space-y-3 max-h-[60%] overflow-y-auto w-72 pr-2 custom-scrollbar pointer-events-none">
-                                     <div className="flex items-center gap-2 mb-2 text-cyan-400 font-bold text-xs uppercase tracking-widest bg-black/50 p-2 rounded backdrop-blur border border-cyan-900/50 pointer-events-auto"><Radar size={14} className="animate-spin-slow"/> Radar de Pedidos</div>
-                                     {orders.filter((o: Order) => o.status === 'pending' || o.status === 'preparing' || o.status === 'ready').map((o: Order) => (
-                                        <div key={o.id} className={`bg-slate-900/80 backdrop-blur-md p-3 rounded-xl shadow-2xl border-l-4 relative group animate-in slide-in-from-left-4 pointer-events-auto ${o.status === 'ready' ? 'border-emerald-500' : o.status === 'preparing' ? 'border-blue-500' : 'border-amber-500'}`}>
-                                           <div className="flex justify-between items-start mb-1"><span className="font-bold text-sm text-white truncate w-32">{o.customer}</span><span className="text-[10px] font-bold bg-slate-800 px-2 py-1 rounded text-slate-400">{o.time}</span></div>
-                                           <p className="text-xs text-slate-400 truncate mb-2">{o.address}</p>
-                                           <div className="flex justify-between items-center"><span className="text-sm font-bold text-emerald-400">{o.amount}</span><span className={`text-[9px] font-bold uppercase px-1 rounded ${o.status==='ready' ? 'bg-emerald-900 text-emerald-300' : o.status==='preparing' ? 'bg-blue-900 text-blue-300' : 'bg-amber-900 text-amber-300'}`}>{o.status==='ready' ? 'PRONTO' : o.status==='preparing' ? 'COZINHA' : 'PENDENTE'}</span></div>
-                                           <button onClick={() => onDeleteOrder(o.id)} className="absolute -right-2 -top-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12}/></button>
-                                        </div>
-                                     ))}
-                                  </div>
-                              </div>
-                          )}
-
-                          {/* Fleet Management List Layer */}
-                          {mapTab === 'team' && (
-                              <div className="flex-1 bg-slate-950 p-6 md:p-10 overflow-y-auto w-full h-full pb-24 custom-scrollbar pt-16">
-                                  <div className="flex justify-between items-center mb-8">
-                                      <h2 className="font-bold text-2xl text-white">Frota ({drivers.length})</h2>
-                                      <button onClick={()=>setModal('driver')} className="bg-amber-600 text-white px-6 py-3 rounded-xl text-sm font-bold flex gap-2 shadow-lg"><Plus size={18}/> Cadastrar</button>
-                                  </div>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                     {drivers.map((d: Driver) => (
-                                        <div key={d.id} className="border border-slate-800 p-5 rounded-2xl bg-slate-900 relative group cursor-pointer hover:border-amber-500/50" onClick={()=>setSelectedDriver(d)}>
-                                           <div className="flex items-center gap-5"><img src={d.avatar} className="w-16 h-16 rounded-full bg-slate-800 object-cover border-2 border-slate-700" alt={d.name}/><div><h3 className="font-bold text-lg text-white">{d.name}</h3><div className="flex gap-2"><span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase ${d.status==='offline'?'bg-slate-800 text-slate-500':d.status==='available'?'bg-emerald-900/30 text-emerald-400':'bg-orange-900/30 text-orange-400'}`}>{d.status}</span><span className="text-[10px] px-3 py-1 rounded-full font-bold uppercase bg-slate-800 text-slate-400">{d.vehicle || 'Moto'}</span></div></div></div>
-                                           <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={(e)=>{e.stopPropagation(); setDriverToEdit(d); setModal('driver');}} className="p-2 bg-slate-800 text-slate-400 rounded-lg"><Edit size={18}/></button><button onClick={(e)=>{e.stopPropagation(); onDeleteDriver(d.id)}} className="p-2 bg-red-900/20 text-red-400 rounded-lg"><Trash2 size={18}/></button></div>
-                                        </div>
-                                     ))}
-                                  </div>
-                                  <Footer />
-                              </div>
-                          )}
                        </div>
                     )}
 

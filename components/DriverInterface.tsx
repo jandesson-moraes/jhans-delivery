@@ -1,35 +1,77 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package, Zap, ZapOff, Edit, Trash2, Send, MinusCircle, AlertCircle, TrendingUp } from 'lucide-react';
+import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package, Zap, ZapOff, Edit, Trash2, Send, MinusCircle, AlertCircle, TrendingUp, Radio } from 'lucide-react';
 import { Driver, Order, Vale } from '../types';
 import { isToday, formatTime, formatCurrency, formatDate, sendDeliveryNotification } from '../utils';
 import { Footer } from './Shared';
 import { EditOrderModal } from './Modals';
+import { serverTimestamp } from 'firebase/firestore';
 
 interface DriverAppProps {
     driver: Driver;
     orders: Order[];
-    vales?: Vale[]; // Nova prop para o financeiro
+    vales?: Vale[]; 
     onToggleStatus: () => void;
     onAcceptOrder: (id: string) => void;
     onCompleteOrder: (oid: string, did: string) => void;
     onUpdateOrder: (id: string, data: any) => void;
     onDeleteOrder: (id: string) => void;
     onLogout: () => void;
+    onUpdateDriver: (id: string, data: any) => void;
 }
 
 const TAXA_ENTREGA = 5.00;
-const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; // Som de sino
+const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; 
 
-export default function DriverInterface({ driver, orders, vales = [], onToggleStatus, onAcceptOrder, onCompleteOrder, onUpdateOrder, onDeleteOrder, onLogout }: DriverAppProps) {
+export default function DriverInterface({ driver, orders, vales = [], onToggleStatus, onAcceptOrder, onCompleteOrder, onUpdateOrder, onDeleteOrder, onLogout, onUpdateDriver }: DriverAppProps) {
   const [activeTab, setActiveTab] = useState<'home' | 'history' | 'wallet'>('home');
   const [historyFilter, setHistoryFilter] = useState<'today' | 'all'>('today');
   const [visibleItems, setVisibleItems] = useState(20);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [gpsActive, setGpsActive] = useState(false);
 
   // Controle de áudio com Set para não repetir
   const notifiedAssignedIds = useRef<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // --- RASTREAMENTO GPS EM TEMPO REAL ---
+  useEffect(() => {
+      let watchId: number | null = null;
+
+      if (driver.status !== 'offline') {
+          if ('geolocation' in navigator) {
+              watchId = navigator.geolocation.watchPosition(
+                  (position) => {
+                      setGpsActive(true);
+                      const { latitude, longitude } = position.coords;
+                      // Atualiza no Firestore a cada mudança de posição
+                      // (Em produção, idealmente faríamos debounce para não sobrecarregar o banco, 
+                      // mas para "tempo real" puro, isso funciona)
+                      onUpdateDriver(driver.id, {
+                          lat: latitude,
+                          lng: longitude,
+                          lastUpdate: serverTimestamp() // Importante para saber se o sinal está fresco
+                      });
+                  },
+                  (error) => {
+                      console.error("Erro GPS:", error);
+                      setGpsActive(false);
+                  },
+                  {
+                      enableHighAccuracy: true, // Força uso do GPS do hardware
+                      timeout: 10000,
+                      maximumAge: 0
+                  }
+              );
+          }
+      } else {
+          setGpsActive(false);
+      }
+
+      return () => {
+          if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      };
+  }, [driver.status, driver.id]);
 
   useEffect(() => {
     audioRef.current = new Audio(NOTIFICATION_SOUND);
@@ -58,29 +100,21 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
   // Efeito para tocar som quando houver novos pedidos ATRIBUÍDOS ('assigned')
   useEffect(() => {
       let hasNew = false;
-      
       orders.forEach(o => {
-          // Se o pedido é para mim E está atribuído E eu ainda não fui notificado
           if (o.driverId === driver.id && o.status === 'assigned' && !notifiedAssignedIds.current.has(o.id)) {
               notifiedAssignedIds.current.add(o.id);
               hasNew = true;
           }
       });
-      
       if (hasNew) {
           if(audioRef.current) {
               const playPromise = audioRef.current.play();
               if (playPromise !== undefined) {
-                  playPromise.catch(error => {
-                      console.log("Áudio bloqueado pelo navegador (requer interação do usuário):", error);
-                  });
+                  playPromise.catch(error => { console.log("Áudio bloqueado:", error); });
               }
           }
-          
-          // Se o navegador suportar vibração (celular)
           if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
       }
-      
   }, [orders, driver.id]);
 
   // Histórico completo para a aba de Histórico
@@ -91,43 +125,21 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
 
   // --- LOGICA FINANCEIRA (Extrato) ---
   const financialData = useMemo(() => {
-      // 1. Entregas do Ciclo Atual
-      const currentDeliveries = orders.filter((o: Order) => 
-         o.status === 'completed' && 
-         o.driverId === driver.id &&
-         (o.completedAt?.seconds || 0) > lastSettlementTime
-      );
-      
-      // 2. Vales do Ciclo Atual
-      const currentVales = vales.filter((v: Vale) => 
-          v.driverId === driver.id && 
-          (v.createdAt?.seconds || 0) > lastSettlementTime
-      );
-
+      const currentDeliveries = orders.filter((o: Order) => o.status === 'completed' && o.driverId === driver.id && (o.completedAt?.seconds || 0) > lastSettlementTime);
+      const currentVales = vales.filter((v: Vale) => v.driverId === driver.id && (v.createdAt?.seconds || 0) > lastSettlementTime);
       const totalDeliveriesValue = currentDeliveries.length * TAXA_ENTREGA;
       const totalValesValue = currentVales.reduce((acc, v) => acc + (Number(v.amount) || 0), 0);
       const netValue = totalDeliveriesValue - totalValesValue;
-
-      return {
-          deliveriesCount: currentDeliveries.length,
-          deliveriesValue: totalDeliveriesValue,
-          valesCount: currentVales.length,
-          valesValue: totalValesValue,
-          netValue,
-          valesList: currentVales
-      };
+      return { deliveriesCount: currentDeliveries.length, deliveriesValue: totalDeliveriesValue, valesCount: currentVales.length, valesValue: totalValesValue, netValue, valesList: currentVales };
   }, [orders, vales, driver.id, lastSettlementTime]);
 
   const displayedHistory = useMemo(() => {
-      if (historyFilter === 'today') {
-          return allDeliveries.filter((o: Order) => isToday(o.completedAt));
-      }
+      if (historyFilter === 'today') { return allDeliveries.filter((o: Order) => isToday(o.completedAt)); }
       return allDeliveries;
   }, [allDeliveries, historyFilter]);
 
   const visibleHistory = displayedHistory.slice(0, visibleItems);
   
-  // Resumo para o cabeçalho do histórico
   const historySummary = useMemo(() => {
       const count = displayedHistory.length;
       const total = count * TAXA_ENTREGA;
@@ -142,7 +154,14 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
             <img src={driver.avatar} className="w-12 h-12 md:w-14 md:h-14 rounded-full border-2 border-slate-700 bg-slate-800 object-cover" alt="Driver" />
             <div>
                 <h2 className="font-bold text-base md:text-lg text-white">{driver.name}</h2>
-                <div className="flex items-center gap-2 text-slate-400 text-[10px] md:text-xs font-medium bg-slate-950 px-2 py-0.5 rounded-full w-fit"><span>{driver.plate}</span></div>
+                <div className="flex items-center gap-2">
+                    <span className="text-slate-400 text-[10px] md:text-xs font-medium bg-slate-950 px-2 py-0.5 rounded-full">{driver.plate}</span>
+                    {driver.status !== 'offline' && (
+                        <span className={`text-[9px] flex items-center gap-1 font-bold uppercase ${gpsActive ? 'text-emerald-500' : 'text-red-500 animate-pulse'}`}>
+                            <Radio size={10} className={gpsActive ? "" : "animate-ping"}/> {gpsActive ? 'GPS Ativo' : 'Buscando GPS...'}
+                        </span>
+                    )}
+                </div>
             </div>
           </div>
           <button onClick={onLogout} className="p-2 bg-slate-800 rounded-xl hover:bg-slate-700 text-white transition-colors"><LogOut size={18}/></button>
@@ -312,14 +331,12 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
         {/* --- ABA FINANÇAS (DETALHADO COM VALES) --- */}
         {activeTab === 'wallet' && (
           <div className="space-y-6 pt-2">
-             {/* Card Principal de Saldo Líquido */}
              <div className="bg-gradient-to-br from-emerald-900 to-slate-900 p-6 rounded-2xl shadow-xl border border-emerald-500/30 ring-1 ring-emerald-500/20 text-center">
                 <p className="text-emerald-200 text-[10px] font-bold uppercase mb-2">Saldo Líquido a Receber</p>
                 <h3 className="text-4xl font-black text-white">{formatCurrency(financialData.netValue)}</h3>
                 <p className="text-[10px] text-emerald-400/70 mt-2">Referente ao ciclo atual</p>
              </div>
 
-             {/* Extrato Simplificado */}
              <div className="grid grid-cols-2 gap-3">
                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
                     <p className="text-slate-500 text-[10px] font-bold uppercase mb-1 flex items-center gap-1"><TrendingUp size={12}/> Ganhos</p>
@@ -333,7 +350,6 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
                  </div>
              </div>
 
-             {/* Lista de Vales se houver */}
              {financialData.valesList.length > 0 && (
                  <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4">
                      <h4 className="text-xs font-bold text-white uppercase mb-3 flex items-center gap-2"><AlertCircle size={14} className="text-amber-500"/> Detalhes dos Vales</h4>

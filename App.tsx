@@ -129,28 +129,20 @@ export default function App() {
   });
 
   const createOrder = (data: any) => handleAction(async () => {
-    // SE O ID FOR FORNECIDO (PED-XXXX), USA ELE COMO ID DO DOCUMENTO.
-    // CASO CONTRÁRIO, GERA UM ALEATÓRIO COM addDoc.
-    
     if (data.id && data.id.startsWith('PED-')) {
         await setDoc(doc(db, 'orders', data.id), { ...data, status: 'pending', createdAt: serverTimestamp() });
-        
-        // Atualiza cliente
         if (data.phone) {
             const cleanPhone = normalizePhone(data.phone);
             if (cleanPhone) await setDoc(doc(db, 'clients', cleanPhone), { name: data.customer, phone: data.phone, address: data.address, mapsLink: data.mapsLink || '', lastOrderAt: serverTimestamp() }, { merge: true });
         }
-        
-        return data.id; // Retorna o ID Personalizado
+        return data.id; 
     } else {
         const docRef = await addDoc(collection(db, 'orders'), { ...data, status: 'pending', createdAt: serverTimestamp() });
-        
         if (data.phone) {
             const cleanPhone = normalizePhone(data.phone);
             if (cleanPhone) await setDoc(doc(db, 'clients', cleanPhone), { name: data.customer, phone: data.phone, address: data.address, mapsLink: data.mapsLink || '', lastOrderAt: serverTimestamp() }, { merge: true });
         }
-        
-        return docRef.id; // Retorna o ID Aleatório
+        return docRef.id;
     }
   });
 
@@ -231,7 +223,7 @@ export default function App() {
     if (currentDriverId === 'select' || !currentDriverId) return <DriverSelection drivers={drivers} onSelect={(id) => { setCurrentDriverId(id); localStorage.setItem('jhans_driverId', id); }} onBack={handleLogout} />;
     const driver = drivers.find(d => d.id === currentDriverId);
     if (!driver) return <div className="p-10 text-center text-white bg-slate-900 h-screen"><button onClick={handleLogout}>Sair</button></div>;
-    return <><GlobalStyles /><DriverInterface driver={driver} orders={orders} vales={vales} onToggleStatus={() => toggleStatus(driver.id)} onAcceptOrder={acceptOrder} onCompleteOrder={completeOrder} onUpdateOrder={updateOrder} onDeleteOrder={deleteOrder} onLogout={handleLogout} /></>;
+    return <><GlobalStyles /><DriverInterface driver={driver} orders={orders} vales={vales} onToggleStatus={() => toggleStatus(driver.id)} onAcceptOrder={acceptOrder} onCompleteOrder={completeOrder} onUpdateOrder={updateOrder} onDeleteOrder={deleteOrder} onLogout={handleLogout} onUpdateDriver={updateDriver} /></>;
   }
 
   return (
