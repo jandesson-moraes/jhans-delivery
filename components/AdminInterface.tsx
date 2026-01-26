@@ -6,16 +6,15 @@ import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock
 import { formatCurrency, formatTime, formatDate, isToday } from '../utils';
 import { MenuManager } from './MenuManager';
 import { ClientsView } from './ClientsView';
-// DailyOrdersView removido pois foi integrado/simplificado
 import { KitchenDisplay } from './KitchenDisplay';
 import { ItemReportView } from './ItemReportView';
 import { NewOrderModal, ConfirmAssignmentModal, NewIncomingOrderModal, DispatchSuccessModal } from './Modals'; 
 
-// Som de Campainha/Sino
+// Som de Alarme (Sino Repetitivo)
 const NEW_ORDER_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; 
 
-// Daily e Reports removidos do tipo principal de navegação
-type AdminViewMode = 'map' | 'list' | 'history' | 'menu' | 'clients' | 'kds';
+// 'list' removed from type as it's now part of 'map'
+type AdminViewMode = 'map' | 'history' | 'menu' | 'clients' | 'kds';
 
 interface AdminProps {
     drivers: Driver[];
@@ -81,12 +80,61 @@ export default function AdminInterface(props: AdminProps) {
     const [newIncomingOrder, setNewIncomingOrder] = useState<Order | null>(null);
     const [soundEnabled, setSoundEnabled] = useState(false);
     
-    // Sub-aba para a seção Financeira (Visão Geral vs Relatórios)
+    // Sub-aba para a seção Financeira
     const [financeTab, setFinanceTab] = useState<'overview' | 'items'>('overview');
     
+    // Sub-aba para Monitoramento (Map vs Team)
+    const [mapTab, setMapTab] = useState<'live' | 'team'>('live');
+    
     const [dispatchedOrderData, setDispatchedOrderData] = useState<{order: Order, driverName: string} | null>(null);
+    
+    // Refs para controle de notificação
     const notifiedOrderIds = useRef<Set<string>>(new Set());
-    const newOrderAudioRef = useRef<HTMLAudioElement | null>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const titleIntervalRef = useRef<any>(null);
+
+    // Solicitar permissão de notificação ao carregar
+    useEffect(() => {
+        if ('Notification' in window && Notification.permission !== 'granted') {
+            Notification.requestPermission();
+        }
+        // Inicializa o objeto de áudio
+        const audio = new Audio(NEW_ORDER_SOUND);
+        audio.loop = true; // IMPORTANTE: Loop infinito até atender
+        audioRef.current = audio;
+
+        // Popula notificados iniciais para não tocar ao abrir o sistema (apenas novos eventos)
+        orders.forEach(o => {
+            if(o.status !== 'pending') notifiedOrderIds.current.add(o.id);
+        });
+
+        return () => {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current = null;
+            }
+            stopTitleFlash();
+        };
+    }, []); 
+
+    // Helper para piscar o título da aba
+    const startTitleFlash = () => {
+        if (titleIntervalRef.current) return;
+        let isOriginal = true;
+        const originalTitle = document.title;
+        titleIntervalRef.current = setInterval(() => {
+            document.title = isOriginal ? "🔔 NOVO PEDIDO! 🔔" : originalTitle;
+            isOriginal = !isOriginal;
+        }, 1000);
+    };
+
+    const stopTitleFlash = () => {
+        if (titleIntervalRef.current) {
+            clearInterval(titleIntervalRef.current);
+            titleIntervalRef.current = null;
+            document.title = appConfig.appName || "Delivery System";
+        }
+    };
 
     const handleAssignAndNotify = (oid: string, did: string) => {
         onAssignOrder(oid, did);
@@ -102,36 +150,65 @@ export default function AdminInterface(props: AdminProps) {
         setModal('confirmAssign');
     };
 
-    useEffect(() => {
-        newOrderAudioRef.current = new Audio(NEW_ORDER_SOUND);
-        orders.forEach(o => {
-            if(o.status !== 'pending') notifiedOrderIds.current.add(o.id);
-        });
-    }, []); 
-
     const toggleSound = () => {
-        setSoundEnabled(prev => !prev);
+        setSoundEnabled(prev => {
+            // Se estiver ativando, tenta tocar um som mudo para desbloquear o áudio do navegador
+            if (!prev && audioRef.current) {
+                audioRef.current.play().then(() => audioRef.current?.pause()).catch(() => {});
+            }
+            return !prev;
+        });
     };
 
+    // LÓGICA CENTRAL DE NOTIFICAÇÃO
+    // Monitora as ordens. Se surgir uma pendente nova, dispara tudo.
     useEffect(() => {
-        if (!soundEnabled) return;
-        orders.forEach(order => {
-            if (order.status === 'pending' && !notifiedOrderIds.current.has(order.id)) {
-                if(newOrderAudioRef.current) {
-                    newOrderAudioRef.current.currentTime = 0;
-                    const playPromise = newOrderAudioRef.current.play();
-                    if (playPromise !== undefined) {
-                        playPromise.catch(error => {
-                            console.log("Audio bloqueado:", error);
-                        });
-                    }
-                    if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
+        // Verifica se há algum pedido pendente que não foi notificado
+        const newOrder = orders.find(o => o.status === 'pending' && !notifiedOrderIds.current.has(o.id));
+
+        if (newOrder) {
+            // 1. Marca como notificado para não disparar 2x o mesmo evento
+            notifiedOrderIds.current.add(newOrder.id);
+            
+            // 2. Abre o Modal (Prioridade Máxima na Tela)
+            setNewIncomingOrder(newOrder);
+
+            // 3. Toca o Som em Loop (se ativado)
+            if (soundEnabled && audioRef.current) {
+                audioRef.current.currentTime = 0;
+                const playPromise = audioRef.current.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => console.log("Áudio bloqueado pelo navegador:", error));
                 }
-                notifiedOrderIds.current.add(order.id);
-                setNewIncomingOrder(order);
             }
-        });
-    }, [orders, soundEnabled]); 
+
+            // 4. Vibração (Mobile)
+            if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 1000]);
+
+            // 5. Notificação Push do Navegador (Funciona em outra aba)
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(`Novo Pedido de ${newOrder.customer}!`, {
+                    body: `Total: ${newOrder.amount} - ${newOrder.paymentMethod}`,
+                    icon: '/icon.png', // Fallback icon
+                    tag: newOrder.id // Evita flood
+                });
+            }
+
+            // 6. Pisca o título da aba
+            startTitleFlash();
+        }
+    }, [orders, soundEnabled]); // Dependência em orders dispara sempre que o Firestore atualiza
+
+    // Parar som e alerta quando o modal é fechado ou o pedido deixa de ser pendente
+    useEffect(() => {
+        if (!newIncomingOrder) {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+            }
+            stopTitleFlash();
+        }
+    }, [newIncomingOrder]);
 
     const trackDriver = (driver: Driver) => {
         if (driver.lat && driver.lng) window.open(`https://www.google.com/maps/search/?api=1&query=${driver.lat},${driver.lng}`, '_blank');
@@ -141,7 +218,6 @@ export default function AdminInterface(props: AdminProps) {
     const delivered = orders.filter((o: Order) => o.status === 'completed');
     const finance = useMemo(() => {
         const totalIncome = delivered.reduce((acc, order) => acc + (order.value || 0), 0);
-        // Considerando pedidos entregues HOJE
         const todayIncome = delivered.filter(o => isToday(o.completedAt)).reduce((acc, order) => acc + (order.value || 0), 0);
         const totalExpenses = expenses.reduce((acc, e) => acc + (e.amount || 0), 0);
         const todayExpenses = expenses.filter(e => isToday(e.createdAt)).reduce((acc, e) => acc + (e.amount || 0), 0);
@@ -174,7 +250,7 @@ export default function AdminInterface(props: AdminProps) {
                   <SidebarBtn icon={<Plus/>} label="Novo Pedido" onClick={()=>setModal('order')} highlight/>
                   <div className="h-px bg-slate-800 my-4 mx-2"></div>
                   <SidebarBtn icon={<UserCheck/>} label="Clientes CRM" active={view==='clients'} onClick={()=>setView('clients')}/>
-                  <SidebarBtn icon={<Users/>} label="Equipe" active={view==='list'} onClick={()=>setView('list')}/>
+                  {/* Removed standalone Team button, integrated into Map */}
                   <SidebarBtn icon={<ShoppingBag/>} label="Cardápio Digital" active={view==='menu'} onClick={()=>setView('menu')}/>
                   <SidebarBtn icon={<Clock/>} label="Financeiro" active={view==='history'} onClick={()=>setView('history')}/>
                 </nav>
@@ -188,7 +264,7 @@ export default function AdminInterface(props: AdminProps) {
                 <header className="h-16 md:h-20 bg-slate-900 border-b border-slate-800 px-4 md:px-10 flex items-center justify-between shadow-sm z-10 w-full shrink-0">
                      <div className="flex items-center gap-3 overflow-hidden">
                          {appConfig.appLogoUrl && <img src={appConfig.appLogoUrl} className="w-8 h-8 rounded-full md:hidden object-cover" alt="Logo" />}
-                         <h1 className="text-lg md:text-2xl font-extrabold text-white truncate min-w-0">{view === 'map' ? 'Central de Comando' : view === 'list' ? 'Gestão de Equipe' : view === 'menu' ? 'Cardápio Digital' : view === 'clients' ? 'Gestão de Clientes' : view === 'kds' ? 'Cozinha & Pedidos' : 'Financeiro'}</h1>
+                         <h1 className="text-lg md:text-2xl font-extrabold text-white truncate min-w-0">{view === 'map' ? 'Central de Comando' : view === 'menu' ? 'Cardápio Digital' : view === 'clients' ? 'Gestão de Clientes' : view === 'kds' ? 'Cozinha & Pedidos' : 'Financeiro'}</h1>
                      </div>
                      <div className="flex items-center gap-2">
                          <button 
@@ -196,7 +272,7 @@ export default function AdminInterface(props: AdminProps) {
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-[10px] md:text-xs transition-all border shadow-lg ${soundEnabled ? 'bg-emerald-900/30 text-emerald-400 border-emerald-500/50' : 'bg-slate-800 text-slate-400 border-slate-700'}`}
                          >
                             {soundEnabled ? <Volume2 size={16}/> : <VolumeX size={16}/>}
-                            {soundEnabled ? 'SOM ATIVADO' : 'ATIVAR SOM'}
+                            {soundEnabled ? 'SOM LIGADO' : 'ATIVAR SOM'}
                          </button>
                          <button onClick={() => setModal('settings')} className="md:hidden p-2 text-slate-400 bg-slate-800 rounded-xl"><Settings size={20}/></button>
                          <button onClick={onLogout} className="md:hidden p-2 text-slate-400 bg-slate-800 rounded-xl"><LogOut size={20}/></button>
@@ -204,52 +280,74 @@ export default function AdminInterface(props: AdminProps) {
                 </header>
 
                 <div className="flex-1 overflow-hidden relative w-full h-full">
+                    {/* MONITORAMENTO COM ABAS INTERNAS */}
                     {view === 'map' && (
-                       <div className="absolute inset-0 perspective-container w-full h-full">
-                          <div className="absolute inset-0 map-plane w-full h-full">
-                              {drivers.map((d: Driver) => {
-                                 const seed = d.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                                 const gridX = 25 + (Math.floor(seed * 17) % 50); 
-                                 const gridY = 25 + (Math.floor(seed * 23) % 50); 
-                                 const statusColor = d.status === 'delivering' ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.6)]' : d.status === 'offline' ? 'border-slate-500 opacity-50' : 'border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.6)]';
-                                 return (
-                                     <div key={d.id} onClick={(e) => { e.stopPropagation(); setSelectedDriver(d); }} className={`absolute z-30 cursor-pointer animate-path-${seed % 5}`} style={{ top: `${gridY}%`, left: `${gridX}%`, animationDelay: `${(seed % 20) * -2}s` }}>
-                                          <div className="relative group billboard-corrector flex flex-col items-center">
-                                              <div className={`relative bg-slate-900 p-1 rounded-full border-[2px] ${statusColor} w-10 h-10 flex items-center justify-center transition-all hover:scale-125 shadow-2xl`}><img src={d.avatar} className="w-full h-full object-cover rounded-full" alt={d.name} /></div>
-                                              <div className="mt-2 bg-black/80 border border-slate-700 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-lg uppercase opacity-80 group-hover:opacity-100 whitespace-nowrap">{d.name.split(' ')[0]}</div>
-                                          </div>
-                                     </div>
-                                 )
-                              })}
+                       <div className="absolute inset-0 w-full h-full flex flex-col">
+                          {/* Map Tabs */}
+                          <div className="absolute top-4 left-4 z-50 flex gap-2">
+                              <button onClick={() => setMapTab('live')} className={`px-4 py-2 rounded-xl text-xs font-bold shadow-lg border backdrop-blur-md transition-all ${mapTab === 'live' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-900/80 border-slate-700 text-slate-400 hover:text-white'}`}>
+                                  Mapa Real-Time
+                              </button>
+                              <button onClick={() => setMapTab('team')} className={`px-4 py-2 rounded-xl text-xs font-bold shadow-lg border backdrop-blur-md transition-all ${mapTab === 'team' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900/80 border-slate-700 text-slate-400 hover:text-white'}`}>
+                                  Gestão de Frota
+                              </button>
                           </div>
-                          <div className="absolute top-6 left-6 z-40 space-y-3 max-h-[60%] overflow-y-auto w-72 pr-2 custom-scrollbar">
-                             <div className="flex items-center gap-2 mb-2 text-cyan-400 font-bold text-xs uppercase tracking-widest bg-black/50 p-2 rounded backdrop-blur border border-cyan-900/50"><Radar size={14} className="animate-spin-slow"/> Radar de Pedidos</div>
-                             {orders.filter((o: Order) => o.status === 'pending' || o.status === 'preparing' || o.status === 'ready').map((o: Order) => (
-                                <div key={o.id} className={`bg-slate-900/80 backdrop-blur-md p-3 rounded-xl shadow-2xl border-l-4 relative group animate-in slide-in-from-left-4 ${o.status === 'ready' ? 'border-emerald-500' : o.status === 'preparing' ? 'border-blue-500' : 'border-amber-500'}`}>
-                                   <div className="flex justify-between items-start mb-1"><span className="font-bold text-sm text-white truncate w-32">{o.customer}</span><span className="text-[10px] font-bold bg-slate-800 px-2 py-1 rounded text-slate-400">{o.time}</span></div>
-                                   <p className="text-xs text-slate-400 truncate mb-2">{o.address}</p>
-                                   <div className="flex justify-between items-center"><span className="text-sm font-bold text-emerald-400">{o.amount}</span><span className={`text-[9px] font-bold uppercase px-1 rounded ${o.status==='ready' ? 'bg-emerald-900 text-emerald-300' : o.status==='preparing' ? 'bg-blue-900 text-blue-300' : 'bg-amber-900 text-amber-300'}`}>{o.status==='ready' ? 'PRONTO' : o.status==='preparing' ? 'COZINHA' : 'PENDENTE'}</span></div>
-                                   <button onClick={() => onDeleteOrder(o.id)} className="absolute -right-2 -top-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12}/></button>
-                                </div>
-                             ))}
-                          </div>
+
+                          {/* Live Map Layer */}
+                          {mapTab === 'live' && (
+                              <div className="w-full h-full perspective-container">
+                                  <div className="absolute inset-0 map-plane w-full h-full">
+                                      {drivers.map((d: Driver) => {
+                                         const seed = d.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                                         const gridX = 25 + (Math.floor(seed * 17) % 50); 
+                                         const gridY = 25 + (Math.floor(seed * 23) % 50); 
+                                         const statusColor = d.status === 'delivering' ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.6)]' : d.status === 'offline' ? 'border-slate-500 opacity-50' : 'border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.6)]';
+                                         return (
+                                             <div key={d.id} onClick={(e) => { e.stopPropagation(); setSelectedDriver(d); }} className={`absolute z-30 cursor-pointer animate-path-${seed % 5}`} style={{ top: `${gridY}%`, left: `${gridX}%`, animationDelay: `${(seed % 20) * -2}s` }}>
+                                                  <div className="relative group billboard-corrector flex flex-col items-center">
+                                                      <div className={`relative bg-slate-900 p-1 rounded-full border-[2px] ${statusColor} w-10 h-10 flex items-center justify-center transition-all hover:scale-125 shadow-2xl`}><img src={d.avatar} className="w-full h-full object-cover rounded-full" alt={d.name} /></div>
+                                                      <div className="mt-2 bg-black/80 border border-slate-700 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-lg uppercase opacity-80 group-hover:opacity-100 whitespace-nowrap">{d.name.split(' ')[0]}</div>
+                                                  </div>
+                                             </div>
+                                         )
+                                      })}
+                                  </div>
+                                  <div className="absolute top-16 left-4 z-40 space-y-3 max-h-[60%] overflow-y-auto w-72 pr-2 custom-scrollbar pointer-events-none">
+                                     <div className="flex items-center gap-2 mb-2 text-cyan-400 font-bold text-xs uppercase tracking-widest bg-black/50 p-2 rounded backdrop-blur border border-cyan-900/50 pointer-events-auto"><Radar size={14} className="animate-spin-slow"/> Radar de Pedidos</div>
+                                     {orders.filter((o: Order) => o.status === 'pending' || o.status === 'preparing' || o.status === 'ready').map((o: Order) => (
+                                        <div key={o.id} className={`bg-slate-900/80 backdrop-blur-md p-3 rounded-xl shadow-2xl border-l-4 relative group animate-in slide-in-from-left-4 pointer-events-auto ${o.status === 'ready' ? 'border-emerald-500' : o.status === 'preparing' ? 'border-blue-500' : 'border-amber-500'}`}>
+                                           <div className="flex justify-between items-start mb-1"><span className="font-bold text-sm text-white truncate w-32">{o.customer}</span><span className="text-[10px] font-bold bg-slate-800 px-2 py-1 rounded text-slate-400">{o.time}</span></div>
+                                           <p className="text-xs text-slate-400 truncate mb-2">{o.address}</p>
+                                           <div className="flex justify-between items-center"><span className="text-sm font-bold text-emerald-400">{o.amount}</span><span className={`text-[9px] font-bold uppercase px-1 rounded ${o.status==='ready' ? 'bg-emerald-900 text-emerald-300' : o.status==='preparing' ? 'bg-blue-900 text-blue-300' : 'bg-amber-900 text-amber-300'}`}>{o.status==='ready' ? 'PRONTO' : o.status==='preparing' ? 'COZINHA' : 'PENDENTE'}</span></div>
+                                           <button onClick={() => onDeleteOrder(o.id)} className="absolute -right-2 -top-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12}/></button>
+                                        </div>
+                                     ))}
+                                  </div>
+                              </div>
+                          )}
+
+                          {/* Fleet Management List Layer */}
+                          {mapTab === 'team' && (
+                              <div className="flex-1 bg-slate-950 p-6 md:p-10 overflow-y-auto w-full h-full pb-24 custom-scrollbar pt-16">
+                                  <div className="flex justify-between items-center mb-8">
+                                      <h2 className="font-bold text-2xl text-white">Frota ({drivers.length})</h2>
+                                      <button onClick={()=>setModal('driver')} className="bg-amber-600 text-white px-6 py-3 rounded-xl text-sm font-bold flex gap-2 shadow-lg"><Plus size={18}/> Cadastrar</button>
+                                  </div>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                     {drivers.map((d: Driver) => (
+                                        <div key={d.id} className="border border-slate-800 p-5 rounded-2xl bg-slate-900 relative group cursor-pointer hover:border-amber-500/50" onClick={()=>setSelectedDriver(d)}>
+                                           <div className="flex items-center gap-5"><img src={d.avatar} className="w-16 h-16 rounded-full bg-slate-800 object-cover border-2 border-slate-700" alt={d.name}/><div><h3 className="font-bold text-lg text-white">{d.name}</h3><div className="flex gap-2"><span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase ${d.status==='offline'?'bg-slate-800 text-slate-500':d.status==='available'?'bg-emerald-900/30 text-emerald-400':'bg-orange-900/30 text-orange-400'}`}>{d.status}</span><span className="text-[10px] px-3 py-1 rounded-full font-bold uppercase bg-slate-800 text-slate-400">{d.vehicle || 'Moto'}</span></div></div></div>
+                                           <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={(e)=>{e.stopPropagation(); setDriverToEdit(d); setModal('driver');}} className="p-2 bg-slate-800 text-slate-400 rounded-lg"><Edit size={18}/></button><button onClick={(e)=>{e.stopPropagation(); onDeleteDriver(d.id)}} className="p-2 bg-red-900/20 text-red-400 rounded-lg"><Trash2 size={18}/></button></div>
+                                        </div>
+                                     ))}
+                                  </div>
+                                  <Footer />
+                              </div>
+                          )}
                        </div>
                     )}
 
-                    {view === 'list' && (
-                       <div className="flex-1 bg-slate-950 p-6 md:p-10 overflow-y-auto w-full h-full pb-24 custom-scrollbar">
-                          <div className="flex justify-between items-center mb-8"><h2 className="font-bold text-2xl text-white">Frota ({drivers.length})</h2><button onClick={()=>setModal('driver')} className="bg-amber-600 text-white px-6 py-3 rounded-xl text-sm font-bold flex gap-2 shadow-lg"><Plus size={18}/> Cadastrar</button></div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                             {drivers.map((d: Driver) => (
-                                <div key={d.id} className="border border-slate-800 p-5 rounded-2xl bg-slate-900 relative group cursor-pointer hover:border-amber-500/50" onClick={()=>setSelectedDriver(d)}>
-                                   <div className="flex items-center gap-5"><img src={d.avatar} className="w-16 h-16 rounded-full bg-slate-800 object-cover border-2 border-slate-700" alt={d.name}/><div><h3 className="font-bold text-lg text-white">{d.name}</h3><div className="flex gap-2"><span className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase ${d.status==='offline'?'bg-slate-800 text-slate-500':d.status==='available'?'bg-emerald-900/30 text-emerald-400':'bg-orange-900/30 text-orange-400'}`}>{d.status}</span><span className="text-[10px] px-3 py-1 rounded-full font-bold uppercase bg-slate-800 text-slate-400">{d.vehicle || 'Moto'}</span></div></div></div>
-                                   <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={(e)=>{e.stopPropagation(); setDriverToEdit(d); setModal('driver');}} className="p-2 bg-slate-800 text-slate-400 rounded-lg"><Edit size={18}/></button><button onClick={(e)=>{e.stopPropagation(); onDeleteDriver(d.id)}} className="p-2 bg-red-900/20 text-red-400 rounded-lg"><Trash2 size={18}/></button></div>
-                                </div>
-                             ))}
-                          </div>
-                          <Footer />
-                       </div>
-                    )}
+                    {/* OTHER VIEWS */}
                     {view === 'menu' && <MenuManager products={products} onCreate={props.onCreateProduct} onUpdate={props.onUpdateProduct} onDelete={props.onDeleteProduct} />}
                     {view === 'clients' && <ClientsView clients={clients} orders={orders} setModal={setModal} setClientToEdit={setClientToEdit} />}
                     {view === 'kds' && <KitchenDisplay orders={orders} products={products} drivers={drivers} onUpdateStatus={onUpdateOrder} onAssignOrder={handleAssignAndNotify} appConfig={appConfig} />}
@@ -313,7 +411,7 @@ export default function AdminInterface(props: AdminProps) {
                 <div className="relative flex justify-between items-center px-6 pb-4 pt-2">
                     <div className="absolute left-1/2 -translate-x-1/2 -top-8"><button onClick={()=>setModal('order')} className="bg-gradient-to-br from-orange-500 to-red-600 rounded-full p-4 shadow-xl border-4 border-slate-950 text-white"><Plus size={32}/></button></div>
                     <div className="flex gap-6">
-                        <button onClick={()=>setView('map')} className={`flex flex-col items-center gap-1 ${view==='map'?'text-orange-500':'text-slate-400'}`}><MapPin size={22}/><span className="text-[9px] font-bold">Mapa</span></button>
+                        <button onClick={()=>setView('map')} className={`flex flex-col items-center gap-1 ${view==='map'?'text-orange-500':'text-slate-400'}`}><MapPin size={22}/><span className="text-[9px] font-bold">Monitor</span></button>
                         <button onClick={()=>setView('kds')} className={`flex flex-col items-center gap-1 ${view==='kds'?'text-orange-500':'text-slate-400'}`}><ChefHat size={22}/><span className="text-[9px] font-bold">Cozinha</span></button>
                     </div>
                     <div className="w-12"></div>
@@ -367,7 +465,7 @@ export default function AdminInterface(props: AdminProps) {
                    </div>
                  )}
             </aside>
-            {/* Atualização: Passamos onUpdateOrder para o Modal para permitir aceitação direta */}
+            {/* O MODAL DE NOVO PEDIDO AGORA É GLOBAL E TEM PRIORIDADE SOBRE TUDO */}
             {newIncomingOrder && (
                 <NewIncomingOrderModal 
                     order={newIncomingOrder} 

@@ -231,7 +231,7 @@ export default function App() {
     if (currentDriverId === 'select' || !currentDriverId) return <DriverSelection drivers={drivers} onSelect={(id) => { setCurrentDriverId(id); localStorage.setItem('jhans_driverId', id); }} onBack={handleLogout} />;
     const driver = drivers.find(d => d.id === currentDriverId);
     if (!driver) return <div className="p-10 text-center text-white bg-slate-900 h-screen"><button onClick={handleLogout}>Sair</button></div>;
-    return <><GlobalStyles /><DriverInterface driver={driver} orders={orders} onToggleStatus={() => toggleStatus(driver.id)} onAcceptOrder={acceptOrder} onCompleteOrder={completeOrder} onUpdateOrder={updateOrder} onDeleteOrder={deleteOrder} onLogout={handleLogout} /></>;
+    return <><GlobalStyles /><DriverInterface driver={driver} orders={orders} vales={vales} onToggleStatus={() => toggleStatus(driver.id)} onAcceptOrder={acceptOrder} onCompleteOrder={completeOrder} onUpdateOrder={updateOrder} onDeleteOrder={deleteOrder} onLogout={handleLogout} /></>;
   }
 
   return (

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package, Zap, ZapOff, Edit, Trash2, Send } from 'lucide-react';
-import { Driver, Order } from '../types';
+import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package, Zap, ZapOff, Edit, Trash2, Send, MinusCircle, AlertCircle, TrendingUp } from 'lucide-react';
+import { Driver, Order, Vale } from '../types';
 import { isToday, formatTime, formatCurrency, formatDate, sendDeliveryNotification } from '../utils';
 import { Footer } from './Shared';
 import { EditOrderModal } from './Modals';
@@ -9,6 +9,7 @@ import { EditOrderModal } from './Modals';
 interface DriverAppProps {
     driver: Driver;
     orders: Order[];
+    vales?: Vale[]; // Nova prop para o financeiro
     onToggleStatus: () => void;
     onAcceptOrder: (id: string) => void;
     onCompleteOrder: (oid: string, did: string) => void;
@@ -20,7 +21,7 @@ interface DriverAppProps {
 const TAXA_ENTREGA = 5.00;
 const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; // Som de sino
 
-export default function DriverInterface({ driver, orders, onToggleStatus, onAcceptOrder, onCompleteOrder, onUpdateOrder, onDeleteOrder, onLogout }: DriverAppProps) {
+export default function DriverInterface({ driver, orders, vales = [], onToggleStatus, onAcceptOrder, onCompleteOrder, onUpdateOrder, onDeleteOrder, onLogout }: DriverAppProps) {
   const [activeTab, setActiveTab] = useState<'home' | 'history' | 'wallet'>('home');
   const [historyFilter, setHistoryFilter] = useState<'today' | 'all'>('today');
   const [visibleItems, setVisibleItems] = useState(20);
@@ -88,14 +89,34 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
             .sort((a: Order, b: Order) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
   }, [orders, driver.id]);
 
-  // Entregas APENAS do ciclo atual para a aba Finanças
-  const cycleDeliveries = useMemo(() => {
-      return orders.filter((o: Order) => 
+  // --- LOGICA FINANCEIRA (Extrato) ---
+  const financialData = useMemo(() => {
+      // 1. Entregas do Ciclo Atual
+      const currentDeliveries = orders.filter((o: Order) => 
          o.status === 'completed' && 
          o.driverId === driver.id &&
          (o.completedAt?.seconds || 0) > lastSettlementTime
-      ).sort((a: Order, b: Order) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
-  }, [orders, driver.id, lastSettlementTime]);
+      );
+      
+      // 2. Vales do Ciclo Atual
+      const currentVales = vales.filter((v: Vale) => 
+          v.driverId === driver.id && 
+          (v.createdAt?.seconds || 0) > lastSettlementTime
+      );
+
+      const totalDeliveriesValue = currentDeliveries.length * TAXA_ENTREGA;
+      const totalValesValue = currentVales.reduce((acc, v) => acc + (Number(v.amount) || 0), 0);
+      const netValue = totalDeliveriesValue - totalValesValue;
+
+      return {
+          deliveriesCount: currentDeliveries.length,
+          deliveriesValue: totalDeliveriesValue,
+          valesCount: currentVales.length,
+          valesValue: totalValesValue,
+          netValue,
+          valesList: currentVales
+      };
+  }, [orders, vales, driver.id, lastSettlementTime]);
 
   const displayedHistory = useMemo(() => {
       if (historyFilter === 'today') {
@@ -106,13 +127,12 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
 
   const visibleHistory = displayedHistory.slice(0, visibleItems);
   
-  // Cálculos Financeiros
-  const todayEarnings = allDeliveries.filter((o:Order) => isToday(o.completedAt)).length * TAXA_ENTREGA;
-  const todayCount = allDeliveries.filter((o:Order) => isToday(o.completedAt)).length;
-  
-  // O "Saldo Total" agora reflete o Ciclo Atual
-  const cycleEarnings = cycleDeliveries.length * TAXA_ENTREGA;
-  const cycleCount = cycleDeliveries.length;
+  // Resumo para o cabeçalho do histórico
+  const historySummary = useMemo(() => {
+      const count = displayedHistory.length;
+      const total = count * TAXA_ENTREGA;
+      return { count, total };
+  }, [displayedHistory]);
 
   return (
     <div className="bg-slate-950 min-h-screen w-screen flex flex-col">
@@ -229,12 +249,24 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
           </div>
         )}
 
-        {/* --- ABA HISTÓRICO --- */}
+        {/* --- ABA HISTÓRICO COM RESUMO --- */}
         {activeTab === 'history' && (
             <div className="space-y-4">
                 <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
                     <button onClick={() => setHistoryFilter('today')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${historyFilter === 'today' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Hoje</button>
                     <button onClick={() => setHistoryFilter('all')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${historyFilter === 'all' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Tudo</button>
+                </div>
+
+                {/* Resumo do Período */}
+                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <div>
+                        <p className="text-[10px] text-slate-500 uppercase font-bold">Total {historyFilter === 'today' ? 'Hoje' : 'Geral'}</p>
+                        <p className="text-lg font-black text-white">{historySummary.count} entregas</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-[10px] text-slate-500 uppercase font-bold">Ganhos</p>
+                        <p className="text-lg font-black text-emerald-400">{formatCurrency(historySummary.total)}</p>
+                    </div>
                 </div>
 
                 <div className="space-y-3">
@@ -277,28 +309,50 @@ export default function DriverInterface({ driver, orders, onToggleStatus, onAcce
             </div>
         )}
 
-        {/* --- ABA FINANÇAS (RESUMO CICLO ATUAL) --- */}
+        {/* --- ABA FINANÇAS (DETALHADO COM VALES) --- */}
         {activeTab === 'wallet' && (
           <div className="space-y-6 pt-2">
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                 <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl shadow-xl border border-amber-500/30 ring-1 ring-amber-500/20">
-                    <p className="text-slate-400 text-[10px] font-bold uppercase mb-2">Ganhos Hoje</p>
-                    <h3 className="text-3xl font-black text-white">{formatCurrency(todayEarnings)}</h3>
-                    <p className="text-[10px] text-slate-500 mt-1">{todayCount} entregas</p>
+             {/* Card Principal de Saldo Líquido */}
+             <div className="bg-gradient-to-br from-emerald-900 to-slate-900 p-6 rounded-2xl shadow-xl border border-emerald-500/30 ring-1 ring-emerald-500/20 text-center">
+                <p className="text-emerald-200 text-[10px] font-bold uppercase mb-2">Saldo Líquido a Receber</p>
+                <h3 className="text-4xl font-black text-white">{formatCurrency(financialData.netValue)}</h3>
+                <p className="text-[10px] text-emerald-400/70 mt-2">Referente ao ciclo atual</p>
+             </div>
+
+             {/* Extrato Simplificado */}
+             <div className="grid grid-cols-2 gap-3">
+                 <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                    <p className="text-slate-500 text-[10px] font-bold uppercase mb-1 flex items-center gap-1"><TrendingUp size={12}/> Ganhos</p>
+                    <p className="text-xl font-bold text-white">{formatCurrency(financialData.deliveriesValue)}</p>
+                    <p className="text-[9px] text-slate-500 mt-1">{financialData.deliveriesCount} entregas</p>
                  </div>
-                 <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl shadow-xl border border-emerald-500/30 ring-1 ring-emerald-500/20">
-                    <p className="text-slate-400 text-[10px] font-bold uppercase mb-2">Saldo Ciclo Atual</p>
-                    <h3 className="text-3xl font-black text-emerald-400">{formatCurrency(cycleEarnings)}</h3>
-                    <p className="text-[10px] text-slate-500 mt-1">{cycleCount} entregas (após fechamento)</p>
+                 <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                    <p className="text-slate-500 text-[10px] font-bold uppercase mb-1 flex items-center gap-1"><MinusCircle size={12}/> Vales</p>
+                    <p className="text-xl font-bold text-red-400">- {formatCurrency(financialData.valesValue)}</p>
+                    <p className="text-[9px] text-slate-500 mt-1">{financialData.valesCount} adiantamentos</p>
                  </div>
              </div>
 
-             <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 text-center">
-                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-800 mb-4">
-                     <Wallet className="text-slate-400" size={24}/>
+             {/* Lista de Vales se houver */}
+             {financialData.valesList.length > 0 && (
+                 <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4">
+                     <h4 className="text-xs font-bold text-white uppercase mb-3 flex items-center gap-2"><AlertCircle size={14} className="text-amber-500"/> Detalhes dos Vales</h4>
+                     <div className="space-y-2">
+                         {financialData.valesList.map(vale => (
+                             <div key={vale.id} className="flex justify-between items-center text-xs border-b border-slate-800 pb-2 last:border-0 last:pb-0">
+                                 <div>
+                                     <p className="text-slate-300">{vale.description}</p>
+                                     <p className="text-[10px] text-slate-500">{formatDate(vale.createdAt)}</p>
+                                 </div>
+                                 <span className="font-bold text-red-400">- {formatCurrency(vale.amount)}</span>
+                             </div>
+                         ))}
+                     </div>
                  </div>
-                 <h3 className="text-white font-bold text-lg mb-2">Carteira Digital</h3>
-                 <p className="text-slate-500 text-sm leading-relaxed">
+             )}
+
+             <div className="bg-slate-900/50 rounded-2xl p-4 border border-slate-800 text-center">
+                 <p className="text-slate-500 text-[10px] leading-relaxed">
                      O fechamento do caixa e repasse dos valores é realizado pelo gerente. Solicite seu extrato completo ou vales diretamente no balcão.
                  </p>
              </div>
