@@ -8,7 +8,8 @@ import { MenuManager } from './MenuManager';
 import { ClientsView } from './ClientsView';
 import { KitchenDisplay } from './KitchenDisplay';
 import { ItemReportView } from './ItemReportView';
-import { NewOrderModal, ConfirmAssignmentModal, NewIncomingOrderModal, DispatchSuccessModal } from './Modals'; 
+import { DailyOrdersView } from './DailyOrdersView';
+import { NewOrderModal, ConfirmAssignmentModal, NewIncomingOrderModal, DispatchSuccessModal, EditOrderModal } from './Modals'; 
 
 // Som de Alarme (Sino Repetitivo)
 const NEW_ORDER_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; 
@@ -75,6 +76,7 @@ export default function AdminInterface(props: AdminProps) {
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
     const [driverSidebarTab, setDriverSidebarTab] = useState<'assign' | 'history' | 'finance'>('assign');
     const [orderToAssign, setOrderToAssign] = useState<Order | null>(null);
+    const [orderToEdit, setOrderToEdit] = useState<Order | null>(null);
     const [showIntro, setShowIntro] = useState(true);
     const [newIncomingOrder, setNewIncomingOrder] = useState<Order | null>(null);
     const [soundEnabled, setSoundEnabled] = useState(false);
@@ -84,7 +86,8 @@ export default function AdminInterface(props: AdminProps) {
     const [showFleet, setShowFleet] = useState(true);
 
     // Sub-aba para a seção Financeira
-    const [financeTab, setFinanceTab] = useState<'overview' | 'items'>('overview');
+    // Adicionado 'orders' para a tabela diária
+    const [financeTab, setFinanceTab] = useState<'overview' | 'items' | 'orders'>('orders');
     
     const [dispatchedOrderData, setDispatchedOrderData] = useState<{order: Order, driverName: string} | null>(null);
     
@@ -368,7 +371,10 @@ export default function AdminInterface(props: AdminProps) {
                                                    </span>
                                                </div>
                                            </div>
-                                           <button onClick={(e) => { e.stopPropagation(); onDeleteOrder(o.id); }} className="absolute -right-2 -top-2 bg-red-600 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-red-500"><Trash2 size={12}/></button>
+                                           <div className="absolute -right-2 -top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                               <button onClick={(e) => { e.stopPropagation(); setOrderToEdit(o); }} className="bg-slate-800 text-slate-300 p-1.5 rounded-full shadow-md hover:bg-slate-700 hover:text-white" title="Editar"><Edit size={12}/></button>
+                                               <button onClick={(e) => { e.stopPropagation(); if(confirm('Excluir este pedido?')) onDeleteOrder(o.id); }} className="bg-red-600 text-white p-1.5 rounded-full shadow-md hover:bg-red-500" title="Excluir"><Trash2 size={12}/></button>
+                                           </div>
                                         </div>
                                      ))}
                                  </div>
@@ -441,7 +447,7 @@ export default function AdminInterface(props: AdminProps) {
                     {/* OTHER VIEWS */}
                     {view === 'menu' && <MenuManager products={products} onCreate={props.onCreateProduct} onUpdate={props.onUpdateProduct} onDelete={props.onDeleteProduct} />}
                     {view === 'clients' && <ClientsView clients={clients} orders={orders} setModal={setModal} setClientToEdit={setClientToEdit} />}
-                    {view === 'kds' && <KitchenDisplay orders={orders} products={products} drivers={drivers} onUpdateStatus={onUpdateOrder} onAssignOrder={handleAssignAndNotify} appConfig={appConfig} />}
+                    {view === 'kds' && <KitchenDisplay orders={orders} products={products} drivers={drivers} onUpdateStatus={onUpdateOrder} onAssignOrder={handleAssignAndNotify} onDeleteOrder={onDeleteOrder} appConfig={appConfig} />}
                     {view === 'history' && (
                        <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-24 custom-scrollbar">
                           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -452,14 +458,28 @@ export default function AdminInterface(props: AdminProps) {
                           </div>
                           
                           {/* ABAS FINANCEIRAS */}
-                          <div className="flex gap-4 mb-6 border-b border-slate-800 pb-1">
-                              <button onClick={() => setFinanceTab('overview')} className={`pb-3 px-2 text-sm font-bold transition-all border-b-2 ${financeTab==='overview' ? 'text-amber-500 border-amber-500' : 'text-slate-500 border-transparent hover:text-white'}`}>
+                          <div className="flex gap-4 mb-6 border-b border-slate-800 pb-1 overflow-x-auto">
+                              <button onClick={() => setFinanceTab('orders')} className={`pb-3 px-2 text-sm font-bold transition-all border-b-2 whitespace-nowrap ${financeTab==='orders' ? 'text-emerald-500 border-emerald-500' : 'text-slate-500 border-transparent hover:text-white'}`}>
+                                  <div className="flex items-center gap-2"><ClipboardList size={16}/> Lista de Pedidos</div>
+                              </button>
+                              <button onClick={() => setFinanceTab('overview')} className={`pb-3 px-2 text-sm font-bold transition-all border-b-2 whitespace-nowrap ${financeTab==='overview' ? 'text-amber-500 border-amber-500' : 'text-slate-500 border-transparent hover:text-white'}`}>
                                   <div className="flex items-center gap-2"><Wallet size={16}/> Fluxo de Caixa</div>
                               </button>
-                              <button onClick={() => setFinanceTab('items')} className={`pb-3 px-2 text-sm font-bold transition-all border-b-2 ${financeTab==='items' ? 'text-blue-500 border-blue-500' : 'text-slate-500 border-transparent hover:text-white'}`}>
+                              <button onClick={() => setFinanceTab('items')} className={`pb-3 px-2 text-sm font-bold transition-all border-b-2 whitespace-nowrap ${financeTab==='items' ? 'text-blue-500 border-blue-500' : 'text-slate-500 border-transparent hover:text-white'}`}>
                                   <div className="flex items-center gap-2"><FileBarChart size={16}/> Relatório de Produtos</div>
                               </button>
                           </div>
+
+                          {financeTab === 'orders' && (
+                              <DailyOrdersView 
+                                  orders={orders} 
+                                  drivers={drivers} 
+                                  onDeleteOrder={onDeleteOrder} 
+                                  setModal={setModal} 
+                                  onUpdateOrder={onUpdateOrder}
+                                  appConfig={appConfig}
+                              />
+                          )}
 
                           {financeTab === 'overview' && (
                               <>
@@ -586,6 +606,13 @@ export default function AdminInterface(props: AdminProps) {
                 driverName={selectedDriver?.name} 
             />}
             {(props as any).modal === 'order' && <NewOrderModal onClose={()=>setModal(null)} onSave={handleCreateOrder} products={products} clients={clients} />}
+            {orderToEdit && (
+                <EditOrderModal 
+                    order={orderToEdit} 
+                    onClose={() => setOrderToEdit(null)} 
+                    onSave={onUpdateOrder} 
+                />
+            )}
         </div>
     );
 }

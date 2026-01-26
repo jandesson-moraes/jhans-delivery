@@ -2,8 +2,8 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Order, Product, Driver, AppConfig } from '../types';
 import { formatTime, toSentenceCase, formatDate, getOrderReceivedText, copyToClipboard, formatOrderId, isToday } from '../utils';
-import { Clock, CheckCircle2, Flame, ChefHat, History, Bike, Copy, X, ListChecks, ArrowRight, PackageCheck } from 'lucide-react';
-import { KitchenHistoryModal, ProductionSuccessModal, ConfirmCloseOrderModal } from './Modals';
+import { Clock, CheckCircle2, Flame, ChefHat, History, Bike, Copy, X, ListChecks, ArrowRight, PackageCheck, Edit, Trash2 } from 'lucide-react';
+import { KitchenHistoryModal, ProductionSuccessModal, ConfirmCloseOrderModal, EditOrderModal } from './Modals';
 import { Footer } from './Shared';
 import { serverTimestamp } from 'firebase/firestore';
 
@@ -13,17 +13,20 @@ interface KDSProps {
     drivers?: Driver[];
     onUpdateStatus: (id: string, status: any) => void;
     onAssignOrder?: (oid: string, did: string) => void;
+    onDeleteOrder?: (id: string) => void;
     onBack?: () => void;
     appConfig: AppConfig;
 }
 
 const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
-export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateStatus, onAssignOrder, appConfig }: KDSProps) {
+export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateStatus, onAssignOrder, onDeleteOrder, appConfig }: KDSProps) {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [selectedHistoryOrder, setSelectedHistoryOrder] = useState<Order | null>(null);
     const [productionOrder, setProductionOrder] = useState<Order | null>(null);
     const [orderToClose, setOrderToClose] = useState<Order | null>(null);
+    const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+    
     const prevPendingCountRef = useRef(0);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     
@@ -157,13 +160,34 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                                 <span className="text-xs font-mono text-white/50">{formatOrderId(order.id)}</span>
                                             </div>
                                             <div className="flex flex-col items-end shrink-0 gap-2">
-                                                <button 
-                                                    onClick={(e) => { e.stopPropagation(); setOrderToClose(order); }}
-                                                    className="p-1.5 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-lg transition-colors"
-                                                    title="Cancelar/Remover"
-                                                >
-                                                    <X size={14} />
-                                                </button>
+                                                <div className="flex gap-1">
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); setEditingOrder(order); }}
+                                                        className="p-1.5 hover:bg-slate-700 text-slate-500 hover:text-white rounded-lg transition-colors bg-slate-900/50"
+                                                        title="Editar Pedido"
+                                                    >
+                                                        <Edit size={14} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            if (confirm('Tem certeza que deseja excluir permanentemente este pedido?')) {
+                                                                if (onDeleteOrder) onDeleteOrder(order.id); 
+                                                            }
+                                                        }}
+                                                        className="p-1.5 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-lg transition-colors bg-slate-900/50"
+                                                        title="Excluir Permanentemente"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); setOrderToClose(order); }}
+                                                        className="p-1.5 hover:bg-emerald-500/20 text-slate-500 hover:text-emerald-400 rounded-lg transition-colors bg-slate-900/50"
+                                                        title="Concluir/Fechar"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
                                                 <div className="flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded text-amber-400 font-mono font-bold text-lg shadow-inner">
                                                     {getElapsedTime(order.createdAt)}
                                                 </div>
@@ -291,6 +315,28 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                         <Clock size={10}/> Tempo Total: {getPreparationTime(order.createdAt, order.completedAt || order.assignedAt)}
                                     </div>
                                 )}
+
+                                <div className="flex justify-end gap-2 mt-2 border-t border-slate-800/50 pt-2">
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); setEditingOrder(order); }}
+                                        className="p-1.5 hover:bg-slate-800 rounded text-slate-500 hover:text-amber-500 transition-colors"
+                                        title="Editar"
+                                    >
+                                        <Edit size={14}/>
+                                    </button>
+                                    <button 
+                                        onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            if (confirm('Tem certeza que deseja excluir este pedido do histórico?')) {
+                                                if(onDeleteOrder) onDeleteOrder(order.id); 
+                                            }
+                                        }}
+                                        className="p-1.5 hover:bg-slate-800 rounded text-slate-500 hover:text-red-500 transition-colors"
+                                        title="Excluir"
+                                    >
+                                        <Trash2 size={14}/>
+                                    </button>
+                                </div>
                             </div>
                         );
                     })}
@@ -322,6 +368,14 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                         onUpdateStatus(orderToClose.id, { status: 'completed', completedAt: serverTimestamp() });
                         setOrderToClose(null);
                     }}
+                />
+            )}
+
+            {editingOrder && (
+                <EditOrderModal 
+                    order={editingOrder} 
+                    onClose={() => setEditingOrder(null)} 
+                    onSave={onUpdateStatus} 
                 />
             )}
         </div>
