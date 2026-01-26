@@ -287,7 +287,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         text += `*Cliente:* ${data.customer}\n`;
         text += `*Itens:* ${data.items.replace(/\n---\n/g, ', ')}\n`;
         if (checkout.serviceType === 'delivery') {
-            text += `*Entrega:* GRÁTIS (Presente da Casa) 🎁\n`;
+            text += `*Entrega:* GRÁTIS (Presente da Casa) \uD83C\uDF81\n`;
         }
         text += `*Total:* ${formatCurrency(data.value)}\n`;
         text += `*Pagamento:* ${data.paymentMethod}\n\n`;

@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement } from '../types';
 import { BrandLogo, SidebarBtn, StatBox, Footer } from './Shared';
-import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart, History, CheckCircle2, Radar, Volume2, VolumeX, UserCheck, TrendingUp, FileText, Bike, Signal, Battery, Eye, EyeOff } from 'lucide-react';
+import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart, History, CheckCircle2, Radar, Volume2, VolumeX, UserCheck, TrendingUp, FileText, Bike, Signal, Battery, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { formatCurrency, formatTime, formatDate, isToday, formatOrderId } from '../utils';
 import { MenuManager } from './MenuManager';
 import { ClientsView } from './ClientsView';
@@ -337,7 +337,7 @@ export default function AdminInterface(props: AdminProps) {
                               </div>
                           </div>
 
-                          {/* 3. PAINEL ESQUERDO: RADAR DE PEDIDOS */}
+                          {/* 3. PAINEL ESQUERDO: RADAR DE PEDIDOS (INTERATIVO) */}
                           {showRadar && (
                               <div className="absolute top-20 left-4 bottom-24 z-30 w-80 flex flex-col gap-3 pointer-events-none">
                                  <div className="flex items-center gap-2 mb-1 text-cyan-400 font-bold text-xs uppercase tracking-widest bg-black/60 p-3 rounded-xl backdrop-blur-md border border-cyan-500/30 shadow-lg pointer-events-auto">
@@ -345,7 +345,11 @@ export default function AdminInterface(props: AdminProps) {
                                  </div>
                                  <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2 pb-2 mask-linear-fade">
                                      {orders.filter((o: Order) => o.status === 'pending' || o.status === 'preparing' || o.status === 'ready').map((o: Order) => (
-                                        <div key={o.id} className={`bg-slate-900/90 backdrop-blur-md p-4 rounded-xl shadow-2xl border-l-4 relative group animate-in slide-in-from-left-4 pointer-events-auto transition-all hover:scale-105 hover:bg-slate-800 ${o.status === 'ready' ? 'border-emerald-500' : o.status === 'preparing' ? 'border-blue-500' : 'border-amber-500'}`}>
+                                        <div 
+                                            key={o.id} 
+                                            onClick={() => o.status === 'pending' ? setNewIncomingOrder(o) : null}
+                                            className={`bg-slate-900/90 backdrop-blur-md p-4 rounded-xl shadow-2xl border-l-4 relative group animate-in slide-in-from-left-4 pointer-events-auto transition-all hover:scale-105 hover:bg-slate-800 cursor-pointer ${o.status === 'ready' ? 'border-emerald-500' : o.status === 'preparing' ? 'border-blue-500' : 'border-amber-500'}`}
+                                        >
                                            <div className="flex justify-between items-start mb-1">
                                                <span className="font-bold text-sm text-white truncate w-32">{o.customer}</span>
                                                <span className="text-[10px] font-bold bg-slate-950 px-2 py-1 rounded text-slate-400">{o.time}</span>
@@ -353,11 +357,18 @@ export default function AdminInterface(props: AdminProps) {
                                            <p className="text-xs text-slate-400 truncate mb-2 flex items-center gap-1"><MapPin size={10}/> {o.address}</p>
                                            <div className="flex justify-between items-center">
                                                <span className="text-sm font-bold text-emerald-400">{o.amount}</span>
-                                               <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${o.status==='ready' ? 'bg-emerald-900 text-emerald-300' : o.status==='preparing' ? 'bg-blue-900 text-blue-300' : 'bg-amber-900 text-amber-300'}`}>
-                                                   {o.status==='ready' ? 'PRONTO' : o.status==='preparing' ? 'COZINHA' : 'PENDENTE'}
-                                               </span>
+                                               <div className="flex items-center gap-2">
+                                                   {o.status === 'pending' && (
+                                                       <span className="flex items-center gap-1 text-[9px] font-bold bg-amber-600 text-white px-2 py-0.5 rounded animate-pulse">
+                                                           <AlertCircle size={10}/> ANALISAR
+                                                       </span>
+                                                   )}
+                                                   <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${o.status==='ready' ? 'bg-emerald-900 text-emerald-300' : o.status==='preparing' ? 'bg-blue-900 text-blue-300' : 'bg-amber-900/30 text-amber-300'}`}>
+                                                       {o.status==='ready' ? 'PRONTO' : o.status==='preparing' ? 'COZINHA' : 'PENDENTE'}
+                                                   </span>
+                                               </div>
                                            </div>
-                                           <button onClick={() => onDeleteOrder(o.id)} className="absolute -right-2 -top-2 bg-red-600 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"><Trash2 size={12}/></button>
+                                           <button onClick={(e) => { e.stopPropagation(); onDeleteOrder(o.id); }} className="absolute -right-2 -top-2 bg-red-600 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-red-500"><Trash2 size={12}/></button>
                                         </div>
                                      ))}
                                  </div>

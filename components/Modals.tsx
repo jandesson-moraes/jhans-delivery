@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame, TrendingUp, DollarSign, ShoppingBag, ArrowRight, Play } from 'lucide-react';
 import { Product, Client, AppConfig, Driver, Order, Vale } from '../types';
@@ -298,7 +299,7 @@ export function NewIncomingOrderModal({ order, onClose, appConfig, onAccept }: a
                             onClick={onClose}
                             className="bg-slate-950 hover:bg-slate-800 text-slate-500 hover:text-white py-3 rounded-xl font-bold text-xs border border-slate-800 transition-colors"
                         >
-                            Analisar Depois
+                            Ver Depois (Fica no Radar)
                         </button>
                     </div>
                 </div>

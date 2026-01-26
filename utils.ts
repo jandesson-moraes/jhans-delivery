@@ -1,5 +1,4 @@
 
-
 export const formatTime = (timestamp: any) => {
   if (!timestamp || !timestamp.seconds) return '-';
   return new Date(timestamp.seconds * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -166,14 +165,10 @@ export const generatePixPayload = (key: string, name: string, city: string, amou
     const cleanName = normalizeText(name || 'RECEBEDOR').substring(0, 25) || 'RECEBEDOR';
     const cleanCity = normalizeText(city || 'BRASIL').substring(0, 15) || 'BRASIL';
     
-    // CORREÇÃO CRÍTICA: TxID deve ser alfanumérico. Removemos hífens e outros caracteres especiais.
-    // Mantemos '***' se for o valor padrão.
     let cleanTxId = sanitizeAscii(txId || '***');
     if (cleanTxId !== '***') {
-        // Remove tudo que não for letra ou número
         cleanTxId = cleanTxId.replace(/[^a-zA-Z0-9]/g, '');
     }
-    // Se ficou vazio após limpeza, volta para ***
     if (!cleanTxId) cleanTxId = '***';
     cleanTxId = cleanTxId.substring(0, 25);
 
@@ -207,6 +202,22 @@ export const formatOrderId = (id: string) => {
     return '#' + cleanId;
 };
 
+// EMOJIS SEGUROS (UNICODE)
+const EMOJI = {
+    GIFT: '\uD83C\uDF81',
+    HEART: '\u2764\uFE0F',
+    BURGER: '\uD83C\uDF54',
+    WAVE: '\uD83D\uDC4B',
+    SMILE_HEARTS: '\uD83E\uDD70',
+    MONEY_BAG: '\uD83D\uDCB0',
+    WARNING: '\u26A0\uFE0F',
+    SMILE: '\uD83D\uDE00',
+    SCOOTER: '\uD83D\uDEF5',
+    DASH: '\uD83D\uDCA8',
+    CHEF: '\uD83D\uDC68\u200D\uD83C\uDF73',
+    FIRE: '\uD83D\uDD25'
+};
+
 export const generateReceiptText = (order: any, appName: string, pixData?: any) => {
     const safeName = appName || 'Jhans Burgers';
     const date = formatDate(order.createdAt);
@@ -216,13 +227,12 @@ export const generateReceiptText = (order: any, appName: string, pixData?: any) 
     let text = `*${safeName.toUpperCase()}*\n*Pedido ${displayId}*\n📅 ${date} - ${time}\n\n*Cliente:* ${order.customer}\n*Tel:* ${order.phone}\n*End:* ${order.address}\n\n*--------------------------------*\n*ITENS:*\n${order.items}\n\n*--------------------------------*\n*TOTAL:* ${formatCurrency(order.value || 0)}\n\n`;
     
     if (order.deliveryFee === 0 || !order.deliveryFee) {
-        text += `*Entrega:* GRÁTIS (Presente da Casa) 🎁\n`;
+        text += `*Entrega:* GRÁTIS (Presente da Casa) ${EMOJI.GIFT}\n`;
     }
 
     text += `*Pagamento:* ${order.paymentMethod || 'Dinheiro'}\n${order.obs ? `\n*Obs:* ${order.obs}` : ''}`;
     
-    // Frase de acolhimento no rodapé do recibo interno/cliente
-    text += `\n\n*Status:* Fique tranquilo! Seu pedido será preparado com muito carinho. ❤️🍔`;
+    text += `\n\n*Status:* Fique tranquilo! Seu pedido será preparado com muito carinho. ${EMOJI.HEART}${EMOJI.BURGER}`;
 
     if (pixData && order.paymentMethod && order.paymentMethod.toUpperCase().includes('PIX') && pixData.pixKey) {
          const payload = generatePixPayload(pixData.pixKey, pixData.pixName, pixData.pixCity, order.value, order.id);
@@ -252,7 +262,7 @@ export const getOrderReceivedText = (order: any, appName: string) => {
     const isPix = order.paymentMethod?.toLowerCase().includes('pix');
     const displayId = formatOrderId(order.id);
     
-    return `Olá *${order.customer}*! 👋\nRecebemos seu pedido no *${safeName}* e ficamos muito felizes!\n\n*Fique tranquilo!* 🥰\nSeu pedido ${displayId} já entrou no nosso sistema e será aceito e preparado com todo o cuidado.\n\n💰 Total: *${formatCurrency(order.value)}*\n${isPix ? '⚠️ *Assim que puder, nos envie o comprovante PIX.*\n\nCaso já tenha feito o pagamento, favor desconsiderar a cobrança 😀' : ''}\n\n🛵 Avisaremos assim que sair para entrega!`;
+    return `Olá *${order.customer}*! ${EMOJI.WAVE}\nRecebemos seu pedido no *${safeName}* e ficamos muito felizes!\n\n*Fique tranquilo!* ${EMOJI.SMILE_HEARTS}\nSeu pedido ${displayId} já entrou no nosso sistema e será aceito e preparado com todo o cuidado.\n\n${EMOJI.MONEY_BAG} Total: *${formatCurrency(order.value)}*\n${isPix ? `${EMOJI.WARNING} *Assim que puder, nos envie o comprovante PIX.*\n\nCaso já tenha feito o pagamento, favor desconsiderar a cobrança ${EMOJI.SMILE}` : ''}\n\n${EMOJI.SCOOTER} Avisaremos assim que sair para entrega!`;
 };
 
 export const sendOrderConfirmation = (order: any, appName: string) => {
@@ -265,25 +275,22 @@ export const sendOrderConfirmation = (order: any, appName: string) => {
 export const sendDeliveryNotification = (order: any, driverName: string, vehicle: string) => {
     const phone = normalizePhone(order.phone);
     if (!phone) return;
-    const text = `Olá *${order.customer}*! 🛵💨\n*Boas notícias!*\nSeu pedido saiu para entrega e está a caminho.\n\nEntregador: *${driverName}*\nVeículo: *${vehicle}*\n\nObrigado pela preferência e bom apetite! 🍔❤️`;
+    const text = `Olá *${order.customer}*! ${EMOJI.SCOOTER}${EMOJI.DASH}\n*Boas notícias!*\nSeu pedido saiu para entrega e está a caminho.\n\nEntregador: *${driverName}*\nVeículo: *${vehicle}*\n\nObrigado pela preferência e bom apetite! ${EMOJI.BURGER}${EMOJI.HEART}`;
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
 };
 
-// NOVA FUNÇÃO APENAS PARA GERAR O TEXTO DE DESPACHO
 export const getDispatchMessage = (order: any, driverName: string, appName: string) => {
     const safeName = appName || 'Jhans Burgers';
     const displayId = formatOrderId(order.id);
-    return `Olá *${order.customer}*! 👋\n\nO seu pedido *${displayId}* ficou pronto aqui no *${safeName}* e já entregamos ao motoboy *${driverName}*! 🛵💨\n\nEle já saiu para entrega e logo chega no seu endereço.\n\nObrigado! ❤️`;
+    return `Olá *${order.customer}*! ${EMOJI.WAVE}\n\nO seu pedido *${displayId}* ficou pronto aqui no *${safeName}* e já entregamos ao motoboy *${driverName}*! ${EMOJI.SCOOTER}${EMOJI.DASH}\n\nEle já saiu para entrega e logo chega no seu endereço.\n\nObrigado! ${EMOJI.HEART}`;
 };
 
-// NOVA FUNÇÃO PARA GERAR TEXTO DE INICIO DE PREPARO
 export const getProductionMessage = (order: any, appName: string) => {
     const safeName = appName || 'Jhans Burgers';
     const displayId = formatOrderId(order.id);
-    return `Olá *${order.customer}*! 👋\n\nBoas notícias! O seu pedido *${displayId}* foi ACEITO e já começou a ser preparado aqui no *${safeName}*! 👨‍🍳🔥\n\nAvisaremos assim que ele sair para entrega.\n\nObrigado! ❤️`;
+    return `Olá *${order.customer}*! ${EMOJI.WAVE}\n\nBoas notícias! O seu pedido *${displayId}* foi ACEITO e já começou a ser preparado aqui no *${safeName}*! ${EMOJI.CHEF}${EMOJI.FIRE}\n\nAvisaremos assim que ele sair para entrega.\n\nObrigado! ${EMOJI.HEART}`;
 };
 
-// MANTIDA PARA COMPATIBILIDADE, MAS AGORA USA A FUNÇÃO GERADORA
 export const sendDispatchNotification = (order: any, driverName: string, appName: string) => {
     const safeName = appName || 'Jhans Burgers';
     const phone = normalizePhone(order.phone);
