@@ -1,4 +1,4 @@
-
+import { AppConfig } from "./types";
 
 export const formatTime = (timestamp: any) => {
   if (!timestamp || !timestamp.seconds) return '-';
@@ -300,4 +300,41 @@ export const sendDispatchNotification = (order: any, driverName: string, appName
     if (!phone) return;
     const text = getDispatchMessage(order, driverName, safeName);
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, 'whatsapp-session');
+};
+
+// --- VALIDAÇÃO DE HORÁRIO ---
+export const checkShopStatus = (schedule?: { [key: number]: any }) => {
+    if (!schedule) return { isOpen: true, message: 'Horário não configurado', nextOpen: null }; // Padrão aberto se não configurar
+
+    const now = new Date();
+    const day = now.getDay(); // 0-6
+    const config = schedule[day];
+
+    if (!config || !config.enabled) return { isOpen: false, message: 'Fechado hoje', nextOpen: null };
+
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    
+    const [openH, openM] = config.open.split(':').map(Number);
+    const [closeH, closeM] = config.close.split(':').map(Number);
+    
+    const openTime = openH * 60 + openM;
+    const closeTime = closeH * 60 + closeM;
+
+    // Lógica simples para mesmo dia (ex: 18:00 as 23:00)
+    // Se passar da meia noite (ex: 18:00 as 02:00), precisaria de lógica extra, 
+    // mas vamos assumir funcionamento padrão intra-dia ou estender se closeTime < openTime
+    
+    let isOpen = false;
+    if (closeTime < openTime) {
+        // Passa da meia noite (ex: abre 18h fecha 02h)
+        isOpen = currentTime >= openTime || currentTime < closeTime;
+    } else {
+        isOpen = currentTime >= openTime && currentTime < closeTime;
+    }
+
+    return { 
+        isOpen, 
+        message: isOpen ? `Aberto até ${config.close}` : `Fechado. Abre às ${config.open}`,
+        nextOpen: !isOpen && currentTime < openTime ? config.open : null
+    };
 };

@@ -1,9 +1,8 @@
 
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package, Zap, ZapOff, Edit, Trash2, Send, MinusCircle, AlertCircle, TrendingUp, Radio } from 'lucide-react';
 import { Driver, Order, Vale } from '../types';
-import { isToday, formatTime, formatCurrency, formatDate, sendDeliveryNotification } from '../utils';
+import { isToday, formatTime, formatCurrency, formatDate, sendDeliveryNotification, formatOrderId } from '../utils';
 import { Footer } from './Shared';
 import { EditOrderModal } from './Modals';
 import { serverTimestamp } from 'firebase/firestore';
@@ -21,7 +20,6 @@ interface DriverAppProps {
     onUpdateDriver: (id: string, data: any) => void;
 }
 
-const TAXA_ENTREGA = 5.00;
 const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; 
 
 export default function DriverInterface({ driver, orders, vales = [], onToggleStatus, onAcceptOrder, onCompleteOrder, onUpdateOrder, onDeleteOrder, onLogout, onUpdateDriver }: DriverAppProps) {
@@ -46,8 +44,6 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
                       setGpsActive(true);
                       const { latitude, longitude } = position.coords;
                       // Atualiza no Firestore a cada mudança de posição
-                      // (Em produção, idealmente faríamos debounce para não sobrecarregar o banco, 
-                      // mas para "tempo real" puro, isso funciona)
                       onUpdateDriver(driver.id, {
                           lat: latitude,
                           lng: longitude,
@@ -124,15 +120,28 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
             .sort((a: Order, b: Order) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
   }, [orders, driver.id]);
 
-  // --- LOGICA FINANCEIRA (Extrato) ---
+  // --- LOGICA FINANCEIRA (Extrato) ATUALIZADA ---
   const financialData = useMemo(() => {
       const currentDeliveries = orders.filter((o: Order) => o.status === 'completed' && o.driverId === driver.id && (o.completedAt?.seconds || 0) > lastSettlementTime);
       const currentVales = vales.filter((v: Vale) => v.driverId === driver.id && (v.createdAt?.seconds || 0) > lastSettlementTime);
-      const totalDeliveriesValue = currentDeliveries.length * TAXA_ENTREGA;
+      
+      let totalDeliveriesValue = 0;
+
+      // Cálculo Dinâmico baseado no Modelo do Motoboy
+      if (driver.paymentModel === 'percentage') {
+          totalDeliveriesValue = currentDeliveries.reduce((acc, o) => acc + (o.value * ((driver.paymentRate || 0) / 100)), 0);
+      } else if (driver.paymentModel === 'salary') {
+          totalDeliveriesValue = 0; // Salário é fixo, não soma por entrega aqui
+      } else {
+          // Padrão: Fixo por entrega (R$ 5.00 default se não definido)
+          const rate = driver.paymentRate !== undefined ? driver.paymentRate : 5.00;
+          totalDeliveriesValue = currentDeliveries.length * rate;
+      }
+
       const totalValesValue = currentVales.reduce((acc, v) => acc + (Number(v.amount) || 0), 0);
       const netValue = totalDeliveriesValue - totalValesValue;
       return { deliveriesCount: currentDeliveries.length, deliveriesValue: totalDeliveriesValue, valesCount: currentVales.length, valesValue: totalValesValue, netValue, valesList: currentVales };
-  }, [orders, vales, driver.id, lastSettlementTime]);
+  }, [orders, vales, driver.id, lastSettlementTime, driver.paymentModel, driver.paymentRate]);
 
   const displayedHistory = useMemo(() => {
       if (historyFilter === 'today') { return allDeliveries.filter((o: Order) => isToday(o.completedAt)); }
@@ -143,9 +152,18 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
   
   const historySummary = useMemo(() => {
       const count = displayedHistory.length;
-      const total = count * TAXA_ENTREGA;
+      // Estimativa simples para o histórico, idealmente seria salvo no pedido o valor ganho na época
+      let total = 0;
+      if (driver.paymentModel === 'percentage') {
+          total = displayedHistory.reduce((acc, o) => acc + (o.value * ((driver.paymentRate || 0) / 100)), 0);
+      } else if (driver.paymentModel === 'salary') {
+          total = 0;
+      } else {
+          const rate = driver.paymentRate !== undefined ? driver.paymentRate : 5.00;
+          total = count * rate;
+      }
       return { count, total };
-  }, [displayedHistory]);
+  }, [displayedHistory, driver.paymentModel, driver.paymentRate]);
 
   return (
     <div className="bg-slate-950 min-h-screen w-screen flex flex-col">
@@ -284,7 +302,7 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
                         <p className="text-lg font-black text-white">{historySummary.count} entregas</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-[10px] text-slate-500 uppercase font-bold">Ganhos</p>
+                        <p className="text-[10px] text-slate-500 uppercase font-bold">Estimativa Ganhos</p>
                         <p className="text-lg font-black text-emerald-400">{formatCurrency(historySummary.total)}</p>
                     </div>
                 </div>
@@ -312,10 +330,6 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
                                 <div className="bg-slate-950 p-2 rounded-lg mb-2">
                                     <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">Itens</p>
                                     <p className="text-xs text-slate-300 line-clamp-2">{order.items}</p>
-                                </div>
-                                <div className="flex justify-between items-center pt-1">
-                                    <span className="text-xs text-slate-500">Taxa de Entrega</span>
-                                    <span className="font-bold text-emerald-400">+ {formatCurrency(TAXA_ENTREGA)}</span>
                                 </div>
                             </div>
                         ))
@@ -351,6 +365,20 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
                  </div>
              </div>
 
+             <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
+                 <p className="text-[10px] text-slate-500 uppercase font-bold mb-2">Seu Modelo de Contrato</p>
+                 <div className="flex items-center gap-2">
+                     <span className="text-sm font-bold text-white">
+                         {driver.paymentModel === 'percentage' ? 'Comissão' : driver.paymentModel === 'salary' ? 'Salário Fixo' : 'Por Entrega'}
+                     </span>
+                     {driver.paymentModel !== 'salary' && (
+                         <span className="bg-emerald-900/30 text-emerald-400 text-xs px-2 py-0.5 rounded font-mono">
+                             {driver.paymentModel === 'percentage' ? `${driver.paymentRate}%` : formatCurrency(driver.paymentRate || 0)}
+                         </span>
+                     )}
+                 </div>
+             </div>
+
              {financialData.valesList.length > 0 && (
                  <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4">
                      <h4 className="text-xs font-bold text-white uppercase mb-3 flex items-center gap-2"><AlertCircle size={14} className="text-amber-500"/> Detalhes dos Vales</h4>
@@ -359,7 +387,7 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
                              <div key={vale.id} className="flex justify-between items-center text-xs border-b border-slate-800 pb-2 last:border-0 last:pb-0">
                                  <div>
                                      <p className="text-slate-300">{vale.description}</p>
-                                     <p className="text-[10px] text-slate-500">{formatDate(vale.createdAt)}</p>
+                                     <p className="text-xs text-slate-500">{formatDate(vale.createdAt)}</p>
                                  </div>
                                  <span className="font-bold text-red-400">- {formatCurrency(vale.amount)}</span>
                              </div>

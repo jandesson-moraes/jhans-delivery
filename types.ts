@@ -1,5 +1,17 @@
+
 export type UserType = 'admin' | 'driver' | 'landing' | 'client';
 export type DriverStatus = 'available' | 'delivering' | 'offline';
+
+export interface DeliveryZone {
+    name: string;
+    fee: number;
+}
+
+export interface DaySchedule {
+    enabled: boolean;
+    open: string;  // "18:00"
+    close: string; // "23:00"
+}
 
 export interface AppConfig {
     appName: string;
@@ -8,6 +20,9 @@ export interface AppConfig {
     pixKey?: string;      // Chave PIX
     pixName?: string;     // Nome do Titular
     pixCity?: string;     // Cidade do Titular
+    deliveryZones?: DeliveryZone[]; // Lista de Bairros e Taxas
+    enableDeliveryFees?: boolean;   // Ativar/Desativar taxas
+    schedule?: { [key: number]: DaySchedule }; // 0 (Domingo) a 6 (Sábado)
 }
 
 export interface Driver {
@@ -27,7 +42,10 @@ export interface Driver {
   rating: number;
   totalDeliveries: number;
   lastUpdate?: any; 
-  lastSettlementAt?: any; 
+  lastSettlementAt?: any;
+  // NOVOS CAMPOS DE PAGAMENTO
+  paymentModel?: 'fixed_per_delivery' | 'percentage' | 'salary'; 
+  paymentRate?: number; // Valor da taxa ou porcentagem (0 a 100 ou valor fixo)
 }
 
 export interface Settlement {
@@ -53,6 +71,7 @@ export interface Order {
   customer: string;
   phone: string; 
   address: string;
+  neighborhood?: string; // Novo campo
   mapsLink?: string; 
   items: string; 
   status: 'pending' | 'preparing' | 'ready' | 'assigned' | 'delivering' | 'completed' | 'cancelled';

@@ -205,16 +205,37 @@ export default function AdminInterface(props: AdminProps) {
         return { totalIncome, todayIncome, totalExpenses, todayExpenses, balance: totalIncome - totalExpenses };
     }, [delivered, expenses]);
 
-    const TAXA_ENTREGA = 5.00;
+    // LÓGICA DE GANHOS DO MOTOBOY (ATUALIZADA)
     const driverFinancials = useMemo(() => {
-        if (!selectedDriver) return { total: 0, vales: 0, net: 0, valeList: [], history: [] };
+        if (!selectedDriver) return { total: 0, vales: 0, net: 0, valeList: [], history: [], ordersCount: 0 };
         const lastSettlementTime = selectedDriver.lastSettlementAt?.seconds || 0;
+        
         const currentCycleOrders = orders.filter((o: Order) => o.driverId === selectedDriver.id && o.status === 'completed' && (o.completedAt?.seconds || 0) > lastSettlementTime);
         const currentCycleVales = vales.filter((v: Vale) => v.driverId === selectedDriver.id && (v.createdAt?.seconds || 0) > lastSettlementTime);
         const driverSettlements = settlements.filter(s => s.driverId === selectedDriver.id).sort((a, b) => (b.endAt?.seconds || 0) - (a.endAt?.seconds || 0));
-        const totalEarnings = currentCycleOrders.length * TAXA_ENTREGA;
+        
+        let totalEarnings = 0;
+
+        if (selectedDriver.paymentModel === 'percentage') {
+            totalEarnings = currentCycleOrders.reduce((acc, o) => acc + (o.value * ((selectedDriver.paymentRate || 0) / 100)), 0);
+        } else if (selectedDriver.paymentModel === 'salary') {
+            totalEarnings = 0; 
+        } else {
+            // Default: Fixed per delivery
+            const rate = selectedDriver.paymentRate !== undefined ? selectedDriver.paymentRate : 5.00;
+            totalEarnings = currentCycleOrders.length * rate;
+        }
+
         const totalVales = currentCycleVales.reduce((acc: number, v: Vale) => acc + (Number(v.amount) || 0), 0);
-        return { total: totalEarnings, vales: totalVales, net: totalEarnings - totalVales, valeList: currentCycleVales, ordersCount: currentCycleOrders.length, history: driverSettlements, lastSettlementDate: selectedDriver.lastSettlementAt };
+        return { 
+            total: totalEarnings, 
+            vales: totalVales, 
+            net: totalEarnings - totalVales, 
+            valeList: currentCycleVales, 
+            ordersCount: currentCycleOrders.length, 
+            history: driverSettlements, 
+            lastSettlementDate: selectedDriver.lastSettlementAt 
+        };
     }, [orders, vales, selectedDriver, settlements]);
 
     const handleCreateOrder = (data: any) => { onCreateOrder(data); setModal(null); setView('kds'); };
@@ -541,13 +562,25 @@ export default function AdminInterface(props: AdminProps) {
                           <div className="flex flex-col items-center">
                              <div className="relative mb-3"><img src={selectedDriver.avatar} className="w-24 h-24 rounded-full border-4 border-slate-800 shadow-lg object-cover" alt="Driver"/><span className={`absolute bottom-1 right-1 w-6 h-6 rounded-full border-4 border-white ${selectedDriver.status==='offline'?'bg-slate-400':selectedDriver.status==='available'?'bg-emerald-500':'bg-orange-500'}`}></span></div>
                              <h2 className="font-bold text-2xl text-white">{selectedDriver.name}</h2>
-                             <div className="flex items-center gap-2 mt-1"><span className="text-xs font-bold bg-slate-800 text-slate-400 px-2 py-0.5 rounded">{selectedDriver.plate}</span><span className="text-sm text-slate-500">{selectedDriver.vehicle}</span></div>
-                             <button onClick={() => trackDriver(selectedDriver)} className="mt-5 w-full bg-blue-600/20 text-blue-400 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 border border-blue-600/30"><MapIcon size={18} /> Rastrear Posição Real</button>
-                             <button onClick={() => { setDriverToEdit(selectedDriver); setModal('vale'); }} className="mt-3 w-full border border-red-900/50 text-red-500 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2"><MinusCircle size={16} /> Lançar Desconto / Vale</button>
+                             <div className="flex items-center gap-2 mt-1 mb-2">
+                                 <span className="text-xs font-bold bg-slate-800 text-slate-400 px-2 py-0.5 rounded">{selectedDriver.plate}</span>
+                                 <span className="text-sm text-slate-500">{selectedDriver.vehicle}</span>
+                             </div>
+                             
+                             {/* NOVO: Exibição do Modelo de Pagamento */}
+                             <div className="mb-4 bg-emerald-900/10 border border-emerald-500/20 px-3 py-1.5 rounded-full text-xs font-bold text-emerald-400">
+                                 {selectedDriver.paymentModel === 'percentage' ? `Comissão: ${selectedDriver.paymentRate}%` : selectedDriver.paymentModel === 'salary' ? 'Salário Fixo' : `Taxa: ${formatCurrency(selectedDriver.paymentRate || 5)}`}
+                             </div>
+
+                             <div className="w-full flex gap-2">
+                                <button onClick={() => { setDriverToEdit(selectedDriver); setModal('driver'); }} className="flex-1 bg-slate-800 border border-slate-700 text-slate-300 py-3 rounded-xl text-xs font-bold hover:bg-slate-700 transition-colors flex items-center justify-center gap-2"><Edit size={14}/> Editar Dados</button>
+                                <button onClick={() => trackDriver(selectedDriver)} className="flex-1 bg-blue-600/20 text-blue-400 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border border-blue-600/30 hover:bg-blue-600/30 transition-colors"><MapIcon size={14} /> Rastrear</button>
+                             </div>
+                             <button onClick={() => { setDriverToEdit(selectedDriver); setModal('vale'); }} className="mt-2 w-full border border-red-900/50 text-red-500 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-red-900/10 transition-colors"><MinusCircle size={14} /> Lançar Desconto / Vale</button>
                           </div>
                       </div>
                       <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                         <div className="flex w-full mt-6 bg-slate-950 p-1 rounded-xl mb-6">
+                         <div className="flex w-full mt-2 bg-slate-950 p-1 rounded-xl mb-6">
                             <button onClick={() => setDriverSidebarTab('assign')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${driverSidebarTab==='assign'?'bg-slate-800 text-white shadow-md':'text-slate-500'}`}>Atribuir</button>
                             <button onClick={() => setDriverSidebarTab('history')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${driverSidebarTab==='history'?'bg-slate-800 text-white shadow-md':'text-slate-500'}`}>Entregas</button>
                             <button onClick={() => setDriverSidebarTab('finance')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${driverSidebarTab==='finance'?'bg-slate-800 text-white shadow-md':'text-slate-500'}`}>Financeiro</button>
