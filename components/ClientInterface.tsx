@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, AppConfig, Order, DeliveryZone } from '../types';
 import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard, formatTime, formatDate, generatePixPayload, EMOJI, checkShopStatus } from '../utils';
-import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode, Gift, LogOut, ShieldCheck, CalendarClock } from 'lucide-react';
+import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode, Gift, LogOut, ShieldCheck, CalendarClock, Ban, Moon, CalendarDays, DoorClosed } from 'lucide-react';
 import { BrandLogo, Footer } from './Shared';
 
 interface ClientInterfaceProps {
@@ -16,6 +16,9 @@ interface ClientInterfaceProps {
 export default function ClientInterface({ products, appConfig, onCreateOrder, onBack, allowSystemAccess, onSystemAccess }: ClientInterfaceProps) {
     const [view, setView] = useState<'menu' | 'cart' | 'success'>('menu');
     const [showScheduleModal, setShowScheduleModal] = useState(false);
+    
+    // Controle do Modal Automático de Loja Fechada
+    const [showClosedWarning, setShowClosedWarning] = useState(false);
     
     // --- ESTADOS INICIAIS COM CARREGAMENTO DO LOCALSTORAGE ---
     const [cart, setCart] = useState<{product: Product, quantity: number, obs: string}[]>(() => {
@@ -63,6 +66,22 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
 
     // --- STATUS DA LOJA ---
     const shopStatus = useMemo(() => checkShopStatus(appConfig.schedule), [appConfig.schedule]);
+
+    // EFEITO: Abrir modal se loja fechada ao entrar
+    useEffect(() => {
+        if (!shopStatus.isOpen && !allowSystemAccess && view === 'menu') {
+            // Verifica se já não foi dispensado nesta sessão (opcional, aqui forçamos sempre que montar)
+            const hasSeen = sessionStorage.getItem('seen_closed_modal');
+            if (!hasSeen) {
+                setShowClosedWarning(true);
+            }
+        }
+    }, [shopStatus.isOpen, allowSystemAccess]);
+
+    const handleDismissClosedWarning = () => {
+        setShowClosedWarning(false);
+        sessionStorage.setItem('seen_closed_modal', 'true');
+    };
 
     // --- PERSISTÊNCIA DE DADOS (EFEITOS) ---
     useEffect(() => {
@@ -257,6 +276,13 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         let itemsHeader = "";
         
         if (isPreOrder) {
+            // TRAVA DE SEGURANÇA NO CART (CASO FECHE O MODAL)
+            const confirmPreOrder = window.confirm(
+                `⛔ ATENÇÃO: A LOJA ESTÁ FECHADA!\n\nSeu pedido será registrado como um AGENDAMENTO (Pré-Venda) e só será preparado quando abrirmos: ${shopStatus.nextOpen || 'Em breve'}.\n\nDeseja continuar mesmo assim?`
+            );
+            
+            if (!confirmPreOrder) return; // Cancela se o usuário não confirmar
+
             itemsHeader = `📢 [PRÉ-VENDA / AGENDADO]\n🕒 Entrega na abertura: ${shopStatus.nextOpen || 'Assim que abrir'}\n-----------------------\n`;
         }
 
@@ -340,6 +366,10 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
 
         text += `*Total:* ${formatCurrency(data.value)}\n`;
         text += `*Pagamento:* ${data.paymentMethod}\n\n`;
+        
+        if (data.obs) {
+            text += `*Observação:* ${data.obs}\n\n`;
+        }
         
         if (data.paymentMethod && data.paymentMethod.includes('PIX') && appConfig.pixKey) {
             const payload = generatePixPayload(appConfig.pixKey, appConfig.pixName, appConfig.pixCity, data.value, data.id);
@@ -461,21 +491,21 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                {/* ALERTA SE LOJA FECHADA - MODO AGENDAMENTO */}
+                                {/* ALERTA SE LOJA FECHADA - MODO AGENDAMENTO - VISUAL REFORÇADO */}
                                 {!shopStatus.isOpen && (
-                                    <div className="bg-gradient-to-r from-amber-900/40 to-slate-900 border-l-4 border-amber-500 rounded-xl p-5 shadow-lg relative overflow-hidden animate-in slide-in-from-top-2">
+                                    <div className="bg-red-950/80 border-2 border-red-500 rounded-2xl p-5 shadow-[0_0_20px_rgba(220,38,38,0.4)] relative overflow-hidden animate-pulse-subtle">
                                         <div className="flex items-start gap-4 relative z-10">
-                                            <div className="bg-amber-500/20 p-3 rounded-full animate-pulse">
-                                                <CalendarClock className="text-amber-400" size={24}/>
+                                            <div className="bg-red-500 p-3 rounded-full animate-bounce">
+                                                <Ban className="text-white" size={28}/>
                                             </div>
                                             <div>
-                                                <h4 className="font-black text-amber-400 text-lg uppercase tracking-wide mb-1">Loja Fechada Agora</h4>
-                                                <p className="text-sm text-slate-300 font-medium leading-relaxed">
-                                                    Mas não se preocupe! Você pode fazer seu pedido como <strong>Pré-Venda</strong>.
+                                                <h4 className="font-black text-white text-xl uppercase tracking-wide mb-1">LOJA FECHADA</h4>
+                                                <p className="text-sm text-red-100 font-medium leading-relaxed">
+                                                    Não estamos atendendo agora. Seu pedido será considerado uma <strong>PRÉ-VENDA (Agendamento)</strong>.
                                                 </p>
-                                                <div className="mt-3 bg-black/30 p-2 rounded-lg border border-amber-500/20 inline-block">
-                                                    <p className="text-xs text-amber-200 font-bold flex items-center gap-2">
-                                                        <Clock size={14}/> Previsão de Entrega: {shopStatus.nextOpen ? `Abertura (${shopStatus.nextOpen})` : 'Assim que abrir'}
+                                                <div className="mt-3 bg-black/40 p-2 rounded-lg border border-red-500/50 inline-block">
+                                                    <p className="text-xs text-white font-bold flex items-center gap-2">
+                                                        <Clock size={14} className="text-amber-400"/> Só entregaremos: <span className="text-amber-400">{shopStatus.nextOpen}</span>
                                                     </p>
                                                 </div>
                                             </div>
@@ -548,6 +578,15 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                                             </div>
                                         )}
                                     </div>
+                                    
+                                    <h3 className="font-bold text-slate-400 text-sm uppercase pt-2">Observações</h3>
+                                    <textarea 
+                                        placeholder="Alguma observação geral para o pedido? (Ex: Tocar a campainha, deixar na portaria)" 
+                                        className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-sm h-20 resize-none text-white"
+                                        value={checkout.obs} 
+                                        onChange={e => setCheckout({...checkout, obs: e.target.value})}
+                                    />
+
                                     <h3 className="font-bold text-slate-400 text-sm uppercase pt-2">Pagamento</h3>
                                     <div className="grid grid-cols-3 gap-2">
                                         {['PIX', 'Dinheiro', 'Cartão'].map(method => (
@@ -606,7 +645,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                             <button 
                                 form="checkout-form" 
                                 type="submit" 
-                                className={`w-full text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 text-lg active:scale-95 transition-transform ${shopStatus.isOpen ? 'bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500' : 'bg-gradient-to-r from-amber-700 to-amber-600 hover:from-amber-600 hover:to-amber-500 border border-amber-400/30'}`}
+                                className={`w-full text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 text-lg active:scale-95 transition-transform ${shopStatus.isOpen ? 'bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500' : 'bg-red-700 hover:bg-red-600 border-2 border-red-500 shadow-red-900/50'}`}
                             >
                                 {shopStatus.isOpen ? (
                                     <><CheckCircle2 size={24}/> Enviar Pedido</>
@@ -730,6 +769,81 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                         </div>
                         
                         <button onClick={() => setShowScheduleModal(false)} className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700">Fechar</button>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL AUTOMÁTICO - LOJA FECHADA */}
+            {showClosedWarning && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-500">
+                    <div className="bg-slate-900 rounded-3xl w-full max-w-sm p-6 border-2 border-slate-800 shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
+                        
+                        {/* Indicador de Hora Tardia */}
+                        {new Date().getHours() >= 23 || new Date().getHours() < 6 ? (
+                            <>
+                                <div className="bg-indigo-900/30 p-4 rounded-full mb-4 animate-pulse">
+                                    <Moon size={40} className="text-indigo-400" />
+                                </div>
+                                <h3 className="font-black text-2xl text-white mb-2 uppercase tracking-wide">
+                                    Atividades Encerradas
+                                </h3>
+                                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 mb-6">
+                                    <p className="text-slate-300 font-medium leading-relaxed">
+                                        Encerramos as atividades às 23h. <br/>
+                                        <span className="text-indigo-300">Agradecemos pelo contato!</span>
+                                    </p>
+                                    <p className="text-sm text-slate-500 mt-2">
+                                        Voltamos amanhã (caso seja dia de funcionamento).
+                                    </p>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="bg-red-900/30 p-4 rounded-full mb-4">
+                                    <DoorClosed size={40} className="text-red-400" />
+                                </div>
+                                <h3 className="font-black text-2xl text-white mb-2 uppercase tracking-wide">
+                                    Estamos Fechados
+                                </h3>
+                                <p className="text-slate-400 mb-6">
+                                    No momento nossa cozinha não está operando.
+                                </p>
+                            </>
+                        )}
+
+                        {/* LISTA RÁPIDA DE HORÁRIOS */}
+                        <div className="w-full bg-black/20 rounded-xl p-3 mb-6 border border-white/5">
+                            <p className="text-[10px] uppercase font-bold text-slate-500 mb-2 flex items-center justify-center gap-1"><CalendarDays size={12}/> Nossos Horários</p>
+                            <div className="space-y-1">
+                                {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((day, idx) => {
+                                    const config = appConfig.schedule?.[idx];
+                                    const isToday = new Date().getDay() === idx;
+                                    if (!isToday && idx > new Date().getDay() + 2) return null; // Mostra só próximos dias
+                                    return (
+                                        <div key={idx} className={`flex justify-between text-xs ${isToday ? 'text-white font-bold' : 'text-slate-500'}`}>
+                                            <span>{day}</span>
+                                            <span>{config && config.enabled ? `${config.open} - ${config.close}` : 'Fechado'}</span>
+                                        </div>
+                                    )
+                                }).slice(0, 3)} 
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col w-full gap-3">
+                            <button 
+                                onClick={handleDismissClosedWarning}
+                                className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                            >
+                                <CalendarClock size={18}/> Antecipar Pedido para Amanhã
+                            </button>
+                            <button 
+                                onClick={() => { /* Opção de sair ou fechar */ handleDismissClosedWarning(); }}
+                                className="text-slate-500 text-xs font-bold py-2 hover:text-white transition-colors"
+                            >
+                                Apenas olhar o cardápio
+                            </button>
+                        </div>
+
                     </div>
                 </div>
             )}

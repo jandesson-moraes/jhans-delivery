@@ -203,8 +203,7 @@ export const formatOrderId = (id: string) => {
     return '#' + cleanId;
 };
 
-// EMOJIS SEGUROS - Usando Unicode Escapes para evitar problemas de codificação de arquivo
-// Isso garante que os emojis funcionem mesmo se o arquivo for salvo como ANSI/ISO-8859-1
+// EMOJIS SEGUROS
 export const EMOJI = {
     GIFT: '\uD83C\uDF81',         // 🎁
     HEART: '\u2764\uFE0F',        // ❤️
@@ -271,7 +270,6 @@ export const sendOrderConfirmation = (order: any, appName: string) => {
     const safeName = appName || 'Jhans Burgers';
     const text = getOrderReceivedText(order, safeName);
     const phone = normalizePhone(order.phone);
-    // Usando 'whatsapp-session' para tentar reutilizar a aba
     if(phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, 'whatsapp-session');
 };
 
@@ -302,39 +300,70 @@ export const sendDispatchNotification = (order: any, driverName: string, appName
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, 'whatsapp-session');
 };
 
-// --- VALIDAÇÃO DE HORÁRIO ---
+// --- VALIDAÇÃO DE HORÁRIO APRIMORADA ---
 export const checkShopStatus = (schedule?: { [key: number]: any }) => {
-    if (!schedule) return { isOpen: true, message: 'Horário não configurado', nextOpen: null }; // Padrão aberto se não configurar
+    // Se não houver configuração, assume aberto para evitar bloqueios indesejados
+    if (!schedule) return { isOpen: true, message: 'Horário não configurado', nextOpen: null };
 
     const now = new Date();
-    const day = now.getDay(); // 0-6
-    const config = schedule[day];
-
-    if (!config || !config.enabled) return { isOpen: false, message: 'Fechado hoje', nextOpen: null };
-
+    const currentDay = now.getDay(); // 0 = Domingo, 6 = Sábado
     const currentTime = now.getHours() * 60 + now.getMinutes();
     
-    const [openH, openM] = config.open.split(':').map(Number);
-    const [closeH, closeM] = config.close.split(':').map(Number);
-    
-    const openTime = openH * 60 + openM;
-    const closeTime = closeH * 60 + closeM;
+    const todayConfig = schedule[currentDay];
 
-    // Lógica simples para mesmo dia (ex: 18:00 as 23:00)
-    // Se passar da meia noite (ex: 18:00 as 02:00), precisaria de lógica extra, 
-    // mas vamos assumir funcionamento padrão intra-dia ou estender se closeTime < openTime
+    // Verificar se está aberto HOJE agora
+    let isOpenToday = false;
+    if (todayConfig && todayConfig.enabled) {
+        const [openH, openM] = todayConfig.open.split(':').map(Number);
+        const [closeH, closeM] = todayConfig.close.split(':').map(Number);
+        
+        const openTime = openH * 60 + openM;
+        const closeTime = closeH * 60 + closeM;
+        
+        if (closeTime < openTime) {
+            // Horário cruza meia-noite (ex: 18:00 as 02:00)
+            isOpenToday = currentTime >= openTime || currentTime < closeTime;
+        } else {
+            // Horário normal (ex: 18:00 as 23:00)
+            isOpenToday = currentTime >= openTime && currentTime < closeTime;
+        }
+    }
+
+    if (isOpenToday) {
+        return { isOpen: true, message: `Aberto até ${todayConfig.close}`, nextOpen: null };
+    }
+
+    // Se fechado, encontrar o PRÓXIMO horário de abertura
+    let nextOpen = null;
+    let nextDayName = '';
     
-    let isOpen = false;
-    if (closeTime < openTime) {
-        // Passa da meia noite (ex: abre 18h fecha 02h)
-        isOpen = currentTime >= openTime || currentTime < closeTime;
-    } else {
-        isOpen = currentTime >= openTime && currentTime < closeTime;
+    // 1. Tentar ainda hoje (se fechou mas vai abrir mais tarde, ou se ainda não abriu)
+    if (todayConfig && todayConfig.enabled) {
+        const [openH, openM] = todayConfig.open.split(':').map(Number);
+        const openTime = openH * 60 + openM;
+        if (currentTime < openTime) {
+            nextOpen = todayConfig.open;
+            nextDayName = 'Hoje';
+        }
+    }
+
+    // 2. Se não encontrou hoje, procurar nos próximos 7 dias
+    if (!nextOpen) {
+        const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+        for (let i = 1; i <= 7; i++) {
+            const nextDayIndex = (currentDay + i) % 7;
+            const nextConfig = schedule[nextDayIndex];
+            if (nextConfig && nextConfig.enabled) {
+                nextOpen = nextConfig.open;
+                nextDayName = i === 1 ? 'Amanhã' : days[nextDayIndex];
+                break;
+            }
+        }
     }
 
     return { 
-        isOpen, 
-        message: isOpen ? `Aberto até ${config.close}` : `Fechado. Abre às ${config.open}`,
-        nextOpen: !isOpen && currentTime < openTime ? config.open : null
+        isOpen: false, 
+        message: 'Fechado no momento',
+        nextOpen: nextOpen ? `${nextDayName} às ${nextOpen}` : 'Em breve'
     };
 };
