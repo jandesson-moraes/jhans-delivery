@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Order, Product, Driver, AppConfig } from '../types';
 import { formatTime, toSentenceCase, formatDate, getOrderReceivedText, copyToClipboard, formatOrderId, isToday } from '../utils';
@@ -26,6 +25,9 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
     const [productionOrder, setProductionOrder] = useState<Order | null>(null);
     const [orderToClose, setOrderToClose] = useState<Order | null>(null);
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+    
+    // ABA MOBILE CONTROL
+    const [activeTab, setActiveTab] = useState<'production' | 'ready'>('production');
     
     const prevPendingCountRef = useRef(0);
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -118,25 +120,35 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
     };
 
     return (
-        <div className="flex h-full bg-slate-950 text-white overflow-hidden">
+        <div className="flex flex-col md:flex-row h-full bg-slate-950 text-white overflow-hidden">
             
+            {/* ABAS MOBILE */}
+            <div className="flex md:hidden bg-slate-900 border-b border-slate-800 shrink-0">
+                <button onClick={() => setActiveTab('production')} className={`flex-1 py-3 text-sm font-bold border-b-2 ${activeTab === 'production' ? 'border-orange-500 text-orange-500' : 'border-transparent text-slate-500'}`}>
+                    Produção ({activeOrders.length})
+                </button>
+                <button onClick={() => setActiveTab('ready')} className={`flex-1 py-3 text-sm font-bold border-b-2 ${activeTab === 'ready' ? 'border-emerald-500 text-emerald-500' : 'border-transparent text-slate-500'}`}>
+                    Prontos/Saída ({finishedOrders.length})
+                </button>
+            </div>
+
             {/* --- LADO ESQUERDO: ÁREA DE PRODUÇÃO (PENDENTE / PREPARANDO) --- */}
-            <div className="flex-1 flex flex-col border-r border-slate-800 relative">
-                <div className="p-6 border-b border-slate-800 bg-slate-950 flex justify-between items-center z-10 shadow-sm">
+            <div className={`flex-1 flex-col border-r border-slate-800 relative ${activeTab === 'production' ? 'flex' : 'hidden md:flex'}`}>
+                <div className="p-4 md:p-6 border-b border-slate-800 bg-slate-950 flex justify-between items-center z-10 shadow-sm">
                     <div className="flex items-center gap-4">
-                        <h2 className="text-2xl font-black text-white flex items-center gap-3">
-                            <Flame className="text-orange-500" size={28}/> Fila de Produção
+                        <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">
+                            <Flame className="text-orange-500" size={24}/> <span className="hidden md:inline">Fila de Produção</span><span className="md:hidden">Cozinha</span>
                         </h2>
                         <span className="bg-slate-800 text-slate-300 px-3 py-1 rounded-full text-xs font-bold border border-slate-700">
-                            {activeOrders.length} em andamento
+                            {activeOrders.length}
                         </span>
                     </div>
-                    <div className="font-mono font-bold text-xl text-slate-400 bg-slate-900 px-4 py-2 rounded-lg border border-slate-800 shadow-inner">
+                    <div className="font-mono font-bold text-sm md:text-xl text-slate-400 bg-slate-900 px-3 py-1 md:px-4 md:py-2 rounded-lg border border-slate-800 shadow-inner">
                         {currentTime.toLocaleTimeString()}
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-slate-950/50">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-slate-950/50">
                     {activeOrders.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-slate-600 animate-in fade-in zoom-in opacity-50">
                             <ChefHat size={80} className="mb-4 text-slate-700"/>
@@ -144,7 +156,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                             <p className="text-sm">Aguardando novos pedidos...</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 pb-20">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6 pb-20">
                             {activeOrders.map(order => {
                                 const elapsedSec = (currentTime.getTime() - (order.createdAt?.seconds * 1000)) / 1000;
                                 const cardColor = getCardColor(order.status, elapsedSec);
@@ -152,9 +164,9 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                 return (
                                     <div key={order.id} className={`flex flex-col w-full rounded-2xl border-l-[6px] shadow-2xl transition-all ${cardColor} h-auto relative group overflow-hidden`}>
                                         {/* Cabeçalho do Card */}
-                                        <div className="p-4 border-b border-white/5 bg-black/20 flex justify-between items-start">
+                                        <div className="p-3 md:p-4 border-b border-white/5 bg-black/20 flex justify-between items-start">
                                             <div className="flex flex-col overflow-hidden mr-2">
-                                                <span className="font-black text-xl text-white truncate w-full tracking-tight">
+                                                <span className="font-black text-lg md:text-xl text-white truncate w-full tracking-tight">
                                                     {order.customer}
                                                 </span>
                                                 <span className="text-xs font-mono text-white/50">{formatOrderId(order.id)}</span>
@@ -188,14 +200,14 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                                         <X size={14} />
                                                     </button>
                                                 </div>
-                                                <div className="flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded text-amber-400 font-mono font-bold text-lg shadow-inner">
+                                                <div className="flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded text-amber-400 font-mono font-bold text-sm md:text-lg shadow-inner">
                                                     {getElapsedTime(order.createdAt)}
                                                 </div>
                                             </div>
                                         </div>
                                         
                                         {/* Lista de Itens */}
-                                        <div className="p-4 flex-1 space-y-3">
+                                        <div className="p-3 md:p-4 flex-1 space-y-3">
                                             {order.items.split('\n').filter(l => l.trim()).map((line, i) => {
                                                 if (line.includes('---')) return <hr key={i} className="border-white/10 my-2"/>;
                                                 const isObs = line.toLowerCase().startsWith('obs:');
@@ -203,7 +215,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
 
                                                 return (
                                                     <div key={i} className="flex flex-col">
-                                                        <p className={`font-bold leading-snug ${isObs ? 'text-yellow-300 text-sm bg-yellow-900/20 p-2 rounded border border-yellow-500/20' : 'text-white text-lg'}`}>
+                                                        <p className={`font-bold leading-snug ${isObs ? 'text-yellow-300 text-sm bg-yellow-900/20 p-2 rounded border border-yellow-500/20' : 'text-white text-base md:text-lg'}`}>
                                                             {toSentenceCase(line)}
                                                         </p>
                                                         {description && (
@@ -224,19 +236,19 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                                         onUpdateStatus(order.id, {status: 'preparing'});
                                                         setProductionOrder(order); 
                                                     }} 
-                                                    className="w-full bg-orange-600 hover:bg-orange-500 text-white py-3 rounded-xl font-black uppercase text-sm shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+                                                    className="w-full bg-orange-600 hover:bg-orange-500 text-white py-3 rounded-xl font-black uppercase text-xs md:text-sm shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
                                                 >
                                                     <Flame size={18}/> Iniciar Preparo
                                                 </button>
                                             )}
                                             {order.status === 'preparing' && (
-                                                <button onClick={() => onUpdateStatus(order.id, {status: 'ready', completedAt: serverTimestamp()})} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-black uppercase text-sm shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                                                <button onClick={() => onUpdateStatus(order.id, {status: 'ready', completedAt: serverTimestamp()})} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-black uppercase text-xs md:text-sm shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
                                                     <CheckCircle2 size={18}/> Marcar Pronto
                                                 </button>
                                             )}
                                             <button 
                                                 onClick={(e) => handleCopyStatus(e, order)}
-                                                className="w-full bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg font-bold text-xs uppercase transition-colors flex items-center justify-center gap-2"
+                                                className="w-full bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg font-bold text-[10px] md:text-xs uppercase transition-colors flex items-center justify-center gap-2"
                                             >
                                                 <Copy size={12}/> Copiar Mensagem
                                             </button>
@@ -247,14 +259,14 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                         </div>
                     )}
                 </div>
-                <div className="bg-slate-950 p-2"><Footer /></div>
+                <div className="hidden md:block bg-slate-950 p-2"><Footer /></div>
             </div>
 
             {/* --- LADO DIREITO: LISTA DE PRONTOS / SAÍDA --- */}
-            <div className="w-[380px] bg-slate-900 border-l border-slate-800 flex flex-col shadow-2xl z-20">
-                <div className="p-5 border-b border-slate-800 bg-slate-900 shadow-sm">
+            <div className={`w-full md:w-[380px] bg-slate-900 border-l border-slate-800 flex-col shadow-2xl z-20 ${activeTab === 'ready' ? 'flex' : 'hidden md:flex'}`}>
+                <div className="p-4 md:p-5 border-b border-slate-800 bg-slate-900 shadow-sm">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                        <PackageCheck className="text-emerald-500"/> Pedidos do Dia (Prontos)
+                        <PackageCheck className="text-emerald-500"/> Pedidos do Dia
                     </h3>
                     <p className="text-xs text-slate-500 mt-1">Histórico de saída de hoje</p>
                 </div>
@@ -341,6 +353,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                         );
                     })}
                 </div>
+                <div className="md:hidden bg-slate-950 p-2"><Footer /></div>
             </div>
 
             {/* Modals */}

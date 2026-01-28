@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame, TrendingUp, DollarSign, ShoppingBag, ArrowRight, Play, Printer, ChevronRight, Gift, QrCode, Search, ExternalLink } from 'lucide-react';
+import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame, TrendingUp, DollarSign, ShoppingBag, ArrowRight, Play, Printer, ChevronRight, Gift, QrCode, Search, ExternalLink, Menu } from 'lucide-react';
 import { Product, Client, AppConfig, Driver, Order, Vale, DeliveryZone } from '../types';
 import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, getOrderReceivedText, formatOrderId, getDispatchMessage, getProductionMessage, generatePixPayload } from '../utils';
 
@@ -305,6 +305,9 @@ export function NewOrderModal({ onClose, onSave, products, clients }: any) {
     const [selectedItems, setSelectedItems] = useState<{product: Product, quantity: number}[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [showClientSuggestions, setShowClientSuggestions] = useState(false);
+    
+    // ABA MOBILE CONTROL
+    const [mobileTab, setMobileTab] = useState<'menu' | 'form'>('menu');
 
     // Agrupa produtos por categoria
     const groupedProducts = useMemo(() => {
@@ -350,6 +353,7 @@ export function NewOrderModal({ onClose, onSave, products, clients }: any) {
             }
             return [...prev, { product, quantity: 1 }];
         });
+        // Feedback visual ou troca de aba automática se desejar
     };
 
     const handleRemoveItem = (index: number) => {
@@ -432,10 +436,18 @@ export function NewOrderModal({ onClose, onSave, products, clients }: any) {
 
     return (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
-             <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-7xl h-[90vh] flex overflow-hidden border border-slate-800 animate-in zoom-in">
+             <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col md:flex-row overflow-hidden border border-slate-800 animate-in zoom-in">
                 
-                {/* LADO ESQUERDO: SELEÇÃO DE PRODUTOS (CARDÁPIO) */}
-                <div className="hidden md:flex flex-1 bg-slate-900 p-6 flex-col overflow-hidden border-r border-slate-800">
+                {/* ABAS MOBILE */}
+                <div className="flex md:hidden border-b border-slate-800 bg-slate-900 shrink-0">
+                    <button onClick={() => setMobileTab('menu')} className={`flex-1 py-3 text-sm font-bold border-b-2 transition-all ${mobileTab === 'menu' ? 'border-emerald-500 text-emerald-500' : 'border-transparent text-slate-500'}`}>Cardápio</button>
+                    <button onClick={() => setMobileTab('form')} className={`flex-1 py-3 text-sm font-bold border-b-2 transition-all ${mobileTab === 'form' ? 'border-emerald-500 text-emerald-500' : 'border-transparent text-slate-500'}`}>
+                        Pedido ({selectedItems.reduce((a,b) => a+b.quantity, 0)})
+                    </button>
+                </div>
+
+                {/* LADO ESQUERDO: SELEÇÃO DE PRODUTOS (CARDÁPIO) - Visível no mobile se tab='menu' ou sempre no desktop */}
+                <div className={`flex-1 bg-slate-900 p-4 md:p-6 flex-col overflow-hidden border-r border-slate-800 ${mobileTab === 'menu' ? 'flex' : 'hidden md:flex'}`}>
                     <div className="flex items-center gap-4 mb-4">
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18}/>
@@ -471,10 +483,14 @@ export function NewOrderModal({ onClose, onSave, products, clients }: any) {
                             </div>
                         ))}
                     </div>
+                    {/* Botão flutuante para ir ao formulário no mobile */}
+                    <div className="md:hidden mt-2">
+                        <button onClick={() => setMobileTab('form')} className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl">Ir para Dados do Pedido ({selectedItems.length})</button>
+                    </div>
                 </div>
 
-                {/* LADO DIREITO: FORMULÁRIO DE PEDIDO */}
-                <div className="w-full md:w-[400px] lg:w-[450px] bg-slate-950 p-6 flex flex-col overflow-y-auto custom-scrollbar">
+                {/* LADO DIREITO: FORMULÁRIO DE PEDIDO - Visível no mobile se tab='form' ou sempre no desktop */}
+                <div className={`w-full md:w-[400px] lg:w-[450px] bg-slate-950 p-4 md:p-6 flex-col overflow-y-auto custom-scrollbar ${mobileTab === 'form' ? 'flex' : 'hidden md:flex'}`}>
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="font-bold text-xl text-white flex items-center gap-2"><PlusCircle className="text-emerald-500"/> Novo Pedido</h3>
                         <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
@@ -799,9 +815,9 @@ export function SettingsModal({ config, onSave, onClose }: any) {
              <div className="bg-slate-900 rounded-2xl w-full max-w-2xl border border-slate-800 flex flex-col max-h-[90vh]">
                  <div className="p-6 border-b border-slate-800 flex justify-between"><h3 className="font-bold text-xl text-white">Configurações</h3><button onClick={onClose}><X className="text-slate-500"/></button></div>
                  
-                 <div className="flex border-b border-slate-800 px-6 gap-6">
-                     <button onClick={()=>setActiveTab('general')} className={`py-4 text-sm font-bold border-b-2 transition-colors ${activeTab==='general' ? 'border-emerald-500 text-emerald-500' : 'border-transparent text-slate-500 hover:text-white'}`}>Geral e Taxas</button>
-                     <button onClick={()=>setActiveTab('schedule')} className={`py-4 text-sm font-bold border-b-2 transition-colors ${activeTab==='schedule' ? 'border-emerald-500 text-emerald-500' : 'border-transparent text-slate-500 hover:text-white'}`}>Horários</button>
+                 <div className="flex border-b border-slate-800 px-6 gap-6 overflow-x-auto">
+                     <button onClick={()=>setActiveTab('general')} className={`py-4 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab==='general' ? 'border-emerald-500 text-emerald-500' : 'border-transparent text-slate-500 hover:text-white'}`}>Geral e Taxas</button>
+                     <button onClick={()=>setActiveTab('schedule')} className={`py-4 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab==='schedule' ? 'border-emerald-500 text-emerald-500' : 'border-transparent text-slate-500 hover:text-white'}`}>Horários</button>
                  </div>
 
                  <div className="p-6 overflow-y-auto custom-scrollbar space-y-6 flex-1">
@@ -858,8 +874,8 @@ export function SettingsModal({ config, onSave, onClose }: any) {
                                          : { open: '18:00', close: '23:00', enabled: true };
                                      
                                      return (
-                                         <div key={idx} className={`flex items-center gap-3 p-3 rounded-xl border ${config.enabled ? 'bg-slate-950 border-slate-800' : 'bg-slate-900/50 border-transparent opacity-50'}`}>
-                                             <div className="flex items-center gap-2 w-32">
+                                         <div key={idx} className={`flex flex-col md:flex-row items-start md:items-center gap-3 p-3 rounded-xl border ${config.enabled ? 'bg-slate-950 border-slate-800' : 'bg-slate-900/50 border-transparent opacity-50'}`}>
+                                             <div className="flex items-center gap-2 w-full md:w-32">
                                                  <input 
                                                      type="checkbox" 
                                                      checked={config.enabled} 
@@ -869,13 +885,13 @@ export function SettingsModal({ config, onSave, onClose }: any) {
                                                  <span className={`text-sm font-bold ${config.enabled ? 'text-white' : 'text-slate-500'}`}>{dayName}</span>
                                              </div>
                                              
-                                             <div className="flex items-center gap-2 flex-1">
+                                             <div className="flex items-center gap-2 flex-1 w-full">
                                                  <input 
                                                      type="time" 
                                                      value={config.open || '18:00'} 
                                                      onChange={(e) => updateSchedule(idx, 'open', e.target.value)}
                                                      disabled={!config.enabled}
-                                                     className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-sm outline-none focus:border-emerald-500 disabled:opacity-50"
+                                                     className="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-sm outline-none focus:border-emerald-500 disabled:opacity-50"
                                                  />
                                                  <span className="text-slate-500 text-xs">até</span>
                                                  <input 
@@ -883,7 +899,7 @@ export function SettingsModal({ config, onSave, onClose }: any) {
                                                      value={config.close || '23:00'} 
                                                      onChange={(e) => updateSchedule(idx, 'close', e.target.value)}
                                                      disabled={!config.enabled}
-                                                     className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-sm outline-none focus:border-emerald-500 disabled:opacity-50"
+                                                     className="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-sm outline-none focus:border-emerald-500 disabled:opacity-50"
                                                  />
                                              </div>
                                          </div>

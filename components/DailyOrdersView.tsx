@@ -1,9 +1,8 @@
-
 import React, { useMemo, useState } from 'react';
 import { Order, Driver, AppConfig } from '../types';
 import { isToday, formatTime, formatCurrency, sendOrderConfirmation, formatOrderId } from '../utils';
 import { StatBox, Footer } from './Shared';
-import { ClipboardList, DollarSign, Trash2, Edit, FileText, MessageCircle } from 'lucide-react';
+import { ClipboardList, DollarSign, Trash2, Edit, FileText, MessageCircle, MapPin } from 'lucide-react';
 import { EditOrderModal, ReceiptModal } from './Modals';
 
 interface DailyProps {
@@ -29,14 +28,16 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
     return (
         <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-white">Controle Diário</h2>
-                <p className="text-sm text-slate-500">{new Date().toLocaleDateString('pt-BR')}</p>
+                <h2 className="text-xl md:text-2xl font-bold text-white">Controle Diário</h2>
+                <p className="text-xs md:text-sm text-slate-500">{new Date().toLocaleDateString('pt-BR')}</p>
             </div>
-            <div className="grid grid-cols-2 gap-4 mb-8">
+            <div className="grid grid-cols-2 gap-3 mb-6 md:mb-8">
                 <StatBox label="Pedidos Hoje" value={dailyData.totalOrders} icon={<ClipboardList/>} color="bg-blue-900/20 text-blue-400 border-blue-900/50"/>
                 <StatBox label="Faturamento Dia" value={formatCurrency(dailyData.totalValue)} icon={<DollarSign/>} color="bg-emerald-900/20 text-emerald-400 border-emerald-900/50"/>
             </div>
-            <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+            
+            {/* VIEW DESKTOP (TABELA) */}
+            <div className="hidden md:block bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm text-slate-400">
                         <thead className="bg-slate-950 text-slate-200 font-bold uppercase tracking-wider border-b border-slate-800">
@@ -68,6 +69,37 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            {/* VIEW MOBILE (CARDS) */}
+            <div className="md:hidden space-y-3">
+                {dailyData.todayOrders.length === 0 ? (
+                    <div className="text-center text-slate-500 py-10 bg-slate-900 rounded-xl border border-slate-800">Nenhum pedido hoje.</div>
+                ) : (
+                    dailyData.todayOrders.map((o: Order) => (
+                        <div key={o.id} className="bg-slate-900 rounded-xl border border-slate-800 p-4 shadow-md relative overflow-hidden" onClick={() => { setSelectedOrder(o); setModalType('edit'); }}>
+                            <div className="flex justify-between items-start mb-2">
+                                <div>
+                                    <span className="font-bold text-white text-base">{o.customer}</span>
+                                    <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><MapPin size={10}/> {o.address || 'Balcão'}</div>
+                                </div>
+                                <div className="text-right">
+                                    <span className="font-mono text-emerald-400 font-bold text-base block">{formatCurrency(o.value || 0)}</span>
+                                    <span className="text-[10px] text-slate-500">{formatTime(o.createdAt)}</span>
+                                </div>
+                            </div>
+                            
+                            <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-800">
+                                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${o.status === 'completed' ? 'bg-emerald-900/30 text-emerald-400' : o.status === 'pending' ? 'bg-red-900/30 text-red-400' : o.status === 'preparing' ? 'bg-blue-900/30 text-blue-400' : 'bg-amber-900/30 text-amber-400'}`}>{o.status === 'completed' ? 'Entregue' : o.status === 'pending' ? 'Pendente' : o.status === 'preparing' ? 'Cozinha' : 'Em Rota'}</span>
+                                <div className="flex gap-2">
+                                    <button onClick={(e) => { e.stopPropagation(); sendOrderConfirmation(o, appConfig.appName); }} className="bg-emerald-600 text-white p-2 rounded-lg shadow"><MessageCircle size={16}/></button>
+                                    <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); setModalType('receipt'); }} className="bg-slate-800 text-slate-300 p-2 rounded-lg border border-slate-700"><FileText size={16}/></button>
+                                    <button onClick={(e) => { e.stopPropagation(); if(confirm('Excluir?')) onDeleteOrder(o.id); }} className="bg-slate-800 text-red-400 p-2 rounded-lg border border-slate-700"><Trash2 size={16}/></button>
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                )}
             </div>
 
             {modalType === 'edit' && selectedOrder && (

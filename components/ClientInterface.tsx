@@ -51,6 +51,11 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         }
     }, []);
 
+    // Rola para o topo sempre que mudar a visualização (Importante para Mobile)
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [view]);
+
     // Checkout State
     const [checkout, setCheckout] = useState({
         name: '',
@@ -479,42 +484,43 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar w-full">
                     <div className="max-w-2xl mx-auto w-full p-4">
+                        {/* ALERTA SE LOJA FECHADA - MODO AGENDAMENTO - VISUAL REFORÇADO */}
+                        {/* MOVIDO PARA O TOPO DO SCROLL */}
+                        {!shopStatus.isOpen && (
+                            <div className="bg-red-950/80 border-2 border-red-500 rounded-2xl p-5 shadow-[0_0_20px_rgba(220,38,38,0.4)] relative overflow-hidden animate-pulse-subtle mb-4">
+                                <div className="flex items-start gap-4 relative z-10">
+                                    <div className="bg-red-500 p-3 rounded-full animate-bounce">
+                                        <Ban className="text-white" size={28}/>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-black text-white text-xl uppercase tracking-wide mb-1">
+                                            {appConfig.appName || 'Loja'} FECHADA
+                                        </h4>
+                                        <p className="text-sm text-red-100 font-medium leading-relaxed">
+                                            Não estamos atendendo agora. Seu pedido será considerado uma <strong>PRÉ-VENDA (Agendamento)</strong>.
+                                        </p>
+                                        <div className="mt-3 bg-black/40 p-2 rounded-lg border border-red-500/50 inline-block">
+                                            <p className="text-xs text-white font-bold flex items-center gap-2">
+                                                <Clock size={14} className="text-amber-400"/> Só entregaremos: <span className="text-amber-400">
+                                                    {shopStatus.nextOpenDay && shopStatus.nextOpenTime 
+                                                        ? `${capitalize(shopStatus.nextOpenDay)}, a partir das ${shopStatus.nextOpenTime} horas`
+                                                        : shopStatus.nextOpen}
+                                                </span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {cart.length === 0 ? (
-                            <div className="h-[60vh] flex flex-col items-center justify-center text-slate-500 space-y-4">
+                            <div className="h-[50vh] flex flex-col items-center justify-center text-slate-500 space-y-4">
                                 <ShoppingBag size={48} className="opacity-20"/>
                                 <p>Seu carrinho está vazio.</p>
                                 <button onClick={() => setView('menu')} className="text-amber-500 font-bold text-sm">Ver Cardápio</button>
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                {/* ALERTA SE LOJA FECHADA - MODO AGENDAMENTO - VISUAL REFORÇADO */}
-                                {!shopStatus.isOpen && (
-                                    <div className="bg-red-950/80 border-2 border-red-500 rounded-2xl p-5 shadow-[0_0_20px_rgba(220,38,38,0.4)] relative overflow-hidden animate-pulse-subtle">
-                                        <div className="flex items-start gap-4 relative z-10">
-                                            <div className="bg-red-500 p-3 rounded-full animate-bounce">
-                                                <Ban className="text-white" size={28}/>
-                                            </div>
-                                            <div>
-                                                <h4 className="font-black text-white text-xl uppercase tracking-wide mb-1">
-                                                    {appConfig.appName || 'Loja'} FECHADA
-                                                </h4>
-                                                <p className="text-sm text-red-100 font-medium leading-relaxed">
-                                                    Não estamos atendendo agora. Seu pedido será considerado uma <strong>PRÉ-VENDA (Agendamento)</strong>.
-                                                </p>
-                                                <div className="mt-3 bg-black/40 p-2 rounded-lg border border-red-500/50 inline-block">
-                                                    <p className="text-xs text-white font-bold flex items-center gap-2">
-                                                        <Clock size={14} className="text-amber-400"/> Só entregaremos: <span className="text-amber-400">
-                                                            {shopStatus.nextOpenDay && shopStatus.nextOpenTime 
-                                                                ? `${shopStatus.nextOpenDay.toLowerCase()}, a partir das ${shopStatus.nextOpenTime} horas`
-                                                                : shopStatus.nextOpen}
-                                                        </span>
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
                                 <div className="space-y-3">
                                     {cart.map((item, idx) => (
                                         <div key={idx} className="bg-slate-900 p-3 rounded-xl border border-slate-800 flex flex-col gap-3 shadow-md">
@@ -539,8 +545,8 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                                 <form id="checkout-form" onSubmit={handlePlaceOrder} className="space-y-4 pt-4 border-t border-slate-800">
                                     <h3 className="font-bold text-slate-400 text-sm uppercase">Dados da Entrega</h3>
                                     <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 mb-2">
-                                        <button type="button" onClick={() => setCheckout({...checkout, serviceType: 'delivery'})} className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${checkout.serviceType === 'delivery' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500'}`}><Bike size={14}/> Entrega</button>
-                                        <button type="button" onClick={() => setCheckout({...checkout, serviceType: 'pickup'})} className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${checkout.serviceType === 'pickup' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500'}`}><Store size={14}/> Retirada</button>
+                                        <button type="button" onClick={() => setCheckout({...checkout, serviceType: 'delivery'})} className={`flex-1 py-3 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${checkout.serviceType === 'delivery' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500'}`}><Bike size={16}/> Entrega</button>
+                                        <button type="button" onClick={() => setCheckout({...checkout, serviceType: 'pickup'})} className={`flex-1 py-3 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${checkout.serviceType === 'pickup' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500'}`}><Store size={16}/> Retirada</button>
                                     </div>
                                     <div className="space-y-3">
                                         <input required placeholder="Seu Nome" className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl outline-none focus:border-amber-500 text-sm" value={checkout.name} onChange={e => setCheckout({...checkout, name: e.target.value})} />
@@ -592,8 +598,8 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                                     <h3 className="font-bold text-slate-400 text-sm uppercase pt-2">Pagamento</h3>
                                     <div className="grid grid-cols-3 gap-2">
                                         {['PIX', 'Dinheiro', 'Cartão'].map(method => (
-                                            <button key={method} type="button" onClick={() => setCheckout({...checkout, paymentMethod: method})} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition-all ${checkout.paymentMethod === method ? 'bg-emerald-900/30 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-600'}`}>
-                                                {method === 'PIX' && <QrCode size={18}/>}{method === 'Dinheiro' && <Banknote size={18}/>}{method === 'Cartão' && <CreditCard size={18}/>}
+                                            <button key={method} type="button" onClick={() => setCheckout({...checkout, paymentMethod: method})} className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all ${checkout.paymentMethod === method ? 'bg-emerald-900/30 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-600'}`}>
+                                                {method === 'PIX' && <QrCode size={20}/>}{method === 'Dinheiro' && <Banknote size={20}/>}{method === 'Cartão' && <CreditCard size={20}/>}
                                                 <span className="text-[10px] font-bold uppercase">{method}</span>
                                             </button>
                                         ))}
@@ -799,7 +805,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                             <p className="text-sm text-white font-bold bg-slate-900 p-2 rounded border border-slate-600">
                                 Só entregaremos: <span className="text-emerald-400 block mt-1">
                                     {shopStatus.nextOpenDay && shopStatus.nextOpenTime 
-                                        ? `${shopStatus.nextOpenDay.toLowerCase()}, a partir das ${shopStatus.nextOpenTime} horas` 
+                                        ? `${capitalize(shopStatus.nextOpenDay)}, a partir das ${shopStatus.nextOpenTime} horas` 
                                         : shopStatus.nextOpen}
                                 </span>
                             </p>
