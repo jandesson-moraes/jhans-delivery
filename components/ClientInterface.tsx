@@ -503,7 +503,11 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                                                 </p>
                                                 <div className="mt-3 bg-black/40 p-2 rounded-lg border border-red-500/50 inline-block">
                                                     <p className="text-xs text-white font-bold flex items-center gap-2">
-                                                        <Clock size={14} className="text-amber-400"/> Só entregaremos: <span className="text-amber-400">a partir das {shopStatus.nextOpen}</span>
+                                                        <Clock size={14} className="text-amber-400"/> Só entregaremos: <span className="text-amber-400">
+                                                            {shopStatus.nextOpenDay && shopStatus.nextOpenTime 
+                                                                ? `${shopStatus.nextOpenDay.toLowerCase()}, a partir das ${shopStatus.nextOpenTime} horas`
+                                                                : shopStatus.nextOpen}
+                                                        </span>
                                                     </p>
                                                 </div>
                                             </div>
@@ -793,7 +797,11 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                                 Não estamos atendendo agora. Seu pedido será considerado uma <strong className="text-amber-400">PRÉ-VENDA (Agendamento)</strong>.
                             </p>
                             <p className="text-sm text-white font-bold bg-slate-900 p-2 rounded border border-slate-600">
-                                Só entregaremos: <span className="text-emerald-400 block mt-1">a partir das {shopStatus.nextOpen}</span>
+                                Só entregaremos: <span className="text-emerald-400 block mt-1">
+                                    {shopStatus.nextOpenDay && shopStatus.nextOpenTime 
+                                        ? `${shopStatus.nextOpenDay.toLowerCase()}, a partir das ${shopStatus.nextOpenTime} horas` 
+                                        : shopStatus.nextOpen}
+                                </span>
                             </p>
                         </div>
 

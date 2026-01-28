@@ -311,7 +311,9 @@ export const checkShopStatus = (schedule?: { [key: number]: any }) => {
         return { 
             isOpen: true, 
             message: 'Horário não configurado', 
-            nextOpen: null 
+            nextOpen: null,
+            nextOpenDay: null,
+            nextOpenTime: null
         };
     }
 
@@ -336,7 +338,7 @@ export const checkShopStatus = (schedule?: { [key: number]: any }) => {
     }
 
     if (isOpenToday) {
-        return { isOpen: true, message: `Aberto até ${todayConfig.close}`, nextOpen: null };
+        return { isOpen: true, message: `Aberto até ${todayConfig.close}`, nextOpen: null, nextOpenDay: null, nextOpenTime: null };
     }
 
     // Se fechado, encontrar o PRÓXIMO horário de abertura
@@ -372,6 +374,8 @@ export const checkShopStatus = (schedule?: { [key: number]: any }) => {
     return { 
         isOpen: false, 
         message: 'Fechado',
-        nextOpen: nextOpenString
+        nextOpen: nextOpenString,
+        nextOpenDay: nextDayName,
+        nextOpenTime: nextOpen
     };
 };
