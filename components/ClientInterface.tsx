@@ -686,6 +686,19 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                         </div>
                     </div>
                 )}
+
+                {/* MODAL GENÉRICO DE CONFIRMAÇÃO (CORREÇÃO DE BUG: AGORA DENTRO DO CART VIEW) */}
+                {confirmModal && (
+                    <GenericConfirmModal 
+                        isOpen={confirmModal.isOpen} 
+                        onClose={() => setConfirmModal(null)} 
+                        onConfirm={confirmModal.action}
+                        title={confirmModal.title}
+                        message={confirmModal.message}
+                        type={confirmModal.type}
+                        confirmText="Sim, Confirmar"
+                    />
+                )}
             </div>
         );
     }
@@ -861,15 +874,17 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                         <div className="flex flex-col w-full gap-3">
                             <button 
                                 onClick={handleDismissClosedWarning}
-                                className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold p-3 rounded-xl shadow-lg flex flex-row items-center justify-center gap-3 active:scale-95 transition-transform leading-tight group"
+                                className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold p-4 rounded-xl shadow-lg flex items-center gap-4 active:scale-95 transition-transform group relative overflow-hidden"
                             >
-                                <div className="bg-white/20 p-2 rounded-lg shrink-0 group-hover:bg-white/30 transition-colors">
-                                    <CalendarClock size={24} className="text-white"/>
+                                <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                                <div className="bg-black/20 p-3 rounded-full shrink-0 backdrop-blur-sm border border-white/10 group-hover:bg-black/30 transition-colors">
+                                    <CalendarClock size={28} className="text-white drop-shadow-md"/>
                                 </div>
-                                <div className="text-left">
-                                    <span className="block text-[10px] opacity-80 uppercase tracking-wider">Loja Fechada</span>
-                                    <span className="block text-sm font-bold leading-none mt-0.5">Ver Cardápio & Agendar</span>
+                                <div className="text-left flex-1 relative z-10">
+                                    <span className="block text-[10px] text-amber-100 uppercase tracking-widest font-extrabold mb-0.5">Loja Fechada</span>
+                                    <span className="block text-base font-black leading-none text-white">Ver Cardápio & Agendar</span>
                                 </div>
+                                <ChevronRight size={20} className="text-white/50 group-hover:text-white transition-colors group-hover:translate-x-1 duration-300"/>
                             </button>
                             <button 
                                 onClick={() => { handleDismissClosedWarning(); }}
