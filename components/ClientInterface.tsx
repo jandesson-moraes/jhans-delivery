@@ -3,6 +3,7 @@ import { Product, AppConfig } from '../types';
 import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard, formatTime, formatDate, generatePixPayload, EMOJI, checkShopStatus } from '../utils';
 import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode, Gift, LogOut, ShieldCheck, CalendarClock, Ban, Moon, CalendarDays, DoorClosed } from 'lucide-react';
 import { BrandLogo, Footer } from './Shared';
+import { GenericConfirmModal } from './Modals';
 
 interface ClientInterfaceProps {
     products: Product[];
@@ -19,6 +20,9 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     
     // Controle do Modal Automático de Loja Fechada
     const [showClosedWarning, setShowClosedWarning] = useState(false);
+    
+    // Modal Genérico de Confirmação (Substitui window.confirm)
+    const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, action: () => void, title: string, message: string, type?: 'info' | 'danger'} | null>(null);
     
     // --- ESTADOS INICIAIS COM CARREGAMENTO DO LOCALSTORAGE ---
     const [cart, setCart] = useState<{product: Product, quantity: number, obs: string}[]>(() => {
@@ -257,33 +261,9 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
         );
     };
 
-    const handlePlaceOrder = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (cart.length === 0) return;
-
-        if (checkout.serviceType === 'delivery') {
-            if (!checkout.address) {
-                alert("Por favor, digite o endereço de entrega (Rua e Número).");
-                return;
-            }
-            if (appConfig.enableDeliveryFees && appConfig.deliveryZones && appConfig.deliveryZones.length > 0 && !checkout.neighborhood) {
-                alert("Por favor, selecione o seu bairro para calcular a taxa de entrega.");
-                return;
-            }
-        }
-
-        // LÓGICA DE AGENDAMENTO SE LOJA FECHADA
-        const isPreOrder = !shopStatus.isOpen;
+    const submitOrder = async (isPreOrder: boolean) => {
         let itemsHeader = "";
-        
         if (isPreOrder) {
-            // TRAVA DE SEGURANÇA NO CART (CASO FECHE O MODAL)
-            const confirmPreOrder = window.confirm(
-                `⛔ ATENÇÃO: A LOJA ESTÁ FECHADA!\n\nSeu pedido será registrado como um AGENDAMENTO (Pré-Venda) e só será preparado quando abrirmos: ${shopStatus.nextOpen || 'Em breve'}.\n\nDeseja continuar mesmo assim?`
-            );
-            
-            if (!confirmPreOrder) return; // Cancela se o usuário não confirmar
-
             itemsHeader = `📢 [PRÉ-VENDA / AGENDADO]\n🕒 Entrega na abertura: ${shopStatus.nextOpen || 'Assim que abrir'}\n-----------------------\n`;
         }
 
@@ -338,6 +318,37 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             setCheckout(prev => ({ ...prev, trocoPara: '', obs: '' })); 
         } catch (error) {
             alert("Erro ao enviar pedido. Tente novamente.");
+        }
+    };
+
+    const handlePlaceOrder = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (cart.length === 0) return;
+
+        if (checkout.serviceType === 'delivery') {
+            if (!checkout.address) {
+                alert("Por favor, digite o endereço de entrega (Rua e Número).");
+                return;
+            }
+            if (appConfig.enableDeliveryFees && appConfig.deliveryZones && appConfig.deliveryZones.length > 0 && !checkout.neighborhood) {
+                alert("Por favor, selecione o seu bairro para calcular a taxa de entrega.");
+                return;
+            }
+        }
+
+        // LÓGICA DE AGENDAMENTO SE LOJA FECHADA
+        const isPreOrder = !shopStatus.isOpen;
+        
+        if (isPreOrder) {
+            setConfirmModal({
+                isOpen: true,
+                title: "Loja Fechada",
+                message: `Não estamos atendendo agora. Seu pedido será agendado como PRÉ-VENDA para quando abrirmos (${shopStatus.nextOpen || 'Em breve'}). Deseja continuar?`,
+                action: () => submitOrder(true),
+                type: 'info'
+            });
+        } else {
+            submitOrder(false);
         }
     };
 
@@ -769,7 +780,14 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
 
                                 return (
                                     <div key={idx} className={`flex justify-between items-center text-sm p-2 rounded ${isToday ? 'bg-slate-800 font-bold text-white' : 'text-slate-400'}`}>
-                                        <span>{day}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span>{day}</span>
+                                            {isToday && (
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${shopStatus.isOpen ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                                                    {shopStatus.isOpen ? 'ABERTO AGORA' : 'FECHADO AGORA'}
+                                                </span>
+                                            )}
+                                        </div>
                                         {displayConfig && displayConfig.enabled ? (
                                             <span>{displayConfig.open} - {displayConfig.close}</span>
                                         ) : (
@@ -834,7 +852,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                                 onClick={handleDismissClosedWarning}
                                 className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform leading-tight"
                             >
-                                <CalendarClock size={18}/> Antecipar Pedido para {shopStatus.nextOpen}
+                                <CalendarClock size={20} className="shrink-0"/> Antecipar Pedido para {shopStatus.nextOpen}
                             </button>
                             <button 
                                 onClick={() => { handleDismissClosedWarning(); }}
@@ -846,6 +864,19 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
 
                     </div>
                 </div>
+            )}
+
+            {/* MODAL GENÉRICO DE CONFIRMAÇÃO (PRE-VENDA) */}
+            {confirmModal && (
+                <GenericConfirmModal 
+                    isOpen={confirmModal.isOpen} 
+                    onClose={() => setConfirmModal(null)} 
+                    onConfirm={confirmModal.action}
+                    title={confirmModal.title}
+                    message={confirmModal.message}
+                    type={confirmModal.type}
+                    confirmText="Sim, Confirmar"
+                />
             )}
         </div>
     );

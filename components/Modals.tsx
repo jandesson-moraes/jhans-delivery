@@ -1,7 +1,43 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame, TrendingUp, DollarSign, ShoppingBag, ArrowRight, Play, Printer, ChevronRight, Gift, QrCode, Search, ExternalLink, Menu } from 'lucide-react';
 import { Product, Client, AppConfig, Driver, Order, Vale, DeliveryZone } from '../types';
-import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, getOrderReceivedText, formatOrderId, getDispatchMessage, getProductionMessage, generatePixPayload } from '../utils';
+import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, getOrderReceivedText, formatOrderId, getDispatchMessage, getProductionMessage, generatePixPayload, checkShopStatus } from '../utils';
+
+// --- MODAL GENÉRICO DE CONFIRMAÇÃO (NOVO) ---
+export function GenericConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmText = "Confirmar", cancelText = "Cancelar", type = "info" }: any) {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-200">
+            <div className={`bg-slate-900 rounded-3xl shadow-2xl w-full max-w-sm p-6 border-2 relative overflow-hidden ${type === 'danger' ? 'border-red-500/50 shadow-red-900/30' : 'border-amber-500/50 shadow-amber-900/30'}`}>
+                <div className="flex flex-col items-center text-center mb-6">
+                    <div className={`p-4 rounded-full mb-3 animate-bounce ${type === 'danger' ? 'bg-red-500/20' : 'bg-amber-500/20'}`}>
+                        {type === 'danger' ? <AlertTriangle size={32} className="text-red-400" /> : <AlertCircle size={32} className="text-amber-400" />}
+                    </div>
+                    <h3 className="font-black text-xl text-white uppercase tracking-wide">{title}</h3>
+                    <p className="text-slate-300 font-medium text-sm mt-3 leading-relaxed">
+                        {message}
+                    </p>
+                </div>
+
+                <div className="flex gap-3">
+                    <button 
+                        onClick={onClose}
+                        className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-3.5 rounded-xl font-bold text-sm transition-colors border border-slate-700"
+                    >
+                        {cancelText}
+                    </button>
+                    <button 
+                        onClick={() => { onConfirm(); onClose(); }}
+                        className={`flex-1 text-white py-3.5 rounded-xl font-bold text-sm transition-transform active:scale-95 shadow-lg flex items-center justify-center gap-2 ${type === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'}`}
+                    >
+                        {type === 'danger' ? <Trash2 size={18}/> : <CheckCircle2 size={18}/>} {confirmText}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 // --- MODAL: CONFIRMAR FECHAMENTO NA COZINHA (NOVO) ---
 export function ConfirmCloseOrderModal({ onClose, onConfirm, order }: { onClose: () => void, onConfirm: () => void, order: Order }) {
@@ -681,375 +717,352 @@ export function ConfirmAssignmentModal({ onClose, onConfirm, order, driverName }
     )
 }
 
-export function NewIncomingOrderModal({ order, onClose, onAccept, appConfig }: any) {
-    // Uses audio for ringtone? Handled in AdminInterface.
+// --- NOVOS MODAIS ADICIONADOS ---
+
+export function NewIncomingOrderModal({ order, onClose, appConfig, onAccept }: any) {
+    const [isAccepted, setIsAccepted] = useState(false);
+
+    const handleAccept = () => {
+        onAccept(order.id, { status: 'preparing' });
+        setIsAccepted(true);
+        setTimeout(onClose, 1000);
+    };
+
+    if (isAccepted) return null;
+
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-pulse-subtle">
-            <div className="bg-slate-900 rounded-3xl p-8 border-2 border-amber-500 shadow-[0_0_50px_rgba(245,158,11,0.3)] max-w-md w-full relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-2 bg-amber-500 animate-loading-bar"></div>
-                <div className="text-center mb-6">
-                    <div className="bg-amber-500/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
-                        <AlertCircle size={40} className="text-amber-500"/>
-                    </div>
-                    <h2 className="text-3xl font-black text-white uppercase italic">Novo Pedido!</h2>
-                    <p className="text-slate-400 text-sm mt-1">Chegou agora. O que deseja fazer?</p>
-                </div>
-                
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 mb-6 text-left">
-                     <div className="flex justify-between mb-2 border-b border-slate-800 pb-2">
-                         <span className="font-bold text-white text-lg">{order.customer}</span>
-                         <span className="font-mono text-emerald-400 font-bold text-lg">{order.amount}</span>
-                     </div>
-                     <p className="text-sm text-slate-300 mb-2">{order.items}</p>
-                     <p className="text-xs text-slate-500 flex items-center gap-1"><MapPin size={12}/> {order.address}</p>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/95 backdrop-blur-lg p-4 animate-in fade-in zoom-in duration-300">
+            <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md p-6 border-4 border-amber-500 shadow-amber-500/30 relative overflow-hidden animate-bounce-subtle">
+                <div className="absolute top-0 right-0 p-4 opacity-20">
+                    <span className="flex h-40 w-40">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                     <button onClick={onClose} className="py-4 rounded-xl bg-slate-800 text-slate-400 font-bold hover:bg-slate-700 transition-colors">Ver Depois</button>
-                     <button onClick={() => { onAccept(order.id, { status: 'preparing' }); onClose(); }} className="py-4 rounded-xl bg-emerald-600 text-white font-bold text-lg shadow-lg hover:bg-emerald-500 transition-colors animate-pulse">ACEITAR AGORA</button>
+                <div className="text-center mb-6 relative z-10">
+                    <h2 className="text-3xl font-black text-white uppercase tracking-widest animate-pulse">Novo Pedido!</h2>
+                    <p className="text-amber-500 font-bold text-xl mt-1">{formatCurrency(order.value)}</p>
+                </div>
+
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 mb-6 relative z-10">
+                    <div className="flex justify-between items-start mb-2">
+                        <h3 className="font-bold text-white text-lg">{order.customer}</h3>
+                        <span className="text-xs text-slate-400 font-mono">{formatTime(order.createdAt)}</span>
+                    </div>
+                    <p className="text-slate-400 text-sm mb-4">{order.address}</p>
+                    <div className="bg-slate-900 p-3 rounded-lg border border-slate-800">
+                        <pre className="text-xs text-white font-mono whitespace-pre-wrap">{order.items}</pre>
+                    </div>
+                    {order.obs && (
+                        <div className="mt-2 text-xs text-amber-400 font-bold bg-amber-900/20 p-2 rounded">
+                            Obs: {order.obs}
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex gap-3 relative z-10">
+                    <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-4 rounded-xl font-bold text-sm transition-colors uppercase">
+                        Agora Não
+                    </button>
+                    <button onClick={handleAccept} className="flex-[2] bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl font-black text-base shadow-lg transition-transform active:scale-95 uppercase flex items-center justify-center gap-2">
+                        <Flame size={20}/> Aceitar Pedido
+                    </button>
                 </div>
             </div>
         </div>
-    )
+    );
 }
 
 export function ProductFormModal({ isOpen, onClose, product, onSave, existingCategories }: any) {
-    if(!isOpen) return null;
-    const [form, setForm] = useState(product || { name: '', description: '', price: '', category: '' });
+    const [form, setForm] = useState(product || { name: '', category: '', price: '', description: '' });
     
-    useEffect(() => { setForm(product || { name: '', description: '', price: '', category: '' }); }, [product]);
+    useEffect(() => {
+        if(product) setForm(product);
+        else setForm({ name: '', category: '', price: '', description: '' });
+    }, [product, isOpen]);
+
+    if (!isOpen) return null;
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave(product?.id, { ...form, price: parseFloat(form.price) });
+        onSave(product?.id, { ...form, price: parseFloat(form.price) || 0 });
     };
 
     return (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-slate-900 rounded-2xl p-6 w-full max-w-md border border-slate-800">
-                <h3 className="font-bold text-xl text-white mb-4">{product ? 'Editar Produto' : 'Novo Produto'}</h3>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+             <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-800 animate-in zoom-in">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-xl text-white">{product ? 'Editar Produto' : 'Novo Produto'}</h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div><label className="text-xs text-slate-500 font-bold uppercase">Nome</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none focus:border-emerald-500" value={form.name} onChange={e=>setForm({...form, name: e.target.value})}/></div>
-                    <div><label className="text-xs text-slate-500 font-bold uppercase">Categoria</label><input required list="categories" className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none focus:border-emerald-500" value={form.category} onChange={e=>setForm({...form, category: e.target.value})}/>
-                    <datalist id="categories">{existingCategories.map((c: string) => <option key={c} value={c}/>)}</datalist></div>
-                    <div><label className="text-xs text-slate-500 font-bold uppercase">Preço (R$)</label><input required type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none focus:border-emerald-500" value={form.price} onChange={e=>setForm({...form, price: e.target.value})}/></div>
-                    <div><label className="text-xs text-slate-500 font-bold uppercase">Descrição</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none focus:border-emerald-500 h-24" value={form.description} onChange={e=>setForm({...form, description: e.target.value})}/></div>
-                    <button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl mt-2">Salvar</button>
-                    <button type="button" onClick={onClose} className="w-full text-slate-500 py-2">Cancelar</button>
+                    <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Nome do Item</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                         <div>
+                             <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Preço (R$)</label>
+                             <input required type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.price} onChange={e => setForm({...form, price: e.target.value})} />
+                         </div>
+                         <div>
+                             <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Categoria</label>
+                             <input list="categories" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.category} onChange={e => setForm({...form, category: e.target.value})} placeholder="Selecione ou digite" />
+                             <datalist id="categories">{existingCategories.map((c: string) => <option key={c} value={c} />)}</datalist>
+                         </div>
+                    </div>
+
+                    <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Descrição</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-24" value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
+                    
+                    <button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Salvar Item</button>
                 </form>
-            </div>
+             </div>
         </div>
-    )
+    );
 }
 
 export function ReceiptModal({ order, onClose, appConfig }: any) {
-    const text = generateReceiptText(order, appConfig?.appName, appConfig);
-    const [copied, setCopied] = useState(false);
+    const receiptRef = useRef<HTMLDivElement>(null);
+    const receiptText = generateReceiptText(order, appConfig.appName, appConfig);
+
+    const handleCopy = () => {
+        copyToClipboard(receiptText);
+        alert('Copiado para área de transferência!');
+    };
+
+    const handlePrint = () => {
+        const printWindow = window.open('', '', 'height=600,width=400');
+        if (printWindow) {
+            printWindow.document.write('<html><head><title>Comprovante</title>');
+            printWindow.document.write('<style>body{font-family:monospace; white-space: pre-wrap; font-size: 12px;}</style>');
+            printWindow.document.write('</head><body>');
+            printWindow.document.write(receiptText);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            printWindow.print();
+        }
+    };
+
     return (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-white text-slate-900 rounded-xl w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]">
-                <div className="p-4 bg-slate-100 border-b flex justify-between items-center"><h3 className="font-bold text-lg">Comprovante</h3><button onClick={onClose}><X size={20}/></button></div>
-                <div className="p-4 overflow-y-auto bg-white flex-1">
-                    <pre className="font-mono text-xs whitespace-pre-wrap leading-tight">{text}</pre>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+             <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 border border-slate-800 animate-in zoom-in">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-xl text-white">Comprovante</h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
                 </div>
-                <div className="p-4 bg-slate-50 border-t grid grid-cols-2 gap-2">
-                    <button onClick={() => { copyToClipboard(text); setCopied(true); setTimeout(()=>setCopied(false), 2000); }} className={`py-3 rounded-lg font-bold flex items-center justify-center gap-2 ${copied ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white'}`}>{copied ? <Check size={16}/> : <Copy size={16}/>} Copiar</button>
-                    <button onClick={onClose} className="py-3 rounded-lg border border-slate-300 font-bold text-slate-600">Fechar</button>
+                
+                <div className="bg-white text-black font-mono text-xs p-4 rounded mb-4 overflow-y-auto max-h-[60vh] whitespace-pre-wrap shadow-inner">
+                    {receiptText}
                 </div>
-            </div>
+
+                <div className="flex gap-2">
+                    <button onClick={handleCopy} className="flex-1 bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700 flex items-center justify-center gap-2"><Copy size={16}/> Copiar</button>
+                    <button onClick={handlePrint} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 flex items-center justify-center gap-2"><Printer size={16}/> Imprimir</button>
+                </div>
+             </div>
         </div>
-    )
+    );
 }
 
 export function SettingsModal({ config, onSave, onClose }: any) {
-    const [form, setForm] = useState(() => {
-        const initial = config || {};
-        // Initialize default schedule if completely missing
-        if (!initial.schedule || Object.keys(initial.schedule).length === 0) {
-            const defaultSchedule: any = {};
-            ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].forEach((_, idx) => {
-                defaultSchedule[idx] = { open: '18:00', close: '23:00', enabled: true };
-            });
-            initial.schedule = defaultSchedule;
-        }
-        return initial;
-    });
+    const [form, setForm] = useState(config || { appName: '', appLogoUrl: '' });
     
-    const [activeTab, setActiveTab] = useState<'general' | 'schedule'>('general');
+    // Simplificação: apenas campos principais
+    // Melhorias: Adicionar editor de zonas e horários aqui se necessário
     
-    // Handlers for DeliveryZones
-    const updateZone = (idx: number, field: string, val: any) => {
-        const newZones = [...(form.deliveryZones || [])];
-        newZones[idx] = { ...newZones[idx], [field]: val };
-        setForm({...form, deliveryZones: newZones});
-    };
-    const addZone = () => setForm({...form, deliveryZones: [...(form.deliveryZones || []), {name: '', fee: 0}]});
-    const removeZone = (idx: number) => setForm({...form, deliveryZones: form.deliveryZones.filter((_: any, i: number) => i !== idx)});
-
-    // Handlers for Schedule
-    const daysOfWeek = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-    const updateSchedule = (dayIndex: number, field: string, val: any) => {
-        const currentSchedule = form.schedule || {};
-        // Ensure default values are set if not present
-        const dayConfig = currentSchedule[dayIndex] || { open: '18:00', close: '23:00', enabled: true };
-        
-        // Deep copy schedule to trigger re-render and ensure object integrity for Firestore
-        const newSchedule = {
-            ...currentSchedule,
-            [dayIndex]: { 
-                ...dayConfig, 
-                [field]: val 
-            }
-        };
-        
-        setForm({ ...form, schedule: newSchedule });
-    };
-
-    const handleSave = () => {
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
         onSave(form);
         onClose();
     };
 
     return (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-             <div className="bg-slate-900 rounded-2xl w-full max-w-2xl border border-slate-800 flex flex-col max-h-[90vh]">
-                 <div className="p-6 border-b border-slate-800 flex justify-between"><h3 className="font-bold text-xl text-white">Configurações</h3><button onClick={onClose}><X className="text-slate-500"/></button></div>
-                 
-                 <div className="flex border-b border-slate-800 px-6 gap-6 overflow-x-auto">
-                     <button onClick={()=>setActiveTab('general')} className={`py-4 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab==='general' ? 'border-emerald-500 text-emerald-500' : 'border-transparent text-slate-500 hover:text-white'}`}>Geral e Taxas</button>
-                     <button onClick={()=>setActiveTab('schedule')} className={`py-4 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab==='schedule' ? 'border-emerald-500 text-emerald-500' : 'border-transparent text-slate-500 hover:text-white'}`}>Horários</button>
-                 </div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+             <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg p-6 border border-slate-800 animate-in zoom-in max-h-[90vh] overflow-y-auto custom-scrollbar">
+                <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
+                    <h3 className="font-bold text-xl text-white flex items-center gap-2"><SettingsIcon/> Configurações</h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                </div>
+                
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Nome da Loja</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.appName} onChange={e => setForm({...form, appName: e.target.value})} /></div>
+                    <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Logo URL</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.appLogoUrl} onChange={e => setForm({...form, appLogoUrl: e.target.value})} /></div>
+                    
+                    <div className="border-t border-slate-800 pt-4 mt-4">
+                        <h4 className="text-sm font-bold text-white mb-3">Dados PIX</h4>
+                        <div className="space-y-3">
+                            <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Chave PIX</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.pixKey || ''} onChange={e => setForm({...form, pixKey: e.target.value})} /></div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Nome Titular</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.pixName || ''} onChange={e => setForm({...form, pixName: e.target.value})} /></div>
+                                <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Cidade Titular</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.pixCity || ''} onChange={e => setForm({...form, pixCity: e.target.value})} /></div>
+                            </div>
+                        </div>
+                    </div>
 
-                 <div className="p-6 overflow-y-auto custom-scrollbar space-y-6 flex-1">
-                     {activeTab === 'general' ? (
-                         <>
-                            <section>
-                                <h4 className="text-emerald-500 font-bold uppercase text-xs mb-3 border-b border-slate-800 pb-1">Geral</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div><label className="text-xs text-slate-500 font-bold block mb-1">Nome do App</label><input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white" value={form.appName || ''} onChange={e=>setForm({...form, appName: e.target.value})}/></div>
-                                    <div><label className="text-xs text-slate-500 font-bold block mb-1">URL Logo</label><input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white" value={form.appLogoUrl || ''} onChange={e=>setForm({...form, appLogoUrl: e.target.value})}/></div>
-                                    <div><label className="text-xs text-slate-500 font-bold block mb-1">Telefone Loja (WhatsApp)</label><input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white" value={form.storePhone || ''} onChange={e=>setForm({...form, storePhone: e.target.value})}/></div>
-                                </div>
-                            </section>
-                            
-                            <section>
-                                <h4 className="text-emerald-500 font-bold uppercase text-xs mb-3 border-b border-slate-800 pb-1">Pagamento PIX (Geração de QR Code)</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div><label className="text-xs text-slate-500 font-bold block mb-1">Chave PIX</label><input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white" value={form.pixKey || ''} onChange={e=>setForm({...form, pixKey: e.target.value})}/></div>
-                                    <div><label className="text-xs text-slate-500 font-bold block mb-1">Nome Titular</label><input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white" value={form.pixName || ''} onChange={e=>setForm({...form, pixName: e.target.value})}/></div>
-                                    <div><label className="text-xs text-slate-500 font-bold block mb-1">Cidade Titular</label><input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white" value={form.pixCity || ''} onChange={e=>setForm({...form, pixCity: e.target.value})}/></div>
-                                </div>
-                            </section>
-
-                            <section>
-                                <div className="flex justify-between items-center mb-3 border-b border-slate-800 pb-1">
-                                    <h4 className="text-emerald-500 font-bold uppercase text-xs">Taxas de Entrega</h4>
-                                    <div className="flex items-center gap-2">
-                                        <label className="text-xs text-slate-400 font-bold">Ativar Taxas</label>
-                                        <input type="checkbox" checked={form.enableDeliveryFees || false} onChange={e=>setForm({...form, enableDeliveryFees: e.target.checked})}/>
-                                    </div>
-                                </div>
-                                {form.enableDeliveryFees && (
-                                    <div className="space-y-2">
-                                        {form.deliveryZones?.map((z: any, idx: number) => (
-                                            <div key={idx} className="flex gap-2">
-                                                <input className="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 text-white text-sm" placeholder="Nome do Bairro" value={z.name} onChange={e=>updateZone(idx, 'name', e.target.value)}/>
-                                                <input type="number" className="w-24 bg-slate-950 border border-slate-800 rounded-lg p-2 text-white text-sm" placeholder="R$" value={z.fee} onChange={e=>updateZone(idx, 'fee', parseFloat(e.target.value))}/>
-                                                <button onClick={() => removeZone(idx)} className="text-red-500 hover:bg-slate-800 p-2 rounded"><Trash2 size={16}/></button>
-                                            </div>
-                                        ))}
-                                        <button onClick={addZone} className="text-xs font-bold text-emerald-500 flex items-center gap-1 hover:text-emerald-400">+ Adicionar Bairro</button>
-                                    </div>
-                                )}
-                            </section>
-                         </>
-                     ) : (
-                         <section>
-                             <h4 className="text-emerald-500 font-bold uppercase text-xs mb-4 border-b border-slate-800 pb-1">Horário de Funcionamento</h4>
-                             <div className="space-y-3">
-                                 {daysOfWeek.map((dayName, idx) => {
-                                     // Ensure we are accessing safely, even if the array is sparse
-                                     const config = (form.schedule && form.schedule[idx]) 
-                                         ? form.schedule[idx] 
-                                         : { open: '18:00', close: '23:00', enabled: true };
-                                     
-                                     return (
-                                         <div key={idx} className={`flex flex-col md:flex-row items-start md:items-center gap-3 p-3 rounded-xl border ${config.enabled ? 'bg-slate-950 border-slate-800' : 'bg-slate-900/50 border-transparent opacity-50'}`}>
-                                             <div className="flex items-center gap-2 w-full md:w-32">
-                                                 <input 
-                                                     type="checkbox" 
-                                                     checked={config.enabled} 
-                                                     onChange={(e) => updateSchedule(idx, 'enabled', e.target.checked)}
-                                                     className="w-4 h-4 accent-emerald-500 rounded cursor-pointer"
-                                                 />
-                                                 <span className={`text-sm font-bold ${config.enabled ? 'text-white' : 'text-slate-500'}`}>{dayName}</span>
-                                             </div>
-                                             
-                                             <div className="flex items-center gap-2 flex-1 w-full">
-                                                 <input 
-                                                     type="time" 
-                                                     value={config.open || '18:00'} 
-                                                     onChange={(e) => updateSchedule(idx, 'open', e.target.value)}
-                                                     disabled={!config.enabled}
-                                                     className="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-sm outline-none focus:border-emerald-500 disabled:opacity-50"
-                                                 />
-                                                 <span className="text-slate-500 text-xs">até</span>
-                                                 <input 
-                                                     type="time" 
-                                                     value={config.close || '23:00'} 
-                                                     onChange={(e) => updateSchedule(idx, 'close', e.target.value)}
-                                                     disabled={!config.enabled}
-                                                     className="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-sm outline-none focus:border-emerald-500 disabled:opacity-50"
-                                                 />
-                                             </div>
-                                         </div>
-                                     );
-                                 })}
-                             </div>
-                         </section>
-                     )}
-                 </div>
-                 <div className="p-6 border-t border-slate-800">
-                     <button onClick={handleSave} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl">Salvar Configurações</button>
-                 </div>
+                    <div className="border-t border-slate-800 pt-4 mt-4 flex items-center justify-between">
+                         <span className="text-sm font-bold text-white">Ativar Taxas de Entrega?</span>
+                         <input type="checkbox" checked={form.enableDeliveryFees || false} onChange={e => setForm({...form, enableDeliveryFees: e.target.checked})} className="w-5 h-5 accent-emerald-500"/>
+                    </div>
+                    
+                    <button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-6">Salvar Configurações</button>
+                </form>
              </div>
         </div>
-    )
+    );
 }
 
 export function ImportModal({ onClose, onImportCSV }: any) {
     const [text, setText] = useState('');
     return (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-             <div className="bg-slate-900 rounded-xl p-6 w-full max-w-lg border border-slate-800">
-                 <h3 className="text-white font-bold text-lg mb-4">Importar CSV</h3>
-                 <textarea className="w-full h-40 bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs font-mono text-slate-300" placeholder="Cole o conteúdo CSV aqui..." value={text} onChange={e => setText(e.target.value)}></textarea>
-                 <div className="flex gap-3 mt-4">
-                     <button onClick={() => onImportCSV(text)} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-bold">Importar</button>
-                     <button onClick={onClose} className="flex-1 bg-slate-800 text-slate-300 py-2 rounded-lg font-bold">Cancelar</button>
-                 </div>
-             </div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-lg p-6 border border-slate-800 animate-in zoom-in">
+                <h3 className="font-bold text-xl text-white mb-4">Importar CSV</h3>
+                <textarea className="w-full h-40 bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-mono outline-none mb-4" placeholder="Cole o conteúdo do CSV aqui..." value={text} onChange={e => setText(e.target.value)} />
+                <div className="flex gap-3">
+                    <button onClick={onClose} className="flex-1 bg-slate-800 text-white py-3 rounded-xl font-bold">Cancelar</button>
+                    <button onClick={() => onImportCSV(text)} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold">Importar</button>
+                </div>
+            </div>
         </div>
-    )
+    );
 }
 
 export function NewExpenseModal({ onClose, onSave }: any) {
     const [form, setForm] = useState({ description: '', amount: '', category: 'Geral' });
+    
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave({ ...form, amount: parseFloat(form.amount) });
+        onSave({ ...form, amount: parseFloat(form.amount) || 0 });
         onClose();
     };
+
     return (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-slate-900 rounded-xl p-6 w-full max-w-sm border border-slate-800">
-                <h3 className="text-white font-bold text-lg mb-4">Nova Despesa</h3>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-800 animate-in zoom-in">
+                <h3 className="font-bold text-xl text-white mb-4">Nova Despesa</h3>
                 <form onSubmit={handleSubmit} className="space-y-3">
-                    <input required placeholder="Descrição" className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white" value={form.description} onChange={e=>setForm({...form, description: e.target.value})}/>
-                    <input required type="number" step="0.01" placeholder="Valor (R$)" className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white" value={form.amount} onChange={e=>setForm({...form, amount: e.target.value})}/>
-                    <select className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white" value={form.category} onChange={e=>setForm({...form, category: e.target.value})}>
-                        <option>Geral</option><option>Insumos</option><option>Pessoal</option><option>Manutenção</option>
-                    </select>
-                    <button className="w-full bg-red-600 text-white py-3 rounded-xl font-bold mt-2">Lançar Despesa</button>
-                    <button type="button" onClick={onClose} className="w-full text-slate-500 py-2">Cancelar</button>
+                    <input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" placeholder="Descrição" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+                    <input required type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" placeholder="Valor (R$)" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} />
+                    <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" placeholder="Categoria" value={form.category} onChange={e => setForm({...form, category: e.target.value})} />
+                    <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold mt-2">Salvar Despesa</button>
                 </form>
+                <button onClick={onClose} className="w-full text-slate-500 text-sm mt-3">Cancelar</button>
             </div>
         </div>
-    )
+    );
 }
 
 export function NewValeModal({ driver, onClose, onSave }: any) {
     const [form, setForm] = useState({ amount: '', description: '' });
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave({ driverId: driver.id, ...form, amount: parseFloat(form.amount) });
+        onSave({ ...form, amount: parseFloat(form.amount) || 0, driverId: driver.id });
         onClose();
     };
-    return (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-             <div className="bg-slate-900 rounded-xl p-6 w-full max-w-sm border border-slate-800">
-                 <h3 className="text-white font-bold text-lg mb-4">Lançar Vale para {driver.name}</h3>
-                 <form onSubmit={handleSubmit} className="space-y-3">
-                     <input required type="number" step="0.01" placeholder="Valor (R$)" className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white" value={form.amount} onChange={e=>setForm({...form, amount: e.target.value})}/>
-                     <input required placeholder="Motivo / Descrição" className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white" value={form.description} onChange={e=>setForm({...form, description: e.target.value})}/>
-                     <button className="w-full bg-red-600 text-white py-3 rounded-xl font-bold mt-2">Confirmar Vale</button>
-                     <button type="button" onClick={onClose} className="w-full text-slate-500 py-2">Cancelar</button>
-                 </form>
-             </div>
-        </div>
-    )
-}
 
-export function EditClientModal({ client, onClose, onSave, orders }: any) {
-    const [form, setForm] = useState(client);
-    const clientOrders = orders.filter((o: Order) => normalizePhone(o.phone) === normalizePhone(client.phone));
-    
     return (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-            <div className="bg-slate-900 rounded-2xl w-full max-w-2xl border border-slate-800 flex flex-col max-h-[90vh]">
-                 <div className="p-6 border-b border-slate-800 flex justify-between"><h3 className="font-bold text-xl text-white">Editar Cliente</h3><button onClick={onClose}><X className="text-slate-500"/></button></div>
-                 <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                         <div><label className="text-xs text-slate-500 font-bold uppercase">Nome</label><input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white" value={form.name} onChange={e=>setForm({...form, name: e.target.value})}/></div>
-                         <div><label className="text-xs text-slate-500 font-bold uppercase">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})}/></div>
-                         <div className="md:col-span-2"><label className="text-xs text-slate-500 font-bold uppercase">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white" value={form.address} onChange={e=>setForm({...form, address: e.target.value})}/></div>
-                         <div className="md:col-span-2"><label className="text-xs text-slate-500 font-bold uppercase">Observações Internas</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white h-20" value={form.obs || ''} onChange={e=>setForm({...form, obs: e.target.value})}/></div>
-                     </div>
-                     <h4 className="font-bold text-white mb-3">Histórico de Pedidos ({clientOrders.length})</h4>
-                     <div className="space-y-2">
-                         {clientOrders.map((o: Order) => (
-                             <div key={o.id} className="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between">
-                                 <div><p className="text-white text-sm font-bold">{formatDate(o.createdAt)}</p><p className="text-xs text-slate-500">{o.items}</p></div>
-                                 <div className="text-right"><p className="text-emerald-500 font-bold">{o.amount}</p><p className="text-xs text-slate-600 uppercase">{o.status}</p></div>
-                             </div>
-                         ))}
-                     </div>
-                 </div>
-                 <div className="p-6 border-t border-slate-800">
-                     <button onClick={() => onSave(form)} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl">Salvar Alterações</button>
-                 </div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-800 animate-in zoom-in">
+                <h3 className="font-bold text-xl text-white mb-2">Novo Vale / Adiantamento</h3>
+                <p className="text-slate-400 text-sm mb-4">Para: {driver.name}</p>
+                <form onSubmit={handleSubmit} className="space-y-3">
+                    <input required type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" placeholder="Valor (R$)" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} />
+                    <input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" placeholder="Motivo (Ex: Gasolina)" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+                    <button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold mt-2">Confirmar Vale</button>
+                </form>
+                <button onClick={onClose} className="w-full text-slate-500 text-sm mt-3">Cancelar</button>
             </div>
         </div>
-    )
+    );
 }
 
-export function CloseCycleModal({ data, onClose, onConfirm }: any) {
-    const [endDate, setEndDate] = useState(new Date().toISOString().substring(0, 16));
-    
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-             <div className="bg-slate-900 rounded-2xl p-6 w-full max-w-md border border-slate-800">
-                 <h3 className="text-xl font-bold text-white mb-4">Fechar Ciclo Financeiro</h3>
-                 <div className="bg-slate-950 p-4 rounded-xl mb-4 border border-slate-800">
-                     <div className="flex justify-between mb-2"><span className="text-slate-400">Ganhos Entregas</span><span className="text-white font-bold">{formatCurrency(data.total)}</span></div>
-                     <div className="flex justify-between mb-2"><span className="text-slate-400">Vales/Adiantamentos</span><span className="text-red-400 font-bold">- {formatCurrency(data.vales)}</span></div>
-                     <div className="border-t border-slate-800 pt-2 flex justify-between mt-2"><span className="text-emerald-500 font-bold text-lg">Líquido a Pagar</span><span className="text-emerald-500 font-bold text-lg">{formatCurrency(data.net)}</span></div>
-                 </div>
-                 <div className="mb-4">
-                     <label className="text-xs text-slate-500 font-bold block mb-1">Data/Hora de Fechamento</label>
-                     <input type="datetime-local" className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white" value={endDate} onChange={e => setEndDate(e.target.value)} />
-                 </div>
-                 <button onClick={() => onConfirm({ ...data, finalAmount: data.net, endAt: endDate })} className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold mb-2">Confirmar Pagamento e Fechar</button>
-                 <button onClick={onClose} className="w-full text-slate-500 py-2">Cancelar</button>
-             </div>
-        </div>
-    )
-}
+export function EditClientModal({ client, orders, onClose, onUpdateOrder, onSave }: any) {
+    const [form, setForm] = useState(client || {});
+    const clientOrders = orders.filter((o: Order) => normalizePhone(o.phone) === normalizePhone(client.phone)).sort((a: any, b: any) => b.createdAt.seconds - a.createdAt.seconds);
 
-export function KitchenHistoryModal({ order, onClose, products }: any) {
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-slate-900 rounded-2xl p-6 w-full max-w-md border border-slate-800 max-h-[80vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-white text-lg">Detalhes do Pedido</h3><button onClick={onClose}><X size={20} className="text-slate-500"/></button></div>
-                <div className="space-y-4">
-                    <div><p className="text-xs text-slate-500 uppercase font-bold">Cliente</p><p className="text-white text-lg font-bold">{order.customer}</p></div>
-                    <div><p className="text-xs text-slate-500 uppercase font-bold">Itens</p><pre className="text-slate-300 whitespace-pre-wrap font-sans bg-slate-950 p-3 rounded-lg border border-slate-800">{order.items}</pre></div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><p className="text-xs text-slate-500 uppercase font-bold">Hora Pedido</p><p className="text-white">{formatTime(order.createdAt)}</p></div>
-                        <div><p className="text-xs text-slate-500 uppercase font-bold">Hora Conclusão</p><p className="text-white">{formatTime(order.completedAt)}</p></div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-2xl p-6 border border-slate-800 animate-in zoom-in max-h-[90vh] overflow-hidden flex flex-col">
+                <div className="flex justify-between items-center mb-6 shrink-0">
+                    <h3 className="font-bold text-xl text-white">Detalhes do Cliente</h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6">
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div><label className="text-xs text-slate-500 font-bold uppercase">Nome</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
+                            <div><label className="text-xs text-slate-500 font-bold uppercase">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
+                        </div>
+                        <div><label className="text-xs text-slate-500 font-bold uppercase">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
+                        <div><label className="text-xs text-slate-500 font-bold uppercase">Observações Internas (CRM)</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white h-20" value={form.obs || ''} onChange={e => setForm({...form, obs: e.target.value})} placeholder="Ex: Cliente VIP, gosta de bem passado..." /></div>
+                        <button onClick={() => onSave(form)} className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold">Salvar Dados</button>
+                    </div>
+
+                    <div className="border-t border-slate-800 pt-6">
+                        <h4 className="font-bold text-white mb-4">Histórico de Pedidos ({clientOrders.length})</h4>
+                        <div className="space-y-3">
+                            {clientOrders.map((o: Order) => (
+                                <div key={o.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-sm">
+                                    <div className="flex justify-between mb-1">
+                                        <span className="text-slate-400">{formatDate(o.createdAt)}</span>
+                                        <span className="font-bold text-white">{formatCurrency(o.value)}</span>
+                                    </div>
+                                    <p className="text-slate-500 line-clamp-1">{o.items}</p>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    )
+    );
+}
+
+export function CloseCycleModal({ data, onClose, onConfirm }: any) {
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-md p-6 border border-slate-800 animate-in zoom-in">
+                <h3 className="font-bold text-xl text-white mb-4 text-center">Fechar Ciclo e Pagar</h3>
+                
+                <div className="bg-slate-950 p-4 rounded-xl space-y-3 mb-6">
+                    <div className="flex justify-between"><span className="text-slate-400">Ganhos</span><span className="text-white font-bold">{formatCurrency(data.total)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-400">Vales</span><span className="text-red-400 font-bold">- {formatCurrency(data.vales)}</span></div>
+                    <div className="border-t border-slate-800 pt-2 flex justify-between"><span className="text-white">Total a Pagar</span><span className="text-emerald-400 font-bold text-lg">{formatCurrency(data.net)}</span></div>
+                </div>
+
+                <div className="flex gap-3">
+                    <button onClick={onClose} className="flex-1 bg-slate-800 text-white py-3 rounded-xl font-bold">Cancelar</button>
+                    <button onClick={() => onConfirm(data)} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold">Confirmar Pagamento</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export function KitchenHistoryModal({ order, onClose, products }: any) {
+    if (!order) return null;
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+             <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg p-6 border border-slate-800 animate-in zoom-in max-h-[80vh] overflow-y-auto">
+                <div className="flex justify-between items-start mb-4 border-b border-slate-800 pb-4">
+                    <div>
+                        <h3 className="font-bold text-xl text-white">{order.customer}</h3>
+                        <p className="text-xs text-slate-500 font-mono">{formatOrderId(order.id)}</p>
+                    </div>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                </div>
+                
+                <div className="space-y-4">
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <pre className="text-sm text-white font-mono whitespace-pre-wrap">{order.items}</pre>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div><span className="text-slate-500 block text-xs uppercase font-bold">Entrada</span><span className="text-white">{formatTime(order.createdAt)}</span></div>
+                        <div><span className="text-slate-500 block text-xs uppercase font-bold">Saída/Conclusão</span><span className="text-white">{order.completedAt ? formatTime(order.completedAt) : '-'}</span></div>
+                        <div><span className="text-slate-500 block text-xs uppercase font-bold">Status Final</span><span className="text-emerald-400 font-bold uppercase">{order.status}</span></div>
+                    </div>
+                </div>
+             </div>
+        </div>
+    );
 }
