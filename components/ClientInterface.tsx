@@ -21,6 +21,9 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     // Controle do Modal Automático de Loja Fechada
     const [showClosedWarning, setShowClosedWarning] = useState(false);
     
+    // Estado de Carregamento para envio do pedido
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
     // Modal Genérico de Confirmação (Substitui window.confirm)
     const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, action: () => void, title: string, message: string, type?: 'info' | 'danger'} | null>(null);
     
@@ -262,6 +265,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     };
 
     const submitOrder = async (isPreOrder: boolean) => {
+        setIsSubmitting(true);
         let itemsHeader = "";
         if (isPreOrder) {
             itemsHeader = `📢 [PRÉ-VENDA / AGENDADO]\n🕒 Entrega na abertura: ${shopStatus.nextOpen || 'Assim que abrir'}\n-----------------------\n`;
@@ -317,13 +321,17 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             localStorage.removeItem('jhans_cart'); 
             setCheckout(prev => ({ ...prev, trocoPara: '', obs: '' })); 
         } catch (error) {
-            alert("Erro ao enviar pedido. Tente novamente.");
+            console.error(error);
+            alert("Não foi possível enviar o pedido. Verifique sua conexão e tente novamente.");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const handlePlaceOrder = async (e: React.FormEvent) => {
         e.preventDefault();
         if (cart.length === 0) return;
+        if (isSubmitting) return;
 
         if (checkout.serviceType === 'delivery') {
             if (!checkout.address) {
@@ -664,9 +672,12 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                             <button 
                                 form="checkout-form" 
                                 type="submit" 
-                                className={`w-full text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 text-lg active:scale-95 transition-transform ${shopStatus.isOpen ? 'bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500' : 'bg-red-700 hover:bg-red-600 border-2 border-red-500 shadow-red-900/50'}`}
+                                disabled={isSubmitting}
+                                className={`w-full text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 text-lg active:scale-95 transition-transform ${isSubmitting ? 'bg-slate-600 cursor-wait' : shopStatus.isOpen ? 'bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500' : 'bg-red-700 hover:bg-red-600 border-2 border-red-500 shadow-red-900/50'}`}
                             >
-                                {shopStatus.isOpen ? (
+                                {isSubmitting ? (
+                                    <><Loader2 className="animate-spin" size={24}/> Enviando...</>
+                                ) : shopStatus.isOpen ? (
                                     <><CheckCircle2 size={24}/> Enviar Pedido</>
                                 ) : (
                                     <><CalendarClock size={24}/> Agendar Pré-Venda</>
@@ -850,9 +861,15 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                         <div className="flex flex-col w-full gap-3">
                             <button 
                                 onClick={handleDismissClosedWarning}
-                                className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform leading-tight"
+                                className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold p-3 rounded-xl shadow-lg flex flex-row items-center justify-center gap-3 active:scale-95 transition-transform leading-tight group"
                             >
-                                <CalendarClock size={20} className="shrink-0"/> Antecipar Pedido para {shopStatus.nextOpen}
+                                <div className="bg-white/20 p-2 rounded-lg shrink-0 group-hover:bg-white/30 transition-colors">
+                                    <CalendarClock size={24} className="text-white"/>
+                                </div>
+                                <div className="text-left">
+                                    <span className="block text-[10px] opacity-80 uppercase tracking-wider">Loja Fechada</span>
+                                    <span className="block text-sm font-bold leading-none mt-0.5">Ver Cardápio & Agendar</span>
+                                </div>
                             </button>
                             <button 
                                 onClick={() => { handleDismissClosedWarning(); }}
