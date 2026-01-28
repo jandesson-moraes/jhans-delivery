@@ -40,13 +40,16 @@ export function SidebarBtn({ icon, label, active, onClick, highlight }: any) {
 
 export function StatBox({label, value, icon, color, subtext}: any) {
    return (
-      <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center justify-between gap-4 hover:border-amber-500/30 transition-all duration-300">
-         <div>
-             <p className="text-xs text-slate-500 font-bold uppercase tracking-wide mb-1 truncate">{label}</p>
-             <p className="text-2xl font-extrabold text-white truncate leading-none">{value}</p>
-             {subtext && <p className="text-[10px] text-slate-500 mt-2 truncate">{subtext}</p>}
+      <div className="bg-slate-900 p-4 md:p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center justify-between gap-3 hover:border-amber-500/30 transition-all duration-300 w-full overflow-hidden">
+         <div className="min-w-0 flex-1">
+             <p className="text-[10px] md:text-xs text-slate-500 font-bold uppercase tracking-wide mb-1 truncate">{label}</p>
+             <p className="text-xl md:text-2xl font-extrabold text-white truncate leading-none">{value}</p>
+             {subtext && <p className="text-[9px] md:text-[10px] text-slate-500 mt-2 truncate">{subtext}</p>}
          </div>
-         <div className={`p-3 rounded-xl shrink-0 ${color || 'bg-slate-800 text-slate-400'}`}>{icon}</div>
+         <div className={`p-3 rounded-xl shrink-0 flex items-center justify-center ${color || 'bg-slate-800 text-slate-400'}`}>
+             {/* Clona o elemento icon para forçar tamanho consistente se necessário, ou assume que icon já tem tamanho */}
+             {icon}
+         </div>
       </div>
    )
 }

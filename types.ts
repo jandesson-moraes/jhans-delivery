@@ -114,6 +114,7 @@ export interface Product {
   category: string;
   price: number;
   description?: string;
+  costPrice?: number; // Preço de custo para análise
 }
 
 export interface Client {
@@ -127,4 +128,23 @@ export interface Client {
     totalOrders?: number; 
     totalSpent?: number;
     count?: number; 
+}
+
+// --- NOVAS INTERFACES ---
+export interface Supplier {
+    id: string;
+    name: string;
+    contact: string;
+    category: string;
+    obs?: string;
+}
+
+export interface InventoryItem {
+    id: string;
+    name: string;
+    unit: string; // kg, un, l
+    quantity: number;
+    minQuantity: number;
+    cost: number;
+    supplierId?: string;
 }

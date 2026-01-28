@@ -1,20 +1,21 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement } from '../types';
+import { Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement, Supplier, InventoryItem } from '../types';
 import { BrandLogo, SidebarBtn, StatBox, Footer } from './Shared';
-import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart, History, CheckCircle2, Radar, Volume2, VolumeX, UserCheck, TrendingUp, FileText, Bike, Signal, Battery, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart, History, CheckCircle2, Radar, Volume2, VolumeX, UserCheck, TrendingUp, FileText, Bike, Signal, Battery, Eye, EyeOff, AlertCircle, Box, BarChart3 } from 'lucide-react';
 import { formatCurrency, formatTime, formatDate, isToday, formatOrderId } from '../utils';
 import { MenuManager } from './MenuManager';
 import { ClientsView } from './ClientsView';
 import { KitchenDisplay } from './KitchenDisplay';
 import { ItemReportView } from './ItemReportView';
 import { DailyOrdersView } from './DailyOrdersView';
+import { InventoryManager } from './InventoryManager'; // NOVO
+import { AnalyticsView } from './AnalyticsView'; // NOVO
 import { NewOrderModal, ConfirmAssignmentModal, NewIncomingOrderModal, DispatchSuccessModal, EditOrderModal } from './Modals'; 
 
 // Som de Alarme (Sino Repetitivo)
 const NEW_ORDER_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; 
 
-type AdminViewMode = 'map' | 'history' | 'menu' | 'clients' | 'kds';
+type AdminViewMode = 'map' | 'history' | 'menu' | 'clients' | 'kds' | 'inventory' | 'analytics';
 
 interface AdminProps {
     drivers: Driver[];
@@ -24,6 +25,8 @@ interface AdminProps {
     products: Product[];
     clients: Client[];
     settlements: Settlement[];
+    suppliers: Supplier[]; // NOVO
+    inventory: InventoryItem[]; // NOVO
     onAssignOrder: (oid: string, did: string) => void;
     onCreateDriver: (data: any) => void;
     onUpdateDriver: (id: string, data: any) => void;
@@ -38,6 +41,15 @@ interface AdminProps {
     onDeleteProduct: (id: string) => void;
     onUpdateClient: (id: string, data: any) => void;
     onCloseCycle: (driverId: string, data: any) => void;
+    
+    // Novos Handlers para Estoque
+    onCreateSupplier: (data: any) => void;
+    onUpdateSupplier: (id: string, data: any) => void;
+    onDeleteSupplier: (id: string) => void;
+    onCreateInventory: (data: any) => void;
+    onUpdateInventory: (id: string, data: any) => void;
+    onDeleteInventory: (id: string) => void;
+
     onLogout: () => void;
     isMobile: boolean;
     appConfig: AppConfig;
@@ -60,7 +72,7 @@ const IntroAnimation = ({ onComplete, appName }: { onComplete: () => void, appNa
     return (
         <div className="fixed inset-0 z-[100] bg-black text-cyan-400 font-mono flex flex-col items-center justify-center p-8">
             <div className="w-full max-w-lg space-y-4">
-                <div className="flex justify-between items-end border-b border-cyan-800 pb-2 mb-8 text-[10px] opacity-50"><span>SYS.V17</span><span>● ONLINE</span></div>
+                <div className="flex justify-between items-end border-b border-cyan-800 pb-2 mb-8 text-[10px] opacity-50"><span>SYS.V18</span><span>● ONLINE</span></div>
                 <div className={`transition-opacity duration-300 ${step >= 0 ? 'opacity-100' : 'opacity-0'}`}>{'>'} CONEXÃO SATÉLITE...</div>
                 <div className={`transition-opacity duration-300 ${step >= 1 ? 'opacity-100' : 'opacity-0'}`}>{'>'} CARREGANDO FROTA... OK</div>
                 <div className={`transition-opacity duration-300 ${step >= 2 ? 'opacity-100' : 'opacity-0'}`}>{'>'} DADOS GEOGRÁFICOS... OK</div>
@@ -71,7 +83,7 @@ const IntroAnimation = ({ onComplete, appName }: { onComplete: () => void, appNa
 };
 
 export default function AdminInterface(props: AdminProps) {
-    const { drivers, orders, vales, expenses, products, clients, settlements, appConfig, isMobile, setModal, setModalData, onLogout, onDeleteOrder, onAssignOrder, setDriverToEdit, onDeleteDriver, setClientToEdit, onUpdateOrder, onCreateOrder } = props;
+    const { drivers, orders, vales, expenses, products, clients, settlements, suppliers, inventory, appConfig, isMobile, setModal, setModalData, onLogout, onDeleteOrder, onAssignOrder, setDriverToEdit, onDeleteDriver, setClientToEdit, onUpdateOrder, onCreateOrder } = props;
     const [view, setView] = useState<AdminViewMode>('map');
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
     const [driverSidebarTab, setDriverSidebarTab] = useState<'assign' | 'history' | 'finance'>('assign');
@@ -296,6 +308,8 @@ export default function AdminInterface(props: AdminProps) {
                   <div className="h-px bg-slate-800 my-4 mx-2"></div>
                   <SidebarBtn icon={<UserCheck/>} label="Clientes CRM" active={view==='clients'} onClick={()=>setView('clients')}/>
                   <SidebarBtn icon={<ShoppingBag/>} label="Cardápio Digital" active={view==='menu'} onClick={()=>setView('menu')}/>
+                  <SidebarBtn icon={<Box/>} label="Estoque / Fornecedores" active={view==='inventory'} onClick={()=>setView('inventory')}/>
+                  <SidebarBtn icon={<BarChart3/>} label="Análise & Produtos" active={view==='analytics'} onClick={()=>setView('analytics')}/>
                   <SidebarBtn icon={<Clock/>} label="Financeiro" active={view==='history'} onClick={()=>setView('history')}/>
                 </nav>
                 <div className="p-6 space-y-2 border-t border-slate-800">
@@ -308,7 +322,15 @@ export default function AdminInterface(props: AdminProps) {
                 <header className="h-16 md:h-20 bg-slate-900 border-b border-slate-800 px-4 md:px-10 flex items-center justify-between shadow-sm z-10 w-full shrink-0">
                      <div className="flex items-center gap-3 overflow-hidden">
                          {appConfig.appLogoUrl && <img src={appConfig.appLogoUrl} className="w-8 h-8 rounded-full md:hidden object-cover" alt="Logo" />}
-                         <h1 className="text-lg md:text-2xl font-extrabold text-white truncate min-w-0">{view === 'map' ? 'Central de Comando' : view === 'menu' ? 'Cardápio Digital' : view === 'clients' ? 'Gestão de Clientes' : view === 'kds' ? 'Cozinha & Pedidos' : 'Financeiro'}</h1>
+                         <h1 className="text-lg md:text-2xl font-extrabold text-white truncate min-w-0">
+                             {view === 'map' ? 'Central de Comando' : 
+                              view === 'menu' ? 'Cardápio Digital' : 
+                              view === 'clients' ? 'Gestão de Clientes' : 
+                              view === 'kds' ? 'Cozinha & Pedidos' : 
+                              view === 'inventory' ? 'Estoque & Fornecedores' :
+                              view === 'analytics' ? 'Análise de Vendas' :
+                              'Financeiro'}
+                         </h1>
                      </div>
                      <div className="flex items-center gap-2">
                          <button 
@@ -363,7 +385,7 @@ export default function AdminInterface(props: AdminProps) {
 
                           {/* 3. PAINEL ESQUERDO: RADAR DE PEDIDOS (INTERATIVO) */}
                           {showRadar && (
-                              <div className="absolute top-20 left-4 bottom-24 z-30 w-80 flex flex-col gap-3 pointer-events-none">
+                              <div className="absolute top-20 left-4 bottom-32 md:bottom-24 z-30 w-80 flex flex-col gap-3 pointer-events-none">
                                  <div className="flex items-center gap-2 mb-1 text-cyan-400 font-bold text-xs uppercase tracking-widest bg-black/60 p-3 rounded-xl backdrop-blur-md border border-cyan-500/30 shadow-lg pointer-events-auto">
                                      <Radar size={16} className="animate-spin-slow"/> Radar de Pedidos ({orders.filter(o => o.status === 'pending' || o.status === 'preparing').length})
                                  </div>
@@ -374,7 +396,7 @@ export default function AdminInterface(props: AdminProps) {
                                             onClick={() => o.status === 'pending' ? setNewIncomingOrder(o) : null}
                                             className={`bg-slate-900/90 backdrop-blur-md p-4 rounded-xl shadow-2xl border-l-4 relative group animate-in slide-in-from-left-4 pointer-events-auto transition-all hover:scale-105 hover:bg-slate-800 cursor-pointer ${o.status === 'ready' ? 'border-emerald-500' : o.status === 'preparing' ? 'border-blue-500' : 'border-amber-500'}`}
                                         >
-                                           <div className="flex justify-between items-start mb-1">
+                                           <div className="flex justify-between items-start mb-1 mr-6"> {/* mr-6 para dar espaço aos botões */}
                                                <span className="font-bold text-sm text-white truncate w-32">{o.customer}</span>
                                                <span className="text-[10px] font-bold bg-slate-950 px-2 py-1 rounded text-slate-400">{o.time}</span>
                                            </div>
@@ -392,9 +414,10 @@ export default function AdminInterface(props: AdminProps) {
                                                    </span>
                                                </div>
                                            </div>
-                                           <div className="absolute -right-2 -top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                               <button onClick={(e) => { e.stopPropagation(); setOrderToEdit(o); }} className="bg-slate-800 text-slate-300 p-1.5 rounded-full shadow-md hover:bg-slate-700 hover:text-white" title="Editar"><Edit size={12}/></button>
-                                               <button onClick={(e) => { e.stopPropagation(); if(confirm('Excluir este pedido?')) onDeleteOrder(o.id); }} className="bg-red-600 text-white p-1.5 rounded-full shadow-md hover:bg-red-500" title="Excluir"><Trash2 size={12}/></button>
+                                           {/* Botões posicionados dentro da área visível */}
+                                           <div className="absolute right-1 top-1 flex gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                               <button onClick={(e) => { e.stopPropagation(); setOrderToEdit(o); }} className="bg-slate-800 text-slate-300 p-1.5 rounded-full shadow-md hover:bg-slate-700 hover:text-white border border-slate-700" title="Editar"><Edit size={12}/></button>
+                                               <button onClick={(e) => { e.stopPropagation(); if(confirm('Excluir este pedido?')) onDeleteOrder(o.id); }} className="bg-red-600 text-white p-1.5 rounded-full shadow-md hover:bg-red-500 border border-red-700" title="Excluir"><Trash2 size={12}/></button>
                                            </div>
                                         </div>
                                      ))}
@@ -404,7 +427,7 @@ export default function AdminInterface(props: AdminProps) {
 
                           {/* 4. PAINEL DIREITO: FROTA DETALHADA */}
                           {showFleet && (
-                              <div className="absolute top-20 right-4 bottom-24 z-30 w-72 flex flex-col gap-3 pointer-events-none">
+                              <div className="absolute top-20 right-4 bottom-32 md:bottom-24 z-30 w-72 flex flex-col gap-3 pointer-events-none">
                                   <div className="flex items-center gap-2 mb-1 text-amber-400 font-bold text-xs uppercase tracking-widest bg-black/60 p-3 rounded-xl backdrop-blur-md border border-amber-500/30 shadow-lg pointer-events-auto">
                                      <Bike size={16} /> Frota Ativa ({drivers.length})
                                   </div>
@@ -447,8 +470,8 @@ export default function AdminInterface(props: AdminProps) {
                               </div>
                           )}
 
-                          {/* 5. DOCK INFERIOR (CONTROLES) */}
-                          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 bg-slate-900/90 backdrop-blur-xl border border-slate-700 p-2 rounded-2xl shadow-2xl">
+                          {/* 5. DOCK INFERIOR (CONTROLES) - AJUSTADO PARA MOBILE */}
+                          <div className="absolute bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 bg-slate-900/90 backdrop-blur-xl border border-slate-700 p-2 rounded-2xl shadow-2xl">
                               <button onClick={() => setShowRadar(!showRadar)} className={`p-3 rounded-xl transition-all ${showRadar ? 'bg-cyan-900/50 text-cyan-400 border border-cyan-500/30' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`} title="Radar">
                                   {showRadar ? <Radar size={20}/> : <Radar size={20} className="opacity-50"/>}
                               </button>
@@ -469,6 +492,29 @@ export default function AdminInterface(props: AdminProps) {
                     {view === 'menu' && <MenuManager products={products} onCreate={props.onCreateProduct} onUpdate={props.onUpdateProduct} onDelete={props.onDeleteProduct} />}
                     {view === 'clients' && <ClientsView clients={clients} orders={orders} setModal={setModal} setClientToEdit={setClientToEdit} />}
                     {view === 'kds' && <KitchenDisplay orders={orders} products={products} drivers={drivers} onUpdateStatus={onUpdateOrder} onAssignOrder={handleAssignAndNotify} onDeleteOrder={onDeleteOrder} appConfig={appConfig} />}
+                    
+                    {/* NOVA TELA DE ESTOQUE */}
+                    {view === 'inventory' && (
+                        <InventoryManager 
+                            inventory={inventory} 
+                            suppliers={suppliers}
+                            onCreateSupplier={props.onCreateSupplier}
+                            onUpdateSupplier={props.onUpdateSupplier}
+                            onDeleteSupplier={props.onDeleteSupplier}
+                            onCreateInventory={props.onCreateInventory}
+                            onUpdateInventory={props.onUpdateInventory}
+                            onDeleteInventory={props.onDeleteInventory}
+                        />
+                    )}
+
+                    {/* NOVA TELA DE ANÁLISE */}
+                    {view === 'analytics' && (
+                        <AnalyticsView 
+                            orders={orders} 
+                            products={products} 
+                        />
+                    )}
+
                     {view === 'history' && (
                        <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-24 custom-scrollbar">
                           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -479,7 +525,7 @@ export default function AdminInterface(props: AdminProps) {
                           </div>
                           
                           {/* ABAS FINANCEIRAS */}
-                          <div className="flex gap-4 mb-6 border-b border-slate-800 pb-1 overflow-x-auto">
+                          <div className="flex gap-4 mb-6 border-b border-slate-800 pb-1 overflow-x-auto w-full">
                               <button onClick={() => setFinanceTab('orders')} className={`pb-3 px-2 text-sm font-bold transition-all border-b-2 whitespace-nowrap ${financeTab==='orders' ? 'text-emerald-500 border-emerald-500' : 'text-slate-500 border-transparent hover:text-white'}`}>
                                   <div className="flex items-center gap-2"><ClipboardList size={16}/> Lista de Pedidos</div>
                               </button>
@@ -505,9 +551,9 @@ export default function AdminInterface(props: AdminProps) {
                           {financeTab === 'overview' && (
                               <>
                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                                      <StatBox label="Faturamento Hoje" value={formatCurrency(finance.todayIncome)} icon={<TrendingUp/>} color="bg-emerald-600 text-white" subtext="Vendas do dia atual"/>
-                                      <StatBox label="Saldo Total (Caixa)" value={formatCurrency(finance.balance)} icon={<Wallet/>} color={finance.balance >= 0 ? "bg-emerald-900/20 text-emerald-400" : "bg-red-900/20 text-red-400"}/>
-                                      <StatBox label="Despesas" value={formatCurrency(finance.totalExpenses)} icon={<MinusCircle/>} color="bg-red-900/20 text-red-400"/>
+                                      <StatBox label="Faturamento Hoje" value={formatCurrency(finance.todayIncome)} icon={<TrendingUp size={24}/>} color="bg-emerald-600 text-white" subtext="Vendas do dia atual"/>
+                                      <StatBox label="Saldo Total (Caixa)" value={formatCurrency(finance.balance)} icon={<Wallet size={24}/>} color={finance.balance >= 0 ? "bg-emerald-900/20 text-emerald-400" : "bg-red-900/20 text-red-400"}/>
+                                      <StatBox label="Despesas" value={formatCurrency(finance.totalExpenses)} icon={<MinusCircle size={24}/>} color="bg-red-900/20 text-red-400"/>
                                   </div>
                                   
                                   {/* Pequeno extrato de despesas recentes */}
@@ -539,18 +585,19 @@ export default function AdminInterface(props: AdminProps) {
                 </div>
              </main>
 
+            {/* NAVBAR MOBILE */}
             <div className="md:hidden fixed bottom-0 left-0 w-full bg-slate-900/90 backdrop-blur-md text-white z-50 border-t border-slate-800 pb-safe">
-                <div className="relative flex justify-between items-center px-6 pb-4 pt-2">
-                    <div className="absolute left-1/2 -translate-x-1/2 -top-8"><button onClick={()=>setModal('order')} className="bg-gradient-to-br from-orange-500 to-red-600 rounded-full p-4 shadow-xl border-4 border-slate-950 text-white"><Plus size={32}/></button></div>
-                    <div className="flex gap-6">
-                        <button onClick={()=>setView('map')} className={`flex flex-col items-center gap-1 ${view==='map'?'text-orange-500':'text-slate-400'}`}><MapPin size={22}/><span className="text-[9px] font-bold">Monitor</span></button>
-                        <button onClick={()=>setView('kds')} className={`flex flex-col items-center gap-1 ${view==='kds'?'text-orange-500':'text-slate-400'}`}><ChefHat size={22}/><span className="text-[9px] font-bold">Cozinha</span></button>
+                <div className="relative flex justify-between items-center px-4 pb-4 pt-2">
+                    <button onClick={()=>setView('map')} className={`flex flex-col items-center gap-1 ${view==='map'?'text-orange-500':'text-slate-400'}`}><MapPin size={20}/><span className="text-[9px] font-bold">Monitor</span></button>
+                    <button onClick={()=>setView('kds')} className={`flex flex-col items-center gap-1 ${view==='kds'?'text-orange-500':'text-slate-400'}`}><ChefHat size={20}/><span className="text-[9px] font-bold">Cozinha</span></button>
+                    
+                    {/* Botão Novo Pedido Centralizado */}
+                    <div className="relative -top-6">
+                        <button onClick={()=>setModal('order')} className="bg-gradient-to-br from-orange-500 to-red-600 rounded-full p-3 shadow-xl border-4 border-slate-950 text-white active:scale-95 transition-transform"><Plus size={28}/></button>
                     </div>
-                    <div className="w-12"></div>
-                    <div className="flex gap-6">
-                        <button onClick={()=>setView('clients')} className={`flex flex-col items-center gap-1 ${view==='clients'?'text-orange-500':'text-slate-400'}`}><UserCheck size={22}/><span className="text-[9px] font-bold">CRM</span></button>
-                        <button onClick={()=>setView('history')} className={`flex flex-col items-center gap-1 ${view==='history'?'text-orange-500':'text-slate-400'}`}><Clock size={22}/><span className="text-[9px] font-bold">Finanças</span></button>
-                    </div>
+
+                    <button onClick={()=>setView('inventory')} className={`flex flex-col items-center gap-1 ${view==='inventory'?'text-orange-500':'text-slate-400'}`}><Box size={20}/><span className="text-[9px] font-bold">Estoque</span></button>
+                    <button onClick={()=>setView('history')} className={`flex flex-col items-center gap-1 ${view==='history'?'text-orange-500':'text-slate-400'}`}><Clock size={20}/><span className="text-[9px] font-bold">Finanças</span></button>
                 </div>
             </div>
 

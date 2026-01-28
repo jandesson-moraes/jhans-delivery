@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { collection, addDoc, updateDoc, doc, onSnapshot, serverTimestamp, deleteDoc, setDoc, writeBatch, Timestamp, deleteField, getDoc } from "firebase/firestore";
 import { auth, db } from './services/firebase';
-import { UserType, Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement } from './types';
+import { UserType, Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement, Supplier, InventoryItem } from './types';
 import { BrandLogo, Footer } from './components/Shared';
 import DriverInterface from './components/DriverInterface';
 import AdminInterface from './components/AdminInterface';
@@ -64,6 +63,8 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]); // NOVO
+  const [inventory, setInventory] = useState<InventoryItem[]>([]); // NOVO
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [modal, setModal] = useState<any>(null);
@@ -107,6 +108,8 @@ export default function App() {
         onSnapshot(collection(db, 'expenses'), s => setExpenses(s.docs.map(d => ({id: d.id, ...d.data()} as Expense)))),
         onSnapshot(collection(db, 'products'), s => setProducts(s.docs.map(d => ({id: d.id, ...d.data()} as Product)))),
         onSnapshot(collection(db, 'settlements'), s => setSettlements(s.docs.map(d => ({id: d.id, ...d.data()} as Settlement)))),
+        onSnapshot(collection(db, 'suppliers'), s => setSuppliers(s.docs.map(d => ({id: d.id, ...d.data()} as Supplier)))), // NOVO
+        onSnapshot(collection(db, 'inventory'), s => setInventory(s.docs.map(d => ({id: d.id, ...d.data()} as InventoryItem)))), // NOVO
         onSnapshot(collection(db, 'clients'), s => { setClients(s.docs.map(d => ({id: d.id, ...d.data()} as Client))); setLoading(false); })
     ];
     return () => unsubs.forEach(u => u());
@@ -179,6 +182,14 @@ export default function App() {
   const deleteProduct = (id: string) => handleAction(async () => { if(confirm("Excluir produto?")) await deleteDoc(doc(db, 'products', id)); });
   const updateClientData = (id: string, data: any) => handleAction(async () => { await setDoc(doc(db, 'clients', id), data, { merge: true }); });
   
+  // HANDLERS NOVOS
+  const createSupplier = (data: any) => handleAction(async () => { await addDoc(collection(db, 'suppliers'), data); });
+  const updateSupplier = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'suppliers', id), data); });
+  const deleteSupplier = (id: string) => handleAction(async () => { await deleteDoc(doc(db, 'suppliers', id)); });
+  const createInventory = (data: any) => handleAction(async () => { await addDoc(collection(db, 'inventory'), data); });
+  const updateInventory = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'inventory', id), data); });
+  const deleteInventory = (id: string) => handleAction(async () => { await deleteDoc(doc(db, 'inventory', id)); });
+
   const handleCloseCycle = (data: any) => handleAction(async () => {
       if (!driverToEdit) return;
       const timestamp = data.endAt ? Timestamp.fromDate(new Date(data.endAt)) : serverTimestamp();
@@ -230,11 +241,13 @@ export default function App() {
     <>
       <GlobalStyles />
       <AdminInterface 
-          drivers={drivers} orders={orders} vales={vales} expenses={expenses} products={products} clients={clients} settlements={settlements}
+          drivers={drivers} orders={orders} vales={vales} expenses={expenses} products={products} clients={clients} settlements={settlements} suppliers={suppliers} inventory={inventory}
           onAssignOrder={assignOrder} onCreateDriver={createDriver} onUpdateDriver={updateDriver} onDeleteDriver={deleteDriver} 
           onCreateOrder={createOrder} onDeleteOrder={deleteOrder} onUpdateOrder={updateOrder} onCreateVale={createVale} onCreateExpense={createExpense}
           onCreateProduct={createProduct} onDeleteProduct={deleteProduct} onUpdateProduct={updateProduct} onUpdateClient={updateClientData} onLogout={handleLogout}
           onCloseCycle={(driverId, data) => handleCloseCycle(data)} 
+          onCreateSupplier={createSupplier} onUpdateSupplier={updateSupplier} onDeleteSupplier={deleteSupplier}
+          onCreateInventory={createInventory} onUpdateInventory={updateInventory} onDeleteInventory={deleteInventory}
           isMobile={isMobile} appConfig={appConfig} setAppConfig={setAppConfig} setModal={setModal} setModalData={setModalData}
           setDriverToEdit={setDriverToEdit} setClientToEdit={setClientToEdit}
           {...{modal}} 
