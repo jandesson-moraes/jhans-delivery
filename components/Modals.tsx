@@ -294,7 +294,7 @@ export function NewDriverModal({ onClose, onSave, initialData }: any) {
                 </form>
             </div>
         </div>
-    )
+    );
 }
 
 // --- NEW ORDER MODAL RESTAURADO (VERSÃO COMPLETA COM SELEÇÃO DE PRODUTOS E CLIENTES) ---
@@ -762,15 +762,24 @@ export function SettingsModal({ config, onSave, onClose }: any) {
     const daysOfWeek = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
     const updateSchedule = (dayIndex: number, field: string, val: any) => {
         const currentSchedule = form.schedule || {};
+        // Ensure default values are set if not present
         const dayConfig = currentSchedule[dayIndex] || { open: '18:00', close: '23:00', enabled: true };
         
-        setForm({
-            ...form,
-            schedule: {
-                ...currentSchedule,
-                [dayIndex]: { ...dayConfig, [field]: val }
+        // Deep copy schedule to trigger re-render and ensure object integrity for Firestore
+        const newSchedule = {
+            ...currentSchedule,
+            [dayIndex]: { 
+                ...dayConfig, 
+                [field]: val 
             }
-        });
+        };
+        
+        setForm({ ...form, schedule: newSchedule });
+    };
+
+    const handleSave = () => {
+        onSave(form);
+        onClose();
     };
 
     return (
@@ -831,7 +840,11 @@ export function SettingsModal({ config, onSave, onClose }: any) {
                              <h4 className="text-emerald-500 font-bold uppercase text-xs mb-4 border-b border-slate-800 pb-1">Horário de Funcionamento</h4>
                              <div className="space-y-3">
                                  {daysOfWeek.map((dayName, idx) => {
-                                     const config = form.schedule?.[idx] || { open: '18:00', close: '23:00', enabled: true };
+                                     // Ensure we are accessing safely, even if the array is sparse
+                                     const config = (form.schedule && form.schedule[idx]) 
+                                         ? form.schedule[idx] 
+                                         : { open: '18:00', close: '23:00', enabled: true };
+                                     
                                      return (
                                          <div key={idx} className={`flex items-center gap-3 p-3 rounded-xl border ${config.enabled ? 'bg-slate-950 border-slate-800' : 'bg-slate-900/50 border-transparent opacity-50'}`}>
                                              <div className="flex items-center gap-2 w-32">
@@ -847,7 +860,7 @@ export function SettingsModal({ config, onSave, onClose }: any) {
                                              <div className="flex items-center gap-2 flex-1">
                                                  <input 
                                                      type="time" 
-                                                     value={config.open} 
+                                                     value={config.open || '18:00'} 
                                                      onChange={(e) => updateSchedule(idx, 'open', e.target.value)}
                                                      disabled={!config.enabled}
                                                      className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-sm outline-none focus:border-emerald-500 disabled:opacity-50"
@@ -855,7 +868,7 @@ export function SettingsModal({ config, onSave, onClose }: any) {
                                                  <span className="text-slate-500 text-xs">até</span>
                                                  <input 
                                                      type="time" 
-                                                     value={config.close} 
+                                                     value={config.close || '23:00'} 
                                                      onChange={(e) => updateSchedule(idx, 'close', e.target.value)}
                                                      disabled={!config.enabled}
                                                      className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-sm outline-none focus:border-emerald-500 disabled:opacity-50"
@@ -869,7 +882,7 @@ export function SettingsModal({ config, onSave, onClose }: any) {
                      )}
                  </div>
                  <div className="p-6 border-t border-slate-800">
-                     <button onClick={() => onSave(form)} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl">Salvar Configurações</button>
+                     <button onClick={handleSave} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl">Salvar Configurações</button>
                  </div>
              </div>
         </div>
@@ -959,7 +972,7 @@ export function EditClientModal({ client, onClose, onSave, orders }: any) {
                          {clientOrders.map((o: Order) => (
                              <div key={o.id} className="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between">
                                  <div><p className="text-white text-sm font-bold">{formatDate(o.createdAt)}</p><p className="text-xs text-slate-500">{o.items}</p></div>
-                                 <div className="text-right"><p className="text-emerald-500 font-bold">{o.amount}</p><p className="text-[10px] text-slate-600 uppercase">{o.status}</p></div>
+                                 <div className="text-right"><p className="text-emerald-500 font-bold">{o.amount}</p><p className="text-xs text-slate-600 uppercase">{o.status}</p></div>
                              </div>
                          ))}
                      </div>

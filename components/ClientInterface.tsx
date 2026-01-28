@@ -70,17 +70,15 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     // EFEITO: Abrir modal se loja fechada ao entrar
     useEffect(() => {
         if (!shopStatus.isOpen && !allowSystemAccess && view === 'menu') {
-            // Verifica se já não foi dispensado nesta sessão (opcional, aqui forçamos sempre que montar)
-            const hasSeen = sessionStorage.getItem('seen_closed_modal');
-            if (!hasSeen) {
-                setShowClosedWarning(true);
-            }
+            // Removida verificação de session storage para garantir que o modal apareça durante os testes
+            // const hasSeen = sessionStorage.getItem('seen_closed_modal');
+            setShowClosedWarning(true);
         }
-    }, [shopStatus.isOpen, allowSystemAccess]);
+    }, [shopStatus.isOpen, allowSystemAccess, view]); // Adicionado view como dependência
 
     const handleDismissClosedWarning = () => {
         setShowClosedWarning(false);
-        sessionStorage.setItem('seen_closed_modal', 'true');
+        // sessionStorage.setItem('seen_closed_modal', 'true'); // Comentado para testes
     };
 
     // --- PERSISTÊNCIA DE DADOS (EFEITOS) ---
@@ -680,7 +678,9 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                                 className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase border shadow-sm backdrop-blur-sm ${shopStatus.isOpen ? 'bg-emerald-500 text-white border-emerald-400' : 'bg-red-500 text-white border-red-400'}`}
                             >
                                 <div className={`w-2 h-2 rounded-full ${shopStatus.isOpen ? 'bg-white animate-pulse' : 'bg-red-200'}`}></div>
-                                {shopStatus.isOpen ? 'Aberto' : 'Fechado'}
+                                {shopStatus.isOpen ? (
+                                    shopStatus.message !== 'Horário não configurado' ? shopStatus.message : 'Aberto'
+                                ) : 'Fechado'}
                             </button>
                         )}
                     </div>

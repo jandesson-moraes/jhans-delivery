@@ -263,7 +263,7 @@ export const getOrderReceivedText = (order: any, appName: string) => {
     const isPix = order.paymentMethod?.toLowerCase().includes('pix');
     const displayId = formatOrderId(order.id);
     
-    return `Olá *${order.customer}*! ${EMOJI.WAVE}\nRecebemos seu pedido no *${safeName}* e ficamos muito felizes!\n\n*Fique tranquilo!* ${EMOJI.SMILE_HEARTS}\nSeu pedido ${displayId} já entrou no nosso sistema e será aceito e preparado com todo o cuidado.\n\n${EMOJI.MONEY_BAG} Total: *${formatCurrency(order.value)}*\n${isPix ? `${EMOJI.WARNING} *Assim que puder, nos envie o comprovante PIX.*\n\nCaso já tenha feito o pagamento, favor desconsiderar a cobrança ${EMOJI.SMILE}` : ''}\n\n${EMOJI.SCOOTER} Avisaremos assim que sair para entrega!`;
+    return `Olá *${order.customer}*! ${EMOJI.WAVE}\nRecebemos seu pedido no *${safeName}* e ficamos muito felizes!\n\n*Fique tranquilo!* ${EMOJI.SMILE_HEARTS}\nSeu pedido ${displayId} já entrou no nosso sistema e será aceito e preparado com todo o cuidado.\n\n${EMOJI.MONEY_BAG} Total: *${formatCurrency(order.value)}\n${isPix ? `${EMOJI.WARNING} *Assim que puder, nos envie o comprovante PIX.*\n\nCaso já tenha feito o pagamento, favor desconsiderar a cobrança ${EMOJI.SMILE}` : ''}\n\n${EMOJI.SCOOTER} Avisaremos assim que sair para entrega!`;
 };
 
 export const sendOrderConfirmation = (order: any, appName: string) => {
@@ -302,23 +302,30 @@ export const sendDispatchNotification = (order: any, driverName: string, appName
 
 // --- VALIDAÇÃO DE HORÁRIO APRIMORADA ---
 export const checkShopStatus = (schedule?: { [key: number]: any }) => {
-    // Se não houver configuração, assume aberto para evitar bloqueios indesejados
-    if (!schedule) return { isOpen: true, message: 'Horário não configurado', nextOpen: null };
-
     const now = new Date();
     const currentDay = now.getDay(); // 0 = Domingo, 6 = Sábado
     const currentTime = now.getHours() * 60 + now.getMinutes();
     
+    // Se não houver schedule ou estiver vazio, assumimos aberto (para evitar bloqueio acidental),
+    // MAS retornamos uma mensagem de aviso.
+    if (!schedule || Object.keys(schedule).length === 0) {
+        return { 
+            isOpen: true, 
+            message: 'Horário não configurado', 
+            nextOpen: null 
+        };
+    }
+
     const todayConfig = schedule[currentDay];
 
     // Verificar se está aberto HOJE agora
     let isOpenToday = false;
-    if (todayConfig && todayConfig.enabled) {
+    if (todayConfig && todayConfig.enabled && todayConfig.open && todayConfig.close) {
         const [openH, openM] = todayConfig.open.split(':').map(Number);
         const [closeH, closeM] = todayConfig.close.split(':').map(Number);
         
-        const openTime = openH * 60 + openM;
-        const closeTime = closeH * 60 + closeM;
+        const openTime = (openH || 0) * 60 + (openM || 0);
+        const closeTime = (closeH || 0) * 60 + (closeM || 0);
         
         if (closeTime < openTime) {
             // Horário cruza meia-noite (ex: 18:00 as 02:00)
@@ -338,9 +345,9 @@ export const checkShopStatus = (schedule?: { [key: number]: any }) => {
     let nextDayName = '';
     
     // 1. Tentar ainda hoje (se fechou mas vai abrir mais tarde, ou se ainda não abriu)
-    if (todayConfig && todayConfig.enabled) {
+    if (todayConfig && todayConfig.enabled && todayConfig.open) {
         const [openH, openM] = todayConfig.open.split(':').map(Number);
-        const openTime = openH * 60 + openM;
+        const openTime = (openH || 0) * 60 + (openM || 0);
         if (currentTime < openTime) {
             nextOpen = todayConfig.open;
             nextDayName = 'Hoje';
@@ -353,7 +360,7 @@ export const checkShopStatus = (schedule?: { [key: number]: any }) => {
         for (let i = 1; i <= 7; i++) {
             const nextDayIndex = (currentDay + i) % 7;
             const nextConfig = schedule[nextDayIndex];
-            if (nextConfig && nextConfig.enabled) {
+            if (nextConfig && nextConfig.enabled && nextConfig.open) {
                 nextOpen = nextConfig.open;
                 nextDayName = i === 1 ? 'Amanhã' : days[nextDayIndex];
                 break;
