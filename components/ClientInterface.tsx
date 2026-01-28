@@ -495,13 +495,15 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                                                 <Ban className="text-white" size={28}/>
                                             </div>
                                             <div>
-                                                <h4 className="font-black text-white text-xl uppercase tracking-wide mb-1">LOJA FECHADA</h4>
+                                                <h4 className="font-black text-white text-xl uppercase tracking-wide mb-1">
+                                                    {appConfig.appName || 'Loja'} FECHADA
+                                                </h4>
                                                 <p className="text-sm text-red-100 font-medium leading-relaxed">
                                                     Não estamos atendendo agora. Seu pedido será considerado uma <strong>PRÉ-VENDA (Agendamento)</strong>.
                                                 </p>
                                                 <div className="mt-3 bg-black/40 p-2 rounded-lg border border-red-500/50 inline-block">
                                                     <p className="text-xs text-white font-bold flex items-center gap-2">
-                                                        <Clock size={14} className="text-amber-400"/> Só entregaremos: <span className="text-amber-400">{shopStatus.nextOpen}</span>
+                                                        <Clock size={14} className="text-amber-400"/> Só entregaremos: <span className="text-amber-400">a partir das {shopStatus.nextOpen}</span>
                                                     </p>
                                                 </div>
                                             </div>
@@ -751,13 +753,9 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
 
                         <div className="space-y-2 mb-4">
                             {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((day, idx) => {
-                                // Se a loja não tem schedule salvo, mostra como Aberto (horário padrão) para ser consistente
-                                const scheduleExists = appConfig.schedule && Object.keys(appConfig.schedule).length > 0;
                                 const config = appConfig.schedule?.[idx];
                                 const isToday = new Date().getDay() === idx;
-                                
-                                // Configuração de exibição: Usa o salvo OU o padrão (se não existir nada)
-                                const displayConfig = config || (scheduleExists ? null : { open: '18:00', close: '23:00', enabled: true });
+                                const displayConfig = config || (appConfig.schedule ? null : { open: '18:00', close: '23:00', enabled: true });
 
                                 return (
                                     <div key={idx} className={`flex justify-between items-center text-sm p-2 rounded ${isToday ? 'bg-slate-800 font-bold text-white' : 'text-slate-400'}`}>
@@ -777,47 +775,31 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                 </div>
             )}
 
-            {/* MODAL AUTOMÁTICO - LOJA FECHADA */}
+            {/* MODAL AUTOMÁTICO - LOJA FECHADA / PRÉ-VENDA */}
             {showClosedWarning && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-500">
                     <div className="bg-slate-900 rounded-3xl w-full max-w-sm p-6 border-2 border-slate-800 shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
                         
-                        {/* Indicador de Hora Tardia */}
-                        {new Date().getHours() >= 23 || new Date().getHours() < 6 ? (
-                            <>
-                                <div className="bg-indigo-900/30 p-4 rounded-full mb-4 animate-pulse">
-                                    <Moon size={40} className="text-indigo-400" />
-                                </div>
-                                <h3 className="font-black text-2xl text-white mb-2 uppercase tracking-wide">
-                                    Atividades Encerradas
-                                </h3>
-                                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 mb-6">
-                                    <p className="text-slate-300 font-medium leading-relaxed">
-                                        Encerramos as atividades às 23h. <br/>
-                                        <span className="text-indigo-300">Agradecemos pelo contato!</span>
-                                    </p>
-                                    <p className="text-sm text-slate-500 mt-2">
-                                        Voltamos amanhã (caso seja dia de funcionamento).
-                                    </p>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div className="bg-red-900/30 p-4 rounded-full mb-4">
-                                    <DoorClosed size={40} className="text-red-400" />
-                                </div>
-                                <h3 className="font-black text-2xl text-white mb-2 uppercase tracking-wide">
-                                    Estamos Fechados
-                                </h3>
-                                <p className="text-slate-400 mb-6">
-                                    No momento nossa cozinha não está operando.
-                                </p>
-                            </>
-                        )}
+                        <div className="bg-red-900/30 p-4 rounded-full mb-4">
+                            <DoorClosed size={40} className="text-red-400" />
+                        </div>
+                        
+                        <h3 className="font-black text-xl text-white mb-2 uppercase tracking-wide">
+                            {appConfig.appName || 'Hamburgueria'} FECHADA
+                        </h3>
+                        
+                        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 mb-6">
+                            <p className="text-slate-300 font-medium leading-relaxed mb-3">
+                                Não estamos atendendo agora. Seu pedido será considerado uma <strong className="text-amber-400">PRÉ-VENDA (Agendamento)</strong>.
+                            </p>
+                            <p className="text-sm text-white font-bold bg-slate-900 p-2 rounded border border-slate-600">
+                                Só entregaremos: <span className="text-emerald-400 block mt-1">a partir das {shopStatus.nextOpen}</span>
+                            </p>
+                        </div>
 
                         {/* LISTA RÁPIDA DE HORÁRIOS */}
                         <div className="w-full bg-black/20 rounded-xl p-3 mb-6 border border-white/5">
-                            <p className="text-[10px] uppercase font-bold text-slate-500 mb-2 flex items-center justify-center gap-1"><CalendarDays size={12}/> Nossos Horários</p>
+                            <p className="text-[10px] uppercase font-bold text-slate-500 mb-2 flex items-center justify-center gap-1"><CalendarDays size={12}/> Próximos Horários</p>
                             <div className="space-y-1">
                                 {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((day, idx) => {
                                     const config = appConfig.schedule?.[idx];
@@ -836,12 +818,12 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                         <div className="flex flex-col w-full gap-3">
                             <button 
                                 onClick={handleDismissClosedWarning}
-                                className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                                className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform leading-tight"
                             >
-                                <CalendarClock size={18}/> Antecipar Pedido para Amanhã
+                                <CalendarClock size={18}/> Antecipar Pedido para {shopStatus.nextOpen}
                             </button>
                             <button 
-                                onClick={() => { /* Opção de sair ou fechar */ handleDismissClosedWarning(); }}
+                                onClick={() => { handleDismissClosedWarning(); }}
                                 className="text-slate-500 text-xs font-bold py-2 hover:text-white transition-colors"
                             >
                                 Apenas olhar o cardápio

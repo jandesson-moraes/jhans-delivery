@@ -306,8 +306,7 @@ export const checkShopStatus = (schedule?: { [key: number]: any }) => {
     const currentDay = now.getDay(); // 0 = Domingo, 6 = Sábado
     const currentTime = now.getHours() * 60 + now.getMinutes();
     
-    // Se não houver schedule ou estiver vazio, assumimos aberto (para evitar bloqueio acidental),
-    // MAS retornamos uma mensagem de aviso.
+    // Se não houver schedule ou estiver vazio, assumimos aberto
     if (!schedule || Object.keys(schedule).length === 0) {
         return { 
             isOpen: true, 
@@ -368,9 +367,11 @@ export const checkShopStatus = (schedule?: { [key: number]: any }) => {
         }
     }
 
+    const nextOpenString = nextOpen ? `${nextDayName} às ${nextOpen}` : 'Em breve';
+
     return { 
         isOpen: false, 
-        message: 'Fechado no momento',
-        nextOpen: nextOpen ? `${nextDayName} às ${nextOpen}` : 'Em breve'
+        message: 'Fechado',
+        nextOpen: nextOpenString
     };
 };
