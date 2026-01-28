@@ -294,7 +294,7 @@ export function NewDriverModal({ onClose, onSave, initialData }: any) {
                 </form>
             </div>
         </div>
-    );
+    )
 }
 
 // --- NEW ORDER MODAL RESTAURADO (VERSÃO COMPLETA COM SELEÇÃO DE PRODUTOS E CLIENTES) ---
@@ -746,7 +746,19 @@ export function ReceiptModal({ order, onClose, appConfig }: any) {
 }
 
 export function SettingsModal({ config, onSave, onClose }: any) {
-    const [form, setForm] = useState(config || {});
+    const [form, setForm] = useState(() => {
+        const initial = config || {};
+        // Initialize default schedule if completely missing
+        if (!initial.schedule || Object.keys(initial.schedule).length === 0) {
+            const defaultSchedule: any = {};
+            ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].forEach((_, idx) => {
+                defaultSchedule[idx] = { open: '18:00', close: '23:00', enabled: true };
+            });
+            initial.schedule = defaultSchedule;
+        }
+        return initial;
+    });
+    
     const [activeTab, setActiveTab] = useState<'general' | 'schedule'>('general');
     
     // Handlers for DeliveryZones

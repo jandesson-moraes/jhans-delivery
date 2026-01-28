@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Product, AppConfig, Order, DeliveryZone } from '../types';
+import { Product, AppConfig } from '../types';
 import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard, formatTime, formatDate, generatePixPayload, EMOJI, checkShopStatus } from '../utils';
 import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode, Gift, LogOut, ShieldCheck, CalendarClock, Ban, Moon, CalendarDays, DoorClosed } from 'lucide-react';
 import { BrandLogo, Footer } from './Shared';
@@ -69,16 +69,14 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
 
     // EFEITO: Abrir modal se loja fechada ao entrar
     useEffect(() => {
+        // Se a loja estiver fechada e o usuário não for do sistema (admin/motoboy) e estiver na tela de menu
         if (!shopStatus.isOpen && !allowSystemAccess && view === 'menu') {
-            // Removida verificação de session storage para garantir que o modal apareça durante os testes
-            // const hasSeen = sessionStorage.getItem('seen_closed_modal');
             setShowClosedWarning(true);
         }
-    }, [shopStatus.isOpen, allowSystemAccess, view]); // Adicionado view como dependência
+    }, [shopStatus.isOpen, allowSystemAccess, view]); 
 
     const handleDismissClosedWarning = () => {
         setShowClosedWarning(false);
-        // sessionStorage.setItem('seen_closed_modal', 'true'); // Comentado para testes
     };
 
     // --- PERSISTÊNCIA DE DADOS (EFEITOS) ---
@@ -753,13 +751,19 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
 
                         <div className="space-y-2 mb-4">
                             {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((day, idx) => {
+                                // Se a loja não tem schedule salvo, mostra como Aberto (horário padrão) para ser consistente
+                                const scheduleExists = appConfig.schedule && Object.keys(appConfig.schedule).length > 0;
                                 const config = appConfig.schedule?.[idx];
                                 const isToday = new Date().getDay() === idx;
+                                
+                                // Configuração de exibição: Usa o salvo OU o padrão (se não existir nada)
+                                const displayConfig = config || (scheduleExists ? null : { open: '18:00', close: '23:00', enabled: true });
+
                                 return (
                                     <div key={idx} className={`flex justify-between items-center text-sm p-2 rounded ${isToday ? 'bg-slate-800 font-bold text-white' : 'text-slate-400'}`}>
                                         <span>{day}</span>
-                                        {config && config.enabled ? (
-                                            <span>{config.open} - {config.close}</span>
+                                        {displayConfig && displayConfig.enabled ? (
+                                            <span>{displayConfig.open} - {displayConfig.close}</span>
                                         ) : (
                                             <span className="text-slate-600 text-xs uppercase">Fechado</span>
                                         )}
