@@ -586,19 +586,23 @@ export function NewOrderModal({ onClose, onSave, products, clients }: { onClose:
         setForm(prev => ({ ...prev, [field === 'name' ? 'customer' : field]: value }));
         setActiveField(field);
 
-        if (value.length < 2) {
+        const cleanVal = value.trim();
+        if (cleanVal.length < 1) {
             setSuggestions([]);
             return;
         }
 
-        const lowerVal = value.toLowerCase();
-        // Filtra clientes
+        const lowerVal = cleanVal.toLowerCase();
+        
         const matches = clients.filter(c => {
             if (field === 'phone') {
-                // Tenta bater telefone exato ou normalizado
-                return c.phone.includes(value) || normalizePhone(c.phone).includes(value);
+                // Remove spaces/dashes from input for better matching
+                const rawInput = value.replace(/\D/g, '');
+                const clientPhone = normalizePhone(c.phone);
+                // Match raw sequence or normalized
+                return c.phone.includes(value) || clientPhone.includes(rawInput);
             } else {
-                return c.name.toLowerCase().includes(lowerVal);
+                return c.name && c.name.toLowerCase().includes(lowerVal);
             }
         }).slice(0, 5); // Limita a 5 sugestões
 
@@ -781,12 +785,16 @@ export function NewOrderModal({ onClose, onSave, products, clients }: { onClose:
                                         placeholder="Tel" 
                                         value={form.phone} 
                                         onChange={e => handleClientLookup(e.target.value, 'phone')} 
+                                        onClick={(e) => e.stopPropagation()} 
+                                        onFocus={(e) => handleClientLookup(e.target.value, 'phone')}
                                     />
                                     <input 
                                         className="col-span-2 bg-slate-900 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-amber-500" 
                                         placeholder="Nome" 
                                         value={form.customer} 
                                         onChange={e => handleClientLookup(e.target.value, 'name')} 
+                                        onClick={(e) => e.stopPropagation()} 
+                                        onFocus={(e) => handleClientLookup(e.target.value, 'name')}
                                         required 
                                     />
 
