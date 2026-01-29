@@ -1,14 +1,15 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame, TrendingUp, DollarSign, ShoppingBag, ArrowRight, Play, Printer, ChevronRight, Gift, QrCode, Search, ExternalLink, Menu, Target, Navigation, Bell, User } from 'lucide-react';
+import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame, TrendingUp, DollarSign, ShoppingBag, ArrowRight, Play, Printer, ChevronRight, Gift, QrCode, Search, ExternalLink, Menu, Target, Navigation, Bell, User, ArrowLeft, CreditCard, Banknote } from 'lucide-react';
 import { Product, Client, AppConfig, Driver, Order, Vale, DeliveryZone } from '../types';
 import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, getOrderReceivedText, formatOrderId, getDispatchMessage, getProductionMessage, generatePixPayload, checkShopStatus } from '../utils';
+import { PixIcon } from './Shared';
 
 // --- MODAL GENÉRICO DE CONFIRMAÇÃO (NOVO) ---
 export function GenericConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmText = "Confirmar", cancelText = "Cancelar", type = "info" }: any) {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-[3050] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-200">
             <div className={`bg-slate-900 rounded-3xl shadow-2xl w-full max-w-sm p-6 border-2 relative overflow-hidden ${type === 'danger' ? 'border-red-500/50 shadow-red-900/30' : 'border-amber-500/50 shadow-amber-900/30'}`}>
                 <div className="flex flex-col items-center text-center mb-6">
                     <div className={`p-4 rounded-full mb-3 animate-bounce ${type === 'danger' ? 'bg-red-500/20' : 'bg-amber-500/20'}`}>
@@ -42,7 +43,7 @@ export function GenericConfirmModal({ isOpen, onClose, onConfirm, title, message
 // --- MODAL: CONFIRMAR FECHAMENTO NA COZINHA (NOVO) ---
 export function ConfirmCloseOrderModal({ onClose, onConfirm, order }: { onClose: () => void, onConfirm: () => void, order: Order }) {
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-300">
+        <div className="fixed inset-0 z-[3050] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-300">
             <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-sm p-6 border-2 border-red-500/50 shadow-red-500/20 relative overflow-hidden">
                 <div className="flex flex-col items-center text-center mb-6">
                     <div className="bg-red-500/20 p-4 rounded-full mb-3 animate-bounce">
@@ -95,7 +96,7 @@ export function ProductionSuccessModal({ onClose, order, appName }: { onClose: (
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-300">
+        <div className="fixed inset-0 z-[3050] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-300">
             <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md p-6 border-2 border-orange-500 shadow-orange-500/20 relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-10">
                     <span className="flex h-32 w-32">
@@ -168,7 +169,7 @@ export function DispatchSuccessModal({ onClose, data, appName }: { onClose: () =
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-300">
+        <div className="fixed inset-0 z-[3050] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-300">
             <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md p-6 border-2 border-emerald-500 shadow-emerald-500/20 relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-10">
                     <span className="flex h-32 w-32">
@@ -265,7 +266,7 @@ export function NewDriverModal({ onClose, onSave, initialData }: any) {
     };
 
     return (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
             <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-800 animate-in zoom-in max-h-[90vh] overflow-y-auto custom-scrollbar">
                 <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
                     <h3 className="font-bold text-xl text-white flex items-center gap-2">
@@ -365,7 +366,7 @@ export function SettingsModal({ config, onSave, onClose }: any) {
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
              <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg p-6 border border-slate-800 animate-in zoom-in max-h-[90vh] overflow-y-auto custom-scrollbar">
                 <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
                     <h3 className="font-bold text-xl text-white flex items-center gap-2"><SettingsIcon/> Configurações</h3>
@@ -416,7 +417,7 @@ export function SettingsModal({ config, onSave, onClose }: any) {
 export function ImportModal({ onClose, onImportCSV }: any) {
     const [text, setText] = useState('');
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
             <div className="bg-slate-900 rounded-2xl w-full max-w-lg p-6 border border-slate-800 animate-in zoom-in">
                 <h3 className="font-bold text-xl text-white mb-4">Importar CSV</h3>
                 <textarea className="w-full h-40 bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-mono outline-none mb-4" placeholder="Cole o conteúdo do CSV aqui..." value={text} onChange={e => setText(e.target.value)} />
@@ -439,7 +440,7 @@ export function NewExpenseModal({ onClose, onSave }: any) {
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
             <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-800 animate-in zoom-in">
                 <h3 className="font-bold text-xl text-white mb-4">Nova Despesa</h3>
                 <form onSubmit={handleSubmit} className="space-y-3">
@@ -464,7 +465,7 @@ export function NewValeModal({ driver, onClose, onSave }: any) {
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
             <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-800 animate-in zoom-in">
                 <h3 className="font-bold text-xl text-white mb-2">Novo Vale / Adiantamento</h3>
                 <p className="text-slate-400 text-sm mb-4">Para: {driver.name}</p>
@@ -484,7 +485,7 @@ export function EditClientModal({ client, orders, onClose, onUpdateOrder, onSave
     const clientOrders = orders.filter((o: Order) => normalizePhone(o.phone) === normalizePhone(client.phone)).sort((a: any, b: any) => b.createdAt.seconds - a.createdAt.seconds);
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
             <div className="bg-slate-900 rounded-2xl w-full max-w-2xl p-6 border border-slate-800 animate-in zoom-in max-h-[90vh] overflow-hidden flex flex-col">
                 <div className="flex justify-between items-center mb-6 shrink-0">
                     <h3 className="font-bold text-xl text-white">Detalhes do Cliente</h3>
@@ -524,7 +525,7 @@ export function EditClientModal({ client, orders, onClose, onUpdateOrder, onSave
 
 export function CloseCycleModal({ data, onClose, onConfirm }: any) {
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
             <div className="bg-slate-900 rounded-2xl w-full max-w-md p-6 border border-slate-800 animate-in zoom-in">
                 <h3 className="font-bold text-xl text-white mb-4 text-center">Fechar Ciclo e Pagar</h3>
                 
@@ -546,7 +547,7 @@ export function CloseCycleModal({ data, onClose, onConfirm }: any) {
 export function KitchenHistoryModal({ order, onClose, products }: any) {
     if (!order) return null;
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
              <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg p-6 border border-slate-800 animate-in zoom-in max-h-[80vh] overflow-y-auto">
                 <div className="flex justify-between items-start mb-4 border-b border-slate-800 pb-4">
                     <div>
@@ -571,7 +572,7 @@ export function KitchenHistoryModal({ order, onClose, products }: any) {
     );
 }
 
-// NewOrderModal - Restaurado com visual de duas colunas (Cardápio e Form)
+// NewOrderModal - Restaurado com visual de duas colunas (Cardápio e Form) e Abas em Mobile
 export function NewOrderModal({ onClose, onSave, products, clients }: { onClose: () => void, onSave: (data: any) => void, products: Product[], clients: Client[] }) {
     const [cart, setCart] = useState<{product: Product, quantity: number}[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<string>('Hambúrgueres');
@@ -580,6 +581,9 @@ export function NewOrderModal({ onClose, onSave, products, clients }: { onClose:
     // --- LÓGICA DE AUTOCOMPLETAR CLIENTE ---
     const [suggestions, setSuggestions] = useState<Client[]>([]);
     const [activeField, setActiveField] = useState<'phone' | 'name' | null>(null);
+    
+    // NEW STATE: Mobile Tab
+    const [mobileTab, setMobileTab] = useState<'menu' | 'checkout'>('menu');
     
     // Ref para detectar clique fora da lista de sugestões
     const suggestionsRef = useRef<HTMLDivElement>(null);
@@ -703,6 +707,8 @@ export function NewOrderModal({ onClose, onSave, products, clients }: { onClose:
     const cartTotal = useMemo(() => {
         return cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
     }, [cart]);
+    
+    const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
     const handlePasteFromWhatsApp = async () => {
         try {
@@ -738,27 +744,65 @@ export function NewOrderModal({ onClose, onSave, products, clients }: { onClose:
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in">
-             <div className="bg-slate-950 w-full max-w-7xl h-[90vh] rounded-3xl border border-slate-800 shadow-2xl flex overflow-hidden">
+        <div className="fixed inset-0 z-[3000] flex items-end md:items-center justify-center bg-black/90 backdrop-blur-md p-0 md:p-4 animate-in fade-in">
+             <div className="bg-slate-950 w-full max-w-7xl h-[100dvh] md:h-[90vh] md:rounded-3xl border border-slate-800 shadow-2xl flex flex-col md:flex-row overflow-hidden relative">
                 
-                {/* COLUNA ESQUERDA: CARDÁPIO */}
-                <div className="w-2/3 border-r border-slate-800 flex flex-col bg-slate-900/50">
-                    <div className="p-6 border-b border-slate-800 bg-slate-950">
-                        <h2 className="text-2xl font-bold text-white mb-4">Cardápio</h2>
-                        <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                            {categories.map((cat) => (
-                                <button 
-                                    key={cat} 
-                                    onClick={() => setSelectedCategory(cat)} 
-                                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all whitespace-nowrap ${selectedCategory === cat ? 'bg-amber-600 text-white shadow-lg' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'}`}
-                                >
-                                    {cat}
-                                </button>
-                            ))}
+                {/* HEADER MOBILE (ABAS) */}
+                <div className="md:hidden shrink-0 flex flex-col bg-slate-900 border-b border-slate-800">
+                    <div className="flex justify-between items-center p-4">
+                        <h3 className="font-bold text-white text-lg">Novo Pedido</h3>
+                        <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                    </div>
+                    <div className="flex">
+                        <button 
+                            onClick={() => setMobileTab('menu')} 
+                            className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${mobileTab === 'menu' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-500'}`}
+                        >
+                            Cardápio
+                        </button>
+                        <button 
+                            onClick={() => setMobileTab('checkout')} 
+                            className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors flex items-center justify-center gap-2 ${mobileTab === 'checkout' ? 'border-emerald-500 text-emerald-500' : 'border-transparent text-slate-500'}`}
+                        >
+                            Dados
+                            {cartCount > 0 && <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">{cartCount}</span>}
+                        </button>
+                    </div>
+                </div>
+
+                {/* COLUNA ESQUERDA: CARDÁPIO (Hidden on Mobile if Checkout active) */}
+                <div className={`w-full md:w-2/3 border-r border-slate-800 flex-col bg-slate-900/50 relative ${mobileTab === 'menu' ? 'flex flex-1 overflow-hidden' : 'hidden md:flex'}`}>
+                    <div className="p-4 md:p-6 border-b border-slate-800 bg-slate-950 hidden md:block">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-2xl font-bold text-white">Cardápio</h2>
+                            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                                {categories.map((cat) => (
+                                    <button 
+                                        key={cat} 
+                                        onClick={() => setSelectedCategory(cat)} 
+                                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all whitespace-nowrap ${selectedCategory === cat ? 'bg-amber-600 text-white shadow-lg' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'}`}
+                                    >
+                                        {cat}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
                     
-                    <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-8">
+                    {/* Mobile Category Scroll */}
+                    <div className="md:hidden flex gap-2 overflow-x-auto p-3 bg-slate-950 border-b border-slate-800 custom-scrollbar shrink-0">
+                        {categories.map((cat) => (
+                            <button 
+                                key={cat} 
+                                onClick={() => setSelectedCategory(cat)} 
+                                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all whitespace-nowrap ${selectedCategory === cat ? 'bg-amber-600 text-white shadow-lg' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'}`}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-6 custom-scrollbar space-y-8">
                         {displayGroups.map((group) => (
                             <div key={group.category}>
                                 <h3 className="text-amber-500 font-bold text-sm uppercase mb-4 tracking-wider border-l-4 border-amber-500 pl-3">{group.category}</h3>
@@ -767,7 +811,7 @@ export function NewOrderModal({ onClose, onSave, products, clients }: { onClose:
                                         <button 
                                             key={p.id} 
                                             onClick={() => addToCart(p)}
-                                            className="bg-slate-900 border border-slate-800 p-4 rounded-xl hover:border-amber-500/50 hover:bg-slate-800 transition-all text-left group flex flex-col justify-between h-full"
+                                            className="bg-slate-900 border border-slate-800 p-4 rounded-xl hover:border-amber-500/50 hover:bg-slate-800 transition-all text-left group flex flex-col justify-between h-full active:scale-95"
                                         >
                                             <div>
                                                 <span className="font-bold text-white text-sm line-clamp-2 mb-1 group-hover:text-amber-400 transition-colors">{p.name}</span>
@@ -779,11 +823,27 @@ export function NewOrderModal({ onClose, onSave, products, clients }: { onClose:
                             </div>
                         ))}
                     </div>
+
+                    {/* MOBILE FLOATING ACTION BUTTON */}
+                    <div className="md:hidden absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-slate-950 to-transparent z-20 pointer-events-none">
+                        <button 
+                            onClick={() => setMobileTab('checkout')}
+                            disabled={cartCount === 0}
+                            className={`w-full py-4 rounded-xl font-bold flex justify-between items-center px-6 shadow-xl pointer-events-auto transition-all ${cartCount > 0 ? 'bg-emerald-600 text-white active:scale-95' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}
+                        >
+                            <div className="flex items-center gap-2">
+                                <ShoppingBag size={20} />
+                                <span>{cartCount} itens</span>
+                            </div>
+                            <span className="text-sm uppercase">Avançar</span>
+                            <span>{formatCurrency(cartTotal)}</span>
+                        </button>
+                    </div>
                 </div>
 
-                {/* COLUNA DIREITA: FORMULÁRIO */}
-                <div className="w-1/3 bg-slate-950 flex flex-col h-full border-l border-slate-800 shadow-2xl relative z-10">
-                    <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+                {/* COLUNA DIREITA: FORMULÁRIO (Hidden on Mobile if Menu active) */}
+                <div className={`w-full md:w-1/3 bg-slate-950 flex-col border-l border-slate-800 shadow-2xl relative z-10 ${mobileTab === 'checkout' ? 'flex flex-1 overflow-hidden' : 'hidden md:flex h-full'}`}>
+                    <div className="p-4 md:p-5 border-b border-slate-800 justify-between items-center bg-slate-900 shrink-0 hidden md:flex">
                         <h3 className="font-bold text-white flex items-center gap-2 text-lg"><PlusCircle className="text-amber-500"/> Novo Pedido</h3>
                         <button onClick={onClose}><X className="text-slate-500 hover:text-white transition-colors"/></button>
                     </div>
@@ -892,20 +952,35 @@ export function NewOrderModal({ onClose, onSave, products, clients }: { onClose:
                                     </div>
                                     <div>
                                         <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Pagamento</label>
-                                        <select className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3.5 text-white text-sm outline-none focus:border-amber-500 appearance-none" value={form.paymentMethod} onChange={e => setForm({...form, paymentMethod: e.target.value})}>
-                                            <option>PIX</option>
-                                            <option>Dinheiro</option>
-                                            <option>Cartão</option>
-                                        </select>
+                                        <div className="grid grid-cols-3 gap-1">
+                                            {['PIX', 'Dinheiro', 'Cartão'].map((method) => (
+                                                <button
+                                                    key={method}
+                                                    type="button"
+                                                    onClick={() => setForm({...form, paymentMethod: method})}
+                                                    className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-all ${
+                                                        form.paymentMethod === method
+                                                            ? 'bg-emerald-600 border-emerald-500 text-white shadow-md'
+                                                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white'
+                                                    }`}
+                                                >
+                                                    {method === 'PIX' && <PixIcon size={20} className={form.paymentMethod === method ? "text-white" : "text-slate-400"} />}
+                                                    {method === 'Dinheiro' && <Banknote size={20} />}
+                                                    {method === 'Cartão' && <CreditCard size={20} />}
+                                                    <span className="text-[9px] font-bold uppercase">{method}</span>
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </form>
                     </div>
 
-                    <div className="p-5 border-t border-slate-800 bg-slate-900">
+                    {/* CONFIRM BUTTON - FIXO NO DESKTOP, FIXO BOTTOM NO MOBILE */}
+                    <div className="p-5 pb-safe border-t border-slate-800 bg-slate-900 shrink-0 z-20">
                         <button form="order-form" type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95 text-lg">
-                            Confirmar
+                            Confirmar Pedido
                         </button>
                     </div>
                 </div>
@@ -923,7 +998,7 @@ export function EditOrderModal({ order, onClose, onSave }: any) {
         onClose();
     };
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
              <div className="bg-slate-900 rounded-2xl w-full max-w-lg p-6 border border-slate-800 animate-in zoom-in max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-xl text-white">Editar Pedido {formatOrderId(order.id)}</h3>
@@ -936,11 +1011,27 @@ export function EditOrderModal({ order, onClose, onSave }: any) {
                     <textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white h-32 outline-none focus:border-amber-500" placeholder="Itens" value={form.items} onChange={e => setForm({...form, items: e.target.value})} />
                     <div className="grid grid-cols-2 gap-3">
                         <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" placeholder="Valor" type="number" step="0.01" value={form.value} onChange={e => setForm({...form, value: e.target.value})} />
-                        <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.paymentMethod} onChange={e => setForm({...form, paymentMethod: e.target.value})}>
-                            <option>Dinheiro</option>
-                            <option>PIX</option>
-                            <option>Cartão</option>
-                        </select>
+                        
+                        {/* PAYMENT METHOD AS ICON BUTTONS */}
+                        <div className="grid grid-cols-3 gap-1">
+                            {['PIX', 'Dinheiro', 'Cartão'].map((method) => (
+                                <button
+                                    key={method}
+                                    type="button"
+                                    onClick={() => setForm({...form, paymentMethod: method})}
+                                    className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-all ${
+                                        form.paymentMethod === method
+                                            ? 'bg-emerald-600 border-emerald-500 text-white shadow-md'
+                                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-900 hover:text-white'
+                                    }`}
+                                >
+                                    {method === 'PIX' && <PixIcon size={20} className={form.paymentMethod === method ? "text-white" : "text-slate-400"} />}
+                                    {method === 'Dinheiro' && <Banknote size={20} />}
+                                    {method === 'Cartão' && <CreditCard size={20} />}
+                                    <span className="text-[9px] font-bold uppercase">{method}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                     <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl mt-4 shadow-lg">Salvar Alterações</button>
                 </form>
@@ -953,7 +1044,7 @@ export function EditOrderModal({ order, onClose, onSave }: any) {
 export function ConfirmAssignmentModal({ onClose, onConfirm, order, driverName }: any) {
     if (!order) return null;
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-[3050] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
             <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-800 animate-in zoom-in text-center">
                 <Bike className="mx-auto text-amber-500 mb-4" size={48} />
                 <h3 className="font-bold text-xl text-white mb-2">Confirmar Entrega?</h3>
@@ -973,7 +1064,7 @@ export function ConfirmAssignmentModal({ onClose, onConfirm, order, driverName }
 export function NewIncomingOrderModal({ order, onClose, appConfig, onAccept }: any) {
     if (!order) return null;
     return (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in">
+        <div className="fixed inset-0 z-[3050] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in">
              <div className="bg-slate-900 rounded-2xl w-full max-w-md p-6 border-2 border-amber-500 shadow-2xl shadow-amber-500/20 relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-20"><Bell size={64} className="text-amber-500 animate-pulse"/></div>
                 <h3 className="font-black text-2xl text-white mb-1 uppercase tracking-wider">Novo Pedido!</h3>
@@ -1022,7 +1113,7 @@ export function ProductFormModal({ isOpen, onClose, product, onSave, existingCat
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
             <div className="bg-slate-900 rounded-2xl w-full max-w-md p-6 border border-slate-800 animate-in zoom-in">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-xl text-white">{product ? 'Editar Produto' : 'Novo Produto'}</h3>
@@ -1070,7 +1161,7 @@ export function ReceiptModal({ order, onClose, appConfig }: any) {
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
              <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-800 animate-in zoom-in">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-xl text-white">Comprovante</h3>

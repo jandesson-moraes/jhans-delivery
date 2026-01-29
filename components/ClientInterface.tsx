@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Product, AppConfig } from '../types';
 import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard, formatTime, formatDate, generatePixPayload, EMOJI, checkShopStatus } from '../utils';
 import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode, Gift, LogOut, ShieldCheck, CalendarClock, Ban, Moon, CalendarDays, DoorClosed } from 'lucide-react';
-import { BrandLogo, Footer } from './Shared';
+import { BrandLogo, Footer, PixIcon } from './Shared';
 import { GenericConfirmModal } from './Modals';
 
 interface ClientInterfaceProps {
@@ -618,7 +618,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                                     <div className="grid grid-cols-3 gap-2">
                                         {['PIX', 'Dinheiro', 'Cartão'].map(method => (
                                             <button key={method} type="button" onClick={() => setCheckout({...checkout, paymentMethod: method})} className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all ${checkout.paymentMethod === method ? 'bg-emerald-900/30 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-600'}`}>
-                                                {method === 'PIX' && <QrCode size={20}/>}{method === 'Dinheiro' && <Banknote size={20}/>}{method === 'Cartão' && <CreditCard size={20}/>}
+                                                {method === 'PIX' && <PixIcon size={20} className={checkout.paymentMethod === method ? "text-emerald-400" : "text-slate-500"} />}{method === 'Dinheiro' && <Banknote size={20}/>}{method === 'Cartão' && <CreditCard size={20}/>}
                                                 <span className="text-[10px] font-bold uppercase">{method}</span>
                                             </button>
                                         ))}
