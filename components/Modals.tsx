@@ -733,9 +733,13 @@ export function NewOrderModal({ onClose, onSave, products, clients }: { onClose:
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
+        // GERA ID PADRÃO PED-XXXXXX PARA PEDIDOS MANUAIS/ADMIN
+        const generatedId = `PED-${Math.floor(100000 + Math.random() * 900000)}`;
+
         let itemsText = cart.map(i => `${i.quantity}x ${i.product.name}`).join('\n');
         
         onSave({ 
+            id: generatedId,
             ...form, 
             items: itemsText, 
             value: cartTotal,

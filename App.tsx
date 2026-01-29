@@ -225,7 +225,9 @@ export default function App() {
              if (isNaN(val)) return;
              const timestamp = new Date(`${date}T${time || '12:00'}`);
              if (type === 'income') {
-                 const orderRef = doc(db, 'orders', id || 'ord_' + Date.now() + Math.random());
+                 // GERA ID CURTO PARA IMPORTAÇÃO TAMBÉM
+                 const generatedId = `PED-${Math.floor(100000 + Math.random() * 900000)}`;
+                 const orderRef = doc(db, 'orders', id || generatedId);
                  dbBatch.set(orderRef, { customer: cols[10], phone: cols[12] || '', address: cols[13] || '', items: desc, amount: formatCurrency(val), value: val, status: 'completed', completedAt: Timestamp.fromDate(timestamp), createdAt: Timestamp.fromDate(timestamp), origin: 'manual' });
              }
           }

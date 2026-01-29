@@ -196,9 +196,18 @@ export const generatePixPayload = (key: string, name: string, city: string, amou
     return payload;
 };
 
-// AUXILIAR PARA FORMATAR ID - AGORA NUNCA CORTA
+// AUXILIAR PARA FORMATAR ID
 export const formatOrderId = (id: string) => {
     if (!id) return '???';
+    // Se for formato PED-XXXXXX, exibe limpo
+    if (id.startsWith('PED-')) return id;
+    
+    // Se for ID legado do Firebase (longo), trunca
+    if (id.length > 10) {
+        return '#' + id.slice(0, 6).toUpperCase();
+    }
+    
+    // Fallback padrão
     const cleanId = id.replace(/^#/, '');
     return '#' + cleanId;
 };
@@ -263,7 +272,7 @@ export const getOrderReceivedText = (order: any, appName: string) => {
     const isPix = order.paymentMethod?.toLowerCase().includes('pix');
     const displayId = formatOrderId(order.id);
     
-    return `Olá *${order.customer}*! ${EMOJI.WAVE}\nRecebemos seu pedido no *${safeName}* e ficamos muito felizes!\n\n*Fique tranquilo!* ${EMOJI.SMILE_HEARTS}\nSeu pedido ${displayId} já entrou no nosso sistema e será aceito e preparado com todo o cuidado.\n\n${EMOJI.MONEY_BAG} Total: *${formatCurrency(order.value)}\n${isPix ? `${EMOJI.WARNING} *Assim que puder, nos envie o comprovante PIX.*\n\nCaso já tenha feito o pagamento, favor desconsiderar a cobrança ${EMOJI.SMILE}` : ''}\n\n${EMOJI.SCOOTER} Avisaremos assim que sair para entrega!`;
+    return `Olá *${order.customer}*! ${EMOJI.WAVE}\nRecebemos seu pedido no *${safeName}* e ficamos muito felizes!\n\n*Fique tranquilo!* ${EMOJI.SMILE_HEARTS}\nSeu pedido *${displayId}* já entrou no nosso sistema e será aceito e preparado com todo o cuidado.\n\n${EMOJI.MONEY_BAG} Total: *${formatCurrency(order.value)}*\n${isPix ? `\n${EMOJI.WARNING} *Assim que puder, nos envie o comprovante PIX.*\nCaso já tenha feito o pagamento, favor desconsiderar a cobrança ${EMOJI.SMILE}` : ''}\n\n${EMOJI.SCOOTER} Avisaremos assim que sair para entrega!`;
 };
 
 export const sendOrderConfirmation = (order: any, appName: string) => {
