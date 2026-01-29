@@ -580,6 +580,22 @@ export function NewOrderModal({ onClose, onSave, products, clients }: { onClose:
     // --- LÓGICA DE AUTOCOMPLETAR CLIENTE ---
     const [suggestions, setSuggestions] = useState<Client[]>([]);
     const [activeField, setActiveField] = useState<'phone' | 'name' | null>(null);
+    
+    // Ref para detectar clique fora da lista de sugestões
+    const suggestionsRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
+                setSuggestions([]);
+                setActiveField(null);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
 
     const handleClientLookup = (value: string, field: 'phone' | 'name') => {
         // Atualiza valor do form
@@ -723,7 +739,7 @@ export function NewOrderModal({ onClose, onSave, products, clients }: { onClose:
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in">
-             <div className="bg-slate-950 w-full max-w-7xl h-[90vh] rounded-3xl border border-slate-800 shadow-2xl flex overflow-hidden" onClick={() => { setSuggestions([]); setActiveField(null); }}>
+             <div className="bg-slate-950 w-full max-w-7xl h-[90vh] rounded-3xl border border-slate-800 shadow-2xl flex overflow-hidden">
                 
                 {/* COLUNA ESQUERDA: CARDÁPIO */}
                 <div className="w-2/3 border-r border-slate-800 flex flex-col bg-slate-900/50">
@@ -779,44 +795,56 @@ export function NewOrderModal({ onClose, onSave, products, clients }: { onClose:
                                     <label className="text-[10px] uppercase font-bold text-slate-500">Cliente</label>
                                     <button type="button" onClick={handlePasteFromWhatsApp} className="text-[10px] text-amber-500 hover:text-amber-400 flex items-center gap-1 font-bold"><ClipboardPaste size={12}/> Colar do WhatsApp</button>
                                 </div>
-                                <div className="grid grid-cols-3 gap-2 relative">
-                                    <input 
-                                        className="col-span-1 bg-slate-900 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-amber-500" 
-                                        placeholder="Tel" 
-                                        value={form.phone} 
-                                        onChange={e => handleClientLookup(e.target.value, 'phone')} 
-                                        onClick={(e) => e.stopPropagation()} 
-                                        onFocus={(e) => handleClientLookup(e.target.value, 'phone')}
-                                    />
-                                    <input 
-                                        className="col-span-2 bg-slate-900 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-amber-500" 
-                                        placeholder="Nome" 
-                                        value={form.customer} 
-                                        onChange={e => handleClientLookup(e.target.value, 'name')} 
-                                        onClick={(e) => e.stopPropagation()} 
-                                        onFocus={(e) => handleClientLookup(e.target.value, 'name')}
-                                        required 
-                                    />
+                                <div className="grid grid-cols-3 gap-2 relative" ref={suggestionsRef}>
+                                    {/* INPUT TELEFONE */}
+                                    <div className="relative col-span-1">
+                                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500" size={12}/>
+                                        <input 
+                                            className="w-full bg-slate-900 border border-slate-800 rounded-lg py-3 pl-7 pr-2 text-white text-sm outline-none focus:border-amber-500" 
+                                            placeholder="Tel" 
+                                            value={form.phone} 
+                                            onChange={e => handleClientLookup(e.target.value, 'phone')} 
+                                            onFocus={() => activeField !== 'phone' && setActiveField('phone')}
+                                            autoComplete="off"
+                                        />
+                                    </div>
+                                    {/* INPUT NOME */}
+                                    <div className="relative col-span-2">
+                                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500" size={12}/>
+                                        <input 
+                                            className="w-full bg-slate-900 border border-slate-800 rounded-lg py-3 pl-7 pr-2 text-white text-sm outline-none focus:border-amber-500" 
+                                            placeholder="Nome" 
+                                            value={form.customer} 
+                                            onChange={e => handleClientLookup(e.target.value, 'name')} 
+                                            onFocus={() => activeField !== 'name' && setActiveField('name')}
+                                            autoComplete="off"
+                                            required 
+                                        />
+                                    </div>
 
                                     {/* DROPDOWN DE SUGESTÕES */}
                                     {suggestions.length > 0 && activeField && (
-                                        <div className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
+                                        <div className="absolute top-full left-0 right-0 mt-1 bg-slate-950 border border-slate-700 rounded-xl shadow-2xl z-[60] overflow-hidden max-h-60 overflow-y-auto custom-scrollbar ring-1 ring-white/10">
                                             {suggestions.map((s: Client) => (
-                                                <button
+                                                <div
                                                     key={s.id}
-                                                    type="button"
-                                                    onClick={(e) => { e.stopPropagation(); selectClient(s); }}
-                                                    className="w-full text-left p-3 hover:bg-slate-800 border-b border-slate-800 last:border-0 transition-colors flex justify-between items-center group"
+                                                    onMouseDown={(e) => { 
+                                                        e.preventDefault(); // Impede que o input perca o foco antes do clique
+                                                        selectClient(s); 
+                                                    }}
+                                                    className="w-full text-left p-3 hover:bg-slate-800 border-b border-slate-800 last:border-0 transition-colors flex justify-between items-center group cursor-pointer"
                                                 >
                                                     <div>
-                                                        <p className="text-white font-bold text-xs group-hover:text-amber-400">{s.name}</p>
+                                                        <p className="text-white font-bold text-xs group-hover:text-amber-400 flex items-center gap-1">
+                                                            {s.name}
+                                                        </p>
                                                         <p className="text-[10px] text-slate-500">{s.phone}</p>
                                                     </div>
                                                     <div className="text-right">
                                                         <p className="text-[9px] text-slate-500 truncate max-w-[100px]">{s.address}</p>
                                                         {s.count && <p className="text-[9px] text-emerald-500 font-bold">{s.count} pedidos</p>}
                                                     </div>
-                                                </button>
+                                                </div>
                                             ))}
                                         </div>
                                     )}
