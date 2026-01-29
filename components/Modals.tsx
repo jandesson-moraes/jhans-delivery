@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame, TrendingUp, DollarSign, ShoppingBag, ArrowRight, Play, Printer, ChevronRight, Gift, QrCode, Search, ExternalLink, Menu, Target, Navigation, Bell } from 'lucide-react';
+import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame, TrendingUp, DollarSign, ShoppingBag, ArrowRight, Play, Printer, ChevronRight, Gift, QrCode, Search, ExternalLink, Menu, Target, Navigation, Bell, User } from 'lucide-react';
 import { Product, Client, AppConfig, Driver, Order, Vale, DeliveryZone } from '../types';
 import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, getOrderReceivedText, formatOrderId, getDispatchMessage, getProductionMessage, generatePixPayload, checkShopStatus } from '../utils';
 
@@ -571,35 +571,308 @@ export function KitchenHistoryModal({ order, onClose, products }: any) {
     );
 }
 
-// NewOrderModal
-export function NewOrderModal({ onClose, onSave, products, clients }: any) {
-    const [form, setForm] = useState({ customer: '', phone: '', address: '', items: '', value: '', paymentMethod: 'Dinheiro' });
+// NewOrderModal - Restaurado com visual de duas colunas (Cardápio e Form)
+export function NewOrderModal({ onClose, onSave, products, clients }: { onClose: () => void, onSave: (data: any) => void, products: Product[], clients: Client[] }) {
+    const [cart, setCart] = useState<{product: Product, quantity: number}[]>([]);
+    const [selectedCategory, setSelectedCategory] = useState<string>('Hambúrgueres');
+    const [form, setForm] = useState({ customer: '', phone: '', address: '', mapsLink: '', obs: '', value: '', paymentMethod: 'PIX', serviceType: 'delivery', deliveryFee: 0 });
+    
+    // --- LÓGICA DE AUTOCOMPLETAR CLIENTE ---
+    const [suggestions, setSuggestions] = useState<Client[]>([]);
+    const [activeField, setActiveField] = useState<'phone' | 'name' | null>(null);
+
+    const handleClientLookup = (value: string, field: 'phone' | 'name') => {
+        // Atualiza valor do form
+        setForm(prev => ({ ...prev, [field === 'name' ? 'customer' : field]: value }));
+        setActiveField(field);
+
+        if (value.length < 2) {
+            setSuggestions([]);
+            return;
+        }
+
+        const lowerVal = value.toLowerCase();
+        // Filtra clientes
+        const matches = clients.filter(c => {
+            if (field === 'phone') {
+                // Tenta bater telefone exato ou normalizado
+                return c.phone.includes(value) || normalizePhone(c.phone).includes(value);
+            } else {
+                return c.name.toLowerCase().includes(lowerVal);
+            }
+        }).slice(0, 5); // Limita a 5 sugestões
+
+        setSuggestions(matches);
+    };
+
+    const selectClient = (client: Client) => {
+        setForm(prev => ({
+            ...prev,
+            customer: client.name,
+            phone: client.phone,
+            address: client.address,
+            mapsLink: client.mapsLink || '',
+            obs: client.obs ? `(Cliente Antigo: ${client.obs})` : '' // Anexa obs antiga se houver
+        }));
+        setSuggestions([]);
+        setActiveField(null);
+    };
+
+    // Categorias fixas para ordenação
+    const CATEGORY_ORDER = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
+    
+    const categories = useMemo(() => {
+        const unique = Array.from(new Set(products.map((p) => p.category)));
+        const sortedUnique = unique.sort((a, b) => {
+            const idxA = CATEGORY_ORDER.indexOf(a);
+            const idxB = CATEGORY_ORDER.indexOf(b);
+            if(idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if(idxA !== -1) return -1;
+            if(idxB !== -1) return 1;
+            return a.localeCompare(b);
+        });
+        return ['Todos', ...sortedUnique];
+    }, [products]);
+
+    // Função auxiliar para agrupar produtos
+    const getGroupedProducts = () => {
+        if (selectedCategory === 'Todos') {
+            const groups: { category: string, items: Product[] }[] = [];
+            
+            // Ordem: Categorias Prioritárias + Outras
+            const allCats = Array.from(new Set(products.map((p) => p.category))).sort((a, b) => {
+                const idxA = CATEGORY_ORDER.indexOf(a);
+                const idxB = CATEGORY_ORDER.indexOf(b);
+                if(idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if(idxA !== -1) return -1;
+                if(idxB !== -1) return 1;
+                return a.localeCompare(b);
+            });
+
+            allCats.forEach(cat => {
+                const items = products.filter((p) => p.category === cat);
+                if (items.length > 0) {
+                    groups.push({ category: cat, items });
+                }
+            });
+            return groups;
+        } else {
+            return [{
+                category: selectedCategory,
+                items: products.filter((p) => p.category === selectedCategory)
+            }];
+        }
+    };
+
+    const displayGroups = useMemo(() => getGroupedProducts(), [products, selectedCategory]);
+
+    const addToCart = (product: Product) => {
+        setCart(prev => {
+            const existing = prev.find(i => i.product.id === product.id);
+            if (existing) {
+                return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+            }
+            return [...prev, { product, quantity: 1 }];
+        });
+    };
+
+    const removeFromCart = (index: number) => {
+        setCart(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const cartTotal = useMemo(() => {
+        return cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
+    }, [cart]);
+
+    const handlePasteFromWhatsApp = async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            // Lógica simples de parsing (Nome na primeira linha, Endereço na segunda, ou busca por palavras chave)
+            // Exemplo simples: Assume formato "Nome: João\nEndereço: Rua X"
+            const nameMatch = text.match(/(?:Nome|Cliente):\s*(.*)/i);
+            const addressMatch = text.match(/(?:Endereço|Entrega):\s*(.*)/i);
+            const phoneMatch = text.match(/(?:Tel|Cel|Whatsapp):\s*(.*)/i);
+
+            setForm(prev => ({
+                ...prev,
+                customer: nameMatch ? nameMatch[1].trim() : prev.customer,
+                address: addressMatch ? addressMatch[1].trim() : prev.address,
+                phone: phoneMatch ? phoneMatch[1].trim() : prev.phone
+            }));
+        } catch (err) {
+            alert("Permissão de colar negada ou erro ao ler área de transferência.");
+        }
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave({ ...form, value: typeof form.value === 'string' ? parseFloat(form.value) : form.value });
+        
+        let itemsText = cart.map(i => `${i.quantity}x ${i.product.name}`).join('\n');
+        
+        onSave({ 
+            ...form, 
+            items: itemsText, 
+            value: cartTotal,
+            origin: 'manual' 
+        });
     };
+
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
-             <div className="bg-slate-900 rounded-2xl w-full max-w-lg p-6 border border-slate-800 animate-in zoom-in max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-xl text-white">Novo Pedido</h3>
-                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-3">
-                    <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" placeholder="Cliente" value={form.customer} onChange={e => setForm({...form, customer: e.target.value})} required/>
-                    <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" placeholder="Telefone" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} />
-                    <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" placeholder="Endereço" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
-                    <textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white h-32 outline-none focus:border-amber-500" placeholder="Itens (1x Burguer...)" value={form.items} onChange={e => setForm({...form, items: e.target.value})} required/>
-                    <div className="grid grid-cols-2 gap-3">
-                        <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" placeholder="Valor Total (R$)" type="number" step="0.01" value={form.value} onChange={e => setForm({...form, value: e.target.value})} required/>
-                        <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.paymentMethod} onChange={e => setForm({...form, paymentMethod: e.target.value})}>
-                            <option>Dinheiro</option>
-                            <option>PIX</option>
-                            <option>Cartão</option>
-                        </select>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in">
+             <div className="bg-slate-950 w-full max-w-7xl h-[90vh] rounded-3xl border border-slate-800 shadow-2xl flex overflow-hidden" onClick={() => { setSuggestions([]); setActiveField(null); }}>
+                
+                {/* COLUNA ESQUERDA: CARDÁPIO */}
+                <div className="w-2/3 border-r border-slate-800 flex flex-col bg-slate-900/50">
+                    <div className="p-6 border-b border-slate-800 bg-slate-950">
+                        <h2 className="text-2xl font-bold text-white mb-4">Cardápio</h2>
+                        <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                            {categories.map((cat) => (
+                                <button 
+                                    key={cat} 
+                                    onClick={() => setSelectedCategory(cat)} 
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all whitespace-nowrap ${selectedCategory === cat ? 'bg-amber-600 text-white shadow-lg' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'}`}
+                                >
+                                    {cat}
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl mt-4 shadow-lg">Criar Pedido</button>
-                </form>
+                    
+                    <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-8">
+                        {displayGroups.map((group) => (
+                            <div key={group.category}>
+                                <h3 className="text-amber-500 font-bold text-sm uppercase mb-4 tracking-wider border-l-4 border-amber-500 pl-3">{group.category}</h3>
+                                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                    {group.items.map((p: Product) => (
+                                        <button 
+                                            key={p.id} 
+                                            onClick={() => addToCart(p)}
+                                            className="bg-slate-900 border border-slate-800 p-4 rounded-xl hover:border-amber-500/50 hover:bg-slate-800 transition-all text-left group flex flex-col justify-between h-full"
+                                        >
+                                            <div>
+                                                <span className="font-bold text-white text-sm line-clamp-2 mb-1 group-hover:text-amber-400 transition-colors">{p.name}</span>
+                                            </div>
+                                            <span className="text-emerald-400 font-bold text-xs bg-emerald-900/20 px-2 py-1 rounded-md self-start mt-2">{formatCurrency(p.price)}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* COLUNA DIREITA: FORMULÁRIO */}
+                <div className="w-1/3 bg-slate-950 flex flex-col h-full border-l border-slate-800 shadow-2xl relative z-10">
+                    <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+                        <h3 className="font-bold text-white flex items-center gap-2 text-lg"><PlusCircle className="text-amber-500"/> Novo Pedido</h3>
+                        <button onClick={onClose}><X className="text-slate-500 hover:text-white transition-colors"/></button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                        <form id="order-form" onSubmit={handleSubmit} className="space-y-5">
+                            <div>
+                                <div className="flex justify-between items-end mb-1">
+                                    <label className="text-[10px] uppercase font-bold text-slate-500">Cliente</label>
+                                    <button type="button" onClick={handlePasteFromWhatsApp} className="text-[10px] text-amber-500 hover:text-amber-400 flex items-center gap-1 font-bold"><ClipboardPaste size={12}/> Colar do WhatsApp</button>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 relative">
+                                    <input 
+                                        className="col-span-1 bg-slate-900 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-amber-500" 
+                                        placeholder="Tel" 
+                                        value={form.phone} 
+                                        onChange={e => handleClientLookup(e.target.value, 'phone')} 
+                                    />
+                                    <input 
+                                        className="col-span-2 bg-slate-900 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-amber-500" 
+                                        placeholder="Nome" 
+                                        value={form.customer} 
+                                        onChange={e => handleClientLookup(e.target.value, 'name')} 
+                                        required 
+                                    />
+
+                                    {/* DROPDOWN DE SUGESTÕES */}
+                                    {suggestions.length > 0 && activeField && (
+                                        <div className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
+                                            {suggestions.map((s: Client) => (
+                                                <button
+                                                    key={s.id}
+                                                    type="button"
+                                                    onClick={(e) => { e.stopPropagation(); selectClient(s); }}
+                                                    className="w-full text-left p-3 hover:bg-slate-800 border-b border-slate-800 last:border-0 transition-colors flex justify-between items-center group"
+                                                >
+                                                    <div>
+                                                        <p className="text-white font-bold text-xs group-hover:text-amber-400">{s.name}</p>
+                                                        <p className="text-[10px] text-slate-500">{s.phone}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-[9px] text-slate-500 truncate max-w-[100px]">{s.address}</p>
+                                                        {s.count && <p className="text-[9px] text-emerald-500 font-bold">{s.count} pedidos</p>}
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Endereço</label>
+                                <input className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-amber-500 mb-2" placeholder="Endereço" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
+                                <input className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-amber-500" placeholder="Link Google Maps (Opcional)" value={form.mapsLink} onChange={e => setForm({...form, mapsLink: e.target.value})} />
+                            </div>
+
+                            <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
+                                <button type="button" onClick={() => setForm({...form, serviceType: 'delivery'})} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${form.serviceType === 'delivery' ? 'bg-amber-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}><Bike size={14} className="inline mr-1"/> Entrega</button>
+                                <button type="button" onClick={() => setForm({...form, serviceType: 'pickup'})} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${form.serviceType === 'pickup' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-white'}`}><Store size={14} className="inline mr-1"/> Retira</button>
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Itens ({cart.length})</label>
+                                <div className="bg-slate-900 border border-slate-800 rounded-lg p-2 max-h-40 overflow-y-auto custom-scrollbar">
+                                    {cart.length === 0 ? (
+                                        <p className="text-xs text-slate-600 text-center py-4">Selecione itens no cardápio ao lado</p>
+                                    ) : (
+                                        <div className="space-y-1">
+                                            {cart.map((item, idx) => (
+                                                <div key={idx} className="flex justify-between items-center bg-slate-950 p-2 rounded border border-slate-800/50">
+                                                    <span className="text-xs text-white font-medium truncate max-w-[180px]">{item.quantity}x {item.product.name}</span>
+                                                    <button type="button" onClick={() => removeFromCart(idx)} className="text-slate-500 hover:text-red-500"><X size={14}/></button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <textarea className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-amber-500 h-20 resize-none" placeholder="Obs: Sem cebola..." value={form.obs} onChange={e => setForm({...form, obs: e.target.value})} />
+
+                            <div className="border-t border-slate-800 pt-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Total</label>
+                                        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold text-lg flex items-center">
+                                            {formatCurrency(cartTotal)}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Pagamento</label>
+                                        <select className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3.5 text-white text-sm outline-none focus:border-amber-500 appearance-none" value={form.paymentMethod} onChange={e => setForm({...form, paymentMethod: e.target.value})}>
+                                            <option>PIX</option>
+                                            <option>Dinheiro</option>
+                                            <option>Cartão</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div className="p-5 border-t border-slate-800 bg-slate-900">
+                        <button form="order-form" type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95 text-lg">
+                            Confirmar
+                        </button>
+                    </div>
+                </div>
              </div>
         </div>
     )

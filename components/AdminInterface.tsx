@@ -494,7 +494,7 @@ export default function AdminInterface(props: AdminProps) {
                        <div className="absolute inset-0 w-full h-full flex flex-col overflow-hidden">
                           
                           {/* 1. HUD SUPERIOR */}
-                          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[400] bg-slate-900/90 backdrop-blur-md border border-slate-700 rounded-full px-6 py-2 flex items-center gap-6 shadow-2xl pointer-events-auto">
+                          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-slate-900/90 backdrop-blur-md border border-slate-700 rounded-full px-6 py-2 flex items-center gap-6 shadow-2xl pointer-events-auto">
                               <div className="flex items-center gap-2">
                                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                                   <span className="text-xs font-bold text-white uppercase">{drivers.filter(d => d.status !== 'offline').length} Online</span>
@@ -575,7 +575,7 @@ export default function AdminInterface(props: AdminProps) {
                           </div>
                           
                           {/* BOTÃO FLUTUANTE DE RECENTRALIZAR (MAPA REAL) */}
-                          <div className="absolute top-20 right-4 z-[400] md:right-[320px] pointer-events-auto flex flex-col gap-2">
+                          <div className="absolute top-20 right-4 z-10 md:right-[320px] pointer-events-auto flex flex-col gap-2">
                               {mapMode === 'real' && (
                                   <button 
                                       onClick={handleRecenter} 
@@ -589,7 +589,7 @@ export default function AdminInterface(props: AdminProps) {
 
                           {/* 3. PAINEL ESQUERDO: RADAR DE PEDIDOS (INTERATIVO) */}
                           {showRadar && (
-                              <div className="absolute top-20 left-4 bottom-32 md:bottom-24 z-[400] w-80 flex flex-col gap-3 pointer-events-none">
+                              <div className="absolute top-20 left-4 bottom-32 md:bottom-24 z-10 w-80 flex flex-col gap-3 pointer-events-none">
                                  <div className="flex items-center gap-2 mb-1 text-cyan-400 font-bold text-xs uppercase tracking-widest bg-black/60 p-3 rounded-xl backdrop-blur-md border border-cyan-500/30 shadow-lg pointer-events-auto">
                                      <Radar size={16} className="animate-spin-slow"/> Radar de Pedidos ({orders.filter(o => o.status === 'pending' || o.status === 'preparing').length})
                                  </div>
@@ -630,7 +630,7 @@ export default function AdminInterface(props: AdminProps) {
 
                           {/* 4. PAINEL DIREITO: FROTA DETALHADA */}
                           {showFleet && (
-                              <div className="absolute top-20 right-4 bottom-32 md:bottom-24 z-[400] w-72 flex flex-col gap-3 pointer-events-none">
+                              <div className="absolute top-20 right-4 bottom-32 md:bottom-24 z-10 w-72 flex flex-col gap-3 pointer-events-none">
                                   <div className="flex items-center gap-2 mb-1 text-amber-400 font-bold text-xs uppercase tracking-widest bg-black/60 p-3 rounded-xl backdrop-blur-md border border-amber-500/30 shadow-lg pointer-events-auto">
                                      <Bike size={16} /> Frota Ativa ({drivers.length})
                                   </div>
@@ -673,7 +673,7 @@ export default function AdminInterface(props: AdminProps) {
                           )}
 
                           {/* 5. DOCK INFERIOR (CONTROLES) */}
-                          <div className="absolute bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl border border-slate-700 p-2 rounded-2xl shadow-2xl">
+                          <div className="absolute bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl border border-slate-700 p-2 rounded-2xl shadow-2xl">
                               <button onClick={() => setShowRadar(!showRadar)} className={`p-3 rounded-xl transition-all ${showRadar ? 'bg-cyan-900/50 text-cyan-400 border border-cyan-500/30' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`} title="Radar">
                                   {showRadar ? <Radar size={20}/> : <Radar size={20} className="opacity-50"/>}
                               </button>
@@ -808,7 +808,7 @@ export default function AdminInterface(props: AdminProps) {
              </main>
 
             {/* NAVBAR MOBILE */}
-            <div className="md:hidden fixed bottom-0 left-0 w-full bg-slate-900/90 backdrop-blur-md text-white z-50 border-t border-slate-800 pb-safe">
+            <div className="md:hidden fixed bottom-0 left-0 w-full bg-slate-900/90 backdrop-blur-md text-white z-[2000] border-t border-slate-800 pb-safe">
                 <div className="relative flex justify-between items-center px-4 pb-4 pt-2">
                     <button onClick={()=>setView('map')} className={`flex flex-col items-center gap-1 ${view==='map'?'text-orange-500':'text-slate-400'}`}><MapPin size={20}/><span className="text-[9px] font-bold">Monitor</span></button>
                     <button onClick={()=>setView('kds')} className={`flex flex-col items-center gap-1 ${view==='kds'?'text-orange-500':'text-slate-400'}`}><ChefHat size={20}/><span className="text-[9px] font-bold">Cozinha</span></button>
