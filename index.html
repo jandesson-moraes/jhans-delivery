@@ -6,17 +6,36 @@
     <title>Jhans Burgers Delivery</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <style>
       body { font-family: 'Inter', sans-serif; background-color: #020617; }
+      /* Correção para o mapa ficar atrás dos elementos de UI */
+      .leaflet-container { width: 100%; height: 100%; background: #020617; z-index: 0; }
+      /* Estilo customizado para o Popup do Leaflet para combinar com o tema Dark */
+      .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+          background: #0f172a;
+          color: white;
+          border: 1px solid #334155;
+          border-radius: 12px;
+      }
+      .leaflet-popup-content { margin: 10px; font-size: 12px; }
+      .leaflet-popup-close-button { color: #94a3b8 !important; }
     </style>
   <script type="importmap">
 {
   "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "firebase/": "https://esm.sh/firebase@^12.8.0/",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+    "react": "https://esm.sh/react@18.2.0",
+    "react/": "https://esm.sh/react@18.2.0/",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.344.0",
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js",
+    "leaflet": "https://esm.sh/leaflet@1.9.4",
+    "react-leaflet": "https://esm.sh/react-leaflet@4.2.1?deps=react@18.2.0,react-dom@18.2.0,leaflet@1.9.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "firebase/": "https://esm.sh/firebase@^12.8.0/"
   }
 }
 </script>

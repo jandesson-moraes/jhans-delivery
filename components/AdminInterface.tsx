@@ -1,16 +1,20 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement, Supplier, InventoryItem } from '../types';
+import { Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement, Supplier, InventoryItem, ShoppingItem } from '../types';
 import { BrandLogo, SidebarBtn, StatBox, Footer } from './Shared';
-import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart, History, CheckCircle2, Radar, Volume2, VolumeX, UserCheck, TrendingUp, FileText, Bike, Signal, Battery, Eye, EyeOff, AlertCircle, Box, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart, History, CheckCircle2, Radar, Volume2, VolumeX, UserCheck, TrendingUp, FileText, Bike, Signal, Battery, Eye, EyeOff, AlertCircle, Box, BarChart3, Navigation, Target, LocateFixed } from 'lucide-react';
 import { formatCurrency, formatTime, formatDate, isToday, formatOrderId } from '../utils';
 import { MenuManager } from './MenuManager';
 import { ClientsView } from './ClientsView';
 import { KitchenDisplay } from './KitchenDisplay';
 import { ItemReportView } from './ItemReportView';
 import { DailyOrdersView } from './DailyOrdersView';
-import { InventoryManager } from './InventoryManager'; // NOVO
-import { AnalyticsView } from './AnalyticsView'; // NOVO
+import { InventoryManager } from './InventoryManager'; 
+import { AnalyticsView } from './AnalyticsView'; 
 import { NewOrderModal, ConfirmAssignmentModal, NewIncomingOrderModal, DispatchSuccessModal, EditOrderModal } from './Modals'; 
+
+// Importações do Leaflet para o Mapa Real
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
+import L from 'leaflet';
 
 // Som de Alarme (Sino Repetitivo)
 const NEW_ORDER_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; 
@@ -25,8 +29,9 @@ interface AdminProps {
     products: Product[];
     clients: Client[];
     settlements: Settlement[];
-    suppliers: Supplier[]; // NOVO
-    inventory: InventoryItem[]; // NOVO
+    suppliers: Supplier[];
+    inventory: InventoryItem[];
+    shoppingList: ShoppingItem[];
     onAssignOrder: (oid: string, did: string) => void;
     onCreateDriver: (data: any) => void;
     onUpdateDriver: (id: string, data: any) => void;
@@ -42,13 +47,17 @@ interface AdminProps {
     onUpdateClient: (id: string, data: any) => void;
     onCloseCycle: (driverId: string, data: any) => void;
     
-    // Novos Handlers para Estoque
     onCreateSupplier: (data: any) => void;
     onUpdateSupplier: (id: string, data: any) => void;
     onDeleteSupplier: (id: string) => void;
     onCreateInventory: (data: any) => void;
     onUpdateInventory: (id: string, data: any) => void;
     onDeleteInventory: (id: string) => void;
+
+    onAddShoppingItem: (name: string) => void;
+    onToggleShoppingItem: (id: string, currentVal: boolean) => void;
+    onDeleteShoppingItem: (id: string) => void;
+    onClearShoppingList: () => void;
 
     onLogout: () => void;
     isMobile: boolean;
@@ -59,6 +68,99 @@ interface AdminProps {
     setDriverToEdit: (d: Driver | null) => void;
     setClientToEdit: (c: Client | null) => void;
 }
+
+// Componente para atualizar o centro do mapa e corrigir renderização
+function MapUpdater({ center }: { center: [number, number] | null }) {
+    const map = useMap();
+    
+    // FIX: Invalida o tamanho do mapa ao montar para evitar tela cinza/apagada
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            map.invalidateSize();
+        }, 200);
+        return () => clearTimeout(timer);
+    }, [map]);
+
+    useEffect(() => {
+        if (center) {
+            // flyTo com zoom fixo de 15 garante que fique sempre perto
+            map.flyTo(center, 15, { duration: 1.5 });
+        }
+    }, [center, map]);
+    return null;
+}
+
+// --- NOVO: VISUALIZAÇÃO DE RADAR TÁTICO (CSS PURO) ---
+const TacticalRadar = ({ drivers, center, onSelectDriver }: { drivers: Driver[], center: [number, number], onSelectDriver: (d: Driver) => void }) => {
+    // Configurações do Radar
+    const RANGE_KM = 5; // Raio de visualização em KM (aprox)
+    const DEGREES_PER_KM = 0.009; // Aprox lat/lng por km
+    const RANGE_DEG = RANGE_KM * DEGREES_PER_KM;
+
+    return (
+        <div className="w-full h-full bg-[#050b14] relative overflow-hidden flex items-center justify-center font-mono">
+            {/* Grid de Fundo */}
+            <div className="absolute inset-0 opacity-20" style={{
+                backgroundImage: 'linear-gradient(#0ea5e9 1px, transparent 1px), linear-gradient(90deg, #0ea5e9 1px, transparent 1px)',
+                backgroundSize: '50px 50px'
+            }}></div>
+            
+            {/* Círculos Concêntricos */}
+            <div className="absolute w-[300px] h-[300px] md:w-[600px] md:h-[600px] rounded-full border border-cyan-900/50 flex items-center justify-center">
+                <div className="w-[200px] h-[200px] md:w-[400px] md:h-[400px] rounded-full border border-cyan-900/30 flex items-center justify-center">
+                    <div className="w-[100px] h-[100px] md:w-[200px] md:h-[200px] rounded-full border border-cyan-900/20"></div>
+                </div>
+            </div>
+
+            {/* Linhas de Mira */}
+            <div className="absolute w-full h-px bg-cyan-900/50"></div>
+            <div className="absolute h-full w-px bg-cyan-900/50"></div>
+
+            {/* Loja Central */}
+            <div className="absolute z-10 flex flex-col items-center">
+                <div className="w-4 h-4 bg-white rounded-full shadow-[0_0_15px_white] animate-pulse"></div>
+                <span className="mt-1 text-[9px] text-white font-bold bg-black/50 px-1 rounded">BASE</span>
+            </div>
+
+            {/* Drivers (Pontos) */}
+            {drivers.map(d => {
+                if (!d.lat || !d.lng || d.status === 'offline') return null;
+                
+                // Calcular posição relativa em % (50% é o centro)
+                const dLat = d.lat - center[0];
+                const dLng = d.lng - center[1];
+                
+                // Escalar para caber no container (Limitado a +/- 50%)
+                const yPercent = 50 - (dLat / RANGE_DEG) * 50; 
+                const xPercent = 50 + (dLng / RANGE_DEG) * 50;
+
+                // Limita visualmente para não sair da tela se estiver muito longe
+                if (xPercent < 0 || xPercent > 100 || yPercent < 0 || yPercent > 100) return null; // Oculta se fora do alcance
+
+                return (
+                    <div 
+                        key={d.id}
+                        onClick={() => onSelectDriver(d)}
+                        className="absolute w-8 h-8 -ml-4 -mt-4 cursor-pointer group z-20 flex flex-col items-center justify-center"
+                        style={{ left: `${xPercent}%`, top: `${yPercent}%` }}
+                    >
+                        <div className={`w-3 h-3 rounded-full shadow-[0_0_10px_currentColor] transition-transform group-hover:scale-150 ${d.status === 'available' ? 'bg-emerald-500 text-emerald-500' : 'bg-amber-500 text-amber-500'}`}></div>
+                        <span className="text-[9px] text-cyan-300 font-bold opacity-0 group-hover:opacity-100 bg-black/80 px-1 rounded absolute -bottom-4 whitespace-nowrap border border-cyan-900/50 transition-opacity">
+                            {d.name}
+                        </span>
+                    </div>
+                );
+            })}
+
+            {/* Scanner Animation */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/10 to-transparent w-full h-full animate-[spin_4s_linear_infinite] origin-center opacity-30 pointer-events-none" style={{clipPath: 'polygon(50% 50%, 100% 0, 100% 50%)'}}></div>
+            
+            <div className="absolute bottom-4 left-4 text-cyan-500/50 text-xs">
+                RADAR TÁTICO V2.0 • ALCANCE: {RANGE_KM}KM
+            </div>
+        </div>
+    );
+};
 
 const IntroAnimation = ({ onComplete, appName }: { onComplete: () => void, appName: string }) => {
     const [step, setStep] = useState(0);
@@ -83,7 +185,7 @@ const IntroAnimation = ({ onComplete, appName }: { onComplete: () => void, appNa
 };
 
 export default function AdminInterface(props: AdminProps) {
-    const { drivers, orders, vales, expenses, products, clients, settlements, suppliers, inventory, appConfig, isMobile, setModal, setModalData, onLogout, onDeleteOrder, onAssignOrder, setDriverToEdit, onDeleteDriver, setClientToEdit, onUpdateOrder, onCreateOrder } = props;
+    const { drivers, orders, vales, expenses, products, clients, settlements, suppliers, inventory, shoppingList, appConfig, isMobile, setModal, setModalData, onLogout, onDeleteOrder, onAssignOrder, setDriverToEdit, onDeleteDriver, setClientToEdit, onUpdateOrder, onCreateOrder } = props;
     const [view, setView] = useState<AdminViewMode>('map');
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
     const [driverSidebarTab, setDriverSidebarTab] = useState<'assign' | 'history' | 'finance'>('assign');
@@ -93,12 +195,15 @@ export default function AdminInterface(props: AdminProps) {
     const [newIncomingOrder, setNewIncomingOrder] = useState<Order | null>(null);
     const [soundEnabled, setSoundEnabled] = useState(false);
     
+    // Controles de Mapa
+    const [mapMode, setMapMode] = useState<'real' | 'radar'>('real');
+    const [recenterTrigger, setRecenterTrigger] = useState(0); // Gatilho para recentralizar
+    
     // Controles de Visibilidade dos Painéis (HUD)
     const [showRadar, setShowRadar] = useState(true);
     const [showFleet, setShowFleet] = useState(true);
 
     // Sub-aba para a seção Financeira
-    // Adicionado 'orders' para a tabela diária
     const [financeTab, setFinanceTab] = useState<'overview' | 'items' | 'orders'>('orders');
     
     const [dispatchedOrderData, setDispatchedOrderData] = useState<{order: Order, driverName: string} | null>(null);
@@ -204,8 +309,8 @@ export default function AdminInterface(props: AdminProps) {
     }, [newIncomingOrder]);
 
     const trackDriver = (driver: Driver) => {
-        if (driver.lat && driver.lng) window.open(`https://www.google.com/maps/search/?api=1&query=${driver.lat},${driver.lng}`, '_blank');
-        else alert("Aguardando GPS...");
+        setSelectedDriver(driver);
+        setView('map');
     };
 
     const delivered = orders.filter((o: Order) => o.status === 'completed');
@@ -217,7 +322,7 @@ export default function AdminInterface(props: AdminProps) {
         return { totalIncome, todayIncome, totalExpenses, todayExpenses, balance: totalIncome - totalExpenses };
     }, [delivered, expenses]);
 
-    // LÓGICA DE GANHOS DO MOTOBOY (ATUALIZADA)
+    // LÓGICA DE GANHOS DO MOTOBOY
     const driverFinancials = useMemo(() => {
         if (!selectedDriver) return { total: 0, vales: 0, net: 0, valeList: [], history: [], ordersCount: 0 };
         const lastSettlementTime = selectedDriver.lastSettlementAt?.seconds || 0;
@@ -233,7 +338,6 @@ export default function AdminInterface(props: AdminProps) {
         } else if (selectedDriver.paymentModel === 'salary') {
             totalEarnings = 0; 
         } else {
-            // Default: Fixed per delivery
             const rate = selectedDriver.paymentRate !== undefined ? selectedDriver.paymentRate : 5.00;
             totalEarnings = currentCycleOrders.length * rate;
         }
@@ -252,12 +356,8 @@ export default function AdminInterface(props: AdminProps) {
 
     const handleCreateOrder = (data: any) => { onCreateOrder(data); setModal(null); setView('kds'); };
 
-    // --- FUNÇÕES DE STATUS DETALHADO DO MOTOBOY ---
     const getDriverDetailStatus = (d: Driver) => {
-        // Se estiver offline
         if (d.status === 'offline') return { label: 'Offline', color: 'text-slate-500' };
-
-        // Se tem um pedido atual (entregando)
         if (d.currentOrderId) {
             const currentOrder = orders.find(o => o.id === d.currentOrderId);
             if (currentOrder) {
@@ -269,8 +369,6 @@ export default function AdminInterface(props: AdminProps) {
                 };
             }
         }
-
-        // Se está livre, verifica a última entrega
         const lastOrder = orders
             .filter(o => o.driverId === d.id && o.status === 'completed')
             .sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0))[0];
@@ -283,14 +381,59 @@ export default function AdminInterface(props: AdminProps) {
                 isBusy: false
             };
         }
-
         return { label: 'Livre', color: 'text-emerald-400', isBusy: false };
     };
 
     const isSignalFresh = (lastUpdate: any) => {
         if (!lastUpdate || !lastUpdate.seconds) return false;
         const diff = (Date.now() / 1000) - lastUpdate.seconds;
-        return diff < 300; // 5 minutos
+        return diff < 300; 
+    };
+
+    // --- CRIAÇÃO DE ÍCONE DO MAPA PERSONALIZADO ---
+    const createDriverIcon = (driver: Driver) => {
+        return L.divIcon({
+            className: 'custom-driver-icon',
+            html: `<div class="relative w-12 h-12 rounded-full border-4 ${driver.status === 'available' ? 'border-emerald-500' : driver.status === 'delivering' ? 'border-amber-500' : 'border-slate-500'} bg-slate-900 overflow-hidden shadow-[0_0_15px_rgba(0,0,0,0.8)] flex items-center justify-center transition-transform hover:scale-110">
+                     ${driver.avatar 
+                       ? `<img src="${driver.avatar}" class="w-full h-full object-cover" />` 
+                       : `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>`}
+                   </div>
+                   <div class="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[10px] font-bold px-2 py-0.5 rounded border border-slate-700 whitespace-nowrap">
+                     ${driver.name.split(' ')[0]}
+                   </div>`,
+            iconSize: [48, 48],
+            iconAnchor: [24, 24],
+            popupAnchor: [0, -24]
+        });
+    };
+
+    // --- LOCALIZAÇÃO PADRÃO (SÃO PAULO) OU CONFIGURADA ---
+    const defaultLocation: [number, number] = useMemo(() => {
+        if (appConfig.location && appConfig.location.lat && appConfig.location.lng) {
+            return [appConfig.location.lat, appConfig.location.lng];
+        }
+        return [-23.5505, -46.6333]; 
+    }, [appConfig.location]);
+
+    // Calcula centro do mapa (Dinâmico com base na seleção ou padrão)
+    const mapCenter: [number, number] = useMemo(() => {
+        // 1. Se tem gatilho de recentralizar ou nenhum driver selecionado, usa a loja
+        if (recenterTrigger > 0 && !selectedDriver) {
+            return defaultLocation;
+        }
+        // 2. Se tem motorista selecionado e com GPS válido
+        if (selectedDriver && selectedDriver.lat && selectedDriver.lng) {
+            return [selectedDriver.lat, selectedDriver.lng];
+        }
+        // 3. Fallback para a loja
+        return defaultLocation; 
+    }, [selectedDriver, recenterTrigger, defaultLocation]);
+
+    // Função de recentralizar manual
+    const handleRecenter = () => {
+        setSelectedDriver(null);
+        setRecenterTrigger(prev => prev + 1);
     };
 
     return (
@@ -323,7 +466,7 @@ export default function AdminInterface(props: AdminProps) {
                      <div className="flex items-center gap-3 overflow-hidden">
                          {appConfig.appLogoUrl && <img src={appConfig.appLogoUrl} className="w-8 h-8 rounded-full md:hidden object-cover" alt="Logo" />}
                          <h1 className="text-lg md:text-2xl font-extrabold text-white truncate min-w-0">
-                             {view === 'map' ? 'Central de Comando' : 
+                             {view === 'map' ? 'Monitoramento Real' : 
                               view === 'menu' ? 'Cardápio Digital' : 
                               view === 'clients' ? 'Gestão de Clientes' : 
                               view === 'kds' ? 'Cozinha & Pedidos' : 
@@ -346,12 +489,12 @@ export default function AdminInterface(props: AdminProps) {
                 </header>
 
                 <div className="flex-1 overflow-hidden relative w-full h-full">
-                    {/* --- CENTRAL DE COMANDO (MAPA + HUD) --- */}
+                    {/* --- CENTRAL DE COMANDO (MAPA REAL LEAFLET + HUD) --- */}
                     {view === 'map' && (
                        <div className="absolute inset-0 w-full h-full flex flex-col overflow-hidden">
                           
-                          {/* 1. HUD SUPERIOR (Métricas Rápidas) */}
-                          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-slate-900/80 backdrop-blur-md border border-slate-700 rounded-full px-6 py-2 flex items-center gap-6 shadow-2xl">
+                          {/* 1. HUD SUPERIOR */}
+                          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[400] bg-slate-900/90 backdrop-blur-md border border-slate-700 rounded-full px-6 py-2 flex items-center gap-6 shadow-2xl pointer-events-auto">
                               <div className="flex items-center gap-2">
                                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                                   <span className="text-xs font-bold text-white uppercase">{drivers.filter(d => d.status !== 'offline').length} Online</span>
@@ -363,29 +506,90 @@ export default function AdminInterface(props: AdminProps) {
                               </div>
                           </div>
 
-                          {/* 2. CAMADA DO MAPA 3D */}
-                          <div className="absolute inset-0 perspective-container w-full h-full z-0">
-                              <div className="absolute inset-0 map-plane w-full h-full">
-                                  {drivers.map((d: Driver) => {
-                                     const seed = d.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                                     const gridX = 25 + (Math.floor(seed * 17) % 50); 
-                                     const gridY = 25 + (Math.floor(seed * 23) % 50); 
-                                     const statusColor = d.status === 'delivering' ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.6)]' : d.status === 'offline' ? 'border-slate-500 opacity-50' : 'border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.6)]';
-                                     return (
-                                         <div key={d.id} onClick={(e) => { e.stopPropagation(); setSelectedDriver(d); }} className={`absolute z-30 cursor-pointer animate-path-${seed % 5}`} style={{ top: `${gridY}%`, left: `${gridX}%`, animationDelay: `${(seed % 20) * -2}s` }}>
-                                              <div className="relative group billboard-corrector flex flex-col items-center">
-                                                  <div className={`relative bg-slate-900 p-1 rounded-full border-[2px] ${statusColor} w-10 h-10 flex items-center justify-center transition-all hover:scale-125 shadow-2xl`}><img src={d.avatar} className="w-full h-full object-cover rounded-full" alt={d.name} /></div>
-                                                  <div className="mt-2 bg-black/80 border border-slate-700 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-lg uppercase opacity-80 group-hover:opacity-100 whitespace-nowrap">{d.name.split(' ')[0]}</div>
-                                              </div>
-                                         </div>
-                                     )
-                                  })}
-                              </div>
+                          {/* 2. MAPA REAL (REACT LEAFLET) OU RADAR TÁTICO */}
+                          <div className="absolute inset-0 z-0">
+                              {mapMode === 'real' ? (
+                                  <MapContainer 
+                                      center={mapCenter} 
+                                      zoom={14} 
+                                      minZoom={13} 
+                                      maxZoom={18} 
+                                      scrollWheelZoom={true} 
+                                      style={{ height: "100%", width: "100%" }}
+                                      className="w-full h-full"
+                                      zoomControl={false}
+                                  >
+                                      {/* CartoDB Dark Matter Tiles (Tema Escuro) */}
+                                      <TileLayer
+                                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                                          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                                      />
+                                      
+                                      {/* Marcador da Loja */}
+                                      <Marker position={defaultLocation} icon={L.divIcon({
+                                          html: '<div class="w-4 h-4 bg-white rounded-full border-2 border-slate-900 shadow-lg"></div>',
+                                          className: 'store-marker'
+                                      })} />
+
+                                      {/* Atualizador de Centro */}
+                                      <MapUpdater center={mapCenter} />
+
+                                      {/* Marcadores dos Motoboys */}
+                                      {drivers.map(driver => {
+                                          if (!driver.lat || !driver.lng) return null;
+                                          if (driver.status === 'offline') return null; 
+
+                                          return (
+                                              <Marker 
+                                                  key={driver.id} 
+                                                  position={[driver.lat, driver.lng]}
+                                                  icon={createDriverIcon(driver)}
+                                                  eventHandlers={{
+                                                      click: () => setSelectedDriver(driver),
+                                                  }}
+                                              >
+                                                  <Popup>
+                                                      <div className="text-center">
+                                                          <strong className="block text-sm mb-1">{driver.name}</strong>
+                                                          <span className="text-xs text-slate-300">{driver.vehicle} • {driver.plate}</span>
+                                                          <div className="mt-2 text-xs font-bold">
+                                                              {driver.status === 'available' ? (
+                                                                  <span className="text-emerald-400">LIVRE</span>
+                                                              ) : (
+                                                                  <span className="text-amber-400">ENTREGANDO</span>
+                                                              )}
+                                                          </div>
+                                                      </div>
+                                                  </Popup>
+                                              </Marker>
+                                          );
+                                      })}
+                                  </MapContainer>
+                              ) : (
+                                  <TacticalRadar 
+                                      drivers={drivers} 
+                                      center={defaultLocation} 
+                                      onSelectDriver={setSelectedDriver}
+                                  />
+                              )}
+                          </div>
+                          
+                          {/* BOTÃO FLUTUANTE DE RECENTRALIZAR (MAPA REAL) */}
+                          <div className="absolute top-20 right-4 z-[400] md:right-[320px] pointer-events-auto flex flex-col gap-2">
+                              {mapMode === 'real' && (
+                                  <button 
+                                      onClick={handleRecenter} 
+                                      className="bg-slate-900 border border-slate-700 text-white p-3 rounded-xl shadow-lg hover:bg-slate-800 transition-colors"
+                                      title="Centralizar na Loja"
+                                  >
+                                      <Target size={20} className="text-cyan-400"/>
+                                  </button>
+                              )}
                           </div>
 
                           {/* 3. PAINEL ESQUERDO: RADAR DE PEDIDOS (INTERATIVO) */}
                           {showRadar && (
-                              <div className="absolute top-20 left-4 bottom-32 md:bottom-24 z-30 w-80 flex flex-col gap-3 pointer-events-none">
+                              <div className="absolute top-20 left-4 bottom-32 md:bottom-24 z-[400] w-80 flex flex-col gap-3 pointer-events-none">
                                  <div className="flex items-center gap-2 mb-1 text-cyan-400 font-bold text-xs uppercase tracking-widest bg-black/60 p-3 rounded-xl backdrop-blur-md border border-cyan-500/30 shadow-lg pointer-events-auto">
                                      <Radar size={16} className="animate-spin-slow"/> Radar de Pedidos ({orders.filter(o => o.status === 'pending' || o.status === 'preparing').length})
                                  </div>
@@ -396,7 +600,7 @@ export default function AdminInterface(props: AdminProps) {
                                             onClick={() => o.status === 'pending' ? setNewIncomingOrder(o) : null}
                                             className={`bg-slate-900/90 backdrop-blur-md p-4 rounded-xl shadow-2xl border-l-4 relative group animate-in slide-in-from-left-4 pointer-events-auto transition-all hover:scale-105 hover:bg-slate-800 cursor-pointer ${o.status === 'ready' ? 'border-emerald-500' : o.status === 'preparing' ? 'border-blue-500' : 'border-amber-500'}`}
                                         >
-                                           <div className="flex justify-between items-start mb-1 mr-6"> {/* mr-6 para dar espaço aos botões */}
+                                           <div className="flex justify-between items-start mb-1 mr-6">
                                                <span className="font-bold text-sm text-white truncate w-32">{o.customer}</span>
                                                <span className="text-[10px] font-bold bg-slate-950 px-2 py-1 rounded text-slate-400">{o.time}</span>
                                            </div>
@@ -414,7 +618,6 @@ export default function AdminInterface(props: AdminProps) {
                                                    </span>
                                                </div>
                                            </div>
-                                           {/* Botões posicionados dentro da área visível */}
                                            <div className="absolute right-1 top-1 flex gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                                                <button onClick={(e) => { e.stopPropagation(); setOrderToEdit(o); }} className="bg-slate-800 text-slate-300 p-1.5 rounded-full shadow-md hover:bg-slate-700 hover:text-white border border-slate-700" title="Editar"><Edit size={12}/></button>
                                                <button onClick={(e) => { e.stopPropagation(); if(confirm('Excluir este pedido?')) onDeleteOrder(o.id); }} className="bg-red-600 text-white p-1.5 rounded-full shadow-md hover:bg-red-500 border border-red-700" title="Excluir"><Trash2 size={12}/></button>
@@ -427,7 +630,7 @@ export default function AdminInterface(props: AdminProps) {
 
                           {/* 4. PAINEL DIREITO: FROTA DETALHADA */}
                           {showFleet && (
-                              <div className="absolute top-20 right-4 bottom-32 md:bottom-24 z-30 w-72 flex flex-col gap-3 pointer-events-none">
+                              <div className="absolute top-20 right-4 bottom-32 md:bottom-24 z-[400] w-72 flex flex-col gap-3 pointer-events-none">
                                   <div className="flex items-center gap-2 mb-1 text-amber-400 font-bold text-xs uppercase tracking-widest bg-black/60 p-3 rounded-xl backdrop-blur-md border border-amber-500/30 shadow-lg pointer-events-auto">
                                      <Bike size={16} /> Frota Ativa ({drivers.length})
                                   </div>
@@ -456,7 +659,6 @@ export default function AdminInterface(props: AdminProps) {
                                                       </div>
                                                   </div>
                                                   
-                                                  {/* STATUS EXPANDIDO */}
                                                   {d.status !== 'offline' && (
                                                       <div className={`text-xs bg-slate-950/50 p-2 rounded-lg border border-slate-800 ${statusInfo.isBusy ? 'border-amber-900/30' : ''}`}>
                                                           <p className={`font-bold ${statusInfo.color}`}>{statusInfo.label}</p>
@@ -470,15 +672,28 @@ export default function AdminInterface(props: AdminProps) {
                               </div>
                           )}
 
-                          {/* 5. DOCK INFERIOR (CONTROLES) - AJUSTADO PARA MOBILE */}
-                          <div className="absolute bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 bg-slate-900/90 backdrop-blur-xl border border-slate-700 p-2 rounded-2xl shadow-2xl">
+                          {/* 5. DOCK INFERIOR (CONTROLES) */}
+                          <div className="absolute bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 bg-slate-900/90 backdrop-blur-xl border border-slate-700 p-2 rounded-2xl shadow-2xl">
                               <button onClick={() => setShowRadar(!showRadar)} className={`p-3 rounded-xl transition-all ${showRadar ? 'bg-cyan-900/50 text-cyan-400 border border-cyan-500/30' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`} title="Radar">
                                   {showRadar ? <Radar size={20}/> : <Radar size={20} className="opacity-50"/>}
                               </button>
+                              
+                              {/* TOGGLE MAPA REAL / RADAR TÁTICO */}
+                              <div className="w-px h-8 bg-slate-700"></div>
+                              <button 
+                                  onClick={() => setMapMode(prev => prev === 'real' ? 'radar' : 'real')} 
+                                  className={`p-3 rounded-xl transition-all font-bold text-xs flex items-center gap-2 ${mapMode === 'real' ? 'bg-blue-900/30 text-blue-400 border border-blue-500/30' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                                  title="Alternar Modo de Mapa"
+                              >
+                                  {mapMode === 'real' ? <MapIcon size={20}/> : <Target size={20}/>}
+                                  <span className="hidden md:inline">{mapMode === 'real' ? 'Mapa' : 'Radar'}</span>
+                              </button>
+
                               <div className="w-px h-8 bg-slate-700"></div>
                               <button onClick={() => setModal('driver')} className="bg-amber-600 hover:bg-amber-500 text-white p-3 rounded-xl shadow-lg shadow-amber-900/20 active:scale-95 transition-transform" title="Novo Motoboy">
                                   <Plus size={24}/>
                               </button>
+                              
                               <div className="w-px h-8 bg-slate-700"></div>
                               <button onClick={() => setShowFleet(!showFleet)} className={`p-3 rounded-xl transition-all ${showFleet ? 'bg-amber-900/50 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`} title="Frota">
                                   {showFleet ? <Bike size={20}/> : <Bike size={20} className="opacity-50"/>}
@@ -498,12 +713,19 @@ export default function AdminInterface(props: AdminProps) {
                         <InventoryManager 
                             inventory={inventory} 
                             suppliers={suppliers}
+                            shoppingList={shoppingList}
                             onCreateSupplier={props.onCreateSupplier}
                             onUpdateSupplier={props.onUpdateSupplier}
                             onDeleteSupplier={props.onDeleteSupplier}
                             onCreateInventory={props.onCreateInventory}
                             onUpdateInventory={props.onUpdateInventory}
                             onDeleteInventory={props.onDeleteInventory}
+                            // Props de Compras
+                            onAddShoppingItem={props.onAddShoppingItem}
+                            onToggleShoppingItem={props.onToggleShoppingItem}
+                            onDeleteShoppingItem={props.onDeleteShoppingItem}
+                            onClearShoppingList={props.onClearShoppingList}
+                            appConfig={appConfig}
                         />
                     )}
 
@@ -601,7 +823,7 @@ export default function AdminInterface(props: AdminProps) {
                 </div>
             </div>
 
-            <aside className={`fixed inset-y-0 right-0 w-full md:w-96 bg-slate-900 shadow-2xl p-0 overflow-y-auto z-[60] transition-transform duration-300 border-l border-slate-800 ${selectedDriver && view === 'map' ? 'translate-x-0' : 'translate-x-full'}`}>
+            <aside className={`fixed inset-y-0 right-0 w-full md:w-96 bg-slate-900 shadow-2xl p-0 overflow-y-auto z-[2000] transition-transform duration-300 border-l border-slate-800 ${selectedDriver && view === 'map' ? 'translate-x-0' : 'translate-x-full'}`}>
                  {selectedDriver && (
                    <div className="h-full flex flex-col bg-slate-950">
                       <div className="bg-slate-900 p-6 border-b border-slate-800 sticky top-0 z-10">
@@ -614,14 +836,13 @@ export default function AdminInterface(props: AdminProps) {
                                  <span className="text-sm text-slate-500">{selectedDriver.vehicle}</span>
                              </div>
                              
-                             {/* NOVO: Exibição do Modelo de Pagamento */}
                              <div className="mb-4 bg-emerald-900/10 border border-emerald-500/20 px-3 py-1.5 rounded-full text-xs font-bold text-emerald-400">
                                  {selectedDriver.paymentModel === 'percentage' ? `Comissão: ${selectedDriver.paymentRate}%` : selectedDriver.paymentModel === 'salary' ? 'Salário Fixo' : `Taxa: ${formatCurrency(selectedDriver.paymentRate || 5)}`}
                              </div>
 
                              <div className="w-full flex gap-2">
                                 <button onClick={() => { setDriverToEdit(selectedDriver); setModal('driver'); }} className="flex-1 bg-slate-800 border border-slate-700 text-slate-300 py-3 rounded-xl text-xs font-bold hover:bg-slate-700 transition-colors flex items-center justify-center gap-2"><Edit size={14}/> Editar Dados</button>
-                                <button onClick={() => trackDriver(selectedDriver)} className="flex-1 bg-blue-600/20 text-blue-400 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border border-blue-600/30 hover:bg-blue-600/30 transition-colors"><MapIcon size={14} /> Rastrear</button>
+                                <button onClick={() => trackDriver(selectedDriver)} className="flex-1 bg-blue-600/20 text-blue-400 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border border-blue-600/30 hover:bg-blue-600/30 transition-colors"><Navigation size={14} /> Focar no Mapa</button>
                              </div>
                              <button onClick={() => { setDriverToEdit(selectedDriver); setModal('vale'); }} className="mt-2 w-full border border-red-900/50 text-red-500 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-red-900/10 transition-colors"><MinusCircle size={14} /> Lançar Desconto / Vale</button>
                           </div>
@@ -656,7 +877,7 @@ export default function AdminInterface(props: AdminProps) {
                    </div>
                  )}
             </aside>
-            {/* O MODAL DE NOVO PEDIDO AGORA É GLOBAL E TEM PRIORIDADE SOBRE TUDO */}
+            
             {newIncomingOrder && (
                 <NewIncomingOrderModal 
                     order={newIncomingOrder} 

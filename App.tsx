@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { collection, addDoc, updateDoc, doc, onSnapshot, serverTimestamp, deleteDoc, setDoc, writeBatch, Timestamp, deleteField, getDoc } from "firebase/firestore";
 import { auth, db } from './services/firebase';
-import { UserType, Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement, Supplier, InventoryItem } from './types';
+import { UserType, Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement, Supplier, InventoryItem, ShoppingItem } from './types';
 import { BrandLogo, Footer } from './components/Shared';
 import DriverInterface from './components/DriverInterface';
 import AdminInterface from './components/AdminInterface';
@@ -65,6 +65,7 @@ export default function App() {
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]); // NOVO
   const [inventory, setInventory] = useState<InventoryItem[]>([]); // NOVO
+  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]); // NOVO LISTA DE COMPRAS
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [modal, setModal] = useState<any>(null);
@@ -110,6 +111,7 @@ export default function App() {
         onSnapshot(collection(db, 'settlements'), s => setSettlements(s.docs.map(d => ({id: d.id, ...d.data()} as Settlement)))),
         onSnapshot(collection(db, 'suppliers'), s => setSuppliers(s.docs.map(d => ({id: d.id, ...d.data()} as Supplier)))), // NOVO
         onSnapshot(collection(db, 'inventory'), s => setInventory(s.docs.map(d => ({id: d.id, ...d.data()} as InventoryItem)))), // NOVO
+        onSnapshot(collection(db, 'shoppingList'), s => setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()} as ShoppingItem)))), // NOVO
         onSnapshot(collection(db, 'clients'), s => { setClients(s.docs.map(d => ({id: d.id, ...d.data()} as Client))); setLoading(false); })
     ];
     return () => unsubs.forEach(u => u());
@@ -182,13 +184,25 @@ export default function App() {
   const deleteProduct = (id: string) => handleAction(async () => { if(confirm("Excluir produto?")) await deleteDoc(doc(db, 'products', id)); });
   const updateClientData = (id: string, data: any) => handleAction(async () => { await setDoc(doc(db, 'clients', id), data, { merge: true }); });
   
-  // HANDLERS NOVOS
+  // HANDLERS NOVOS (INVENTÁRIO & COMPRAS)
   const createSupplier = (data: any) => handleAction(async () => { await addDoc(collection(db, 'suppliers'), data); });
   const updateSupplier = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'suppliers', id), data); });
   const deleteSupplier = (id: string) => handleAction(async () => { await deleteDoc(doc(db, 'suppliers', id)); });
   const createInventory = (data: any) => handleAction(async () => { await addDoc(collection(db, 'inventory'), data); });
   const updateInventory = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'inventory', id), data); });
   const deleteInventory = (id: string) => handleAction(async () => { await deleteDoc(doc(db, 'inventory', id)); });
+  
+  const addShoppingItem = (name: string) => handleAction(async () => { await addDoc(collection(db, 'shoppingList'), { name, isChecked: false, createdAt: serverTimestamp() }); });
+  const toggleShoppingItem = (id: string, currentVal: boolean) => handleAction(async () => { await updateDoc(doc(db, 'shoppingList', id), { isChecked: !currentVal }); });
+  const deleteShoppingItem = (id: string) => handleAction(async () => { await deleteDoc(doc(db, 'shoppingList', id)); });
+  const clearShoppingList = () => handleAction(async () => {
+      const batch = writeBatch(db);
+      shoppingList.forEach(item => {
+          const ref = doc(db, 'shoppingList', item.id);
+          batch.delete(ref);
+      });
+      await batch.commit();
+  });
 
   const handleCloseCycle = (data: any) => handleAction(async () => {
       if (!driverToEdit) return;
@@ -248,6 +262,14 @@ export default function App() {
           onCloseCycle={(driverId, data) => handleCloseCycle(data)} 
           onCreateSupplier={createSupplier} onUpdateSupplier={updateSupplier} onDeleteSupplier={deleteSupplier}
           onCreateInventory={createInventory} onUpdateInventory={updateInventory} onDeleteInventory={deleteInventory}
+          
+          // Shopping List Props
+          shoppingList={shoppingList}
+          onAddShoppingItem={addShoppingItem}
+          onToggleShoppingItem={toggleShoppingItem}
+          onDeleteShoppingItem={deleteShoppingItem}
+          onClearShoppingList={clearShoppingList}
+
           isMobile={isMobile} appConfig={appConfig} setAppConfig={setAppConfig} setModal={setModal} setModalData={setModalData}
           setDriverToEdit={setDriverToEdit} setClientToEdit={setClientToEdit}
           {...{modal}} 

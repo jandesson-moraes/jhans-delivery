@@ -23,6 +23,12 @@ export interface AppConfig {
     deliveryZones?: DeliveryZone[]; // Lista de Bairros e Taxas
     enableDeliveryFees?: boolean;   // Ativar/Desativar taxas
     schedule?: { [key: number]: DaySchedule }; // 0 (Domingo) a 6 (Sábado)
+    
+    // NOVA CONFIGURAÇÃO DE LOCALIZAÇÃO DA LOJA
+    location?: {
+        lat: number;
+        lng: number;
+    };
 }
 
 export interface Driver {
@@ -147,4 +153,11 @@ export interface InventoryItem {
     minQuantity: number;
     cost: number;
     supplierId?: string;
+}
+
+export interface ShoppingItem {
+    id: string;
+    name: string;
+    isChecked: boolean;
+    createdAt: any;
 }

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package, Zap, ZapOff, Edit, Trash2, Send, MinusCircle, AlertCircle, TrendingUp, Radio } from 'lucide-react';
+import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package, Zap, ZapOff, Edit, Trash2, Send, MinusCircle, AlertCircle, TrendingUp, Radio, LocateFixed, ShieldCheck, Lock } from 'lucide-react';
 import { Driver, Order, Vale } from '../types';
 import { isToday, formatTime, formatCurrency, formatDate, sendDeliveryNotification, formatOrderId } from '../utils';
 import { Footer } from './Shared';
@@ -27,52 +27,123 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
   const [historyFilter, setHistoryFilter] = useState<'today' | 'all'>('today');
   const [visibleItems, setVisibleItems] = useState(20);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  
+  // ESTADOS DO RASTREAMENTO
   const [gpsActive, setGpsActive] = useState(false);
+  const [gpsError, setGpsError] = useState('');
+  const [wakeLockActive, setWakeLockActive] = useState(false);
+  const wakeLockRef = useRef<any>(null);
+  const watchIdRef = useRef<number | null>(null);
 
   // Controle de áudio com Set para não repetir
   const notifiedAssignedIds = useRef<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // --- RASTREAMENTO GPS EM TEMPO REAL ---
-  useEffect(() => {
-      let watchId: number | null = null;
+  // --- FUNÇÕES DE RASTREAMENTO (WAKE LOCK + GPS) ---
 
-      if (driver.status !== 'offline') {
-          if ('geolocation' in navigator) {
-              watchId = navigator.geolocation.watchPosition(
-                  (position) => {
-                      setGpsActive(true);
-                      const { latitude, longitude } = position.coords;
-                      // Atualiza no Firestore a cada mudança de posição
-                      onUpdateDriver(driver.id, {
-                          lat: latitude,
-                          lng: longitude,
-                          lastUpdate: serverTimestamp() // Importante para saber se o sinal está fresco
-                      });
-                  },
-                  (error) => {
-                      console.error("Erro GPS:", error);
-                      setGpsActive(false);
-                  },
-                  {
-                      enableHighAccuracy: true, // Força uso do GPS do hardware
-                      timeout: 10000,
-                      maximumAge: 0
-                  }
-              );
+  const requestWakeLock = async () => {
+      if ('wakeLock' in navigator) {
+          try {
+              const lock = await (navigator as any).wakeLock.request('screen');
+              wakeLockRef.current = lock;
+              setWakeLockActive(true);
+              
+              lock.addEventListener('release', () => {
+                  setWakeLockActive(false);
+                  console.log('Wake Lock released');
+              });
+              console.log('Wake Lock active');
+          } catch (err: any) {
+              console.error(`${err.name}, ${err.message}`);
           }
-      } else {
-          setGpsActive(false);
       }
+  };
 
-      return () => {
-          if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+  const startTracking = () => {
+      setGpsError('');
+      
+      // 1. Tentar Wake Lock (Manter tela ligada)
+      requestWakeLock();
+
+      // 2. Iniciar GPS Watcher
+      if ('geolocation' in navigator) {
+          watchIdRef.current = navigator.geolocation.watchPosition(
+              (position) => {
+                  setGpsActive(true);
+                  const { latitude, longitude, speed, heading } = position.coords;
+                  
+                  // Atualiza no Firestore
+                  // Nota: Adicionamos um throttle implícito pelo GPS do navegador, mas aqui enviamos sempre que muda.
+                  // Em produção real, poderíamos verificar se dist > 10m para economizar writes.
+                  onUpdateDriver(driver.id, {
+                      lat: latitude,
+                      lng: longitude,
+                      heading: heading || 0, // Direção
+                      speed: speed || 0, // Velocidade
+                      battery: 100, // Placeholder ou usar API de bateria se disponível
+                      lastUpdate: serverTimestamp()
+                  });
+              },
+              (error) => {
+                  console.error("Erro GPS:", error);
+                  setGpsActive(false);
+                  let msg = "Erro ao obter localização.";
+                  if (error.code === 1) msg = "Permissão de GPS negada. Ative nas configurações.";
+                  if (error.code === 2) msg = "Sinal de GPS indisponível.";
+                  if (error.code === 3) msg = "Tempo limite do GPS esgotado.";
+                  setGpsError(msg);
+              },
+              {
+                  enableHighAccuracy: true, // CRÍTICO: Usa GPS do hardware
+                  timeout: 15000,
+                  maximumAge: 0
+              }
+          );
+      } else {
+          setGpsError("Seu dispositivo não suporta GPS.");
+      }
+  };
+
+  const stopTracking = () => {
+      if (watchIdRef.current !== null) {
+          navigator.geolocation.clearWatch(watchIdRef.current);
+          watchIdRef.current = null;
+      }
+      if (wakeLockRef.current) {
+          wakeLockRef.current.release().then(() => {
+              wakeLockRef.current = null;
+          });
+      }
+      setGpsActive(false);
+      setWakeLockActive(false);
+  };
+
+  // Monitorar visibilidade da página para reagendar Wake Lock se cair
+  useEffect(() => {
+      const handleVisibilityChange = () => {
+          if (document.visibilityState === 'visible' && driver.status !== 'offline' && !wakeLockActive) {
+              requestWakeLock();
+          }
       };
-  }, [driver.status, driver.id]);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [wakeLockActive, driver.status]);
+
+  // Limpeza ao desmontar
+  useEffect(() => {
+      return () => stopTracking();
+  }, []);
+
+  // Se o motorista ficar offline pelo banco, para o rastreamento local
+  useEffect(() => {
+      if (driver.status === 'offline') {
+          stopTracking();
+      }
+  }, [driver.status]);
+
 
   useEffect(() => {
     audioRef.current = new Audio(NOTIFICATION_SOUND);
-    // Popula inicial para não tocar o que já está na tela
     orders.forEach(o => {
         if(o.driverId === driver.id && o.status === 'assigned') {
             notifiedAssignedIds.current.add(o.id);
@@ -152,7 +223,6 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
   
   const historySummary = useMemo(() => {
       const count = displayedHistory.length;
-      // Estimativa simples para o histórico, idealmente seria salvo no pedido o valor ganho na época
       let total = 0;
       if (driver.paymentModel === 'percentage') {
           total = displayedHistory.reduce((acc, o) => acc + (o.value * ((driver.paymentRate || 0) / 100)), 0);
@@ -165,6 +235,45 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
       return { count, total };
   }, [displayedHistory, driver.paymentModel, driver.paymentRate]);
 
+  // --- TELA DE BLOQUEIO DE GPS (CHECK-IN) ---
+  // Se o motorista estiver ONLINE no banco, mas o GPS local não estiver ativo, bloqueia tudo.
+  if (driver.status !== 'offline' && !gpsActive) {
+      return (
+          <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
+              <div className="w-32 h-32 bg-slate-900 rounded-full flex items-center justify-center mb-8 relative border-4 border-slate-800">
+                  <div className="absolute inset-0 rounded-full border-4 border-emerald-500/30 animate-ping"></div>
+                  <LocateFixed size={48} className="text-emerald-500 relative z-10"/>
+              </div>
+              
+              <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-wide">Rastreamento Obrigatório</h2>
+              <p className="text-slate-400 mb-8 max-w-xs leading-relaxed">
+                  Para iniciar as entregas, precisamos ativar seu GPS e manter a tela ativa para garantir a segurança.
+              </p>
+
+              {gpsError && (
+                  <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-xl mb-6 flex items-center gap-3 text-left">
+                      <AlertCircle className="text-red-500 shrink-0" size={24}/>
+                      <p className="text-red-200 text-xs font-bold">{gpsError}</p>
+                  </div>
+              )}
+
+              <button 
+                  onClick={startTracking}
+                  className="w-full max-w-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-900/40 active:scale-95 transition-all flex items-center justify-center gap-2 text-lg uppercase tracking-wider"
+              >
+                  <Radio size={24} className="animate-pulse"/> Ativar GPS e Iniciar
+              </button>
+              
+              <button 
+                  onClick={() => { onToggleStatus(); stopTracking(); }}
+                  className="mt-6 text-slate-500 font-bold text-sm flex items-center gap-2 hover:text-white transition-colors"
+              >
+                  <LogOut size={16}/> Voltar / Ficar Offline
+              </button>
+          </div>
+      );
+  }
+
   return (
     <div className="bg-slate-950 min-h-screen w-screen flex flex-col">
       <div className="bg-slate-900 p-4 md:p-5 pb-8 rounded-b-[2rem] shadow-xl relative z-10 border-b border-slate-800 shrink-0">
@@ -176,14 +285,17 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
                 <div className="flex items-center gap-2">
                     <span className="text-slate-400 text-[10px] md:text-xs font-medium bg-slate-950 px-2 py-0.5 rounded-full">{driver.plate}</span>
                     {driver.status !== 'offline' && (
-                        <span className={`text-[9px] flex items-center gap-1 font-bold uppercase ${gpsActive ? 'text-emerald-500' : 'text-red-500 animate-pulse'}`}>
-                            <Radio size={10} className={gpsActive ? "" : "animate-ping"}/> {gpsActive ? 'GPS Ativo' : 'Buscando GPS...'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[9px] flex items-center gap-1 font-bold uppercase text-emerald-500 bg-emerald-900/20 px-2 py-0.5 rounded border border-emerald-500/30">
+                                <Radio size={10} className="animate-pulse"/> GPS Ativo
+                            </span>
+                            {wakeLockActive && <Lock size={10} className="text-slate-500" title="Tela Bloqueada Ligada"/>}
+                        </div>
                     )}
                 </div>
             </div>
           </div>
-          <button onClick={onLogout} className="p-2 bg-slate-800 rounded-xl hover:bg-slate-700 text-white transition-colors"><LogOut size={18}/></button>
+          <button onClick={() => { stopTracking(); onLogout(); }} className="p-2 bg-slate-800 rounded-xl hover:bg-slate-700 text-white transition-colors"><LogOut size={18}/></button>
         </div>
         
         {/* Navigation Tabs */}
@@ -208,9 +320,21 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
             <div className={`p-3 md:p-4 rounded-xl border shadow-lg flex items-center justify-between transition-all ${driver.status === 'offline' ? 'bg-slate-900 border-slate-800' : 'bg-emerald-900/20 border-emerald-800'}`}>
                <div>
                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Status</p>
-                   <span className={`font-bold text-xs md:text-sm ${driver.status === 'offline' ? 'text-slate-300' : 'text-emerald-400'}`}>{driver.status === 'offline' ? 'Você está Offline' : 'Online e Disponível'}</span>
+                   <span className={`font-bold text-xs md:text-sm ${driver.status === 'offline' ? 'text-slate-300' : 'text-emerald-400'}`}>{driver.status === 'offline' ? 'Você está Offline' : 'Online e Rastreando'}</span>
                </div>
-               <button onClick={onToggleStatus} className={`px-3 py-2 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-xs shadow-md transition-all active:scale-95 flex items-center gap-2 ${driver.status === 'offline' ? 'bg-emerald-600 text-white' : 'bg-slate-800 border border-slate-700 text-slate-300'}`}>
+               <button 
+                   onClick={() => {
+                       if (driver.status === 'offline') {
+                           // Tentar ativar. Se sucesso, UI muda e o "Check-in" aparece
+                           onToggleStatus();
+                       } else {
+                           // Desativar: Para GPS e muda status
+                           stopTracking();
+                           onToggleStatus();
+                       }
+                   }} 
+                   className={`px-3 py-2 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-xs shadow-md transition-all active:scale-95 flex items-center gap-2 ${driver.status === 'offline' ? 'bg-emerald-600 text-white' : 'bg-slate-800 border border-slate-700 text-slate-300'}`}
+               >
                    {driver.status === 'offline' ? <Zap size={14}/> : <ZapOff size={14}/>}
                    {driver.status === 'offline' ? 'Ficar Online' : 'Pausar'}
                </button>
