@@ -575,7 +575,7 @@ export function KitchenHistoryModal({ order, onClose, products }: any) {
 // NewOrderModal - Restaurado com visual de duas colunas (Cardápio e Form) e Abas em Mobile
 export function NewOrderModal({ onClose, onSave, products, clients }: { onClose: () => void, onSave: (data: any) => void, products: Product[], clients: Client[] }) {
     const [cart, setCart] = useState<{product: Product, quantity: number}[]>([]);
-    const [selectedCategory, setSelectedCategory] = useState<string>('Hambúrgueres');
+    const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
     const [form, setForm] = useState({ customer: '', phone: '', address: '', mapsLink: '', obs: '', value: '', paymentMethod: 'PIX', serviceType: 'delivery', deliveryFee: 0 });
     
     // --- LÓGICA DE AUTOCOMPLETAR CLIENTE ---
