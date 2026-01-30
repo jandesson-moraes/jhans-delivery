@@ -3,6 +3,7 @@ import { Supplier, InventoryItem, ShoppingItem, AppConfig } from '../types';
 import { PlusCircle, Edit, Trash2, Box, Truck, Search, Phone, FileText, ShoppingCart, Send, Wand2, CheckSquare, Square, Copy, MessageCircle, X, Check } from 'lucide-react';
 import { formatCurrency, copyToClipboard } from '../utils';
 import { Footer } from './Shared';
+import { GenericAlertModal } from './Modals';
 
 interface InventoryProps {
     inventory: InventoryItem[];
@@ -34,6 +35,7 @@ export function InventoryManager(props: InventoryProps) {
     // Modal State
     const [showModal, setShowModal] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null); // Pode ser supplier ou inventory
+    const [alertModal, setAlertModal] = useState<{isOpen: boolean, title: string, message: string} | null>(null);
 
     // Shopping List Preview State
     const [showShoppingPreview, setShowShoppingPreview] = useState(false);
@@ -84,13 +86,13 @@ export function InventoryManager(props: InventoryProps) {
                 }
             }
         });
-        if(count === 0) alert("Nenhum item com estoque baixo encontrado ou todos já estão na lista.");
-        else alert(`${count} itens adicionados à lista de compras!`);
+        if(count === 0) setAlertModal({isOpen: true, title: "Estoque OK", message: "Nenhum item com estoque baixo encontrado ou todos já estão na lista."});
+        else setAlertModal({isOpen: true, title: "Lista Gerada", message: `${count} itens adicionados à lista de compras!`});
     };
 
     const prepareShoppingList = () => {
         if (props.shoppingList.length === 0) {
-            alert("A lista está vazia.");
+            setAlertModal({isOpen: true, title: "Lista Vazia", message: "Adicione itens antes de visualizar."});
             return;
         }
 
@@ -188,7 +190,7 @@ export function InventoryManager(props: InventoryProps) {
                                 <Send size={16}/> Visualizar & Compartilhar
                             </button>
                             {props.shoppingList.length > 0 && (
-                                <button onClick={() => { if(confirm("Limpar toda a lista?")) props.onClearShoppingList() }} className="px-4 bg-slate-800 border border-slate-700 text-slate-400 hover:text-red-400 hover:border-red-900/50 py-3 rounded-xl font-bold text-xs transition-all active:scale-95">
+                                <button onClick={() => props.onClearShoppingList()} className="px-4 bg-slate-800 border border-slate-700 text-slate-400 hover:text-red-400 hover:border-red-900/50 py-3 rounded-xl font-bold text-xs transition-all active:scale-95">
                                     <Trash2 size={16}/>
                                 </button>
                             )}
@@ -263,7 +265,7 @@ export function InventoryManager(props: InventoryProps) {
                                             <span className="text-emerald-400 font-mono font-bold">{formatCurrency(item.cost)}</span>
                                             <div className="flex gap-2">
                                                 <button onClick={() => openModal(item)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white"><Edit size={16}/></button>
-                                                <button onClick={() => { if(confirm('Excluir item?')) props.onDeleteInventory(item.id); }} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-red-500"><Trash2 size={16}/></button>
+                                                <button onClick={() => props.onDeleteInventory(item.id)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-red-500"><Trash2 size={16}/></button>
                                             </div>
                                         </div>
                                     </div>
@@ -288,7 +290,7 @@ export function InventoryManager(props: InventoryProps) {
 
                                     <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-slate-800">
                                         <button onClick={() => openModal(sup)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white"><Edit size={16}/></button>
-                                        <button onClick={() => { if(confirm('Excluir fornecedor?')) props.onDeleteSupplier(sup.id); }} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-red-500"><Trash2 size={16}/></button>
+                                        <button onClick={() => props.onDeleteSupplier(sup.id)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-red-500"><Trash2 size={16}/></button>
                                     </div>
                                 </div>
                             ))}
@@ -326,6 +328,16 @@ export function InventoryManager(props: InventoryProps) {
                 <ShoppingListPreviewModal 
                     message={shoppingMessage} 
                     onClose={() => setShowShoppingPreview(false)} 
+                />
+            )}
+
+            {/* ALERTA LOCAL */}
+            {alertModal && (
+                <GenericAlertModal
+                    isOpen={alertModal.isOpen}
+                    title={alertModal.title}
+                    message={alertModal.message}
+                    onClose={() => setAlertModal(null)}
                 />
             )}
         </div>

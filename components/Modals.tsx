@@ -4,7 +4,35 @@ import { Product, Client, AppConfig, Driver, Order, Vale, DeliveryZone } from '.
 import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, getOrderReceivedText, formatOrderId, getDispatchMessage, getProductionMessage, generatePixPayload, checkShopStatus } from '../utils';
 import { PixIcon } from './Shared';
 
-// --- MODAL GENÉRICO DE CONFIRMAÇÃO (NOVO) ---
+// --- MODAL GENÉRICO DE ALERTA (NOVO) ---
+export function GenericAlertModal({ isOpen, onClose, title, message, type = "info" }: any) {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[3100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-200">
+            <div className={`bg-slate-900 rounded-3xl shadow-2xl w-full max-w-sm p-6 border-2 relative overflow-hidden ${type === 'error' ? 'border-red-500/50 shadow-red-900/30' : 'border-blue-500/50 shadow-blue-900/30'}`}>
+                <div className="flex flex-col items-center text-center mb-6">
+                    <div className={`p-4 rounded-full mb-3 animate-bounce ${type === 'error' ? 'bg-red-500/20' : 'bg-blue-500/20'}`}>
+                        {type === 'error' ? <AlertTriangle size={32} className="text-red-400" /> : <AlertCircle size={32} className="text-blue-400" />}
+                    </div>
+                    <h3 className="font-black text-xl text-white uppercase tracking-wide">{title}</h3>
+                    <p className="text-slate-300 font-medium text-sm mt-3 leading-relaxed">
+                        {message}
+                    </p>
+                </div>
+
+                <button 
+                    onClick={onClose}
+                    className={`w-full text-white py-3.5 rounded-xl font-bold text-sm transition-transform active:scale-95 shadow-lg flex items-center justify-center gap-2 ${type === 'error' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                >
+                    OK, Entendi
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// --- MODAL GENÉRICO DE CONFIRMAÇÃO ---
 export function GenericConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmText = "Confirmar", cancelText = "Cancelar", type = "info" }: any) {
     if (!isOpen) return null;
 
@@ -578,6 +606,9 @@ export function NewOrderModal({ onClose, onSave, products, clients }: { onClose:
     const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
     const [form, setForm] = useState({ customer: '', phone: '', address: '', mapsLink: '', obs: '', value: '', paymentMethod: 'PIX', serviceType: 'delivery', deliveryFee: 0 });
     
+    // Alerta Interno
+    const [localAlert, setLocalAlert] = useState<{isOpen: boolean, title: string, message: string} | null>(null);
+
     // --- LÓGICA DE AUTOCOMPLETAR CLIENTE ---
     const [suggestions, setSuggestions] = useState<Client[]>([]);
     const [activeField, setActiveField] = useState<'phone' | 'name' | null>(null);
@@ -614,13 +645,18 @@ export function NewOrderModal({ onClose, onSave, products, clients }: { onClose:
 
         const lowerVal = cleanVal.toLowerCase();
         
+        // LÓGICA INTELIGENTE PARA TELEFONE
+        let rawInput = value.replace(/\D/g, '');
+        // Se o input começar com 55 e tiver mais de 11 dígitos (ex: 5592999999999 ou +55...), remove o 55
+        if (rawInput.startsWith('55') && rawInput.length > 11) {
+            rawInput = rawInput.substring(2);
+        }
+
         const matches = clients.filter(c => {
             if (field === 'phone') {
-                // Remove spaces/dashes from input for better matching
-                const rawInput = value.replace(/\D/g, '');
                 const clientPhone = normalizePhone(c.phone);
-                // Match raw sequence or normalized
-                return c.phone.includes(value) || clientPhone.includes(rawInput);
+                // Compara o número limpo do banco com o input limpo (sem +55)
+                return clientPhone.includes(rawInput);
             } else {
                 return c.name && c.name.toLowerCase().includes(lowerVal);
             }
@@ -726,7 +762,7 @@ export function NewOrderModal({ onClose, onSave, products, clients }: { onClose:
                 phone: phoneMatch ? phoneMatch[1].trim() : prev.phone
             }));
         } catch (err) {
-            alert("Permissão de colar negada ou erro ao ler área de transferência.");
+            setLocalAlert({ isOpen: true, title: "Erro ao Colar", message: "Permissão negada ou erro ao ler área de transferência." });
         }
     };
 
@@ -989,6 +1025,16 @@ export function NewOrderModal({ onClose, onSave, products, clients }: { onClose:
                     </div>
                 </div>
              </div>
+
+             {localAlert && (
+                 <GenericAlertModal 
+                    isOpen={localAlert.isOpen} 
+                    title={localAlert.title} 
+                    message={localAlert.message} 
+                    type="error"
+                    onClose={() => setLocalAlert(null)}
+                 />
+             )}
         </div>
     )
 }

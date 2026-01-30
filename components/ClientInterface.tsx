@@ -3,7 +3,7 @@ import { Product, AppConfig } from '../types';
 import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard, formatTime, formatDate, generatePixPayload, EMOJI, checkShopStatus } from '../utils';
 import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode, Gift, LogOut, ShieldCheck, CalendarClock, Ban, Moon, CalendarDays, DoorClosed } from 'lucide-react';
 import { BrandLogo, Footer, PixIcon } from './Shared';
-import { GenericConfirmModal } from './Modals';
+import { GenericConfirmModal, GenericAlertModal } from './Modals';
 
 interface ClientInterfaceProps {
     products: Product[];
@@ -24,8 +24,9 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     // Estado de Carregamento para envio do pedido
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    // Modal Genérico de Confirmação (Substitui window.confirm)
+    // Modais Locais (Confirm e Alert)
     const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, action: () => void, title: string, message: string, type?: 'info' | 'danger'} | null>(null);
+    const [alertModal, setAlertModal] = useState<{isOpen: boolean, title: string, message: string, type?: 'info' | 'error'} | null>(null);
     
     // --- ESTADOS INICIAIS COM CARREGAMENTO DO LOCALSTORAGE ---
     const [cart, setCart] = useState<{product: Product, quantity: number, obs: string}[]>(() => {
@@ -242,7 +243,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
 
     const handleGetLocation = () => {
         if (!navigator.geolocation) {
-            alert("Seu navegador não suporta geolocalização.");
+            setAlertModal({ isOpen: true, title: "Erro GPS", message: "Seu navegador não suporta geolocalização.", type: "error" });
             return;
         }
         setLoadingLocation(true);
@@ -257,7 +258,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             },
             (error) => {
                 console.error(error);
-                alert("Não foi possível obter o GPS. Por favor, digite o endereço manualmente.");
+                setAlertModal({ isOpen: true, title: "Erro GPS", message: "Não foi possível obter o GPS. Por favor, digite o endereço manualmente.", type: "error" });
                 setLoadingLocation(false);
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -322,7 +323,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             setCheckout(prev => ({ ...prev, trocoPara: '', obs: '' })); 
         } catch (error) {
             console.error(error);
-            alert("Não foi possível enviar o pedido. Verifique sua conexão e tente novamente.");
+            setAlertModal({ isOpen: true, title: "Erro no Envio", message: "Não foi possível enviar o pedido. Verifique sua conexão e tente novamente.", type: "error" });
         } finally {
             setIsSubmitting(false);
         }
@@ -335,11 +336,11 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
 
         if (checkout.serviceType === 'delivery') {
             if (!checkout.address) {
-                alert("Por favor, digite o endereço de entrega (Rua e Número).");
+                setAlertModal({ isOpen: true, title: "Endereço Faltando", message: "Por favor, digite o endereço de entrega (Rua e Número).", type: "error" });
                 return;
             }
             if (appConfig.enableDeliveryFees && appConfig.deliveryZones && appConfig.deliveryZones.length > 0 && !checkout.neighborhood) {
-                alert("Por favor, selecione o seu bairro para calcular a taxa de entrega.");
+                setAlertModal({ isOpen: true, title: "Bairro Faltando", message: "Por favor, selecione o seu bairro para calcular a taxa de entrega.", type: "error" });
                 return;
             }
         }
@@ -908,6 +909,17 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                     message={confirmModal.message}
                     type={confirmModal.type}
                     confirmText="Sim, Confirmar"
+                />
+            )}
+
+            {/* MODAL DE ALERTA LOCAL (SUBSTITUI WINDOW.ALERT) */}
+            {alertModal && (
+                <GenericAlertModal
+                    isOpen={alertModal.isOpen}
+                    title={alertModal.title}
+                    message={alertModal.message}
+                    type={alertModal.type}
+                    onClose={() => setAlertModal(null)}
                 />
             )}
         </div>

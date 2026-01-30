@@ -7,7 +7,7 @@ import { BrandLogo, Footer } from './components/Shared';
 import DriverInterface from './components/DriverInterface';
 import AdminInterface from './components/AdminInterface';
 import ClientInterface from './components/ClientInterface';
-import { NewDriverModal, SettingsModal, ImportModal, NewExpenseModal, NewValeModal, EditClientModal, CloseCycleModal } from './components/Modals';
+import { NewDriverModal, SettingsModal, ImportModal, NewExpenseModal, NewValeModal, EditClientModal, CloseCycleModal, GenericAlertModal, GenericConfirmModal } from './components/Modals';
 import { Loader2, TrendingUp, ChevronRight, Bike, ShoppingBag } from 'lucide-react';
 import { normalizePhone, capitalize, formatCurrency } from './utils';
 
@@ -73,6 +73,10 @@ export default function App() {
   const [driverToEdit, setDriverToEdit] = useState<Driver | null>(null);
   const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
 
+  // GLOBAL MODAL STATES (Para substituir Alerts)
+  const [alertInfo, setAlertInfo] = useState<{isOpen: boolean, title: string, message: string, type: 'info'|'error'}|null>(null);
+  const [confirmInfo, setConfirmInfo] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void, type?: 'info'|'danger'}|null>(null);
+
   useEffect(() => {
       const handleResize = () => setIsMobile(window.innerWidth < 768);
       window.addEventListener('resize', handleResize);
@@ -123,7 +127,7 @@ export default function App() {
           return await action(); 
       } catch(e: any) { 
           console.error(e); 
-          alert('Erro: ' + e.message); 
+          setAlertInfo({ isOpen: true, title: "Erro", message: e.message, type: 'error' });
           return null;
       } 
   };
@@ -153,7 +157,9 @@ export default function App() {
 
   const createDriver = (data: any) => handleAction(async () => { await addDoc(collection(db, 'drivers'), data); });
   const updateDriver = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'drivers', id), data); });
-  const deleteDriver = (id: string) => handleAction(async () => { if (confirm("Tem certeza?")) await deleteDoc(doc(db, 'drivers', id)); });
+  const deleteDriver = (id: string) => {
+      setConfirmInfo({ isOpen: true, title: "Excluir Motoboy?", message: "Tem certeza que deseja remover este motoboy? Isso não pode ser desfeito.", type: "danger", onConfirm: () => handleAction(async () => await deleteDoc(doc(db, 'drivers', id))) });
+  };
   
   const updateOrder = (id: string, data: any) => handleAction(async () => {
       if (data.status && ['pending', 'preparing', 'ready'].includes(data.status)) {
@@ -167,7 +173,10 @@ export default function App() {
       await updateDoc(doc(db, 'orders', id), data);
   });
 
-  const deleteOrder = (id: string) => handleAction(async () => { if (confirm("Excluir pedido?")) await deleteDoc(doc(db, 'orders', id)); });
+  const deleteOrder = (id: string) => {
+      setConfirmInfo({ isOpen: true, title: "Excluir Pedido?", message: "Tem certeza que deseja excluir este pedido?", type: "danger", onConfirm: () => handleAction(async () => await deleteDoc(doc(db, 'orders', id))) });
+  };
+
   const assignOrder = (oid: string, did: string) => handleAction(async () => { await updateDoc(doc(db, 'orders', oid), { status: 'assigned', assignedAt: serverTimestamp(), driverId: did }); await updateDoc(doc(db, 'drivers', did), { status: 'delivering', currentOrderId: oid }); });
   const acceptOrder = (id: string) => handleAction(async () => { await updateDoc(doc(db, 'orders', id), { status: 'delivering' }); });
   const completeOrder = (oid: string, did: string) => handleAction(async () => {
@@ -181,35 +190,40 @@ export default function App() {
   const createExpense = (data: any) => handleAction(async () => { await addDoc(collection(db, 'expenses'), { ...data, createdAt: serverTimestamp() }); });
   const createProduct = (data: any) => handleAction(async () => { await addDoc(collection(db, 'products'), data); });
   const updateProduct = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'products', id), data); });
-  const deleteProduct = (id: string) => handleAction(async () => { if(confirm("Excluir produto?")) await deleteDoc(doc(db, 'products', id)); });
+  const deleteProduct = (id: string) => {
+      setConfirmInfo({ isOpen: true, title: "Excluir Produto?", message: "Deseja realmente excluir este produto do cardápio?", type: "danger", onConfirm: () => handleAction(async () => await deleteDoc(doc(db, 'products', id))) });
+  };
   const updateClientData = (id: string, data: any) => handleAction(async () => { await setDoc(doc(db, 'clients', id), data, { merge: true }); });
   
   // HANDLERS NOVOS (INVENTÁRIO & COMPRAS)
   const createSupplier = (data: any) => handleAction(async () => { await addDoc(collection(db, 'suppliers'), data); });
   const updateSupplier = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'suppliers', id), data); });
-  const deleteSupplier = (id: string) => handleAction(async () => { await deleteDoc(doc(db, 'suppliers', id)); });
+  const deleteSupplier = (id: string) => {
+      setConfirmInfo({ isOpen: true, title: "Excluir Fornecedor?", message: "Isso removerá o fornecedor da lista.", type: "danger", onConfirm: () => handleAction(async () => await deleteDoc(doc(db, 'suppliers', id))) });
+  };
   const createInventory = (data: any) => handleAction(async () => { await addDoc(collection(db, 'inventory'), data); });
   const updateInventory = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'inventory', id), data); });
-  const deleteInventory = (id: string) => handleAction(async () => { await deleteDoc(doc(db, 'inventory', id)); });
+  const deleteInventory = (id: string) => {
+      setConfirmInfo({ isOpen: true, title: "Excluir Item de Estoque?", message: "Isso removerá o item do controle de estoque.", type: "danger", onConfirm: () => handleAction(async () => await deleteDoc(doc(db, 'inventory', id))) });
+  };
   
   const addShoppingItem = (name: string) => handleAction(async () => { await addDoc(collection(db, 'shoppingList'), { name, isChecked: false, createdAt: serverTimestamp() }); });
   const toggleShoppingItem = (id: string, currentVal: boolean) => handleAction(async () => { await updateDoc(doc(db, 'shoppingList', id), { isChecked: !currentVal }); });
   const deleteShoppingItem = (id: string) => handleAction(async () => { await deleteDoc(doc(db, 'shoppingList', id)); });
-  const clearShoppingList = () => handleAction(async () => {
-      const batch = writeBatch(db);
-      shoppingList.forEach(item => {
-          const ref = doc(db, 'shoppingList', item.id);
-          batch.delete(ref);
-      });
-      await batch.commit();
-  });
+  const clearShoppingList = () => {
+      setConfirmInfo({ isOpen: true, title: "Limpar Lista?", message: "Deseja apagar todos os itens da lista de compras?", type: "danger", onConfirm: () => handleAction(async () => {
+          const batch = writeBatch(db);
+          shoppingList.forEach(item => { const ref = doc(db, 'shoppingList', item.id); batch.delete(ref); });
+          await batch.commit();
+      })});
+  };
 
   const handleCloseCycle = (data: any) => handleAction(async () => {
       if (!driverToEdit) return;
       const timestamp = data.endAt ? Timestamp.fromDate(new Date(data.endAt)) : serverTimestamp();
       await addDoc(collection(db, 'settlements'), { ...data, driverId: driverToEdit.id, endAt: timestamp });
       await updateDoc(doc(db, 'drivers', driverToEdit.id), { lastSettlementAt: timestamp });
-      alert('Ciclo fechado com sucesso!');
+      setAlertInfo({ isOpen: true, title: "Sucesso!", message: "Ciclo fechado e pagamento registrado.", type: "info" });
   });
 
   const handleImportCSV = async (csvText: string) => {
@@ -232,7 +246,7 @@ export default function App() {
              }
           }
       });
-      try { await dbBatch.commit(); alert("Dados importados!"); setModal(null); } catch(e) { console.error(e); }
+      try { await dbBatch.commit(); setAlertInfo({ isOpen: true, title: "Importação Concluída", message: "Dados importados com sucesso!", type: "info" }); setModal(null); } catch(e: any) { console.error(e); setAlertInfo({ isOpen: true, title: "Erro na Importação", message: e.message, type: "error" }); }
   };
 
   const handleLogout = () => { 
@@ -284,6 +298,27 @@ export default function App() {
       {modal === 'client' && clientToEdit && <EditClientModal client={clientToEdit} orders={orders} onClose={() => setModal(null)} onUpdateOrder={updateOrder} onSave={(data: any) => { updateClientData(clientToEdit.id, data); setModal(null); }} />}
       {modal === 'closeCycle' && driverToEdit && modalData && (
           <CloseCycleModal data={modalData} onClose={() => { setModal(null); setDriverToEdit(null); setModalData(null); }} onConfirm={(data: any) => handleCloseCycle(data)} />
+      )}
+
+      {/* GLOBAL ALERTS & CONFIRMS */}
+      {alertInfo && (
+          <GenericAlertModal 
+              isOpen={alertInfo.isOpen} 
+              title={alertInfo.title} 
+              message={alertInfo.message} 
+              type={alertInfo.type} 
+              onClose={() => setAlertInfo(null)} 
+          />
+      )}
+      {confirmInfo && (
+          <GenericConfirmModal 
+              isOpen={confirmInfo.isOpen} 
+              title={confirmInfo.title} 
+              message={confirmInfo.message} 
+              type={confirmInfo.type || 'info'} 
+              onConfirm={() => { confirmInfo.onConfirm(); setConfirmInfo(null); }} 
+              onClose={() => setConfirmInfo(null)}
+          />
       )}
     </>
   );

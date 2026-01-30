@@ -168,7 +168,7 @@ export function MenuManager({ products, onCreate, onUpdate, onDelete }: MenuProp
                                         </div>
                                         <div className="flex justify-end pt-3 border-t border-slate-800/50 gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:bg-amber-600 hover:text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold"><Edit size={14}/> Editar</button>
-                                            <button onClick={() => { if(confirm('Excluir item?')) onDelete(p.id); }} className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:bg-red-600 hover:text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold"><Trash2 size={14}/> Excluir</button>
+                                            <button onClick={() => onDelete(p.id)} className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:bg-red-600 hover:text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold"><Trash2 size={14}/> Excluir</button>
                                         </div>
                                     </div>
                                 ))}
