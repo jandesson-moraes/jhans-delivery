@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { LayoutDashboard, Users, ShoppingBag, Utensils, Bike, Map, Settings, LogOut, FileText, BarChart3, ChevronRight, Menu as MenuIcon, X, CalendarCheck, ClipboardList, ChefHat, Bell, Gift } from 'lucide-react';
+import { LayoutDashboard, Users, ShoppingBag, Utensils, Bike, Map, Settings, LogOut, FileText, BarChart3, ChevronRight, Menu as MenuIcon, X, CalendarCheck, ClipboardList, ChefHat, Bell, Gift, PlusCircle, Search, Trash2, Minus, Plus, Save, CheckCircle2, CreditCard, Banknote, MapPin, DollarSign, ClipboardPaste, Store } from 'lucide-react';
 import { Driver, Order, Vale, Expense, Product, Client, Settlement, AppConfig, Supplier, InventoryItem, ShoppingItem, GiveawayEntry } from '../types';
 import { BrandLogo, Footer, SidebarBtn, StatBox } from './Shared';
 import { MenuManager } from './MenuManager';
@@ -10,7 +10,7 @@ import { DailyOrdersView } from './DailyOrdersView';
 import { AnalyticsView } from './AnalyticsView';
 import { ItemReportView } from './ItemReportView';
 import { NewLeadNotificationModal } from './Modals';
-import { checkShopStatus, formatCurrency } from '../utils';
+import { checkShopStatus, formatCurrency, normalizePhone, capitalize, toSentenceCase } from '../utils';
 
 interface AdminProps {
     drivers: Driver[];
@@ -59,7 +59,7 @@ interface AdminProps {
     modal: any;
 }
 
-const GIVEAWAY_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3'; // Som de sucesso/festa
+const GIVEAWAY_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3'; // Som estilo Cassino/Jackpot
 
 const IntroAnimation = ({ appName, onComplete }: { appName: string, onComplete: () => void }) => {
     useEffect(() => {
@@ -83,14 +83,353 @@ const IntroAnimation = ({ appName, onComplete }: { appName: string, onComplete: 
     );
 };
 
+// --- SUB-COMPONENTE: NOVO PEDIDO MANUAL (PDV) ---
+function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig }: any) {
+    const [cart, setCart] = useState<{product: Product, quantity: number, obs: string}[]>([]);
+    const [phone, setPhone] = useState('');
+    const [name, setName] = useState('');
+    const [address, setAddress] = useState('');
+    const [mapsLink, setMapsLink] = useState('');
+    const [obs, setObs] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('PIX');
+    const [isDelivery, setIsDelivery] = useState(true);
+    const [searchProduct, setSearchProduct] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('Todos');
+
+    // Busca cliente ao digitar telefone
+    useEffect(() => {
+        if (phone.length >= 8) {
+            const cleanPhone = normalizePhone(phone);
+            const found = clients.find((c: Client) => normalizePhone(c.phone) === cleanPhone || normalizePhone(c.phone).includes(cleanPhone));
+            if (found) {
+                setName(found.name);
+                setAddress(found.address);
+                if (found.mapsLink) setMapsLink(found.mapsLink);
+                if (found.obs) setObs(prev => prev ? prev + ' ' + found.obs : found.obs);
+            }
+        }
+    }, [phone, clients]);
+
+    const addToCart = (product: Product) => {
+        setCart(prev => {
+            const exists = prev.find(i => i.product.id === product.id);
+            if (exists) return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+            return [...prev, { product, quantity: 1, obs: '' }];
+        });
+    };
+
+    const removeFromCart = (index: number) => {
+        setCart(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const updateQuantity = (idx: number, delta: number) => {
+        setCart(prev => {
+            const newCart = [...prev];
+            newCart[idx].quantity += delta;
+            if (newCart[idx].quantity <= 0) newCart.splice(idx, 1);
+            return newCart;
+        });
+    };
+
+    // Taxa de entrega automática
+    const deliveryFee = useMemo(() => {
+        if (!isDelivery) return 0;
+        // Lógica simplificada: Se houver zonas, tenta achar pelo endereço (muito básico)
+        // Em um sistema real, usaria um seletor de bairro. Aqui assumimos uma taxa padrão se não houver match ou 0.
+        // O usuário pode ajustar no total se quiser (feature futura), por enquanto fixo em 0 ou base da config
+        return 0; 
+    }, [isDelivery, address]);
+
+    const cartTotal = cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
+    const finalTotal = cartTotal + deliveryFee;
+
+    const handlePasteFromWhatsApp = async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            if (!text) return alert("Área de transferência vazia!");
+            
+            // Tentativa de parse simples
+            // Ex: Nome: João \n Endereço: Rua X...
+            const lines = text.split('\n');
+            let foundName = '';
+            let foundAddr = '';
+            
+            lines.forEach(line => {
+                if (line.toLowerCase().includes('nome:')) foundName = line.split(':')[1].trim();
+                if (line.toLowerCase().includes('endereço:') || line.toLowerCase().includes('end:')) foundAddr = line.split(':')[1].trim();
+            });
+
+            if (foundName) setName(foundName);
+            if (foundAddr) setAddress(foundAddr);
+            
+            if(!foundName && !foundAddr) {
+                // Se não achou padrão, joga no obs ou avisa
+                setObs(text);
+                alert("Não foi possível identificar campos automaticamente. O texto foi colado em Observações.");
+            }
+        } catch (e) {
+            alert("Permissão para colar negada ou erro ao ler.");
+        }
+    };
+
+    const handleSubmit = () => {
+        if (!name) return alert("Informe o nome do cliente.");
+        if (cart.length === 0) return alert("Carrinho vazio.");
+
+        const itemsText = cart.map(i => `${i.quantity}x ${i.product.name}${i.obs ? `\n(Obs: ${i.obs})` : ''}`).join('\n---\n');
+        
+        const orderData = {
+            id: `PED-${Date.now().toString().slice(-6)}`,
+            customer: capitalize(name),
+            phone,
+            address: isDelivery ? toSentenceCase(address) : 'Retirada no Balcão',
+            mapsLink,
+            items: itemsText,
+            amount: formatCurrency(finalTotal),
+            value: finalTotal,
+            paymentMethod,
+            serviceType: isDelivery ? 'delivery' : 'pickup',
+            deliveryFee,
+            obs,
+            origin: 'manual',
+            status: 'pending',
+            createdAt: { seconds: Date.now() / 1000 }
+        };
+
+        onCreateOrder(orderData);
+        onClose(); // Fecha o modal e volta pro dashboard
+    };
+
+    // Agrupamento
+    const groupedProducts = useMemo(() => {
+        const groups: {[key: string]: Product[]} = {};
+        products.forEach((p: Product) => {
+            if (!groups[p.category]) groups[p.category] = [];
+            groups[p.category].push(p);
+        });
+        // Ordenação fixa sugerida
+        const ORDER = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
+        return Object.keys(groups).sort((a,b) => {
+            const ia = ORDER.indexOf(a);
+            const ib = ORDER.indexOf(b);
+            if (ia !== -1 && ib !== -1) return ia - ib;
+            if (ia !== -1) return -1;
+            if (ib !== -1) return 1;
+            return a.localeCompare(b);
+        }).map(cat => ({ category: cat, items: groups[cat] }));
+    }, [products]);
+
+    return (
+        <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 animate-in fade-in zoom-in duration-200">
+            <div className="bg-slate-950 w-full h-full max-w-[1400px] rounded-3xl border border-slate-800 shadow-2xl flex flex-col md:flex-row overflow-hidden relative">
+                
+                {/* LADO ESQUERDO: CARDÁPIO */}
+                <div className="flex-1 flex flex-col bg-slate-900/50 border-r border-slate-800 min-w-0">
+                    <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+                        <h2 className="text-2xl font-bold text-white">Cardápio</h2>
+                        <div className="relative w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16}/>
+                            <input 
+                                className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-sm text-white outline-none focus:border-amber-500 transition-colors"
+                                placeholder="Buscar produto..."
+                                value={searchProduct}
+                                onChange={e => setSearchProduct(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-8">
+                        {groupedProducts.map(group => {
+                            // Filtra itens
+                            const items = group.items.filter(p => p.name.toLowerCase().includes(searchProduct.toLowerCase()));
+                            if (items.length === 0) return null;
+
+                            return (
+                                <div key={group.category}>
+                                    <h3 className="text-amber-500 font-bold text-sm uppercase tracking-wider mb-4 border-l-4 border-amber-500 pl-3">{group.category}</h3>
+                                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                        {items.map(p => (
+                                            <div 
+                                                key={p.id} 
+                                                onClick={() => addToCart(p)}
+                                                className="bg-slate-900 p-4 rounded-xl border border-slate-800 hover:border-amber-500/50 cursor-pointer transition-all active:scale-95 group flex flex-col justify-between h-28"
+                                            >
+                                                <h4 className="font-bold text-white text-sm leading-tight line-clamp-2">{p.name}</h4>
+                                                <div className="flex justify-between items-end">
+                                                    <span className="text-emerald-400 font-bold text-sm">{formatCurrency(p.price)}</span>
+                                                    <div className="bg-slate-800 p-1 rounded text-slate-400 group-hover:text-white group-hover:bg-amber-600 transition-colors">
+                                                        <Plus size={14}/>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+
+                {/* LADO DIREITO: FORMULÁRIO (SIDEBAR) */}
+                <div className="w-full md:w-[400px] bg-slate-950 flex flex-col border-l border-slate-800 relative shadow-2xl z-20">
+                    {/* Header */}
+                    <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+                        <h3 className="font-bold text-white text-lg flex items-center gap-2"><PlusCircle size={20} className="text-amber-500"/> Novo Pedido</h3>
+                        <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X size={24}/></button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
+                        
+                        {/* Seção Cliente */}
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-end">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Cliente</label>
+                                <button onClick={handlePasteFromWhatsApp} className="text-[10px] text-amber-500 font-bold flex items-center gap-1 hover:text-amber-400 transition-colors">
+                                    <ClipboardPaste size={12}/> Colar do WhatsApp
+                                </button>
+                            </div>
+                            
+                            <div className="flex gap-2">
+                                <input 
+                                    className="w-1/3 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors"
+                                    placeholder="Tel"
+                                    value={phone}
+                                    onChange={e => setPhone(e.target.value)}
+                                />
+                                <input 
+                                    className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors"
+                                    placeholder="Nome"
+                                    value={name}
+                                    onChange={e => setName(e.target.value)}
+                                />
+                            </div>
+
+                            {isDelivery && (
+                                <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                                    <input 
+                                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors"
+                                        placeholder="Endereço"
+                                        value={address}
+                                        onChange={e => setAddress(e.target.value)}
+                                    />
+                                    <input 
+                                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-amber-500 transition-colors font-mono"
+                                        placeholder="Link Google Maps (Opcional)"
+                                        value={mapsLink}
+                                        onChange={e => setMapsLink(e.target.value)}
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Toggle Service */}
+                        <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+                            <button 
+                                onClick={() => setIsDelivery(true)} 
+                                className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${isDelivery ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
+                            >
+                                <Bike size={16}/> Entrega
+                            </button>
+                            <button 
+                                onClick={() => setIsDelivery(false)} 
+                                className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${!isDelivery ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
+                            >
+                                <Store size={16}/> Retira
+                            </button>
+                        </div>
+
+                        {/* Itens */}
+                        <div>
+                            <p className="text-xs font-bold text-slate-500 uppercase mb-2">Itens ({cart.reduce((a,b)=>a+b.quantity,0)})</p>
+                            <div className="space-y-2">
+                                {cart.length === 0 ? (
+                                    <div className="text-center py-4 text-slate-600 text-sm border border-dashed border-slate-800 rounded-xl">Nenhum item adicionado</div>
+                                ) : (
+                                    cart.map((item, idx) => (
+                                        <div key={idx} className="bg-slate-900 p-2 rounded-lg border border-slate-800 flex justify-between items-center group">
+                                            <div className="flex-1">
+                                                <div className="flex justify-between">
+                                                    <span className="text-white text-sm font-bold">{item.product.name}</span>
+                                                    <span className="text-emerald-400 text-xs font-bold">{formatCurrency(item.product.price * item.quantity)}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <div className="flex items-center bg-slate-950 rounded px-1">
+                                                        <button onClick={() => updateQuantity(idx, -1)} className="text-slate-400 hover:text-white px-1">-</button>
+                                                        <span className="text-xs text-white px-2 font-bold">{item.quantity}</span>
+                                                        <button onClick={() => updateQuantity(idx, 1)} className="text-slate-400 hover:text-white px-1">+</button>
+                                                    </div>
+                                                    <input 
+                                                        className="bg-transparent border-b border-slate-800 text-[10px] text-slate-400 focus:text-white outline-none flex-1" 
+                                                        placeholder="Obs do item..."
+                                                        value={item.obs}
+                                                        onChange={(e) => {
+                                                            const newCart = [...cart];
+                                                            newCart[idx].obs = e.target.value;
+                                                            setCart(newCart);
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <button onClick={() => removeFromCart(idx)} className="ml-2 text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={14}/></button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Obs Geral */}
+                        <textarea 
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white outline-none focus:border-amber-500 h-20 resize-none font-mono"
+                            placeholder="Obs: Sem cebola..."
+                            value={obs}
+                            onChange={e => setObs(e.target.value)}
+                        />
+                    </div>
+
+                    {/* Footer / Total */}
+                    <div className="p-5 bg-slate-900 border-t border-slate-800 space-y-4">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase">Total</p>
+                                <p className="text-2xl font-black text-white">{formatCurrency(finalTotal)}</p>
+                            </div>
+                            <div className="w-1/2">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Pagamento</p>
+                                <select 
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-sm text-white outline-none focus:border-amber-500"
+                                    value={paymentMethod}
+                                    onChange={e => setPaymentMethod(e.target.value)}
+                                >
+                                    <option value="PIX">PIX</option>
+                                    <option value="Dinheiro">Dinheiro</option>
+                                    <option value="Cartão">Cartão</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <button 
+                            onClick={handleSubmit}
+                            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-all text-lg"
+                        >
+                            Confirmar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function AdminInterface(props: AdminProps) {
     const { drivers, orders, vales, expenses, products, clients, settlements, suppliers, inventory, shoppingList, giveawayEntries, appConfig, isMobile, setModal, setModalData, onLogout, onDeleteOrder, onAssignOrder, setDriverToEdit, onDeleteDriver, setClientToEdit, onUpdateOrder, onCreateOrder } = props;
     
-    const [view, setView] = useState('menu');
+    const [view, setView] = useState('map'); // Default para Map ou Menu, ajustável
     const [showIntro, setShowIntro] = useState(true);
     const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
     
-    // Controle de Notificação de Leads
+    // Estado para controlar a exibição do modal de Novo Pedido Manual
+    const [showManualOrder, setShowManualOrder] = useState(false);
+    
     const [newLeadModal, setNewLeadModal] = useState<GiveawayEntry | null>(null);
     const prevGiveawayCount = useRef(0);
     const giveawayAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -102,44 +441,32 @@ export default function AdminInterface(props: AdminProps) {
 
     useEffect(() => {
         giveawayAudioRef.current = new Audio(GIVEAWAY_SOUND);
-        // Inicializa a contagem para não disparar no load inicial
         prevGiveawayCount.current = giveawayEntries.length;
-    }, []); // Run once on mount
+    }, []); 
 
-    // Monitora mudanças nas inscrições do sorteio
     useEffect(() => {
-        // Se a quantidade aumentou, temos um novo lead!
         if (giveawayEntries.length > prevGiveawayCount.current) {
-            // Tocar som
             if (giveawayAudioRef.current) {
                 const playPromise = giveawayAudioRef.current.play();
                 if (playPromise !== undefined) {
                     playPromise.catch(error => console.log("Áudio bloqueado:", error));
                 }
             }
-            
-            // Encontrar o lead mais recente
             const sorted = [...giveawayEntries].sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
             const newest = sorted[0];
-            
-            // Abrir modal se for recente (menos de 1 minuto, para evitar spam no refresh se a lógica falhar)
-            if (newest) {
-                setNewLeadModal(newest);
-            }
+            if (newest) setNewLeadModal(newest);
         }
         prevGiveawayCount.current = giveawayEntries.length;
     }, [giveawayEntries]);
 
     const handleAssignAndNotify = (oid: string, did: string) => {
         onAssignOrder(oid, did);
-        // Lógica de notificação pode ser adicionada aqui se necessário
     };
 
     return (
         <div className="flex h-screen w-screen bg-slate-950 font-sans text-slate-200 overflow-hidden">
              {showIntro && <IntroAnimation appName={appConfig.appName} onComplete={() => setShowIntro(false)} />}
              
-             {/* SIDEBAR PRINCIPAL */}
              <aside className={`${sidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full opacity-0'} transition-all duration-300 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 absolute md:relative z-50 h-full shadow-2xl overflow-hidden`}>
                  <div className="p-6 border-b border-slate-800 flex justify-between items-center">
                      <BrandLogo size="small" dark={false} config={appConfig} />
@@ -147,6 +474,12 @@ export default function AdminInterface(props: AdminProps) {
                  </div>
                  
                  <div className="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar">
+                     <div className="mb-4 px-2">
+                        <button onClick={() => { setShowManualOrder(true); if(isMobile) setSidebarOpen(false); }} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95">
+                            <PlusCircle size={18}/> NOVO PEDIDO
+                        </button>
+                     </div>
+
                      <p className="text-[10px] uppercase font-bold text-slate-500 mb-2 mt-2 px-2">Operação</p>
                      <SidebarBtn icon={<LayoutDashboard size={18}/>} label="Dashboard / Mapa" active={view==='map'} onClick={()=>setView('map')} />
                      <SidebarBtn icon={<ChefHat size={18}/>} label="Cozinha (KDS)" active={view==='kds'} onClick={()=>setView('kds')} highlight/>
@@ -174,7 +507,6 @@ export default function AdminInterface(props: AdminProps) {
              </aside>
 
              <main className="flex-1 flex flex-col relative overflow-hidden w-full h-full bg-slate-950">
-                {/* HEADER MOBILE */}
                 <div className="md:hidden h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 shrink-0 z-40">
                     <div className="flex items-center gap-3">
                         <button onClick={() => setSidebarOpen(true)} className="p-2 text-slate-400"><MenuIcon size={24}/></button>
@@ -182,19 +514,24 @@ export default function AdminInterface(props: AdminProps) {
                     </div>
                 </div>
 
-                {/* CONTENT AREA */}
                 <div className="flex-1 overflow-hidden relative w-full h-full">
+                    
                     {view === 'map' && (
                         <div className="p-10 flex flex-col items-center justify-center h-full text-slate-500">
                              <Map size={64} className="mb-4 opacity-20"/>
                              <h2 className="text-2xl font-bold text-white mb-2">Dashboard Principal</h2>
                              <p>Selecione um módulo no menu lateral para começar.</p>
+                             
                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 w-full max-w-4xl">
                                  <StatBox label="Pedidos Hoje" value={orders.length} icon={<ClipboardList/>} />
                                  <StatBox label="Entregas" value={orders.filter(o=>o.status==='completed').length} icon={<Bike/>} />
                                  <StatBox label="Clientes" value={clients.length} icon={<Users/>} />
                                  <StatBox label="Faturamento" value={formatCurrency(orders.reduce((acc, o) => acc + (o.value || 0), 0))} icon={<BarChart3/>} color="bg-emerald-900/20 text-emerald-400"/>
                              </div>
+
+                             <button onClick={() => setShowManualOrder(true)} className="mt-8 bg-slate-800 hover:bg-slate-700 text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-xl border border-slate-700 transition-all active:scale-95">
+                                 <PlusCircle size={24} className="text-emerald-500"/> Abrir PDV / Novo Pedido
+                             </button>
                         </div>
                     )}
 
@@ -256,13 +593,18 @@ export default function AdminInterface(props: AdminProps) {
                 </div>
              </main>
 
-             {/* MODAL DE NOTIFICAÇÃO DE NOVO LEAD */}
-             {newLeadModal && (
-                 <NewLeadNotificationModal 
-                     lead={newLeadModal} 
-                     onClose={() => setNewLeadModal(null)} 
+             {/* MODAL DE NOVO PEDIDO MANUAL (PDV) */}
+             {showManualOrder && (
+                 <ManualOrderView 
+                     products={products} 
+                     clients={clients} 
+                     onCreateOrder={props.onCreateOrder} 
+                     onClose={() => setShowManualOrder(false)}
+                     appConfig={appConfig}
                  />
              )}
+
+             {newLeadModal && <NewLeadNotificationModal lead={newLeadModal} onClose={() => setNewLeadModal(null)} />}
         </div>
     );
 }
