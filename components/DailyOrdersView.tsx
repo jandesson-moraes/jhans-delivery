@@ -61,7 +61,7 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
                                             <button onClick={(e) => { e.stopPropagation(); sendOrderConfirmation(o, appConfig.appName); }} className="p-2 text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-md" title="Confirmar Pedido (WhatsApp)"><MessageCircle size={16}/></button>
                                             <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); setModalType('receipt'); }} className="p-2 text-slate-500 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="Ver Comprovante"><FileText size={16}/></button>
                                             <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); setModalType('edit'); }} className="p-2 text-slate-500 hover:text-amber-500 hover:bg-slate-700 rounded-lg transition-colors" title="Editar"><Edit size={16}/></button>
-                                            <button onClick={(e) => { e.stopPropagation(); if(confirm('Tem certeza que deseja excluir este pedido permanentemente?')) onDeleteOrder(o.id); }} className="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-700 rounded-lg transition-colors" title="Excluir"><Trash2 size={16}/></button>
+                                            <button onClick={(e) => { e.stopPropagation(); onDeleteOrder(o.id); }} className="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-700 rounded-lg transition-colors" title="Excluir"><Trash2 size={16}/></button>
                                         </td>
                                     </tr>
                                 ))
@@ -94,7 +94,7 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
                                 <div className="flex gap-2">
                                     <button onClick={(e) => { e.stopPropagation(); sendOrderConfirmation(o, appConfig.appName); }} className="bg-emerald-600 text-white p-2 rounded-lg shadow"><MessageCircle size={16}/></button>
                                     <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); setModalType('receipt'); }} className="bg-slate-800 text-slate-300 p-2 rounded-lg border border-slate-700"><FileText size={16}/></button>
-                                    <button onClick={(e) => { e.stopPropagation(); if(confirm('Excluir?')) onDeleteOrder(o.id); }} className="bg-slate-800 text-red-400 p-2 rounded-lg border border-slate-700"><Trash2 size={16}/></button>
+                                    <button onClick={(e) => { e.stopPropagation(); onDeleteOrder(o.id); }} className="bg-slate-800 text-red-400 p-2 rounded-lg border border-slate-700"><Trash2 size={16}/></button>
                                 </div>
                             </div>
                         </div>

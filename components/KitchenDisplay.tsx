@@ -183,9 +183,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                                     <button 
                                                         onClick={(e) => { 
                                                             e.stopPropagation(); 
-                                                            if (confirm('Tem certeza que deseja excluir permanentemente este pedido?')) {
-                                                                if (onDeleteOrder) onDeleteOrder(order.id); 
-                                                            }
+                                                            if (onDeleteOrder) onDeleteOrder(order.id); 
                                                         }}
                                                         className="p-1.5 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-lg transition-colors bg-slate-900/50"
                                                         title="Excluir Permanentemente"
@@ -339,9 +337,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                     <button 
                                         onClick={(e) => { 
                                             e.stopPropagation(); 
-                                            if (confirm('Tem certeza que deseja excluir este pedido do histórico?')) {
-                                                if(onDeleteOrder) onDeleteOrder(order.id); 
-                                            }
+                                            if(onDeleteOrder) onDeleteOrder(order.id); 
                                         }}
                                         className="p-1.5 hover:bg-slate-800 rounded text-slate-500 hover:text-red-500 transition-colors"
                                         title="Excluir"
