@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, AppConfig } from '../types';
 import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard, formatTime, formatDate, generatePixPayload, EMOJI, checkShopStatus } from '../utils';
-import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode, Gift, LogOut, ShieldCheck, CalendarClock, Ban, Moon, CalendarDays, DoorClosed } from 'lucide-react';
+import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode, Gift, LogOut, ShieldCheck, CalendarClock, Ban, Moon, CalendarDays, DoorClosed, Ticket } from 'lucide-react';
 import { BrandLogo, Footer, PixIcon } from './Shared';
 import { GenericConfirmModal, GenericAlertModal } from './Modals';
 
@@ -9,12 +9,13 @@ interface ClientInterfaceProps {
     products: Product[];
     appConfig: AppConfig;
     onCreateOrder: (data: any) => Promise<any>;
+    onEnterGiveaway?: (data: any) => Promise<void>; // Nova Prop
     onBack?: () => void;
     allowSystemAccess?: boolean;
     onSystemAccess?: (type: 'admin' | 'driver') => void;
 }
 
-export default function ClientInterface({ products, appConfig, onCreateOrder, onBack, allowSystemAccess, onSystemAccess }: ClientInterfaceProps) {
+export default function ClientInterface({ products, appConfig, onCreateOrder, onEnterGiveaway, onBack, allowSystemAccess, onSystemAccess }: ClientInterfaceProps) {
     const [view, setView] = useState<'menu' | 'cart' | 'success'>('menu');
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     
@@ -28,6 +29,9 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, action: () => void, title: string, message: string, type?: 'info' | 'danger'} | null>(null);
     const [alertModal, setAlertModal] = useState<{isOpen: boolean, title: string, message: string, type?: 'info' | 'error'} | null>(null);
     
+    // Estado Modal Sorteio
+    const [showGiveawayModal, setShowGiveawayModal] = useState(false);
+
     // --- ESTADOS INICIAIS COM CARREGAMENTO DO LOCALSTORAGE ---
     const [cart, setCart] = useState<{product: Product, quantity: number, obs: string}[]>(() => {
         try {
@@ -706,9 +710,23 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
 
     // MENU VIEW
     return (
-        <div className="min-h-screen bg-slate-950 text-white flex flex-col">
-            <div className="bg-gradient-to-br from-red-700 via-red-600 to-amber-600 border-b border-slate-800 sticky top-0 z-30 shadow-xl">
-                <div className="max-w-5xl mx-auto w-full p-6 pt-8 pb-10">
+        <div className="min-h-screen bg-slate-950 text-white flex flex-col relative">
+            
+            {/* BOTÃO FLUTUANTE DE SORTEIO (Mantido para mobile/scroll) */}
+            <button 
+                onClick={() => setShowGiveawayModal(true)}
+                className="fixed bottom-24 right-4 z-50 bg-gradient-to-br from-red-600 to-red-800 text-white p-4 rounded-full shadow-2xl shadow-red-900/50 hover:scale-110 transition-transform animate-bounce group border-2 border-amber-500"
+                title="Participar do Sorteio"
+            >
+                <Gift size={28} className="drop-shadow-md text-amber-200"/>
+                <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-white text-red-900 text-xs font-bold px-2 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg border border-red-200">
+                    Sorteio Combo!
+                </span>
+            </button>
+
+            {/* SEÇÃO 1: CABEÇALHO HERO (NÃO FIXO - ROLA COM A PÁGINA) */}
+            <div className="bg-gradient-to-br from-red-700 via-red-600 to-amber-600 pb-6 pt-8 px-6 shadow-lg relative z-10">
+                <div className="max-w-5xl mx-auto w-full">
                     <div className="flex justify-between items-center mb-6">
                         <BrandLogo size="small" config={appConfig} />
                         {allowSystemAccess && onSystemAccess && (
@@ -731,16 +749,66 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                         )}
                     </div>
                     <h1 className="text-2xl font-black text-white mb-4 leading-tight drop-shadow-sm">Bateu a fome? <br/><span className="text-amber-200">Peça agora mesmo!</span> 🍔</h1>
-                    <div className="relative mb-6">
+                    
+                    {/* --- BANNER DE SORTEIO (HERO SECTION) --- */}
+                    <div 
+                        onClick={() => setShowGiveawayModal(true)}
+                        className="relative w-full rounded-3xl overflow-hidden mb-2 cursor-pointer group shadow-[0_0_40px_rgba(185,28,28,0.4)] border-2 border-amber-500/50 hover:border-amber-400 transition-all transform hover:scale-[1.02]"
+                    >
+                        {/* Background Gradient simulando a foto */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-red-950 via-red-900 to-red-800"></div>
+                        
+                        {/* Efeito de Fogo / Brilho de Fundo */}
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/20 blur-3xl rounded-full translate-x-10 -translate-y-10"></div>
+                        
+                        <div className="relative p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div className="flex-1 text-center md:text-left z-10">
+                                <div className="inline-flex items-center gap-2 bg-amber-500 text-red-900 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider mb-3 shadow-lg animate-pulse">
+                                    <Flame size={12} fill="currentColor" /> Sorteio Oficial
+                                </div>
+                                <h2 className="text-3xl md:text-4xl font-black text-white leading-none mb-1 drop-shadow-lg uppercase italic">
+                                    Combo Casal <span className="text-transparent bg-clip-text bg-gradient-to-b from-amber-300 to-amber-600 block md:inline">Classic</span>
+                                </h2>
+                                <p className="text-red-200 font-bold text-sm md:text-base mb-6 flex items-center justify-center md:justify-start gap-2">
+                                    <Ticket size={16} /> Concorra a 2 Burgers + Batata + Refri!
+                                </p>
+                                
+                                <div className="flex flex-col md:flex-row gap-3 items-center">
+                                    <button className="bg-gradient-to-b from-green-500 to-green-700 text-white px-8 py-3 rounded-xl font-black uppercase tracking-wide shadow-xl border-b-4 border-green-900 active:border-b-0 active:translate-y-1 transition-all flex items-center gap-2">
+                                        Quero Participar <ChevronRight size={20} />
+                                    </button>
+                                    <div className="text-xs text-amber-400 font-mono bg-black/40 px-3 py-1 rounded border border-amber-500/30">
+                                        Sorteio: Quarta-feira 04/02/26
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Ilustração Simbólica (Já que não temos a imagem real hospedada, usamos ícones grandes) */}
+                            <div className="relative shrink-0 w-32 h-32 md:w-48 md:h-48 flex items-center justify-center">
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent rounded-full blur-xl"></div>
+                                <Gift size={120} className="text-amber-400 drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] rotate-12 group-hover:rotate-6 transition-transform duration-500" />
+                                <div className="absolute -bottom-4 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full border-2 border-white shadow-lg rotate-[-6deg]">
+                                    Grátis!
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* SEÇÃO 2: BARRA DE NAVEGAÇÃO (STICKY - GRUDA NO TOPO) */}
+            <div className="sticky top-0 z-30 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 shadow-xl py-3 px-4">
+                 <div className="max-w-5xl mx-auto w-full">
+                    <div className="relative mb-3">
                         <Search className="absolute left-3 top-3 text-slate-400" size={18}/>
-                        <input className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-10 pr-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors focus:bg-slate-900 shadow-inner" placeholder="Buscar lanche, bebida..." value={search} onChange={e => setSearch(e.target.value)}/>
+                        <input className="w-full bg-slate-900 border border-slate-800 rounded-2xl pl-10 pr-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors focus:bg-slate-900 shadow-inner" placeholder="Buscar lanche, bebida..." value={search} onChange={e => setSearch(e.target.value)}/>
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar hide-scrollbar -mx-2 px-2">
                         {categories.map(cat => (
                             <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-5 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border shadow-sm ${selectedCategory === cat ? 'bg-white text-red-700 shadow-lg border-white' : 'bg-black/20 text-amber-100 border-white/10 hover:bg-black/30'}`}>{cat}</button>
                         ))}
                     </div>
-                </div>
+                 </div>
             </div>
 
             <div className="flex-1 p-4 pb-24 overflow-y-auto w-full">
@@ -788,7 +856,8 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             {showScheduleModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
                     <div className="bg-slate-900 rounded-2xl p-6 w-full max-w-sm border border-slate-800 relative shadow-2xl">
-                        <button onClick={() => setShowScheduleModal(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
+                        <button onClick={() => setShowScheduleModal(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/>
+                        </button>
                         
                         <div className="text-center mb-6">
                             <h3 className="font-bold text-xl text-white flex items-center justify-center gap-2"><Clock size={20} className="text-amber-500"/> Horários</h3>
@@ -899,6 +968,21 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                 </div>
             )}
 
+            {/* MODAL DE SORTEIO */}
+            {showGiveawayModal && (
+                <GiveawayModal 
+                    onClose={() => setShowGiveawayModal(false)}
+                    onConfirm={onEnterGiveaway}
+                    appConfig={appConfig}
+                    onSuccess={() => setAlertModal({
+                        isOpen: true,
+                        title: "Boa Sorte! 🍀",
+                        message: "A janela do WhatsApp foi aberta. Envie a mensagem pré-preenchida para validar sua participação.",
+                        type: 'info'
+                    })}
+                />
+            )}
+
             {/* MODAL GENÉRICO DE CONFIRMAÇÃO (PRE-VENDA) */}
             {confirmModal && (
                 <GenericConfirmModal 
@@ -922,6 +1006,98 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                     onClose={() => setAlertModal(null)}
                 />
             )}
+        </div>
+    );
+}
+
+// --- NOVO: MODAL DE SORTEIO ---
+function GiveawayModal({ onClose, onConfirm, appConfig, onSuccess }: { onClose: () => void, onConfirm?: (data: any) => Promise<void>, appConfig: AppConfig, onSuccess: () => void }) {
+    const [step, setStep] = useState<'form' | 'confirm'>('form');
+    const [form, setForm] = useState({ name: '', phone: '' });
+    const [loading, setLoading] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            if (onConfirm) await onConfirm({ ...form, confirmed: false });
+            setStep('confirm');
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao participar. Tente novamente.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleConfirmWhatsApp = () => {
+        const message = `👋 Olá! Quero confirmar minha participação no *Sorteio*! 🎁🔥\n\n👤 Nome: *${form.name}*\n\nAguardo a validação! 🍀`;
+        const phone = normalizePhone(appConfig.storePhone || '');
+        if (phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
+        onSuccess();
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in">
+            <div className="bg-slate-900 rounded-3xl w-full max-w-sm p-6 border-2 border-red-500 shadow-2xl relative overflow-hidden text-center shadow-red-900/50">
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
+                
+                <div className="bg-red-900/30 p-4 rounded-full mb-4 inline-block shadow-lg shadow-red-900/50 border border-red-500/30">
+                    <Gift size={40} className="text-amber-400 animate-pulse" />
+                </div>
+
+                <h3 className="font-black text-2xl text-white mb-2 uppercase tracking-wide">
+                    Sorteio
+                </h3>
+
+                {step === 'form' ? (
+                    <>
+                        <p className="text-slate-300 text-sm mb-6">
+                            Participe e concorra ao <span className="text-amber-400 font-bold">Combo Casal Classic</span>!
+                        </p>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <input 
+                                required 
+                                placeholder="Seu Nome Completo" 
+                                className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-red-500 transition-colors"
+                                value={form.name}
+                                onChange={e => setForm({...form, name: e.target.value})}
+                            />
+                            <input 
+                                required 
+                                type="tel"
+                                placeholder="Seu WhatsApp" 
+                                className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-red-500 transition-colors"
+                                value={form.phone}
+                                onChange={e => setForm({...form, phone: e.target.value})}
+                            />
+                            <button 
+                                type="submit" 
+                                disabled={loading}
+                                className="w-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-wider"
+                            >
+                                {loading ? <Loader2 className="animate-spin"/> : 'PARTICIPAR AGORA'}
+                            </button>
+                        </form>
+                    </>
+                ) : (
+                    <div className="animate-in slide-in-from-right">
+                        <div className="bg-emerald-900/20 border border-emerald-500/50 p-4 rounded-xl mb-6">
+                            <p className="text-emerald-400 font-bold text-sm mb-1">Quase lá!</p>
+                            <p className="text-slate-300 text-xs">
+                                Para validar sua participação, você deve enviar a mensagem de confirmação para nosso WhatsApp.
+                            </p>
+                        </div>
+                        <button 
+                            onClick={handleConfirmWhatsApp}
+                            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-wide"
+                        >
+                            <MessageCircle size={20}/> Confirmar no WhatsApp
+                        </button>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

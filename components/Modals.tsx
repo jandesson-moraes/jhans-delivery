@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame, TrendingUp, DollarSign, ShoppingBag, ArrowRight, Play, Printer, ChevronRight, Gift, QrCode, Search, ExternalLink, Menu, Target, Navigation, Bell, User, ArrowLeft, CreditCard, Banknote } from 'lucide-react';
+import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame, TrendingUp, DollarSign, ShoppingBag, ArrowRight, Play, Printer, ChevronRight, Gift, QrCode, Search, ExternalLink, Menu, Target, Navigation, Bell, User, ArrowLeft, CreditCard, Banknote, Tag } from 'lucide-react';
 import { Product, Client, AppConfig, Driver, Order, Vale, DeliveryZone } from '../types';
 import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, getOrderReceivedText, formatOrderId, getDispatchMessage, getProductionMessage, generatePixPayload, checkShopStatus } from '../utils';
 import { PixIcon } from './Shared';
@@ -1150,15 +1150,27 @@ export function NewIncomingOrderModal({ order, onClose, appConfig, onAccept }: a
     );
 }
 
-// ProductFormModal
+// ProductFormModal (ATUALIZADO COM OPÇÃO DE NOVA CATEGORIA)
 export function ProductFormModal({ isOpen, onClose, product, onSave, existingCategories }: any) {
     const [form, setForm] = useState(product || { name: '', category: '', price: '', description: '' });
+    const [isCustomCategory, setIsCustomCategory] = useState(false);
     
     // Reset form when product changes
     useEffect(() => {
-        if(product) setForm(product);
-        else setForm({ name: '', category: '', price: '', description: '' });
-    }, [product, isOpen]);
+        if(product) {
+            setForm(product);
+            // Verifica se a categoria do produto já existe na lista padrão/existente
+            // Se não existir e não for vazia, assume que é customizada
+            if (product.category && existingCategories && !existingCategories.includes(product.category)) {
+                setIsCustomCategory(true);
+            } else {
+                setIsCustomCategory(false);
+            }
+        } else {
+            setForm({ name: '', category: '', price: '', description: '' });
+            setIsCustomCategory(false);
+        }
+    }, [product, isOpen, existingCategories]);
 
     if (!isOpen) return null;
 
@@ -1170,18 +1182,92 @@ export function ProductFormModal({ isOpen, onClose, product, onSave, existingCat
                     <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
                 </div>
                 <form onSubmit={(e) => { e.preventDefault(); onSave(product?.id, {...form, price: parseFloat(form.price)}); }}>
-                    <div className="space-y-3">
-                        <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" placeholder="Nome do Produto" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+                    <div className="space-y-4">
+                        <input 
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 transition-colors" 
+                            placeholder="Nome do Produto" 
+                            value={form.name} 
+                            onChange={e => setForm({...form, name: e.target.value})} 
+                            required 
+                        />
+                        
                         <div className="grid grid-cols-2 gap-3">
-                            <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" placeholder="Preço (R$)" type="number" step="0.01" value={form.price} onChange={e => setForm({...form, price: e.target.value})} required />
-                            <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" placeholder="Categoria" list="categories" value={form.category} onChange={e => setForm({...form, category: e.target.value})} required />
-                            <datalist id="categories">
-                                {existingCategories?.map((c: string) => <option key={c} value={c} />)}
-                            </datalist>
+                            <input 
+                                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 transition-colors" 
+                                placeholder="Preço (R$)" 
+                                type="number" 
+                                step="0.01" 
+                                value={form.price} 
+                                onChange={e => setForm({...form, price: e.target.value})} 
+                                required 
+                            />
+                            
+                            {/* CATEGORIA SELEÇÃO INTELIGENTE */}
+                            <div className="relative">
+                                {isCustomCategory ? (
+                                    <div className="flex gap-2">
+                                        <input 
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 transition-colors"
+                                            placeholder="Nova Categoria..."
+                                            value={form.category}
+                                            onChange={e => setForm({...form, category: e.target.value})}
+                                            required
+                                            autoFocus
+                                        />
+                                        <button 
+                                            type="button" 
+                                            onClick={() => { setIsCustomCategory(false); setForm({...form, category: ''}); }}
+                                            className="p-3 bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-colors border border-slate-700"
+                                            title="Voltar para lista"
+                                        >
+                                            <ListPlus size={20}/>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <div className="relative w-full">
+                                            <select 
+                                                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 transition-colors appearance-none" 
+                                                value={form.category} 
+                                                onChange={e => {
+                                                    if (e.target.value === '__NEW__') {
+                                                        setIsCustomCategory(true);
+                                                        setForm({...form, category: ''});
+                                                    } else {
+                                                        setForm({...form, category: e.target.value});
+                                                    }
+                                                }} 
+                                                required
+                                            >
+                                                <option value="" disabled>Categoria...</option>
+                                                {existingCategories?.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                                                <option value="__NEW__" className="text-amber-400 font-bold">+ ✨ Nova Categoria...</option>
+                                            </select>
+                                            <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-slate-500 pointer-events-none" size={16}/>
+                                        </div>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => { setIsCustomCategory(true); setForm({...form, category: ''}); }}
+                                            className="p-3 bg-slate-800 text-slate-400 hover:text-amber-500 rounded-xl transition-colors border border-slate-700"
+                                            title="Criar nova categoria"
+                                        >
+                                            <Plus size={20}/>
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                        <textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white h-24 outline-none focus:border-amber-500" placeholder="Descrição" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+                        
+                        <textarea 
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white h-24 outline-none focus:border-amber-500 transition-colors resize-none" 
+                            placeholder="Descrição do produto (ingredientes, detalhes...)" 
+                            value={form.description} 
+                            onChange={e => setForm({...form, description: e.target.value})} 
+                        />
                     </div>
-                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold mt-4 shadow-lg">Salvar Produto</button>
+                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold mt-6 shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2">
+                        <CheckCircle2 size={20}/> Salvar Produto
+                    </button>
                 </form>
             </div>
         </div>

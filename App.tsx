@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { collection, addDoc, updateDoc, doc, onSnapshot, serverTimestamp, deleteDoc, setDoc, writeBatch, Timestamp, deleteField, getDoc } from "firebase/firestore";
 import { auth, db } from './services/firebase';
-import { UserType, Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement, Supplier, InventoryItem, ShoppingItem } from './types';
+import { UserType, Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement, Supplier, InventoryItem, ShoppingItem, GiveawayEntry } from './types';
 import { BrandLogo, Footer } from './components/Shared';
 import DriverInterface from './components/DriverInterface';
 import AdminInterface from './components/AdminInterface';
@@ -66,6 +66,7 @@ export default function App() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]); // NOVO
   const [inventory, setInventory] = useState<InventoryItem[]>([]); // NOVO
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]); // NOVO LISTA DE COMPRAS
+  const [giveawayEntries, setGiveawayEntries] = useState<GiveawayEntry[]>([]); // NOVO SORTEIO
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [modal, setModal] = useState<any>(null);
@@ -116,6 +117,7 @@ export default function App() {
         onSnapshot(collection(db, 'suppliers'), s => setSuppliers(s.docs.map(d => ({id: d.id, ...d.data()} as Supplier)))), // NOVO
         onSnapshot(collection(db, 'inventory'), s => setInventory(s.docs.map(d => ({id: d.id, ...d.data()} as InventoryItem)))), // NOVO
         onSnapshot(collection(db, 'shoppingList'), s => setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()} as ShoppingItem)))), // NOVO
+        onSnapshot(collection(db, 'giveaway_entries'), s => setGiveawayEntries(s.docs.map(d => ({id: d.id, ...d.data()} as GiveawayEntry)))), // NOVO SORTEIO
         onSnapshot(collection(db, 'clients'), s => { setClients(s.docs.map(d => ({id: d.id, ...d.data()} as Client))); setLoading(false); })
     ];
     return () => unsubs.forEach(u => u());
@@ -195,7 +197,7 @@ export default function App() {
   };
   const updateClientData = (id: string, data: any) => handleAction(async () => { await setDoc(doc(db, 'clients', id), data, { merge: true }); });
   
-  // HANDLERS NOVOS (INVENTÁRIO & COMPRAS)
+  // HANDLERS NOVOS (INVENTÁRIO & COMPRAS & SORTEIO)
   const createSupplier = (data: any) => handleAction(async () => { await addDoc(collection(db, 'suppliers'), data); });
   const updateSupplier = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'suppliers', id), data); });
   const deleteSupplier = (id: string) => {
@@ -217,6 +219,12 @@ export default function App() {
           await batch.commit();
       })});
   };
+
+  const createGiveawayEntry = (data: any) => handleAction(async () => {
+      const cleanPhone = normalizePhone(data.phone);
+      // Usar telefone como ID para evitar duplicatas simples
+      await setDoc(doc(db, 'giveaway_entries', cleanPhone), { ...data, createdAt: serverTimestamp() });
+  });
 
   const handleCloseCycle = (data: any) => handleAction(async () => {
       if (!driverToEdit) return;
@@ -257,8 +265,8 @@ export default function App() {
 
   if (loading && !user) return <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 text-white"><Loader2 className="animate-spin w-10 h-10 text-amber-500 mb-4"/> <span className="font-medium">Iniciando...</span></div>;
 
-  if (viewMode === 'client') return <><GlobalStyles /><ClientInterface products={products} appConfig={appConfig} onCreateOrder={async (data) => await createOrder(data)} /></>;
-  if (viewMode === 'landing') return <><GlobalStyles /><ClientInterface products={products} appConfig={appConfig} onCreateOrder={async (data) => await createOrder(data)} allowSystemAccess={true} onSystemAccess={(type) => { if (type === 'driver') setCurrentDriverId('select'); setViewMode(type); }} /></>;
+  if (viewMode === 'client') return <><GlobalStyles /><ClientInterface products={products} appConfig={appConfig} onCreateOrder={async (data) => await createOrder(data)} onEnterGiveaway={createGiveawayEntry} /></>;
+  if (viewMode === 'landing') return <><GlobalStyles /><ClientInterface products={products} appConfig={appConfig} onCreateOrder={async (data) => await createOrder(data)} onEnterGiveaway={createGiveawayEntry} allowSystemAccess={true} onSystemAccess={(type) => { if (type === 'driver') setCurrentDriverId('select'); setViewMode(type); }} /></>;
 
   if (viewMode === 'driver') {
     if (currentDriverId === 'select' || !currentDriverId) return <DriverSelection drivers={drivers} onSelect={(id) => { setCurrentDriverId(id); localStorage.setItem('jhans_driverId', id); }} onBack={handleLogout} />;
@@ -285,6 +293,9 @@ export default function App() {
           onToggleShoppingItem={toggleShoppingItem}
           onDeleteShoppingItem={deleteShoppingItem}
           onClearShoppingList={clearShoppingList}
+
+          // Giveaway Props
+          giveawayEntries={giveawayEntries}
 
           isMobile={isMobile} appConfig={appConfig} setAppConfig={setAppConfig} setModal={setModal} setModalData={setModalData}
           setDriverToEdit={setDriverToEdit} setClientToEdit={setClientToEdit}

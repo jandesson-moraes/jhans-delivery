@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement, Supplier, InventoryItem, ShoppingItem } from '../types';
+import { Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement, Supplier, InventoryItem, ShoppingItem, GiveawayEntry } from '../types';
 import { BrandLogo, SidebarBtn, StatBox, Footer } from './Shared';
 import { LayoutDashboard, Users, Plus, ClipboardList, ShoppingBag, Trophy, Clock, Settings, LogOut, MapPin, Package, Trash2, Wallet, Edit, MinusCircle, CheckSquare, X, Map as MapIcon, ChefHat, FileBarChart, History, CheckCircle2, Radar, Volume2, VolumeX, UserCheck, TrendingUp, FileText, Bike, Signal, Battery, Eye, EyeOff, AlertCircle, Box, BarChart3, Navigation, Target, LocateFixed } from 'lucide-react';
 import { formatCurrency, formatTime, formatDate, isToday, formatOrderId } from '../utils';
@@ -32,6 +32,7 @@ interface AdminProps {
     suppliers: Supplier[];
     inventory: InventoryItem[];
     shoppingList: ShoppingItem[];
+    giveawayEntries: GiveawayEntry[]; // NOVO
     onAssignOrder: (oid: string, did: string) => void;
     onCreateDriver: (data: any) => void;
     onUpdateDriver: (id: string, data: any) => void;
@@ -185,7 +186,7 @@ const IntroAnimation = ({ onComplete, appName }: { onComplete: () => void, appNa
 };
 
 export default function AdminInterface(props: AdminProps) {
-    const { drivers, orders, vales, expenses, products, clients, settlements, suppliers, inventory, shoppingList, appConfig, isMobile, setModal, setModalData, onLogout, onDeleteOrder, onAssignOrder, setDriverToEdit, onDeleteDriver, setClientToEdit, onUpdateOrder, onCreateOrder } = props;
+    const { drivers, orders, vales, expenses, products, clients, settlements, suppliers, inventory, shoppingList, giveawayEntries, appConfig, isMobile, setModal, setModalData, onLogout, onDeleteOrder, onAssignOrder, setDriverToEdit, onDeleteDriver, setClientToEdit, onUpdateOrder, onCreateOrder } = props;
     const [view, setView] = useState<AdminViewMode>('map');
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
     const [driverSidebarTab, setDriverSidebarTab] = useState<'assign' | 'history' | 'finance'>('assign');
@@ -620,7 +621,7 @@ export default function AdminInterface(props: AdminProps) {
                                            </div>
                                            <div className="absolute right-1 top-1 flex gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                                                <button onClick={(e) => { e.stopPropagation(); setOrderToEdit(o); }} className="bg-slate-800 text-slate-300 p-1.5 rounded-full shadow-md hover:bg-slate-700 hover:text-white border border-slate-700" title="Editar"><Edit size={12}/></button>
-                                               <button onClick={(e) => { e.stopPropagation(); if(confirm('Excluir este pedido?')) onDeleteOrder(o.id); }} className="bg-red-600 text-white p-1.5 rounded-full shadow-md hover:bg-red-500 border border-red-700" title="Excluir"><Trash2 size={12}/></button>
+                                               <button onClick={(e) => { e.stopPropagation(); onDeleteOrder(o.id); }} className="bg-red-600 text-white p-1.5 rounded-full shadow-md hover:bg-red-500 border border-red-700" title="Excluir"><Trash2 size={12}/></button>
                                            </div>
                                         </div>
                                      ))}
@@ -705,7 +706,7 @@ export default function AdminInterface(props: AdminProps) {
 
                     {/* OTHER VIEWS */}
                     {view === 'menu' && <MenuManager products={products} onCreate={props.onCreateProduct} onUpdate={props.onUpdateProduct} onDelete={props.onDeleteProduct} />}
-                    {view === 'clients' && <ClientsView clients={clients} orders={orders} setModal={setModal} setClientToEdit={setClientToEdit} />}
+                    {view === 'clients' && <ClientsView clients={clients} orders={orders} setModal={setModal} setClientToEdit={setClientToEdit} giveawayEntries={giveawayEntries} />}
                     {view === 'kds' && <KitchenDisplay orders={orders} products={products} drivers={drivers} onUpdateStatus={onUpdateOrder} onAssignOrder={handleAssignAndNotify} onDeleteOrder={onDeleteOrder} appConfig={appConfig} />}
                     
                     {/* NOVA TELA DE ESTOQUE */}
