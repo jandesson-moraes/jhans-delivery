@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame, TrendingUp, DollarSign, ShoppingBag, ArrowRight, Play, Printer, ChevronRight, Gift, QrCode, Search, ExternalLink, Menu, Target, Navigation, Bell, User, ArrowLeft, CreditCard, Banknote, Tag } from 'lucide-react';
-import { Product, Client, AppConfig, Driver, Order, Vale, DeliveryZone } from '../types';
+import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame, TrendingUp, DollarSign, ShoppingBag, ArrowRight, Play, Printer, ChevronRight, Gift, QrCode, Search, ExternalLink, Menu, Target, Navigation, Bell, User, ArrowLeft, CreditCard, Banknote, Tag, ThumbsUp, PartyPopper } from 'lucide-react';
+import { Product, Client, AppConfig, Driver, Order, Vale, DeliveryZone, GiveawayEntry } from '../types';
 import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, getOrderReceivedText, formatOrderId, getDispatchMessage, getProductionMessage, generatePixPayload, checkShopStatus } from '../utils';
 import { PixIcon } from './Shared';
 
@@ -32,16 +32,124 @@ export function GenericAlertModal({ isOpen, onClose, title, message, type = "inf
     );
 }
 
+// --- MODAL: NOTIFICAÇÃO DE NOVO LEAD (SORTEIO) ---
+export function NewLeadNotificationModal({ lead, onClose }: { lead: GiveawayEntry, onClose: () => void }) {
+    return (
+        <div className="fixed inset-0 z-[3200] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-500">
+            <div className="bg-gradient-to-br from-slate-900 to-purple-950 rounded-3xl shadow-2xl w-full max-w-sm p-6 border-2 border-purple-500 shadow-purple-500/30 relative overflow-hidden text-center">
+                
+                {/* Confetes / Background Effect */}
+                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20"></div>
+                
+                <div className="relative z-10 flex flex-col items-center">
+                    <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-5 rounded-full mb-4 shadow-lg shadow-purple-900/50 animate-bounce">
+                        <PartyPopper size={40} className="text-white" />
+                    </div>
+                    
+                    <h3 className="font-black text-2xl text-white mb-1 uppercase tracking-wide drop-shadow-md">
+                        Novo Inscrito!
+                    </h3>
+                    <p className="text-purple-300 text-xs font-bold uppercase tracking-widest mb-6">
+                        Campanha Sorteio Combo
+                    </p>
+
+                    <div className="bg-black/30 p-4 rounded-xl border border-white/10 w-full mb-6 backdrop-blur-sm">
+                        <p className="text-slate-400 text-[10px] uppercase font-bold mb-1">Participante</p>
+                        <p className="text-xl font-black text-white mb-1">{lead.name}</p>
+                        <p className="text-sm font-mono text-emerald-400">{lead.phone}</p>
+                        <p className="text-[10px] text-slate-500 mt-2">{formatTime(lead.createdAt)}</p>
+                    </div>
+
+                    <button 
+                        onClick={onClose}
+                        className="w-full bg-white hover:bg-slate-200 text-purple-900 font-black py-4 rounded-xl shadow-lg active:scale-95 transition-all uppercase tracking-wide flex items-center justify-center gap-2"
+                    >
+                        <ThumbsUp size={20}/> Show de Bola!
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- MODAL: VALIDAÇÃO DE SORTEIO (ADMIN) ---
+export function GiveawayValidationModal({ entry, onClose, appName }: { entry: GiveawayEntry, onClose: () => void, appName: string }) {
+    const [copied, setCopied] = useState(false);
+    const safeAppName = appName || "Jhans Burgers";
+    const phone = normalizePhone(entry.phone);
+
+    // Mensagem de Confirmação Oficial
+    const message = `Olá *${entry.name}*! 👋\n\n✅ *PARTICIPAÇÃO CONFIRMADA!*\n\nValidamos seu cadastro no Sorteio do *${safeAppName}*.\nVocê já está concorrendo ao *Combo Casal Classic*! 🍔🍟🥤\n\n🗓️ *Data do Sorteio:* Quarta-feira 04/02/26 às 19h\n📺 *Onde:* Ao vivo no Instagram @jhansburgers\n\nBoa sorte! 🍀`;
+
+    const handleCopy = () => {
+        copyToClipboard(message);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleOpenWhatsapp = () => {
+        if (phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, 'whatsapp-session');
+    };
+
+    return (
+        <div className="fixed inset-0 z-[3050] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-300">
+            <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md p-6 border-2 border-purple-500 shadow-purple-500/20 relative overflow-hidden">
+                
+                <div className="flex flex-col items-center text-center mb-6">
+                    <div className="bg-purple-500/20 p-4 rounded-full mb-3 animate-bounce">
+                        <ThumbsUp size={32} className="text-purple-400" />
+                    </div>
+                    <h3 className="font-black text-2xl text-white uppercase tracking-wide">Validar Participação</h3>
+                    <p className="text-purple-300 font-bold text-sm">Enviar confirmação para {entry.name}</p>
+                </div>
+
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 mb-6 text-left relative">
+                    <p className="text-slate-400 text-xs font-bold uppercase mb-2">Mensagem de Resposta:</p>
+                    <div className="text-slate-300 text-xs md:text-sm whitespace-pre-wrap font-medium bg-slate-900 p-3 rounded-lg border border-slate-800 max-h-48 overflow-y-auto custom-scrollbar">
+                        {message}
+                    </div>
+                </div>
+
+                <div className="space-y-3">
+                    <button 
+                        onClick={handleCopy}
+                        className={`w-full py-4 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 ${copied ? 'bg-purple-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'}`}
+                    >
+                        {copied ? <Check size={20}/> : <Copy size={20}/>}
+                        {copied ? 'Mensagem Copiada!' : 'Copiar Resposta'}
+                    </button>
+                    
+                    <div className="flex gap-3">
+                        <button 
+                            onClick={onClose}
+                            className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-3 rounded-xl font-bold text-sm transition-colors"
+                        >
+                            Fechar
+                        </button>
+                        {phone && (
+                            <button 
+                                onClick={handleOpenWhatsapp}
+                                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2 shadow-lg"
+                            >
+                                <MessageCircle size={16}/> Enviar Zap
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // --- MODAL GENÉRICO DE CONFIRMAÇÃO ---
 export function GenericConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmText = "Confirmar", cancelText = "Cancelar", type = "info" }: any) {
     if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-[3050] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-200">
-            <div className={`bg-slate-900 rounded-3xl shadow-2xl w-full max-w-sm p-6 border-2 relative overflow-hidden ${type === 'danger' ? 'border-red-500/50 shadow-red-900/30' : 'border-amber-500/50 shadow-amber-900/30'}`}>
+        <div className="fixed inset-0 z-[3100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-200">
+            <div className={`bg-slate-900 rounded-3xl shadow-2xl w-full max-w-sm p-6 border-2 relative overflow-hidden ${type === 'danger' ? 'border-red-500/50 shadow-red-900/30' : 'border-blue-500/50 shadow-blue-900/30'}`}>
                 <div className="flex flex-col items-center text-center mb-6">
-                    <div className={`p-4 rounded-full mb-3 animate-bounce ${type === 'danger' ? 'bg-red-500/20' : 'bg-amber-500/20'}`}>
-                        {type === 'danger' ? <AlertTriangle size={32} className="text-red-400" /> : <AlertCircle size={32} className="text-amber-400" />}
+                    <div className={`p-4 rounded-full mb-3 animate-bounce ${type === 'danger' ? 'bg-red-500/20' : 'bg-blue-500/20'}`}>
+                         {type === 'danger' ? <AlertTriangle size={32} className="text-red-400" /> : <AlertCircle size={32} className="text-blue-400" />}
                     </div>
                     <h3 className="font-black text-xl text-white uppercase tracking-wide">{title}</h3>
                     <p className="text-slate-300 font-medium text-sm mt-3 leading-relaxed">
@@ -50,17 +158,14 @@ export function GenericConfirmModal({ isOpen, onClose, onConfirm, title, message
                 </div>
 
                 <div className="flex gap-3">
-                    <button 
-                        onClick={onClose}
-                        className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-3.5 rounded-xl font-bold text-sm transition-colors border border-slate-700"
-                    >
+                    <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-3.5 rounded-xl font-bold text-sm transition-colors">
                         {cancelText}
                     </button>
                     <button 
                         onClick={() => { onConfirm(); onClose(); }}
-                        className={`flex-1 text-white py-3.5 rounded-xl font-bold text-sm transition-transform active:scale-95 shadow-lg flex items-center justify-center gap-2 ${type === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'}`}
+                        className={`flex-1 text-white py-3.5 rounded-xl font-bold text-sm transition-transform active:scale-95 shadow-lg flex items-center justify-center gap-2 ${type === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                     >
-                        {type === 'danger' ? <Trash2 size={18}/> : <CheckCircle2 size={18}/>} {confirmText}
+                        {confirmText}
                     </button>
                 </div>
             </div>
@@ -68,482 +173,474 @@ export function GenericConfirmModal({ isOpen, onClose, onConfirm, title, message
     );
 }
 
-// --- MODAL: CONFIRMAR FECHAMENTO NA COZINHA (NOVO) ---
-export function ConfirmCloseOrderModal({ onClose, onConfirm, order }: { onClose: () => void, onConfirm: () => void, order: Order }) {
-    return (
-        <div className="fixed inset-0 z-[3050] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-300">
-            <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-sm p-6 border-2 border-red-500/50 shadow-red-500/20 relative overflow-hidden">
-                <div className="flex flex-col items-center text-center mb-6">
-                    <div className="bg-red-500/20 p-4 rounded-full mb-3 animate-bounce">
-                        <X size={32} className="text-red-400" />
-                    </div>
-                    <h3 className="font-black text-2xl text-white uppercase tracking-wide">Fechar Pedido?</h3>
-                    <p className="text-slate-400 font-medium text-sm mt-2">
-                        Você vai remover o pedido <strong>{formatOrderId(order.id)}</strong> da tela da cozinha.
-                    </p>
-                    <p className="text-red-400 text-xs mt-2 font-bold bg-red-900/20 p-2 rounded border border-red-900/50">
-                        Isso marcará o pedido como CONCLUÍDO.
-                    </p>
-                </div>
+export function ProductFormModal({ isOpen, onClose, product, onSave, existingCategories }: any) {
+    const [name, setName] = useState('');
+    const [price, setPrice] = useState('');
+    const [description, setDescription] = useState('');
+    const [category, setCategory] = useState('');
+    
+    useEffect(() => {
+        if (isOpen) {
+            if (product) {
+                setName(product.name);
+                setPrice(product.price.toString());
+                setDescription(product.description || '');
+                setCategory(product.category);
+            } else {
+                setName('');
+                setPrice('');
+                setDescription('');
+                setCategory(existingCategories[0] || 'Hambúrgueres');
+            }
+        }
+    }, [isOpen, product, existingCategories]);
 
-                <div className="flex gap-3">
-                    <button 
-                        onClick={onClose}
-                        className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-3 rounded-xl font-bold text-sm transition-colors border border-slate-700"
-                    >
-                        Cancelar
-                    </button>
-                    <button 
-                        onClick={onConfirm}
-                        className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold text-sm transition-colors shadow-lg flex items-center justify-center gap-2"
-                    >
-                        <Trash2 size={16}/> Sim, Fechar
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// --- MODAL: SUCESSO DE PREPARO (NOVO) ---
-export function ProductionSuccessModal({ onClose, order, appName }: { onClose: () => void, order: Order, appName: string }) {
-    const [copied, setCopied] = useState(false);
-    // FALLBACK DE SEGURANÇA
-    const safeAppName = appName || "Jhans Burgers";
-    const message = getProductionMessage(order, safeAppName);
-    const phone = normalizePhone(order.phone);
-
-    const handleCopy = () => {
-        copyToClipboard(message);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave(product?.id || null, { name, price: parseFloat(price), description, category });
     };
 
-    const handleOpenWhatsapp = () => {
-        if (phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, 'whatsapp-session');
-    };
+    if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[3050] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-300">
-            <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md p-6 border-2 border-orange-500 shadow-orange-500/20 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10">
-                    <span className="flex h-32 w-32">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                    </span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-md p-6 border border-slate-800 shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-white">{product ? 'Editar Produto' : 'Novo Produto'}</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={24}/></button>
                 </div>
-
-                <div className="flex flex-col items-center text-center mb-6">
-                    <div className="bg-orange-500/20 p-4 rounded-full mb-3 animate-bounce">
-                        <Flame size={32} className="text-orange-400" />
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Nome</label>
+                        <input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={name} onChange={e => setName(e.target.value)} />
                     </div>
-                    <h3 className="font-black text-2xl text-white uppercase tracking-wide">Pedido em Preparo!</h3>
-                    <p className="text-orange-400 font-bold text-sm">Cozinha iniciou a produção</p>
-                </div>
-
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 mb-6 text-left relative">
-                    <p className="text-slate-400 text-xs font-bold uppercase mb-2">Mensagem para o Cliente:</p>
-                    <div className="text-slate-300 text-sm whitespace-pre-wrap font-medium bg-slate-900 p-3 rounded-lg border border-slate-800 max-h-40 overflow-y-auto custom-scrollbar">
-                        {message}
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Preço (R$)</label>
+                        <input required type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={price} onChange={e => setPrice(e.target.value)} />
                     </div>
-                </div>
-
-                <div className="space-y-3">
-                    <button 
-                        onClick={handleCopy}
-                        className={`w-full py-4 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 ${copied ? 'bg-orange-500 text-white' : 'bg-orange-600 hover:bg-orange-700 text-white'}`}
-                    >
-                        {copied ? <Check size={20}/> : <Copy size={20}/>}
-                        {copied ? 'Mensagem Copiada!' : 'Copiar Mensagem'}
-                    </button>
-                    
-                    <div className="flex gap-3">
-                        <button 
-                            onClick={onClose}
-                            className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-3 rounded-xl font-bold text-sm transition-colors"
-                        >
-                            Fechar
-                        </button>
-                        {phone && (
-                            <button 
-                                onClick={handleOpenWhatsapp}
-                                className="flex-1 bg-slate-800 hover:bg-slate-700 text-orange-400 border border-orange-500/30 py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
-                            >
-                                <MessageCircle size={16}/> Abrir WhatsApp
-                            </button>
-                        )}
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Categoria</label>
+                        <div className="relative">
+                            <input list="categories" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={category} onChange={e => setCategory(e.target.value)} />
+                            <datalist id="categories">
+                                {existingCategories.map((c: string) => <option key={c} value={c} />)}
+                            </datalist>
+                        </div>
                     </div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// --- NOVO MODAL: SUCESSO DE DESPACHO ---
-export function DispatchSuccessModal({ onClose, data, appName }: { onClose: () => void, data: { order: Order, driverName: string }, appName: string }) {
-    const [copied, setCopied] = useState(false);
-    // FALLBACK DE SEGURANÇA
-    const safeAppName = appName || "Jhans Burgers";
-    const message = getDispatchMessage(data.order, data.driverName, safeAppName);
-    const phone = normalizePhone(data.order.phone);
-
-    const handleCopy = () => {
-        copyToClipboard(message);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-
-    const handleOpenWhatsapp = () => {
-        if (phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, 'whatsapp-session');
-    };
-
-    return (
-        <div className="fixed inset-0 z-[3050] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in duration-300">
-            <div className="bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md p-6 border-2 border-emerald-500 shadow-emerald-500/20 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10">
-                    <span className="flex h-32 w-32">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    </span>
-                </div>
-
-                <div className="flex flex-col items-center text-center mb-6">
-                    <div className="bg-emerald-500/20 p-4 rounded-full mb-3 animate-bounce">
-                        <Bike size={32} className="text-emerald-400" />
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Descrição</label>
+                        <textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none h-24 resize-none" value={description} onChange={e => setDescription(e.target.value)} />
                     </div>
-                    <h3 className="font-black text-2xl text-white uppercase tracking-wide">Pedido Despachado!</h3>
-                    <p className="text-emerald-400 font-bold text-sm">Entregue ao motoboy {data.driverName}</p>
-                </div>
-
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 mb-6 text-left relative">
-                    <p className="text-slate-400 text-xs font-bold uppercase mb-2">Mensagem para o Cliente:</p>
-                    <div className="text-slate-300 text-sm whitespace-pre-wrap font-medium bg-slate-900 p-3 rounded-lg border border-slate-800 max-h-40 overflow-y-auto custom-scrollbar">
-                        {message}
-                    </div>
-                </div>
-
-                <div className="space-y-3">
-                    <button 
-                        onClick={handleCopy}
-                        className={`w-full py-4 rounded-xl font-bold text-base shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 ${copied ? 'bg-emerald-500 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
-                    >
-                        {copied ? <Check size={20}/> : <Copy size={20}/>}
-                        {copied ? 'Mensagem Copiada!' : 'Copiar Mensagem'}
-                    </button>
-                    
-                    <div className="flex gap-3">
-                        <button 
-                            onClick={onClose}
-                            className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-3 rounded-xl font-bold text-sm transition-colors"
-                        >
-                            Fechar
-                        </button>
-                        {phone && (
-                            <button 
-                                onClick={handleOpenWhatsapp}
-                                className="flex-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
-                            >
-                                <MessageCircle size={16}/> Abrir WhatsApp
-                            </button>
-                        )}
-                    </div>
-                </div>
+                    <button type="submit" className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl mt-2 transition-colors">{product ? 'Salvar Alterações' : 'Criar Produto'}</button>
+                </form>
             </div>
         </div>
     );
 }
 
 export function NewDriverModal({ onClose, onSave, initialData }: any) {
-    const [form, setForm] = useState(initialData || { 
-        name: '', 
-        phone: '', 
-        vehicle: 'Moto', 
-        plate: '', 
-        password: '', 
-        avatar: '',
-        paymentModel: 'fixed_per_delivery',
-        paymentRate: 5.00
-    });
-    const [isProcessingImage, setIsProcessingImage] = useState(false);
+    const [form, setForm] = useState(initialData || { name: '', phone: '', vehicle: 'Moto', plate: '', avatar: 'https://cdn-icons-png.flaticon.com/512/147/147144.png', password: '' });
+    const [paymentModel, setPaymentModel] = useState<'fixed_per_delivery' | 'percentage' | 'salary'>('fixed_per_delivery');
+    const [paymentRate, setPaymentRate] = useState<string>('5.00');
 
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setIsProcessingImage(true);
+    useEffect(() => {
+        if (initialData) {
+            setForm(initialData);
+            setPaymentModel(initialData.paymentModel || 'fixed_per_delivery');
+            setPaymentRate(initialData.paymentRate?.toString() || '5.00');
+        }
+    }, [initialData]);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave({ 
+            ...form, 
+            status: initialData ? initialData.status : 'offline', 
+            lat: 0, 
+            lng: 0, 
+            battery: 100, 
+            paymentModel,
+            paymentRate: parseFloat(paymentRate) || 0
+        });
+        onClose();
+    };
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
             try {
-                const base64 = await compressImage(file);
-                setForm({ ...form, avatar: base64 });
-            } catch {
-                alert("Erro ao processar imagem.");
-            } finally {
-                setIsProcessingImage(false);
-            }
+                const compressed = await compressImage(e.target.files[0]);
+                setForm({ ...form, avatar: compressed });
+            } catch (err) { console.error(err); }
         }
     };
 
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-lg p-6 border border-slate-800 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-white">{initialData ? 'Editar Motoboy' : 'Novo Motoboy'}</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={24}/></button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="flex justify-center mb-4">
+                        <div className="relative group cursor-pointer">
+                            <img src={form.avatar} alt="Avatar" className="w-24 h-24 rounded-full border-4 border-slate-800 object-cover" />
+                            <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Camera className="text-white" />
+                            </div>
+                            <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleAvatarUpload} />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Nome</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Telefone</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Veículo</label><select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={form.vehicle} onChange={e => setForm({...form, vehicle: e.target.value})}><option value="Moto">Moto</option><option value="Carro">Carro</option><option value="Bike">Bike</option></select></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Placa</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={form.plate} onChange={e => setForm({...form, plate: e.target.value})} /></div>
+                    </div>
+                    
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Modelo de Pagamento</label>
+                        <div className="flex gap-2 mb-3">
+                            <button type="button" onClick={() => setPaymentModel('fixed_per_delivery')} className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg border ${paymentModel === 'fixed_per_delivery' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-500'}`}>Por Entrega</button>
+                            <button type="button" onClick={() => setPaymentModel('percentage')} className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg border ${paymentModel === 'percentage' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-500'}`}>Porcentagem</button>
+                            <button type="button" onClick={() => setPaymentModel('salary')} className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg border ${paymentModel === 'salary' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-500'}`}>Salário Fixo</button>
+                        </div>
+                        {paymentModel !== 'salary' && (
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">{paymentModel === 'percentage' ? 'Porcentagem (%)' : 'Valor por Entrega (R$)'}</label>
+                                <input type="number" step="0.01" className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={paymentRate} onChange={e => setPaymentRate(e.target.value)} />
+                            </div>
+                        )}
+                    </div>
+
+                    <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Senha de Acesso</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" placeholder="Opcional" value={form.password} onChange={e => setForm({...form, password: e.target.value})} /></div>
+                    <button type="submit" className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl mt-2 transition-colors">Salvar Motoboy</button>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+export function EditOrderModal({ order, onClose, onSave }: any) {
+    const [form, setForm] = useState({ ...order });
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave({
-             ...form,
-             status: form.status || 'offline',
-             rating: form.rating || 5,
-             totalDeliveries: form.totalDeliveries || 0,
-             paymentRate: parseFloat(form.paymentRate) || 0,
-             battery: 100,
-             lat: 0, lng: 0 
+        onSave(order.id, { 
+            customer: form.customer, 
+            phone: form.phone, 
+            address: form.address, 
+            value: parseFloat(form.value),
+            amount: formatCurrency(parseFloat(form.value)), 
+            items: form.items, 
+            paymentMethod: form.paymentMethod,
+            status: form.status
         });
         onClose();
     };
 
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
-            <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-800 animate-in zoom-in max-h-[90vh] overflow-y-auto custom-scrollbar">
-                <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
-                    <h3 className="font-bold text-xl text-white flex items-center gap-2">
-                        {initialData ? <Edit className="text-amber-500"/> : <PlusCircle className="text-emerald-500"/>}
-                        {initialData ? 'Editar Motoboy' : 'Novo Motoboy'}
-                    </h3>
-                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-lg p-6 border border-slate-800 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-white">Editar Pedido {formatOrderId(order.id)}</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={24}/></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="flex justify-center mb-4">
-                        <div className="relative w-24 h-24 rounded-full bg-slate-800 border-2 border-slate-700 overflow-hidden group">
-                            {form.avatar ? <img src={form.avatar} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-slate-500"><Bike size={32}/></div>}
-                            <label className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white">
-                                <Camera size={24}/>
-                                <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload}/>
-                            </label>
-                        </div>
-                    </div>
-                    <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Nome</label><input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: capitalize(e.target.value)})} required/></div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Telefone</label><input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})}/></div>
-                        <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Veículo</label><select className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" value={form.vehicle} onChange={e => setForm({...form, vehicle: e.target.value})}><option value="Moto">Moto</option><option value="Carro">Carro</option><option value="Bike">Bike</option></select></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cliente</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.customer} onChange={e => setForm({...form, customer: e.target.value})} /></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
                     </div>
+                    <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
+                    <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Itens</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-24" value={form.items} onChange={e => setForm({...form, items: e.target.value})} /></div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Placa</label><input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500 uppercase" value={form.plate} onChange={e => setForm({...form, plate: e.target.value.toUpperCase()})}/></div>
-                        <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Senha Acesso</label><input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-amber-500" value={form.password} onChange={e => setForm({...form, password: e.target.value})}/></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Valor (R$)</label><input type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.value} onChange={e => setForm({...form, value: e.target.value})} /></div>
+                        <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Pagamento</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.paymentMethod} onChange={e => setForm({...form, paymentMethod: e.target.value})} /></div>
                     </div>
-
-                    {/* CONFIGURAÇÃO DE PAGAMENTO */}
-                    <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2"><DollarSign size={14}/> Acordo Financeiro</h4>
-                        <div className="space-y-3">
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Modelo de Pagamento</label>
-                                <select className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-emerald-500 text-sm" value={form.paymentModel || 'fixed_per_delivery'} onChange={e => setForm({...form, paymentModel: e.target.value})}>
-                                    <option value="fixed_per_delivery">Fixo por Entrega (Ex: R$ 5,00)</option>
-                                    <option value="percentage">Comissão (%) sobre Total</option>
-                                    <option value="salary">Salário / Diária (Sem repasse auto)</option>
-                                </select>
-                            </div>
-                            
-                            {form.paymentModel !== 'salary' && (
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">
-                                        {form.paymentModel === 'percentage' ? 'Porcentagem (%)' : 'Valor por Entrega (R$)'}
-                                    </label>
-                                    <input 
-                                        type="number" 
-                                        step={form.paymentModel === 'percentage' ? "1" : "0.50"} 
-                                        className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-emerald-500 font-bold"
-                                        value={form.paymentRate} 
-                                        onChange={e => setForm({...form, paymentRate: e.target.value})}
-                                    />
-                                </div>
-                            )}
-                        </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Status</label>
+                        <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
+                            <option value="pending">Pendente</option>
+                            <option value="preparing">Preparando</option>
+                            <option value="ready">Pronto</option>
+                            <option value="assigned">Em Rota</option>
+                            <option value="delivering">Em Entrega</option>
+                            <option value="completed">Concluído</option>
+                            <option value="cancelled">Cancelado</option>
+                        </select>
                     </div>
-
-                    <button disabled={isProcessingImage} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-2 flex items-center justify-center gap-2">
-                        <CheckCircle2 size={18}/> Salvar Motoboy
-                    </button>
+                    <button type="submit" className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl mt-2 transition-colors">Salvar Alterações</button>
                 </form>
             </div>
         </div>
-    )
+    );
 }
 
 export function SettingsModal({ config, onSave, onClose }: any) {
-    const [form, setForm] = useState(config || { appName: '', appLogoUrl: '' });
-    const [loadingLocation, setLoadingLocation] = useState(false);
+    const [form, setForm] = useState(config);
+    const [zones, setZones] = useState<DeliveryZone[]>(config.deliveryZones || []);
+    const [schedule, setSchedule] = useState<{ [key: number]: { enabled: boolean, open: string, close: string } }>(config.schedule || {});
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSave(form);
+    const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            try {
+                const compressed = await compressImage(e.target.files[0]);
+                setForm({ ...form, appLogoUrl: compressed });
+            } catch (err) { console.error(err); }
+        }
+    };
+
+    const updateZone = (idx: number, field: string, value: any) => {
+        const newZones = [...zones];
+        newZones[idx] = { ...newZones[idx], [field]: value };
+        setZones(newZones);
+    };
+
+    const addZone = () => setZones([...zones, { name: '', fee: 0 }]);
+    const removeZone = (idx: number) => setZones(zones.filter((_, i) => i !== idx));
+
+    const updateSchedule = (dayIdx: number, field: string, value: any) => {
+        setSchedule(prev => ({
+            ...prev,
+            [dayIdx]: {
+                ...(prev[dayIdx] || { enabled: false, open: '18:00', close: '23:00' }),
+                [field]: value
+            }
+        }));
+    };
+
+    const handleSubmit = () => {
+        onSave({ ...form, deliveryZones: zones, schedule });
         onClose();
     };
 
-    const handleGetLocation = () => {
-        if (!navigator.geolocation) {
-            alert("Seu navegador não suporta geolocalização.");
-            return;
-        }
-        setLoadingLocation(true);
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const { latitude, longitude } = position.coords;
-                setForm({ ...form, location: { lat: latitude, lng: longitude } });
-                setLoadingLocation(false);
-            },
-            (error) => {
-                console.error(error);
-                alert("Erro ao obter localização.");
-                setLoadingLocation(false);
-            },
-            { enableHighAccuracy: true }
-        );
-    };
-
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
-             <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg p-6 border border-slate-800 animate-in zoom-in max-h-[90vh] overflow-y-auto custom-scrollbar">
-                <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
-                    <h3 className="font-bold text-xl text-white flex items-center gap-2"><SettingsIcon/> Configurações</h3>
-                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-2xl p-6 border border-slate-800 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2"><SettingsIcon/> Configurações</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={24}/></button>
                 </div>
                 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Nome da Loja</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.appName} onChange={e => setForm({...form, appName: e.target.value})} /></div>
-                    <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Logo URL</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.appLogoUrl} onChange={e => setForm({...form, appLogoUrl: e.target.value})} /></div>
-                    
-                    {/* NOVA SEÇÃO DE LOCALIZAÇÃO */}
-                    <div className="border-t border-slate-800 pt-4 mt-4">
-                        <div className="flex justify-between items-center mb-3">
-                            <h4 className="text-sm font-bold text-white">Localização da Loja (Mapa)</h4>
-                            <button type="button" onClick={handleGetLocation} className="text-[10px] bg-blue-900/30 text-blue-400 px-3 py-1 rounded-lg border border-blue-500/30 flex items-center gap-1 hover:bg-blue-900/50">
-                                <Target size={12}/> {loadingLocation ? 'Detectando...' : 'Detectar Minha Localização'}
-                            </button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Latitude</label><input type="number" step="any" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 font-mono text-xs" value={form.location?.lat || ''} onChange={e => setForm({...form, location: { ...form.location, lat: parseFloat(e.target.value) }})} placeholder="-23.55..." /></div>
-                            <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Longitude</label><input type="number" step="any" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 font-mono text-xs" value={form.location?.lng || ''} onChange={e => setForm({...form, location: { ...form.location, lng: parseFloat(e.target.value) }})} placeholder="-46.63..." /></div>
-                        </div>
-                    </div>
-
-                    <div className="border-t border-slate-800 pt-4 mt-4">
-                        <h4 className="text-sm font-bold text-white mb-3">Dados PIX</h4>
-                        <div className="space-y-3">
-                            <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Chave PIX</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.pixKey || ''} onChange={e => setForm({...form, pixKey: e.target.value})} /></div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Nome Titular</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.pixName || ''} onChange={e => setForm({...form, pixName: e.target.value})} /></div>
-                                <div><label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Cidade Titular</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.pixCity || ''} onChange={e => setForm({...form, pixCity: e.target.value})} /></div>
+                <div className="space-y-6">
+                    {/* GERAL */}
+                    <div className="space-y-4 border-b border-slate-800 pb-6">
+                        <h3 className="text-sm font-bold text-slate-400 uppercase">Geral</h3>
+                        <div className="flex items-center gap-4">
+                            <div className="relative group cursor-pointer w-20 h-20 shrink-0">
+                                <div className="w-full h-full bg-slate-800 rounded-xl flex items-center justify-center border-2 border-slate-700 overflow-hidden">
+                                    {form.appLogoUrl ? <img src={form.appLogoUrl} className="w-full h-full object-cover"/> : <UploadCloud className="text-slate-500"/>}
+                                </div>
+                                <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleLogoUpload} />
+                            </div>
+                            <div className="flex-1">
+                                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Nome do App</label>
+                                <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.appName} onChange={e => setForm({...form, appName: e.target.value})} />
                             </div>
                         </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Telefone da Loja (WhatsApp)</label>
+                            <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.storePhone || ''} onChange={e => setForm({...form, storePhone: e.target.value})} placeholder="Ex: 11999999999" />
+                        </div>
                     </div>
 
-                    <div className="border-t border-slate-800 pt-4 mt-4 flex items-center justify-between">
-                         <span className="text-sm font-bold text-white">Ativar Taxas de Entrega?</span>
-                         <input type="checkbox" checked={form.enableDeliveryFees || false} onChange={e => setForm({...form, enableDeliveryFees: e.target.checked})} className="w-5 h-5 accent-emerald-500"/>
+                    {/* PIX */}
+                    <div className="space-y-4 border-b border-slate-800 pb-6">
+                        <h3 className="text-sm font-bold text-slate-400 uppercase">Dados PIX (Para QR Code Automático)</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Chave PIX</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.pixKey || ''} onChange={e => setForm({...form, pixKey: e.target.value})} /></div>
+                            <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Nome Titular</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.pixName || ''} onChange={e => setForm({...form, pixName: e.target.value})} /></div>
+                            <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Cidade Titular</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.pixCity || ''} onChange={e => setForm({...form, pixCity: e.target.value})} /></div>
+                        </div>
                     </div>
-                    
-                    <button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-6">Salvar Configurações</button>
-                </form>
-             </div>
-        </div>
-    );
-}
 
-export function ImportModal({ onClose, onImportCSV }: any) {
-    const [text, setText] = useState('');
-    return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-            <div className="bg-slate-900 rounded-2xl w-full max-w-lg p-6 border border-slate-800 animate-in zoom-in">
-                <h3 className="font-bold text-xl text-white mb-4">Importar CSV</h3>
-                <textarea className="w-full h-40 bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-mono outline-none mb-4" placeholder="Cole o conteúdo do CSV aqui..." value={text} onChange={e => setText(e.target.value)} />
-                <div className="flex gap-3">
-                    <button onClick={onClose} className="flex-1 bg-slate-800 text-white py-3 rounded-xl font-bold">Cancelar</button>
-                    <button onClick={() => onImportCSV(text)} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold">Importar</button>
+                    {/* HORÁRIOS */}
+                    <div className="space-y-4 border-b border-slate-800 pb-6">
+                        <h3 className="text-sm font-bold text-slate-400 uppercase">Horário de Funcionamento</h3>
+                        <div className="space-y-2">
+                            {days.map((day, idx) => {
+                                const current = schedule[idx] || { enabled: false, open: '18:00', close: '23:00' };
+                                return (
+                                    <div key={idx} className="flex items-center gap-4 bg-slate-950 p-2 rounded-lg border border-slate-800">
+                                        <div className="w-24 flex items-center gap-2">
+                                            <input type="checkbox" checked={current.enabled} onChange={e => updateSchedule(idx, 'enabled', e.target.checked)} className="rounded bg-slate-800 border-slate-600"/>
+                                            <span className={`text-sm font-bold ${current.enabled ? 'text-white' : 'text-slate-500'}`}>{day}</span>
+                                        </div>
+                                        {current.enabled && (
+                                            <div className="flex items-center gap-2">
+                                                <input type="time" value={current.open} onChange={e => updateSchedule(idx, 'open', e.target.value)} className="bg-slate-900 text-white rounded p-1 text-xs border border-slate-700"/>
+                                                <span className="text-slate-500">-</span>
+                                                <input type="time" value={current.close} onChange={e => updateSchedule(idx, 'close', e.target.value)} className="bg-slate-900 text-white rounded p-1 text-xs border border-slate-700"/>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* TAXAS */}
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-sm font-bold text-slate-400 uppercase">Taxas de Entrega por Bairro</h3>
+                            <div className="flex items-center gap-2">
+                                <label className="text-xs text-slate-500 font-bold uppercase mr-2">Ativar Taxas</label>
+                                <div className={`w-10 h-5 rounded-full p-1 cursor-pointer transition-colors ${form.enableDeliveryFees ? 'bg-emerald-500' : 'bg-slate-700'}`} onClick={() => setForm({...form, enableDeliveryFees: !form.enableDeliveryFees})}>
+                                    <div className={`w-3 h-3 bg-white rounded-full transition-transform ${form.enableDeliveryFees ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {form.enableDeliveryFees && (
+                            <div className="space-y-2 bg-slate-950 p-4 rounded-xl border border-slate-800">
+                                {zones.map((zone, idx) => (
+                                    <div key={idx} className="flex gap-2">
+                                        <input className="flex-1 bg-slate-900 border border-slate-800 rounded-lg p-2 text-white text-sm" placeholder="Nome do Bairro" value={zone.name} onChange={e => updateZone(idx, 'name', e.target.value)}/>
+                                        <input type="number" className="w-24 bg-slate-900 border border-slate-800 rounded-lg p-2 text-white text-sm" placeholder="Valor" value={zone.fee} onChange={e => updateZone(idx, 'fee', parseFloat(e.target.value))}/>
+                                        <button onClick={() => removeZone(idx)} className="p-2 text-red-500 hover:bg-slate-800 rounded-lg"><Trash2 size={16}/></button>
+                                    </div>
+                                ))}
+                                <button onClick={addZone} className="w-full py-2 bg-slate-900 border border-dashed border-slate-700 text-slate-400 rounded-lg text-sm font-bold hover:text-white hover:border-slate-500">+ Adicionar Bairro</button>
+                            </div>
+                        )}
+                    </div>
+
+                    <button onClick={handleSubmit} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl shadow-lg transition-transform active:scale-95">Salvar Configurações</button>
                 </div>
-            </div>
-        </div>
-    );
-}
-
-export function NewExpenseModal({ onClose, onSave }: any) {
-    const [form, setForm] = useState({ description: '', amount: '', category: 'Geral' });
-    
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSave({ ...form, amount: parseFloat(form.amount) || 0 });
-        onClose();
-    };
-
-    return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-            <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-800 animate-in zoom-in">
-                <h3 className="font-bold text-xl text-white mb-4">Nova Despesa</h3>
-                <form onSubmit={handleSubmit} className="space-y-3">
-                    <input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" placeholder="Descrição" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
-                    <input required type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" placeholder="Valor (R$)" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} />
-                    <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" placeholder="Categoria" value={form.category} onChange={e => setForm({...form, category: e.target.value})} />
-                    <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold mt-2">Salvar Despesa</button>
-                </form>
-                <button onClick={onClose} className="w-full text-slate-500 text-sm mt-3">Cancelar</button>
             </div>
         </div>
     );
 }
 
 export function NewValeModal({ driver, onClose, onSave }: any) {
-    const [form, setForm] = useState({ amount: '', description: '' });
+    const [amount, setAmount] = useState('');
+    const [description, setDescription] = useState('');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave({ ...form, amount: parseFloat(form.amount) || 0, driverId: driver.id });
+        onSave({ driverId: driver.id, amount: parseFloat(amount), description });
         onClose();
     };
 
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-            <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-800 animate-in zoom-in">
-                <h3 className="font-bold text-xl text-white mb-2">Novo Vale / Adiantamento</h3>
-                <p className="text-slate-400 text-sm mb-4">Para: {driver.name}</p>
-                <form onSubmit={handleSubmit} className="space-y-3">
-                    <input required type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" placeholder="Valor (R$)" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} />
-                    <input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" placeholder="Motivo (Ex: Gasolina)" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
-                    <button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold mt-2">Confirmar Vale</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-800 shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-white">Novo Vale</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={24}/></button>
+                </div>
+                <div className="mb-4 p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center gap-3">
+                    <img src={driver.avatar} className="w-10 h-10 rounded-full" />
+                    <span className="font-bold text-white">{driver.name}</span>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Valor (R$)</label>
+                        <input required type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={amount} onChange={e => setAmount(e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Descrição</label>
+                        <input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" placeholder="Ex: Gasolina" value={description} onChange={e => setDescription(e.target.value)} />
+                    </div>
+                    <button type="submit" className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl mt-2 transition-colors">Confirmar Vale</button>
                 </form>
-                <button onClick={onClose} className="w-full text-slate-500 text-sm mt-3">Cancelar</button>
+            </div>
+        </div>
+    );
+}
+
+export function ImportModal({ onClose, onImportCSV }: any) {
+    const [csvText, setCsvText] = useState('');
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-lg p-6 border border-slate-800 shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-white">Importar CSV</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={24}/></button>
+                </div>
+                <textarea 
+                    className="w-full h-48 bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-mono outline-none focus:border-amber-500 mb-4" 
+                    placeholder="Cole o conteúdo do CSV aqui..." 
+                    value={csvText} 
+                    onChange={e => setCsvText(e.target.value)}
+                />
+                <button onClick={() => onImportCSV(csvText)} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg transition-transform active:scale-95">Processar Importação</button>
+            </div>
+        </div>
+    );
+}
+
+export function NewExpenseModal({ onClose, onSave }: any) {
+    const [form, setForm] = useState({ description: '', amount: '', category: 'Mercado' });
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave({ ...form, amount: parseFloat(form.amount) });
+        onClose();
+    };
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-800 shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-white">Nova Despesa</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={24}/></button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Descrição</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
+                    <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Valor (R$)</label><input required type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} /></div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Categoria</label>
+                        <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
+                            <option>Mercado</option><option>Combustível</option><option>Embalagens</option><option>Outros</option>
+                        </select>
+                    </div>
+                    <button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl mt-2 transition-colors">Registrar Saída</button>
+                </form>
             </div>
         </div>
     );
 }
 
 export function EditClientModal({ client, orders, onClose, onUpdateOrder, onSave }: any) {
-    const [form, setForm] = useState(client || {});
-    const clientOrders = orders.filter((o: Order) => normalizePhone(o.phone) === normalizePhone(client.phone)).sort((a: any, b: any) => b.createdAt.seconds - a.createdAt.seconds);
-
+    const [form, setForm] = useState(client);
+    const clientOrders = useMemo(() => orders.filter((o: Order) => normalizePhone(o.phone) === normalizePhone(client.phone)), [orders, client]);
+    
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-            <div className="bg-slate-900 rounded-2xl w-full max-w-2xl p-6 border border-slate-800 animate-in zoom-in max-h-[90vh] overflow-hidden flex flex-col">
-                <div className="flex justify-between items-center mb-6 shrink-0">
-                    <h3 className="font-bold text-xl text-white">Detalhes do Cliente</h3>
-                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-2xl p-6 border border-slate-800 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar flex flex-col md:flex-row gap-6">
+                <div className="flex-1 space-y-4">
+                    <div className="flex justify-between items-center mb-2">
+                        <h2 className="text-xl font-bold text-white">Editar Cliente</h2>
+                        <button onClick={onClose} className="md:hidden text-slate-400 hover:text-white"><X size={24}/></button>
+                    </div>
+                    <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Nome</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
+                    <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
+                    <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Endereço Principal</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none h-20 resize-none" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
+                    <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Observações Internas</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none h-20 resize-none" value={form.obs || ''} onChange={e => setForm({...form, obs: e.target.value})} /></div>
+                    <button onClick={() => onSave(form)} className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl mt-2 transition-colors">Salvar Dados</button>
+                    
+                    <a href={`https://wa.me/55${normalizePhone(form.phone)}`} target="_blank" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl mt-2 transition-colors flex items-center justify-center gap-2"><MessageCircle size={18}/> Abrir WhatsApp</a>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6">
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div><label className="text-xs text-slate-500 font-bold uppercase">Nome</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
-                            <div><label className="text-xs text-slate-500 font-bold uppercase">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
-                        </div>
-                        <div><label className="text-xs text-slate-500 font-bold uppercase">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
-                        <div><label className="text-xs text-slate-500 font-bold uppercase">Observações Internas (CRM)</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white h-20" value={form.obs || ''} onChange={e => setForm({...form, obs: e.target.value})} placeholder="Ex: Cliente VIP, gosta de bem passado..." /></div>
-                        <button onClick={() => onSave(form)} className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold">Salvar Dados</button>
+                <div className="flex-1 border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-6 overflow-y-auto">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-white">Histórico de Pedidos ({clientOrders.length})</h3>
+                        <button onClick={onClose} className="hidden md:block text-slate-400 hover:text-white"><X size={24}/></button>
                     </div>
-
-                    <div className="border-t border-slate-800 pt-6">
-                        <h4 className="font-bold text-white mb-4">Histórico de Pedidos ({clientOrders.length})</h4>
-                        <div className="space-y-3">
-                            {clientOrders.map((o: Order) => (
-                                <div key={o.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-sm">
-                                    <div className="flex justify-between mb-1">
-                                        <span className="text-slate-400">{formatDate(o.createdAt)}</span>
-                                        <span className="font-bold text-white">{formatCurrency(o.value)}</span>
-                                    </div>
-                                    <p className="text-slate-500 line-clamp-1">{o.items}</p>
+                    <div className="space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
+                        {clientOrders.map((o: Order) => (
+                            <div key={o.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                                <div className="flex justify-between items-start mb-1">
+                                    <span className="font-bold text-white text-xs">{formatDate(o.createdAt)}</span>
+                                    <span className={`text-[10px] px-2 rounded font-bold uppercase ${o.status === 'completed' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-amber-900/30 text-amber-400'}`}>{o.status}</span>
                                 </div>
-                            ))}
-                        </div>
+                                <p className="text-xs text-slate-400 line-clamp-2 mb-1">{o.items}</p>
+                                <p className="text-xs font-bold text-emerald-500">{formatCurrency(o.value)}</p>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
@@ -552,20 +649,88 @@ export function EditClientModal({ client, orders, onClose, onUpdateOrder, onSave
 }
 
 export function CloseCycleModal({ data, onClose, onConfirm }: any) {
+    // data = { deliveriesCount, deliveriesValue, valesCount, valesValue, netValue, valesList }
+    const [obs, setObs] = useState('');
+
+    const handleConfirm = () => {
+        onConfirm({
+            ...data,
+            obs,
+            startAt: null, // Será preenchido no backend/função se necessário
+            endAt: new Date().toISOString()
+        });
+    };
+
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-            <div className="bg-slate-900 rounded-2xl w-full max-w-md p-6 border border-slate-800 animate-in zoom-in">
-                <h3 className="font-bold text-xl text-white mb-4 text-center">Fechar Ciclo e Pagar</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-800 shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-white">Fechar Ciclo</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={24}/></button>
+                </div>
                 
-                <div className="bg-slate-950 p-4 rounded-xl space-y-3 mb-6">
-                    <div className="flex justify-between"><span className="text-slate-400">Ganhos</span><span className="text-white font-bold">{formatCurrency(data.total)}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-400">Vales</span><span className="text-red-400 font-bold">- {formatCurrency(data.vales)}</span></div>
-                    <div className="border-t border-slate-800 pt-2 flex justify-between"><span className="text-white">Total a Pagar</span><span className="text-emerald-400 font-bold text-lg">{formatCurrency(data.net)}</span></div>
+                <div className="space-y-4 mb-6">
+                    <div className="flex justify-between items-center text-sm border-b border-slate-800 pb-2">
+                        <span className="text-slate-400">Entregas ({data.deliveriesCount})</span>
+                        <span className="text-emerald-400 font-bold">{formatCurrency(data.deliveriesValue)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm border-b border-slate-800 pb-2">
+                        <span className="text-slate-400">Vales ({data.valesCount})</span>
+                        <span className="text-red-400 font-bold">- {formatCurrency(data.valesValue)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-lg pt-2">
+                        <span className="text-white font-bold">A Pagar</span>
+                        <span className="text-emerald-400 font-black text-xl">{formatCurrency(data.netValue)}</span>
+                    </div>
+                </div>
+
+                <textarea 
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none h-20 resize-none mb-4 text-sm" 
+                    placeholder="Observações do fechamento..." 
+                    value={obs} 
+                    onChange={e => setObs(e.target.value)}
+                />
+
+                <div className="flex gap-3">
+                    <button onClick={onClose} className="flex-1 bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700">Cancelar</button>
+                    <button onClick={handleConfirm} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 shadow-lg">Confirmar Pagamento</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export function ReceiptModal({ order, onClose, appConfig }: any) {
+    const componentRef = useRef<HTMLDivElement>(null);
+    const receiptText = generateReceiptText(order, appConfig?.appName || "Delivery", { pixKey: appConfig?.pixKey, pixName: appConfig?.pixName, pixCity: appConfig?.pixCity });
+    
+    const handleCopy = () => {
+        copyToClipboard(receiptText);
+        // Feedback visual poderia ser adicionado aqui
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-800 shadow-2xl relative">
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white"><X size={24}/></button>
+                <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Printer size={20}/> Comprovante</h2>
+                
+                <div ref={componentRef} className="bg-white text-black p-4 rounded-lg font-mono text-xs leading-relaxed whitespace-pre-wrap mb-6 max-h-[60vh] overflow-y-auto">
+                    {receiptText}
                 </div>
 
                 <div className="flex gap-3">
-                    <button onClick={onClose} className="flex-1 bg-slate-800 text-white py-3 rounded-xl font-bold">Cancelar</button>
-                    <button onClick={() => onConfirm(data)} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold">Confirmar Pagamento</button>
+                    <button onClick={handleCopy} className="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2">
+                        <Copy size={16}/> Copiar
+                    </button>
+                    <a 
+                        href={`https://wa.me/55${normalizePhone(order.phone)}?text=${encodeURIComponent(receiptText)}`} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                    >
+                        <MessageCircle size={16}/> Enviar
+                    </a>
                 </div>
             </div>
         </div>
@@ -573,744 +738,91 @@ export function CloseCycleModal({ data, onClose, onConfirm }: any) {
 }
 
 export function KitchenHistoryModal({ order, onClose, products }: any) {
-    if (!order) return null;
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
-             <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg p-6 border border-slate-800 animate-in zoom-in max-h-[80vh] overflow-y-auto">
-                <div className="flex justify-between items-start mb-4 border-b border-slate-800 pb-4">
-                    <div>
-                        <h3 className="font-bold text-xl text-white">{order.customer}</h3>
-                        <p className="text-xs text-slate-500 font-mono">{formatOrderId(order.id)}</p>
-                    </div>
-                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
-                </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-800 shadow-2xl relative">
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white"><X size={24}/></button>
                 
-                <div className="space-y-4">
-                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                        <pre className="text-sm text-white font-mono whitespace-pre-wrap">{order.items}</pre>
+                <div className="text-center mb-6">
+                    <div className="bg-slate-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <History size={32} className="text-slate-400"/>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div><span className="text-slate-500 block text-xs uppercase font-bold">Entrada</span><span className="text-white">{formatTime(order.createdAt)}</span></div>
-                        <div><span className="text-slate-500 block text-xs uppercase font-bold">Saída/Conclusão</span><span className="text-white">{order.completedAt ? formatTime(order.completedAt) : '-'}</span></div>
-                        <div><span className="text-slate-500 block text-xs uppercase font-bold">Status Final</span><span className="text-emerald-400 font-bold uppercase">{order.status}</span></div>
+                    <h2 className="text-xl font-bold text-white">Detalhes do Pedido</h2>
+                    <p className="text-slate-500 text-sm font-mono">{formatOrderId(order.id)}</p>
+                </div>
+
+                <div className="space-y-4 mb-6">
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <p className="text-xs text-slate-500 font-bold uppercase mb-1">Cliente</p>
+                        <p className="text-white font-bold text-lg">{order.customer}</p>
+                    </div>
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <p className="text-xs text-slate-500 font-bold uppercase mb-1">Itens</p>
+                        <p className="text-slate-300 whitespace-pre-wrap leading-relaxed">{order.items}</p>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                        <span className="text-slate-500">Iniciado em:</span>
+                        <span className="text-white font-mono">{formatTime(order.createdAt)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                        <span className="text-slate-500">Finalizado em:</span>
+                        <span className="text-white font-mono">{order.completedAt ? formatTime(order.completedAt) : order.assignedAt ? formatTime(order.assignedAt) : '-'}</span>
                     </div>
                 </div>
-             </div>
+
+                <button onClick={onClose} className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700">Fechar</button>
+            </div>
         </div>
     );
 }
 
-// NewOrderModal - Restaurado com visual de duas colunas (Cardápio e Form) e Abas em Mobile
-export function NewOrderModal({ onClose, onSave, products, clients }: { onClose: () => void, onSave: (data: any) => void, products: Product[], clients: Client[] }) {
-    const [cart, setCart] = useState<{product: Product, quantity: number}[]>([]);
-    const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
-    const [form, setForm] = useState({ customer: '', phone: '', address: '', mapsLink: '', obs: '', value: '', paymentMethod: 'PIX', serviceType: 'delivery', deliveryFee: 0 });
-    
-    // Alerta Interno
-    const [localAlert, setLocalAlert] = useState<{isOpen: boolean, title: string, message: string} | null>(null);
-
-    // --- LÓGICA DE AUTOCOMPLETAR CLIENTE ---
-    const [suggestions, setSuggestions] = useState<Client[]>([]);
-    const [activeField, setActiveField] = useState<'phone' | 'name' | null>(null);
-    
-    // NEW STATE: Mobile Tab
-    const [mobileTab, setMobileTab] = useState<'menu' | 'checkout'>('menu');
-    
-    // Ref para detectar clique fora da lista de sugestões
-    const suggestionsRef = useRef<HTMLDivElement>(null);
-
+export function ProductionSuccessModal({ order, onClose, appName }: any) {
+    // Popup automático quando inicia preparo
     useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
-                setSuggestions([]);
-                setActiveField(null);
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, []);
+        const timer = setTimeout(onClose, 3000);
+        return () => clearTimeout(timer);
+    }, [onClose]);
 
-    const handleClientLookup = (value: string, field: 'phone' | 'name') => {
-        // Atualiza valor do form
-        setForm(prev => ({ ...prev, [field === 'name' ? 'customer' : field]: value }));
-        setActiveField(field);
-
-        const cleanVal = value.trim();
-        if (cleanVal.length < 1) {
-            setSuggestions([]);
-            return;
-        }
-
-        const lowerVal = cleanVal.toLowerCase();
-        
-        // LÓGICA INTELIGENTE PARA TELEFONE
-        let rawInput = value.replace(/\D/g, '');
-        // Se o input começar com 55 e tiver mais de 11 dígitos (ex: 5592999999999 ou +55...), remove o 55
-        if (rawInput.startsWith('55') && rawInput.length > 11) {
-            rawInput = rawInput.substring(2);
-        }
-
-        const matches = clients.filter(c => {
-            if (field === 'phone') {
-                const clientPhone = normalizePhone(c.phone);
-                // Compara o número limpo do banco com o input limpo (sem +55)
-                return clientPhone.includes(rawInput);
-            } else {
-                return c.name && c.name.toLowerCase().includes(lowerVal);
-            }
-        }).slice(0, 5); // Limita a 5 sugestões
-
-        setSuggestions(matches);
-    };
-
-    const selectClient = (client: Client) => {
-        setForm(prev => ({
-            ...prev,
-            customer: client.name,
-            phone: client.phone,
-            address: client.address,
-            mapsLink: client.mapsLink || '',
-            obs: client.obs ? `(Cliente Antigo: ${client.obs})` : '' // Anexa obs antiga se houver
-        }));
-        setSuggestions([]);
-        setActiveField(null);
-    };
-
-    // Categorias fixas para ordenação
-    const CATEGORY_ORDER = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
-    
-    const categories = useMemo(() => {
-        const unique = Array.from(new Set(products.map((p) => p.category)));
-        const sortedUnique = unique.sort((a, b) => {
-            const idxA = CATEGORY_ORDER.indexOf(a);
-            const idxB = CATEGORY_ORDER.indexOf(b);
-            if(idxA !== -1 && idxB !== -1) return idxA - idxB;
-            if(idxA !== -1) return -1;
-            if(idxB !== -1) return 1;
-            return a.localeCompare(b);
-        });
-        return ['Todos', ...sortedUnique];
-    }, [products]);
-
-    // Função auxiliar para agrupar produtos
-    const getGroupedProducts = () => {
-        if (selectedCategory === 'Todos') {
-            const groups: { category: string, items: Product[] }[] = [];
-            
-            // Ordem: Categorias Prioritárias + Outras
-            const allCats = Array.from(new Set(products.map((p) => p.category))).sort((a, b) => {
-                const idxA = CATEGORY_ORDER.indexOf(a);
-                const idxB = CATEGORY_ORDER.indexOf(b);
-                if(idxA !== -1 && idxB !== -1) return idxA - idxB;
-                if(idxA !== -1) return -1;
-                if(idxB !== -1) return 1;
-                return a.localeCompare(b);
-            });
-
-            allCats.forEach(cat => {
-                const items = products.filter((p) => p.category === cat);
-                if (items.length > 0) {
-                    groups.push({ category: cat, items });
-                }
-            });
-            return groups;
-        } else {
-            return [{
-                category: selectedCategory,
-                items: products.filter((p) => p.category === selectedCategory)
-            }];
-        }
-    };
-
-    const displayGroups = useMemo(() => getGroupedProducts(), [products, selectedCategory]);
-
-    const addToCart = (product: Product) => {
-        setCart(prev => {
-            const existing = prev.find(i => i.product.id === product.id);
-            if (existing) {
-                return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
-            }
-            return [...prev, { product, quantity: 1 }];
-        });
-    };
-
-    const removeFromCart = (index: number) => {
-        setCart(prev => prev.filter((_, i) => i !== index));
-    };
-
-    const cartTotal = useMemo(() => {
-        return cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
-    }, [cart]);
-    
-    const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
-
-    const handlePasteFromWhatsApp = async () => {
-        try {
-            const text = await navigator.clipboard.readText();
-            // Lógica simples de parsing (Nome na primeira linha, Endereço na segunda, ou busca por palavras chave)
-            // Exemplo simples: Assume formato "Nome: João\nEndereço: Rua X"
-            const nameMatch = text.match(/(?:Nome|Cliente):\s*(.*)/i);
-            const addressMatch = text.match(/(?:Endereço|Entrega):\s*(.*)/i);
-            const phoneMatch = text.match(/(?:Tel|Cel|Whatsapp):\s*(.*)/i);
-
-            setForm(prev => ({
-                ...prev,
-                customer: nameMatch ? nameMatch[1].trim() : prev.customer,
-                address: addressMatch ? addressMatch[1].trim() : prev.address,
-                phone: phoneMatch ? phoneMatch[1].trim() : prev.phone
-            }));
-        } catch (err) {
-            setLocalAlert({ isOpen: true, title: "Erro ao Colar", message: "Permissão negada ou erro ao ler área de transferência." });
-        }
-    };
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        
-        // GERA ID PADRÃO PED-XXXXXX PARA PEDIDOS MANUAIS/ADMIN
-        const generatedId = `PED-${Math.floor(100000 + Math.random() * 900000)}`;
-
-        let itemsText = cart.map(i => `${i.quantity}x ${i.product.name}`).join('\n');
-        
-        onSave({ 
-            id: generatedId,
-            ...form, 
-            items: itemsText, 
-            value: cartTotal,
-            origin: 'manual' 
-        });
+    // Envia mensagem de produção automaticamente se possível (ou deixa botão)
+    const handleSendProductionMessage = () => {
+        const text = getProductionMessage(order, appName);
+        window.open(`https://wa.me/55${normalizePhone(order.phone)}?text=${encodeURIComponent(text)}`, 'whatsapp-session');
     };
 
     return (
-        <div className="fixed inset-0 z-[3000] flex items-end md:items-center justify-center bg-black/90 backdrop-blur-md p-0 md:p-4 animate-in fade-in">
-             <div className="bg-slate-950 w-full max-w-7xl h-[100dvh] md:h-[90vh] md:rounded-3xl border border-slate-800 shadow-2xl flex flex-col md:flex-row overflow-hidden relative">
-                
-                {/* HEADER MOBILE (ABAS) */}
-                <div className="md:hidden shrink-0 flex flex-col bg-slate-900 border-b border-slate-800">
-                    <div className="flex justify-between items-center p-4">
-                        <h3 className="font-bold text-white text-lg">Novo Pedido</h3>
-                        <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
-                    </div>
-                    <div className="flex">
-                        <button 
-                            onClick={() => setMobileTab('menu')} 
-                            className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${mobileTab === 'menu' ? 'border-amber-500 text-amber-500' : 'border-transparent text-slate-500'}`}
-                        >
-                            Cardápio
-                        </button>
-                        <button 
-                            onClick={() => setMobileTab('checkout')} 
-                            className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors flex items-center justify-center gap-2 ${mobileTab === 'checkout' ? 'border-emerald-500 text-emerald-500' : 'border-transparent text-slate-500'}`}
-                        >
-                            Dados
-                            {cartCount > 0 && <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">{cartCount}</span>}
-                        </button>
-                    </div>
+        <div className="fixed inset-0 z-[60] flex items-end justify-center pointer-events-none pb-10 px-4">
+            <div className="bg-orange-600 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-4 pointer-events-auto animate-in slide-in-from-bottom-10 max-w-sm w-full border-2 border-orange-400">
+                <div className="bg-white/20 p-3 rounded-full animate-pulse">
+                    <Flame size={24} />
                 </div>
-
-                {/* COLUNA ESQUERDA: CARDÁPIO (Hidden on Mobile if Checkout active) */}
-                <div className={`w-full md:w-2/3 border-r border-slate-800 flex-col bg-slate-900/50 relative ${mobileTab === 'menu' ? 'flex flex-1 overflow-hidden' : 'hidden md:flex'}`}>
-                    <div className="p-4 md:p-6 border-b border-slate-800 bg-slate-950 hidden md:block">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-2xl font-bold text-white">Cardápio</h2>
-                            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                                {categories.map((cat) => (
-                                    <button 
-                                        key={cat} 
-                                        onClick={() => setSelectedCategory(cat)} 
-                                        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all whitespace-nowrap ${selectedCategory === cat ? 'bg-amber-600 text-white shadow-lg' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'}`}
-                                    >
-                                        {cat}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    {/* Mobile Category Scroll */}
-                    <div className="md:hidden flex gap-2 overflow-x-auto p-3 bg-slate-950 border-b border-slate-800 custom-scrollbar shrink-0">
-                        {categories.map((cat) => (
-                            <button 
-                                key={cat} 
-                                onClick={() => setSelectedCategory(cat)} 
-                                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all whitespace-nowrap ${selectedCategory === cat ? 'bg-amber-600 text-white shadow-lg' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'}`}
-                            >
-                                {cat}
-                            </button>
-                        ))}
-                    </div>
-                    
-                    <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-6 custom-scrollbar space-y-8">
-                        {displayGroups.map((group) => (
-                            <div key={group.category}>
-                                <h3 className="text-amber-500 font-bold text-sm uppercase mb-4 tracking-wider border-l-4 border-amber-500 pl-3">{group.category}</h3>
-                                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                    {group.items.map((p: Product) => (
-                                        <button 
-                                            key={p.id} 
-                                            onClick={() => addToCart(p)}
-                                            className="bg-slate-900 border border-slate-800 p-4 rounded-xl hover:border-amber-500/50 hover:bg-slate-800 transition-all text-left group flex flex-col justify-between h-full active:scale-95"
-                                        >
-                                            <div>
-                                                <span className="font-bold text-white text-sm line-clamp-2 mb-1 group-hover:text-amber-400 transition-colors">{p.name}</span>
-                                            </div>
-                                            <span className="text-emerald-400 font-bold text-xs bg-emerald-900/20 px-2 py-1 rounded-md self-start mt-2">{formatCurrency(p.price)}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* MOBILE FLOATING ACTION BUTTON */}
-                    <div className="md:hidden absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-slate-950 to-transparent z-20 pointer-events-none">
-                        <button 
-                            onClick={() => setMobileTab('checkout')}
-                            disabled={cartCount === 0}
-                            className={`w-full py-4 rounded-xl font-bold flex justify-between items-center px-6 shadow-xl pointer-events-auto transition-all ${cartCount > 0 ? 'bg-emerald-600 text-white active:scale-95' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}
-                        >
-                            <div className="flex items-center gap-2">
-                                <ShoppingBag size={20} />
-                                <span>{cartCount} itens</span>
-                            </div>
-                            <span className="text-sm uppercase">Avançar</span>
-                            <span>{formatCurrency(cartTotal)}</span>
-                        </button>
-                    </div>
+                <div className="flex-1">
+                    <h3 className="font-black text-lg leading-none mb-1">Preparo Iniciado!</h3>
+                    <p className="text-xs font-medium text-orange-100">O cliente foi notificado?</p>
                 </div>
-
-                {/* COLUNA DIREITA: FORMULÁRIO (Hidden on Mobile if Menu active) */}
-                <div className={`w-full md:w-1/3 bg-slate-950 flex-col border-l border-slate-800 shadow-2xl relative z-10 ${mobileTab === 'checkout' ? 'flex flex-1 overflow-hidden' : 'hidden md:flex h-full'}`}>
-                    <div className="p-4 md:p-5 border-b border-slate-800 justify-between items-center bg-slate-900 shrink-0 hidden md:flex">
-                        <h3 className="font-bold text-white flex items-center gap-2 text-lg"><PlusCircle className="text-amber-500"/> Novo Pedido</h3>
-                        <button onClick={onClose}><X className="text-slate-500 hover:text-white transition-colors"/></button>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                        <form id="order-form" onSubmit={handleSubmit} className="space-y-5">
-                            <div>
-                                <div className="flex justify-between items-end mb-1">
-                                    <label className="text-[10px] uppercase font-bold text-slate-500">Cliente</label>
-                                    <button type="button" onClick={handlePasteFromWhatsApp} className="text-[10px] text-amber-500 hover:text-amber-400 flex items-center gap-1 font-bold"><ClipboardPaste size={12}/> Colar do WhatsApp</button>
-                                </div>
-                                <div className="grid grid-cols-3 gap-2 relative" ref={suggestionsRef}>
-                                    {/* INPUT TELEFONE */}
-                                    <div className="relative col-span-1">
-                                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500" size={12}/>
-                                        <input 
-                                            className="w-full bg-slate-900 border border-slate-800 rounded-lg py-3 pl-7 pr-2 text-white text-sm outline-none focus:border-amber-500" 
-                                            placeholder="Tel" 
-                                            value={form.phone} 
-                                            onChange={e => handleClientLookup(e.target.value, 'phone')} 
-                                            onFocus={() => activeField !== 'phone' && setActiveField('phone')}
-                                            autoComplete="off"
-                                        />
-                                    </div>
-                                    {/* INPUT NOME */}
-                                    <div className="relative col-span-2">
-                                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500" size={12}/>
-                                        <input 
-                                            className="w-full bg-slate-900 border border-slate-800 rounded-lg py-3 pl-7 pr-2 text-white text-sm outline-none focus:border-amber-500" 
-                                            placeholder="Nome" 
-                                            value={form.customer} 
-                                            onChange={e => handleClientLookup(e.target.value, 'name')} 
-                                            onFocus={() => activeField !== 'name' && setActiveField('name')}
-                                            autoComplete="off"
-                                            required 
-                                        />
-                                    </div>
-
-                                    {/* DROPDOWN DE SUGESTÕES */}
-                                    {suggestions.length > 0 && activeField && (
-                                        <div className="absolute top-full left-0 right-0 mt-1 bg-slate-950 border border-slate-700 rounded-xl shadow-2xl z-[60] overflow-hidden max-h-60 overflow-y-auto custom-scrollbar ring-1 ring-white/10">
-                                            {suggestions.map((s: Client) => (
-                                                <div
-                                                    key={s.id}
-                                                    onMouseDown={(e) => { 
-                                                        e.preventDefault(); // Impede que o input perca o foco antes do clique
-                                                        selectClient(s); 
-                                                    }}
-                                                    className="w-full text-left p-3 hover:bg-slate-800 border-b border-slate-800 last:border-0 transition-colors flex justify-between items-center group cursor-pointer"
-                                                >
-                                                    <div>
-                                                        <p className="text-white font-bold text-xs group-hover:text-amber-400 flex items-center gap-1">
-                                                            {s.name}
-                                                        </p>
-                                                        <p className="text-[10px] text-slate-500">{s.phone}</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-[9px] text-slate-500 truncate max-w-[100px]">{s.address}</p>
-                                                        {s.count && <p className="text-[9px] text-emerald-500 font-bold">{s.count} pedidos</p>}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Endereço</label>
-                                <input className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-amber-500 mb-2" placeholder="Endereço" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
-                                <input className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-amber-500" placeholder="Link Google Maps (Opcional)" value={form.mapsLink} onChange={e => setForm({...form, mapsLink: e.target.value})} />
-                            </div>
-
-                            <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
-                                <button type="button" onClick={() => setForm({...form, serviceType: 'delivery'})} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${form.serviceType === 'delivery' ? 'bg-amber-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}><Bike size={14} className="inline mr-1"/> Entrega</button>
-                                <button type="button" onClick={() => setForm({...form, serviceType: 'pickup'})} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${form.serviceType === 'pickup' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-white'}`}><Store size={14} className="inline mr-1"/> Retira</button>
-                            </div>
-
-                            <div>
-                                <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Itens ({cart.length})</label>
-                                <div className="bg-slate-900 border border-slate-800 rounded-lg p-2 max-h-40 overflow-y-auto custom-scrollbar">
-                                    {cart.length === 0 ? (
-                                        <p className="text-xs text-slate-600 text-center py-4">Selecione itens no cardápio ao lado</p>
-                                    ) : (
-                                        <div className="space-y-1">
-                                            {cart.map((item, idx) => (
-                                                <div key={idx} className="flex justify-between items-center bg-slate-950 p-2 rounded border border-slate-800/50">
-                                                    <span className="text-xs text-white font-medium truncate max-w-[180px]">{item.quantity}x {item.product.name}</span>
-                                                    <button type="button" onClick={() => removeFromCart(idx)} className="text-slate-500 hover:text-red-500"><X size={14}/></button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <textarea className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white text-sm outline-none focus:border-amber-500 h-20 resize-none" placeholder="Obs: Sem cebola..." value={form.obs} onChange={e => setForm({...form, obs: e.target.value})} />
-
-                            <div className="border-t border-slate-800 pt-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Total</label>
-                                        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold text-lg flex items-center">
-                                            {formatCurrency(cartTotal)}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Pagamento</label>
-                                        <div className="grid grid-cols-3 gap-1">
-                                            {['PIX', 'Dinheiro', 'Cartão'].map((method) => (
-                                                <button
-                                                    key={method}
-                                                    type="button"
-                                                    onClick={() => setForm({...form, paymentMethod: method})}
-                                                    className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-all ${
-                                                        form.paymentMethod === method
-                                                            ? 'bg-emerald-600 border-emerald-500 text-white shadow-md'
-                                                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white'
-                                                    }`}
-                                                >
-                                                    {method === 'PIX' && <PixIcon size={20} className={form.paymentMethod === method ? "text-white" : "text-slate-400"} />}
-                                                    {method === 'Dinheiro' && <Banknote size={20} />}
-                                                    {method === 'Cartão' && <CreditCard size={20} />}
-                                                    <span className="text-[9px] font-bold uppercase">{method}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-
-                    {/* CONFIRM BUTTON - FIXO NO DESKTOP, FIXO BOTTOM NO MOBILE */}
-                    <div className="p-5 pb-safe border-t border-slate-800 bg-slate-900 shrink-0 z-20">
-                        <button form="order-form" type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95 text-lg">
-                            Confirmar Pedido
-                        </button>
-                    </div>
-                </div>
-             </div>
-
-             {localAlert && (
-                 <GenericAlertModal 
-                    isOpen={localAlert.isOpen} 
-                    title={localAlert.title} 
-                    message={localAlert.message} 
-                    type="error"
-                    onClose={() => setLocalAlert(null)}
-                 />
-             )}
+                <button onClick={handleSendProductionMessage} className="bg-white text-orange-600 p-2 rounded-lg font-bold hover:bg-orange-100 transition-colors" title="Enviar Whats">
+                    <MessageCircle size={20}/>
+                </button>
+            </div>
         </div>
-    )
+    );
 }
 
-// EditOrderModal
-export function EditOrderModal({ order, onClose, onSave }: any) {
-    const [form, setForm] = useState({ ...order, value: order.value });
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSave(order.id, { ...form, value: typeof form.value === 'string' ? parseFloat(form.value) : form.value });
-        onClose();
-    };
+export function ConfirmCloseOrderModal({ order, onClose, onConfirm }: any) {
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
-             <div className="bg-slate-900 rounded-2xl w-full max-w-lg p-6 border border-slate-800 animate-in zoom-in max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-xl text-white">Editar Pedido {formatOrderId(order.id)}</h3>
-                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-800 shadow-2xl text-center">
+                <div className="w-16 h-16 bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/30">
+                    <AlertCircle size={32} className="text-red-500"/>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-3">
-                    <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" placeholder="Cliente" value={form.customer} onChange={e => setForm({...form, customer: e.target.value})} />
-                    <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" placeholder="Telefone" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} />
-                    <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" placeholder="Endereço" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
-                    <textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white h-32 outline-none focus:border-amber-500" placeholder="Itens" value={form.items} onChange={e => setForm({...form, items: e.target.value})} />
-                    <div className="grid grid-cols-2 gap-3">
-                        <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" placeholder="Valor" type="number" step="0.01" value={form.value} onChange={e => setForm({...form, value: e.target.value})} />
-                        
-                        {/* PAYMENT METHOD AS ICON BUTTONS */}
-                        <div className="grid grid-cols-3 gap-1">
-                            {['PIX', 'Dinheiro', 'Cartão'].map((method) => (
-                                <button
-                                    key={method}
-                                    type="button"
-                                    onClick={() => setForm({...form, paymentMethod: method})}
-                                    className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-all ${
-                                        form.paymentMethod === method
-                                            ? 'bg-emerald-600 border-emerald-500 text-white shadow-md'
-                                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-900 hover:text-white'
-                                    }`}
-                                >
-                                    {method === 'PIX' && <PixIcon size={20} className={form.paymentMethod === method ? "text-white" : "text-slate-400"} />}
-                                    {method === 'Dinheiro' && <Banknote size={20} />}
-                                    {method === 'Cartão' && <CreditCard size={20} />}
-                                    <span className="text-[9px] font-bold uppercase">{method}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl mt-4 shadow-lg">Salvar Alterações</button>
-                </form>
-             </div>
-        </div>
-    )
-}
-
-// ConfirmAssignmentModal
-export function ConfirmAssignmentModal({ onClose, onConfirm, order, driverName }: any) {
-    if (!order) return null;
-    return (
-        <div className="fixed inset-0 z-[3050] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
-            <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-800 animate-in zoom-in text-center">
-                <Bike className="mx-auto text-amber-500 mb-4" size={48} />
-                <h3 className="font-bold text-xl text-white mb-2">Confirmar Entrega?</h3>
-                <p className="text-slate-400 mb-6">
-                    Atribuir pedido de <strong>{order.customer}</strong> para <strong>{driverName}</strong>?
+                <h2 className="text-xl font-bold text-white mb-2">Concluir Pedido Manualmente?</h2>
+                <p className="text-slate-400 text-sm mb-6">
+                    Isso marcará o pedido <strong>#{formatOrderId(order.id)}</strong> como ENTREGUE/FINALIZADO sem passar pelo motoboy. Deseja continuar?
                 </p>
                 <div className="flex gap-3">
-                     <button onClick={onClose} className="flex-1 bg-slate-800 text-white py-3 rounded-xl font-bold">Cancelar</button>
-                     <button onClick={onConfirm} className="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-3 rounded-xl font-bold shadow-lg">Confirmar</button>
+                    <button onClick={onClose} className="flex-1 bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700">Cancelar</button>
+                    <button onClick={onConfirm} className="flex-1 bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700">Confirmar</button>
                 </div>
             </div>
-        </div>
-    );
-}
-
-// NewIncomingOrderModal
-export function NewIncomingOrderModal({ order, onClose, appConfig, onAccept }: any) {
-    if (!order) return null;
-    return (
-        <div className="fixed inset-0 z-[3050] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in zoom-in">
-             <div className="bg-slate-900 rounded-2xl w-full max-w-md p-6 border-2 border-amber-500 shadow-2xl shadow-amber-500/20 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-20"><Bell size={64} className="text-amber-500 animate-pulse"/></div>
-                <h3 className="font-black text-2xl text-white mb-1 uppercase tracking-wider">Novo Pedido!</h3>
-                <p className="text-amber-500 font-bold mb-6">Chegou agora via App/Site</p>
-                
-                <div className="space-y-4 mb-8">
-                    <div>
-                        <p className="text-xs text-slate-500 uppercase font-bold">Cliente</p>
-                        <p className="text-xl font-bold text-white">{order.customer}</p>
-                    </div>
-                    <div>
-                        <p className="text-xs text-slate-500 uppercase font-bold">Itens</p>
-                        <p className="text-sm text-slate-300 bg-slate-950 p-3 rounded-lg border border-slate-800 max-h-32 overflow-y-auto custom-scrollbar">{order.items}</p>
-                    </div>
-                    <div className="flex justify-between">
-                         <div>
-                            <p className="text-xs text-slate-500 uppercase font-bold">Valor</p>
-                            <p className="text-xl font-bold text-emerald-400">{formatCurrency(order.value)}</p>
-                         </div>
-                         <div>
-                            <p className="text-xs text-slate-500 uppercase font-bold text-right">Pagamento</p>
-                            <p className="text-sm font-bold text-white text-right">{order.paymentMethod}</p>
-                         </div>
-                    </div>
-                </div>
-
-                <div className="flex gap-3">
-                     <button onClick={onClose} className="flex-1 bg-slate-800 text-slate-400 py-4 rounded-xl font-bold">Ignorar</button>
-                     <button onClick={() => { onAccept(order.id, {status: 'preparing'}); onClose(); }} className="flex-[2] bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl font-bold text-lg shadow-lg animate-pulse">ACEITAR PEDIDO</button>
-                </div>
-             </div>
-        </div>
-    );
-}
-
-// ProductFormModal (ATUALIZADO COM OPÇÃO DE NOVA CATEGORIA)
-export function ProductFormModal({ isOpen, onClose, product, onSave, existingCategories }: any) {
-    const [form, setForm] = useState(product || { name: '', category: '', price: '', description: '' });
-    const [isCustomCategory, setIsCustomCategory] = useState(false);
-    
-    // Reset form when product changes
-    useEffect(() => {
-        if(product) {
-            setForm(product);
-            // Verifica se a categoria do produto já existe na lista padrão/existente
-            // Se não existir e não for vazia, assume que é customizada
-            if (product.category && existingCategories && !existingCategories.includes(product.category)) {
-                setIsCustomCategory(true);
-            } else {
-                setIsCustomCategory(false);
-            }
-        } else {
-            setForm({ name: '', category: '', price: '', description: '' });
-            setIsCustomCategory(false);
-        }
-    }, [product, isOpen, existingCategories]);
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
-            <div className="bg-slate-900 rounded-2xl w-full max-w-md p-6 border border-slate-800 animate-in zoom-in">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-xl text-white">{product ? 'Editar Produto' : 'Novo Produto'}</h3>
-                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
-                </div>
-                <form onSubmit={(e) => { e.preventDefault(); onSave(product?.id, {...form, price: parseFloat(form.price)}); }}>
-                    <div className="space-y-4">
-                        <input 
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 transition-colors" 
-                            placeholder="Nome do Produto" 
-                            value={form.name} 
-                            onChange={e => setForm({...form, name: e.target.value})} 
-                            required 
-                        />
-                        
-                        <div className="grid grid-cols-2 gap-3">
-                            <input 
-                                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 transition-colors" 
-                                placeholder="Preço (R$)" 
-                                type="number" 
-                                step="0.01" 
-                                value={form.price} 
-                                onChange={e => setForm({...form, price: e.target.value})} 
-                                required 
-                            />
-                            
-                            {/* CATEGORIA SELEÇÃO INTELIGENTE */}
-                            <div className="relative">
-                                {isCustomCategory ? (
-                                    <div className="flex gap-2">
-                                        <input 
-                                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 transition-colors"
-                                            placeholder="Nova Categoria..."
-                                            value={form.category}
-                                            onChange={e => setForm({...form, category: e.target.value})}
-                                            required
-                                            autoFocus
-                                        />
-                                        <button 
-                                            type="button" 
-                                            onClick={() => { setIsCustomCategory(false); setForm({...form, category: ''}); }}
-                                            className="p-3 bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-colors border border-slate-700"
-                                            title="Voltar para lista"
-                                        >
-                                            <ListPlus size={20}/>
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="flex gap-2">
-                                        <div className="relative w-full">
-                                            <select 
-                                                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 transition-colors appearance-none" 
-                                                value={form.category} 
-                                                onChange={e => {
-                                                    if (e.target.value === '__NEW__') {
-                                                        setIsCustomCategory(true);
-                                                        setForm({...form, category: ''});
-                                                    } else {
-                                                        setForm({...form, category: e.target.value});
-                                                    }
-                                                }} 
-                                                required
-                                            >
-                                                <option value="" disabled>Categoria...</option>
-                                                {existingCategories?.map((c: string) => <option key={c} value={c}>{c}</option>)}
-                                                <option value="__NEW__" className="text-amber-400 font-bold">+ ✨ Nova Categoria...</option>
-                                            </select>
-                                            <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-slate-500 pointer-events-none" size={16}/>
-                                        </div>
-                                        <button 
-                                            type="button" 
-                                            onClick={() => { setIsCustomCategory(true); setForm({...form, category: ''}); }}
-                                            className="p-3 bg-slate-800 text-slate-400 hover:text-amber-500 rounded-xl transition-colors border border-slate-700"
-                                            title="Criar nova categoria"
-                                        >
-                                            <Plus size={20}/>
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        
-                        <textarea 
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white h-24 outline-none focus:border-amber-500 transition-colors resize-none" 
-                            placeholder="Descrição do produto (ingredientes, detalhes...)" 
-                            value={form.description} 
-                            onChange={e => setForm({...form, description: e.target.value})} 
-                        />
-                    </div>
-                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold mt-6 shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2">
-                        <CheckCircle2 size={20}/> Salvar Produto
-                    </button>
-                </form>
-            </div>
-        </div>
-    );
-}
-
-// ReceiptModal
-export function ReceiptModal({ order, onClose, appConfig }: any) {
-    const receiptText = generateReceiptText(order, appConfig.appName, { pixKey: appConfig.pixKey, pixName: appConfig.pixName, pixCity: appConfig.pixCity });
-    const [copied, setCopied] = useState(false);
-    
-    const handleCopy = () => {
-        if (navigator.clipboard) {
-            navigator.clipboard.writeText(receiptText);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        }
-    };
-    
-    const handlePrint = () => {
-        const win = window.open('', '', 'width=300,height=600');
-        if (win) {
-            win.document.write(`<pre style="font-family: monospace; font-size: 12px; white-space: pre-wrap;">${receiptText}</pre>`);
-            win.document.close();
-            win.print();
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
-             <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-800 animate-in zoom-in">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-xl text-white">Comprovante</h3>
-                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
-                </div>
-                <div className="bg-white text-black font-mono text-xs p-4 rounded-xl mb-4 max-h-60 overflow-y-auto whitespace-pre-wrap shadow-inner custom-scrollbar">
-                    {receiptText}
-                </div>
-                <div className="flex gap-3">
-                     <button onClick={handleCopy} className={`flex-1 py-3 rounded-xl font-bold transition-colors ${copied ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-300 hover:text-white'}`}>{copied ? 'Copiado' : 'Copiar'}</button>
-                     <button onClick={handlePrint} className="flex-1 bg-amber-600 text-white py-3 rounded-xl font-bold hover:bg-amber-700">Imprimir</button>
-                </div>
-             </div>
         </div>
     );
 }

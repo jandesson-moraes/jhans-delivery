@@ -1,14 +1,27 @@
 import React, { useState, useMemo } from 'react';
-import { Client, Order, GiveawayEntry } from '../types';
+import { Client, Order, GiveawayEntry, AppConfig } from '../types';
 import { normalizePhone, formatCurrency, formatDate, downloadCSV } from '../utils';
-import { Search, UploadCloud, Edit, ChevronDown, Star, Trophy, Crown, Medal, TrendingUp, Calendar, DollarSign, UserCheck, Gift, Download } from 'lucide-react';
+import { Search, UploadCloud, Edit, ChevronDown, Star, Trophy, Crown, Medal, TrendingUp, Calendar, DollarSign, UserCheck, Gift, Download, CheckCircle2 } from 'lucide-react';
 import { Footer } from './Shared';
+import { GiveawayValidationModal } from './Modals';
 
-export function ClientsView({ clients, orders, giveawayEntries, setModal, setClientToEdit }: any) {
+interface ClientsViewProps {
+    clients: Client[];
+    orders: Order[];
+    giveawayEntries: GiveawayEntry[];
+    setModal: (modal: any) => void;
+    setClientToEdit: (client: any) => void;
+    appConfig: AppConfig;
+}
+
+export function ClientsView({ clients, orders, giveawayEntries, setModal, setClientToEdit, appConfig }: ClientsViewProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [visibleClientsCount, setVisibleClientsCount] = useState(20);
     const [rankingMode, setRankingMode] = useState<'spent' | 'count'>('spent'); // spent = Gastaram mais, count = Pediram mais
     const [tab, setTab] = useState<'clients' | 'leads'>('clients');
+    
+    // Estado para validar lead
+    const [validatingLead, setValidatingLead] = useState<GiveawayEntry | null>(null);
 
     const clientsData = useMemo(() => {
         const ranking = new Map();
@@ -296,7 +309,7 @@ export function ClientsView({ clients, orders, giveawayEntries, setModal, setCli
                                    <th className="p-5 pl-8">Nome</th>
                                    <th className="p-5">WhatsApp</th>
                                    <th className="p-5">Data Inscrição</th>
-                                   <th className="p-5 text-center">Status</th>
+                                   <th className="p-5 text-center">Ação</th>
                                </tr>
                            </thead>
                            <tbody className="divide-y divide-slate-800">
@@ -311,9 +324,12 @@ export function ClientsView({ clients, orders, giveawayEntries, setModal, setCli
                                            <td className="p-5 font-mono text-slate-400">{lead.phone}</td>
                                            <td className="p-5 text-slate-500">{formatDate(lead.createdAt)}</td>
                                            <td className="p-5 text-center">
-                                               <span className="bg-purple-900/30 text-purple-400 px-2 py-1 rounded-full text-xs font-bold">
-                                                   Inscrito
-                                               </span>
+                                               <button 
+                                                   onClick={() => setValidatingLead(lead)}
+                                                   className="bg-emerald-900/30 text-emerald-400 hover:bg-emerald-600 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all border border-emerald-500/30 hover:border-emerald-500 flex items-center justify-center gap-2 mx-auto shadow-md"
+                                               >
+                                                   <CheckCircle2 size={14}/> Validar
+                                               </button>
                                            </td>
                                        </tr>
                                    ))
@@ -324,6 +340,15 @@ export function ClientsView({ clients, orders, giveawayEntries, setModal, setCli
                </div>
            )}
            
+           {/* Modal de Validação */}
+           {validatingLead && (
+               <GiveawayValidationModal 
+                   entry={validatingLead}
+                   onClose={() => setValidatingLead(null)}
+                   appName={appConfig.appName}
+               />
+           )}
+
            <Footer />
        </div>
     );

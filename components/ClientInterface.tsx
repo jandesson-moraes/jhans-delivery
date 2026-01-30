@@ -778,7 +778,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                                         Quero Participar <ChevronRight size={20} />
                                     </button>
                                     <div className="text-xs text-amber-400 font-mono bg-black/40 px-3 py-1 rounded border border-amber-500/30">
-                                        Sorteio: Quarta-feira 04/02/26
+                                        Sorteio: Quarta-feira 04/02/26 às 19h no Instagram @jhansburgers
                                     </div>
                                 </div>
                             </div>
@@ -1097,6 +1097,10 @@ function GiveawayModal({ onClose, onConfirm, appConfig, onSuccess }: { onClose: 
                         </button>
                     </div>
                 )}
+                
+                <div className="mt-4 text-xs text-slate-500 font-bold border-t border-slate-800 pt-3">
+                    Sorteio: Quarta-feira 04/02/26 às 19h no Instagram @jhansburgers
+                </div>
             </div>
         </div>
     );
