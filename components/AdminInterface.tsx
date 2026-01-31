@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { LayoutDashboard, Users, ShoppingBag, Utensils, Bike, Map, Settings, LogOut, FileText, BarChart3, ChevronRight, Menu as MenuIcon, X, CalendarCheck, ClipboardList, ChefHat, Bell, Gift, PlusCircle, Search, Trash2, Minus, Plus, Save, CheckCircle2, CreditCard, Banknote, MapPin, DollarSign, ClipboardPaste, Store, Navigation, Battery, MessageCircle, Signal, Clock } from 'lucide-react';
+import { LayoutDashboard, Users, ShoppingBag, Utensils, Bike, Map as MapIcon, Settings, LogOut, FileText, BarChart3, ChevronRight, Menu as MenuIcon, X, CalendarCheck, ClipboardList, ChefHat, Bell, Gift, PlusCircle, Search, Trash2, Minus, Plus, Save, CheckCircle2, CreditCard, Banknote, MapPin, DollarSign, ClipboardPaste, Store, Navigation, Battery, MessageCircle, Signal, Clock, ChevronDown, Flame, Minimize2, Edit, Power, UserPlus, TrendingUp, History } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Driver, Order, Vale, Expense, Product, Client, Settlement, AppConfig, Supplier, InventoryItem, ShoppingItem, GiveawayEntry } from '../types';
@@ -125,22 +125,27 @@ const IntroAnimation = ({ appName, onComplete }: { appName: string, onComplete: 
     );
 };
 
-// Componente para centralizar o mapa sem loop infinito
-function MapRecenter({ center }: { center: [number, number] }) {
+// Componente Controlador do Mapa (Corrige bugs de renderização e controla movimento)
+function MapHandler({ targetLocation, zoomLevel }: { targetLocation: [number, number] | null, zoomLevel: number }) {
     const map = useMap();
     
-    // Usa uma ref para guardar o último centro e evitar atualizações desnecessárias
-    const lastCenter = useRef<string>('');
-
+    // Corrige o bug do mapa cinza/falha de renderização ao iniciar
     useEffect(() => {
-        if (!center) return;
-        const centerStr = `${center[0]},${center[1]}`;
-        // Só atualiza se a posição realmente mudou significativamente
-        if (lastCenter.current !== centerStr) {
-            map.flyTo(center, map.getZoom(), { duration: 1.5 });
-            lastCenter.current = centerStr;
+        const timer = setTimeout(() => {
+            map.invalidateSize();
+        }, 200);
+        return () => clearTimeout(timer);
+    }, [map]);
+
+    // Controla o movimento (FlyTo)
+    useEffect(() => {
+        if (targetLocation) {
+            map.flyTo(targetLocation, zoomLevel, { 
+                duration: 1.5,
+                easeLinearity: 0.25
+            });
         }
-    }, [center, map]);
+    }, [targetLocation, zoomLevel, map]);
     
     return null;
 }
@@ -283,7 +288,7 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
     }, [products]);
 
     return (
-        <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-[2000] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 animate-in fade-in zoom-in duration-200">
             <div className="bg-slate-950 w-full h-full max-w-[1400px] rounded-3xl border border-slate-800 shadow-2xl flex flex-col md:flex-row overflow-hidden relative">
                 <div className="flex-1 flex flex-col bg-slate-900/50 border-r border-slate-800 min-w-0">
                     <div className="p-6 border-b border-slate-800 flex justify-between items-center">
@@ -335,6 +340,102 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
     );
 }
 
+// --- SUB-COMPONENTE: GESTÃO DE FROTA (EMBUTIDO & APRIMORADO) ---
+function FleetManagementPanel({ drivers, orders, onClose, setDriverToEdit, setModal, onDeleteDriver }: { drivers: Driver[], orders: Order[], onClose: () => void, setDriverToEdit: any, setModal: any, onDeleteDriver: any }) {
+    
+    // Helper para calcular estatísticas
+    const getDriverStats = (driverId: string, lastSettlement: any) => {
+        const lastSettlementTime = lastSettlement?.seconds || 0;
+        
+        // Entregas da semana (Ciclo Atual) = Pedidos concluídos APÓS o último fechamento
+        const currentCycleCount = orders.filter(o => 
+            o.driverId === driverId && 
+            o.status === 'completed' && 
+            (o.completedAt?.seconds || 0) > lastSettlementTime
+        ).length;
+
+        return { currentCycleCount };
+    };
+
+    // Ordenar: Online primeiro, depois os outros
+    const sortedDrivers = useMemo(() => {
+        return [...drivers].sort((a, b) => {
+            if (a.status !== 'offline' && b.status === 'offline') return -1;
+            if (a.status === 'offline' && b.status !== 'offline') return 1;
+            return a.name.localeCompare(b.name);
+        });
+    }, [drivers]);
+
+    return (
+        <div className="h-full flex flex-col bg-slate-900">
+            <div className="p-4 border-b border-slate-800 flex justify-between items-center shrink-0">
+                <h3 className="font-bold text-white flex items-center gap-2 text-lg"><Bike className="text-amber-500" size={24}/> Gestão de Frota</h3>
+                <div className="flex gap-2">
+                    <button onClick={() => { setDriverToEdit(null); setModal('driver'); }} className="px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-500 rounded-lg text-xs font-bold flex items-center gap-1 shadow-lg transition-all active:scale-95">
+                        <UserPlus size={14}/> Novo
+                    </button>
+                    <button onClick={onClose} className="p-1.5 bg-slate-800 rounded-full text-slate-400 hover:text-white"><X size={20}/></button>
+                </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                {sortedDrivers.length === 0 ? (
+                    <div className="text-center py-10 text-slate-500 flex flex-col items-center">
+                        <Bike size={40} className="mb-2 opacity-20"/>
+                        <p>Nenhum motoboy cadastrado.</p>
+                    </div>
+                ) : sortedDrivers.map(d => {
+                    const stats = getDriverStats(d.id, d.lastSettlementAt);
+                    return (
+                        <div key={d.id} className={`flex flex-col p-3 rounded-2xl border shadow-sm relative overflow-hidden transition-all group hover:border-slate-600 ${d.status !== 'offline' ? 'bg-slate-900 border-emerald-500/30' : 'bg-slate-950 border-slate-800 opacity-80'}`}>
+                            <div className="flex items-center gap-3">
+                                <div className="relative shrink-0">
+                                    <img src={d.avatar} className={`w-12 h-12 rounded-full object-cover border-2 ${d.status !== 'offline' ? 'border-emerald-500' : 'border-slate-700'}`}/>
+                                    <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-900 ${d.status==='available' ? 'bg-emerald-500' : d.status==='delivering' ? 'bg-amber-500' : 'bg-slate-500'}`}></div>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-start">
+                                        <p className="font-bold text-white text-base truncate">{d.name}</p>
+                                        <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => { setDriverToEdit(d); setModal('driver'); }} className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded hover:bg-slate-700"><Edit size={14}/></button>
+                                            <button onClick={() => onDeleteDriver(d.id)} className="p-1.5 bg-slate-800 text-slate-400 hover:text-red-500 rounded hover:bg-slate-700"><Trash2 size={14}/></button>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                        <span className="text-[10px] text-slate-500 uppercase font-bold bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">{d.vehicle} • {d.plate || 'S/ placa'}</span>
+                                        {d.status !== 'offline' && (
+                                            <span className={`flex items-center gap-0.5 text-[10px] font-bold ${d.battery < 20 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                                <Battery size={10}/> {d.battery}%
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* ESTATÍSTICAS DO MOTOBOY */}
+                            <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-800/50">
+                                <div className="flex flex-col items-center bg-slate-950 p-1.5 rounded-lg border border-slate-800">
+                                    <span className="text-[9px] text-slate-500 uppercase font-bold flex items-center gap-1"><TrendingUp size={10}/> Semana</span>
+                                    <span className="text-emerald-400 font-bold text-sm">{stats.currentCycleCount}</span>
+                                </div>
+                                <div className="flex flex-col items-center bg-slate-950 p-1.5 rounded-lg border border-slate-800">
+                                    <span className="text-[9px] text-slate-500 uppercase font-bold flex items-center gap-1"><History size={10}/> Total</span>
+                                    <span className="text-white font-bold text-sm">{d.totalDeliveries || 0}</span>
+                                </div>
+                            </div>
+
+                            {d.status === 'delivering' && (
+                                <div className="mt-2 text-[10px] text-amber-400 bg-amber-900/10 px-2 py-1 rounded border border-amber-900/20 truncate text-center">
+                                    Em rota: Pedido ativo
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 export default function AdminInterface(props: AdminProps) {
     const { drivers, orders, vales, expenses, products, clients, settlements, suppliers, inventory, shoppingList, giveawayEntries, appConfig, isMobile, setModal, setModalData, onLogout, onDeleteOrder, onAssignOrder, setDriverToEdit, onDeleteDriver, setClientToEdit, onUpdateOrder, onCreateOrder } = props;
     
@@ -344,6 +445,13 @@ export default function AdminInterface(props: AdminProps) {
     const [showManualOrder, setShowManualOrder] = useState(false);
     
     const [newLeadModal, setNewLeadModal] = useState<GiveawayEntry | null>(null);
+    
+    // Estados Mobile/Desktop Dashboard
+    const [showFleetPanel, setShowFleetPanel] = useState(false);
+    
+    // Controles do Mapa
+    const [flyToLocation, setFlyToLocation] = useState<[number, number] | null>(null);
+    const [zoomLevel, setZoomLevel] = useState(14);
     
     const prevGiveawayCount = useRef(0);
     const isFirstLoad = useRef(true); 
@@ -416,10 +524,43 @@ export default function AdminInterface(props: AdminProps) {
         prevGiveawayCount.current = giveawayEntries.length;
     }, [giveawayEntries]);
 
+    // GARANTIA: Fechar modais de Radar/Frota se a sidebar ou Novo Pedido abrir
+    useEffect(() => {
+        if (sidebarOpen || showManualOrder) {
+            setShowFleetPanel(false);
+        }
+    }, [sidebarOpen, showManualOrder]);
+
+    // Função auxiliar para mudar de tela e fechar modais no mobile
+    const handleSwitchView = (newView: string) => {
+        setView(newView);
+        if (isMobile) {
+            setSidebarOpen(false);
+            setShowFleetPanel(false);
+        }
+    };
+
+    // Handler para centralizar no estabelecimento
+    const handleCenterStore = () => {
+        setFlyToLocation([...storeLocation]);
+        setZoomLevel(16); // Zoom mais próximo
+    };
+
+    // Handler para resetar visão (Mapa)
+    const handleResetMap = () => {
+        setFlyToLocation([...initialCenter]);
+        setZoomLevel(14); // Zoom padrão
+    };
+
     return (
         <div className="flex h-screen w-screen bg-slate-950 font-sans text-slate-200 overflow-hidden">
              {showIntro && <IntroAnimation appName={appConfig.appName} onComplete={() => setShowIntro(false)} />}
              
+             {/* Backdrop para mobile sidebar */}
+             {isMobile && sidebarOpen && (
+                 <div className="fixed inset-0 bg-black/80 z-40 backdrop-blur-sm transition-opacity" onClick={() => setSidebarOpen(false)}></div>
+             )}
+
              {/* Sidebar com largura fixa e firmeza (shrink-0 e min-w-[16rem]) */}
              <aside className={`${sidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full opacity-0'} transition-all duration-300 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 w-64 min-w-[16rem] absolute md:relative z-50 h-full shadow-2xl overflow-hidden`}>
                  <div className="p-6 border-b border-slate-800 flex justify-between items-center shrink-0">
@@ -432,10 +573,10 @@ export default function AdminInterface(props: AdminProps) {
                      <p className="text-[10px] uppercase font-bold text-slate-500 mb-2 mt-2 px-2">Operação</p>
                      
                      {/* DASHBOARD AGORA PADRÃO (CINZA) */}
-                     <SidebarBtn icon={<LayoutDashboard size={18}/>} label="Dashboard / Mapa" active={view==='map'} onClick={()=>setView('map')} />
+                     <SidebarBtn icon={<LayoutDashboard size={18}/>} label="Dashboard / Mapa" active={view==='map'} onClick={() => handleSwitchView('map')} />
 
-                     <SidebarBtn icon={<ChefHat size={18}/>} label="Cozinha (KDS)" active={view==='kds'} onClick={()=>setView('kds')} highlight/>
-                     <SidebarBtn icon={<CalendarCheck size={18}/>} label="Pedidos do Dia" active={view==='daily'} onClick={()=>setView('daily')} />
+                     <SidebarBtn icon={<ChefHat size={18}/>} label="Cozinha (KDS)" active={view==='kds'} onClick={() => handleSwitchView('kds')} highlight/>
+                     <SidebarBtn icon={<CalendarCheck size={18}/>} label="Pedidos do Dia" active={view==='daily'} onClick={() => handleSwitchView('daily')} />
                      
                      {/* BOTÃO NOVO PEDIDO REPOSICIONADO E DESTACADO (ÚNICO LARANJA) */}
                      <div className="my-4 px-1">
@@ -445,18 +586,18 @@ export default function AdminInterface(props: AdminProps) {
                      </div>
 
                      <p className="text-[10px] uppercase font-bold text-slate-500 mb-2 mt-4 px-2">Gestão</p>
-                     <SidebarBtn icon={<Utensils size={18}/>} label="Cardápio" active={view==='menu'} onClick={()=>setView('menu')} />
-                     <SidebarBtn icon={<Bike size={18}/>} label="Motoboys" active={view==='drivers'} onClick={()=>setView('drivers')} />
-                     <SidebarBtn icon={<Users size={18}/>} label="Clientes & Leads" active={view==='clients'} onClick={()=>setView('clients')} />
-                     <SidebarBtn icon={<ShoppingBag size={18}/>} label="Estoque & Compras" active={view==='inventory'} onClick={()=>setView('inventory')} />
+                     <SidebarBtn icon={<Utensils size={18}/>} label="Cardápio" active={view==='menu'} onClick={() => handleSwitchView('menu')} />
+                     {/* REMOVIDO BOTÃO SEPARADO DE MOTOBOYS - AGORA NO MAPA */}
+                     <SidebarBtn icon={<Users size={18}/>} label="Clientes & Leads" active={view==='clients'} onClick={() => handleSwitchView('clients')} />
+                     <SidebarBtn icon={<ShoppingBag size={18}/>} label="Estoque & Compras" active={view==='inventory'} onClick={() => handleSwitchView('inventory')} />
 
                      <p className="text-[10px] uppercase font-bold text-slate-500 mb-2 mt-4 px-2">Financeiro</p>
-                     <SidebarBtn icon={<BarChart3 size={18}/>} label="Relatórios & Vendas" active={view==='analytics'} onClick={()=>setView('analytics')} />
-                     <SidebarBtn icon={<FileText size={18}/>} label="Saída de Itens" active={view==='reports'} onClick={()=>setView('reports')} />
+                     <SidebarBtn icon={<BarChart3 size={18}/>} label="Relatórios & Vendas" active={view==='analytics'} onClick={() => handleSwitchView('analytics')} />
+                     <SidebarBtn icon={<FileText size={18}/>} label="Saída de Itens" active={view==='reports'} onClick={() => handleSwitchView('reports')} />
                  </div>
 
                  <div className="p-4 border-t border-slate-800 bg-slate-950/50 shrink-0">
-                     <button onClick={() => setModal('settings')} className="w-full flex items-center gap-3 p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors mb-2">
+                     <button onClick={() => { setModal('settings'); if(isMobile) setSidebarOpen(false); }} className="w-full flex items-center gap-3 p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors mb-2">
                          <Settings size={18}/> <span className="text-sm font-bold">Configurações</span>
                      </button>
                      <button onClick={onLogout} className="w-full flex items-center gap-3 p-3 text-red-400 hover:bg-red-900/20 rounded-xl transition-colors">
@@ -471,6 +612,12 @@ export default function AdminInterface(props: AdminProps) {
                         <button onClick={() => setSidebarOpen(true)} className="p-2 text-slate-400"><MenuIcon size={24}/></button>
                         <BrandLogo size="small" config={appConfig}/>
                     </div>
+                    {/* Atalho frota mobile top right */}
+                    {view === 'map' && (
+                        <button onClick={() => setShowFleetPanel(!showFleetPanel)} className={`p-2 rounded-lg text-slate-300 border transition-all ${showFleetPanel ? 'bg-amber-500 text-slate-900 border-amber-600' : 'bg-slate-800 border-slate-700'}`}>
+                            <Bike size={20}/>
+                        </button>
+                    )}
                 </div>
 
                 <div className="flex-1 overflow-hidden relative w-full h-full">
@@ -485,12 +632,13 @@ export default function AdminInterface(props: AdminProps) {
                                 maxBoundsViscosity={0.7} 
                                 style={{ height: '100%', width: '100%', zIndex: 0 }} 
                                 zoomControl={false}
+                                key={`${storeLocation[0]}-${storeLocation[1]}`} // Chave para forçar remount se a loja mudar, ajudando na inicialização
                             >
                                 <TileLayer
                                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
                                     url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                                 />
-                                <MapRecenter center={initialCenter} />
+                                <MapHandler targetLocation={flyToLocation} zoomLevel={zoomLevel} />
                                 <Marker position={storeLocation} icon={iconStore}>
                                     <Popup><div className="text-center font-bold">{appConfig.appName || "Loja"}</div></Popup>
                                 </Marker>
@@ -510,70 +658,41 @@ export default function AdminInterface(props: AdminProps) {
                                 ))}
                             </MapContainer>
 
-                            {/* PAINEL ESQUERDO FLUTUANTE: RADAR DE PEDIDOS */}
-                            <div className="absolute top-4 left-4 z-[400] w-72 md:w-80 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col transition-all duration-300 pointer-events-auto">
-                                <div className="p-4 border-b border-slate-800 flex justify-between items-center">
-                                    <h3 className="font-bold text-white text-sm flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div> Radar de Pedidos ({pendingOrders.length})</h3>
+                            {/* MOBILE FLEET MODAL (BOTTOM SHEET) - AGORA GESTÃO COMPLETA */}
+                            {isMobile && showFleetPanel && (
+                                <div className="fixed inset-0 z-[1200] bg-black/80 backdrop-blur-sm flex items-end justify-center animate-in fade-in" onClick={() => setShowFleetPanel(false)}>
+                                    <div className="bg-slate-900 w-full h-[70vh] rounded-t-3xl border-t border-slate-800 shadow-2xl flex flex-col animate-in slide-in-from-bottom-full duration-300 pointer-events-auto" onClick={e => e.stopPropagation()}>
+                                        <FleetManagementPanel 
+                                            drivers={drivers} 
+                                            orders={orders}
+                                            onClose={() => setShowFleetPanel(false)} 
+                                            setDriverToEdit={setDriverToEdit} 
+                                            setModal={setModal} 
+                                            onDeleteDriver={onDeleteDriver}
+                                        />
+                                    </div>
                                 </div>
-                                <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
-                                    {pendingOrders.length === 0 ? <div className="text-center py-6 text-slate-500 text-xs">Sem pedidos pendentes.</div> : pendingOrders.map(o => (
-                                        <div key={o.id} className="bg-slate-950/80 p-3 rounded-xl border border-slate-800 relative group hover:border-amber-500/50 transition-colors">
-                                            <div className="flex justify-between items-start mb-1">
-                                                <span className="font-bold text-white text-sm truncate">{o.customer}</span>
-                                                <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${o.status === 'pending' ? 'bg-red-900/30 text-red-400' : 'bg-blue-900/30 text-blue-400'}`}>{o.status === 'pending' ? 'Pendente' : 'Cozinha'}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1 text-slate-500 text-[10px] mb-1"><MapPin size={10}/> {o.address}</div>
-                                            <div className="flex justify-end gap-2 mt-2">
-                                                <button onClick={() => sendOrderConfirmation(o, appConfig.appName)} className="p-1.5 bg-emerald-600 hover:bg-emerald-500 rounded text-white transition-colors shadow-sm" title="Enviar Mensagem ao Cliente"><MessageCircle size={12}/></button>
-                                                <button onClick={() => setClientToEdit({name: o.customer, phone: o.phone, address: o.address, id: normalizePhone(o.phone)} as Client)} className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors"><Settings size={12}/></button>
-                                                <button onClick={() => onDeleteOrder(o.id)} className="p-1.5 bg-slate-800 hover:bg-red-900/30 rounded text-slate-400 hover:text-red-400 transition-colors"><Trash2 size={12}/></button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+                            )}
 
-                            {/* PAINEL DIREITO FLUTUANTE: FROTA */}
-                            <div className="absolute top-4 right-4 z-[400] w-64 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[60vh] flex flex-col hidden md:flex pointer-events-auto">
-                                <div className="p-4 border-b border-slate-800">
-                                    <h3 className="font-bold text-amber-500 text-xs uppercase tracking-widest flex items-center gap-2"><Bike size={14}/> Frota Ativa ({onlineDrivers.length})</h3>
-                                </div>
-                                <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
-                                    {onlineDrivers.length === 0 ? <div className="text-center py-6 text-slate-500 text-xs">Nenhum motoboy online.</div> : onlineDrivers.map(d => {
-                                        const now = Date.now();
-                                        const lastTime = d.lastUpdate?.seconds ? d.lastUpdate.seconds * 1000 : 0;
-                                        const diffSeconds = (now - lastTime) / 1000;
-                                        const isStale = diffSeconds > 120; // 2 min
-
-                                        return (
-                                            <div key={d.id} className={`flex items-center gap-3 p-2 rounded-xl border ${isStale ? 'bg-slate-950/20 border-slate-800 opacity-60' : 'bg-slate-950/50 border-slate-700'}`}>
-                                                <div className="relative">
-                                                    <img src={d.avatar} className={`w-10 h-10 rounded-full object-cover border border-slate-700 ${isStale ? 'grayscale' : ''}`}/>
-                                                    <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-900 ${isStale ? 'bg-slate-500' : d.status==='available' ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="font-bold text-white text-xs truncate">{d.name}</p>
-                                                    <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                                                        <span>{d.vehicle}</span>
-                                                        {isStale ? (
-                                                            <span className="text-red-400 font-bold flex items-center gap-0.5"><Signal size={8}/> Sem sinal</span>
-                                                        ) : (
-                                                            d.battery && <span className={`flex items-center gap-0.5 ${d.battery < 20 ? 'text-red-500' : 'text-slate-500'}`}><Battery size={8}/> {d.battery}%</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                            {/* PAINEL DIREITO FLUTUANTE: FROTA & GESTÃO (DESKTOP) */}
+                            {/* Controlado pelo botão da moto no Desktop também */}
+                            <div className={`absolute top-4 right-4 z-[400] w-80 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[70vh] flex flex-col transition-all duration-300 pointer-events-auto ${!isMobile && showFleetPanel ? 'translate-x-0 opacity-100' : 'translate-x-[120%] opacity-0 pointer-events-none hidden md:flex'}`}>
+                                <FleetManagementPanel 
+                                    drivers={drivers} 
+                                    orders={orders}
+                                    onClose={() => setShowFleetPanel(false)} 
+                                    setDriverToEdit={setDriverToEdit} 
+                                    setModal={setModal} 
+                                    onDeleteDriver={onDeleteDriver}
+                                />
                             </div>
 
                             {/* CONTROLES INFERIORES */}
                             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[400] flex gap-2 pointer-events-auto">
-                                <button className="bg-slate-900/90 text-white p-3 rounded-xl border border-slate-700 shadow-lg hover:bg-slate-800 transition-colors" title="Centralizar Loja"><Navigation size={20}/></button>
-                                <button className="bg-slate-900/90 text-white p-3 rounded-xl border border-slate-700 shadow-lg hover:bg-slate-800 transition-colors flex items-center gap-2"><Map size={20}/> <span className="text-xs font-bold hidden md:inline">Mapa</span></button>
-                                <button onClick={() => { setShowManualOrder(true); }} className="bg-orange-600 hover:bg-orange-500 text-white p-3 rounded-xl shadow-lg transition-colors border border-orange-500"><Plus size={20}/></button>
-                                <button className="bg-slate-900/90 text-white p-3 rounded-xl border border-slate-700 shadow-lg hover:bg-slate-800 transition-colors"><Bike size={20}/></button>
+                                <button onClick={handleCenterStore} className="bg-slate-900/90 text-white p-3 rounded-xl border border-slate-700 shadow-lg hover:bg-slate-800 transition-colors" title="Centralizar Loja"><Navigation size={20}/></button>
+                                <button onClick={handleResetMap} className="bg-slate-900/90 text-white p-3 rounded-xl border border-slate-700 shadow-lg hover:bg-slate-800 transition-colors flex items-center gap-2"><MapIcon size={20}/> <span className="text-xs font-bold hidden md:inline">Resetar Mapa</span></button>
+                                {/* BOTÃO PLUS DE PEDIDO REMOVIDO PARA DEIXAR APENAS MAPA/MONITORAMENTO */}
+                                <button onClick={() => setShowFleetPanel(!showFleetPanel)} className={`bg-slate-900/90 text-white p-3 rounded-xl border border-slate-700 shadow-lg hover:bg-slate-800 transition-colors ${showFleetPanel ? 'text-amber-500 border-amber-500' : ''}`}><Bike size={20}/></button>
                             </div>
                         </div>
                     )}
@@ -602,37 +721,6 @@ export default function AdminInterface(props: AdminProps) {
                     {view === 'daily' && <DailyOrdersView orders={orders} drivers={drivers} onDeleteOrder={onDeleteOrder} setModal={setModal} onUpdateOrder={onUpdateOrder} appConfig={appConfig} />}
                     {view === 'analytics' && <AnalyticsView orders={orders} products={products} />}
                     {view === 'reports' && <ItemReportView orders={orders} />}
-                    
-                    {view === 'drivers' && (
-                        <div className="flex-1 bg-slate-950 p-8 overflow-y-auto">
-                            <div className="flex justify-between items-center mb-8">
-                                <h2 className="text-2xl font-bold text-white flex items-center gap-2"><Bike className="text-amber-500"/> Gestão de Motoboys</h2>
-                                <button onClick={() => { setDriverToEdit(null); setModal('driver'); }} className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg hover:bg-emerald-700 transition-colors">Novo Motoboy</button>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {drivers.map(d => (
-                                    <div key={d.id} className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg relative group">
-                                        <div className="flex items-center gap-4 mb-4">
-                                            <img src={d.avatar} className="w-12 h-12 rounded-full object-cover border-2 border-slate-700" alt={d.name}/>
-                                            <div>
-                                                <h3 className="font-bold text-white text-lg">{d.name}</h3>
-                                                <p className="text-xs text-slate-500 uppercase font-bold">{d.vehicle} • {d.plate || 'S/ Placa'}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-800">
-                                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${d.status === 'offline' ? 'bg-slate-800 text-slate-500' : d.status === 'available' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-amber-900/30 text-amber-400'}`}>
-                                                {d.status === 'offline' ? 'Offline' : d.status === 'available' ? 'Disponível' : 'Em Rota'}
-                                            </span>
-                                            <div className="flex gap-2">
-                                                <button onClick={() => { setDriverToEdit(d); setModal('driver'); }} className="p-2 bg-slate-800 text-slate-400 hover:text-white rounded-lg"><Settings size={16}/></button>
-                                                <button onClick={() => props.onDeleteDriver(d.id)} className="p-2 bg-slate-800 text-slate-400 hover:text-red-500 rounded-lg"><LogOut size={16}/></button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
                 </div>
              </main>
 
@@ -647,7 +735,7 @@ export default function AdminInterface(props: AdminProps) {
                  />
              )}
 
-             {newLeadModal && <NewLeadNotificationModal lead={newLeadModal} onClose={() => setNewLeadModal(null)} />}
+             {newLeadModal && <NewLeadNotificationModal lead={newLeadModal} onClose={() => setNewLeadModal(null)} appConfig={appConfig} />}
         </div>
     );
 }
