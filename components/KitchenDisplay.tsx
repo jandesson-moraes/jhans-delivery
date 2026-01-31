@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Order, Product, Driver, AppConfig } from '../types';
-import { formatTime, toSentenceCase, formatDate, getOrderReceivedText, copyToClipboard, formatOrderId, isToday } from '../utils';
+import { formatTime, toSentenceCase, formatDate, getOrderReceivedText, copyToClipboard, formatOrderId, isToday, normalizePhone } from '../utils';
 import { Clock, CheckCircle2, Flame, ChefHat, History, Bike, Copy, X, ListChecks, ArrowRight, PackageCheck, Edit, Trash2 } from 'lucide-react';
-import { KitchenHistoryModal, ProductionSuccessModal, ConfirmCloseOrderModal, EditOrderModal } from './Modals';
+import { KitchenHistoryModal, ProductionSuccessModal, ConfirmCloseOrderModal, EditOrderModal, DispatchSuccessModal } from './Modals';
 import { Footer } from './Shared';
 import { serverTimestamp } from 'firebase/firestore';
 
@@ -23,6 +23,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
     const [currentTime, setCurrentTime] = useState(new Date());
     const [selectedHistoryOrder, setSelectedHistoryOrder] = useState<Order | null>(null);
     const [productionOrder, setProductionOrder] = useState<Order | null>(null);
+    const [dispatchData, setDispatchData] = useState<{order: Order, driverName: string} | null>(null);
     const [orderToClose, setOrderToClose] = useState<Order | null>(null);
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     
@@ -56,6 +57,15 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
             return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
         });
     }, [orders]);
+
+    // Calcular contagem de pedidos do cliente selecionado
+    const selectedClientOrderCount = useMemo(() => {
+        if (!selectedHistoryOrder) return 0;
+        const phone = normalizePhone(selectedHistoryOrder.phone);
+        if (!phone) return 1;
+        // Conta quantos pedidos concluídos/em andamento este telefone tem no total
+        return orders.filter(o => normalizePhone(o.phone) === phone).length;
+    }, [selectedHistoryOrder, orders]);
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -117,6 +127,17 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
         const originalContent = btn.innerHTML;
         btn.innerHTML = `<span class="text-emerald-400 font-bold">Copiado!</span>`;
         setTimeout(() => { btn.innerHTML = originalContent; }, 2000);
+    };
+
+    const handleAssignDriver = (oid: string, did: string) => {
+        if (onAssignOrder) {
+            onAssignOrder(oid, did);
+            const order = orders.find(o => o.id === oid);
+            const driver = drivers.find(d => d.id === did);
+            if (order && driver) {
+                setDispatchData({ order, driverName: driver.name });
+            }
+        }
     };
 
     return (
@@ -306,7 +327,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                             defaultValue=""
                                             onChange={(e) => {
                                                 e.stopPropagation();
-                                                if(e.target.value) onAssignOrder(order.id, e.target.value);
+                                                if(e.target.value) handleAssignDriver(order.id, e.target.value);
                                             }}
                                             onClick={(e) => e.stopPropagation()}
                                         >
@@ -358,6 +379,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                     order={selectedHistoryOrder} 
                     onClose={() => setSelectedHistoryOrder(null)} 
                     products={products}
+                    totalClientOrders={selectedClientOrderCount}
                 />
             )}
 
@@ -365,6 +387,14 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                 <ProductionSuccessModal 
                     order={productionOrder} 
                     onClose={() => setProductionOrder(null)} 
+                    appName={effectiveAppName}
+                />
+            )}
+
+            {dispatchData && (
+                <DispatchSuccessModal
+                    data={dispatchData}
+                    onClose={() => setDispatchData(null)}
                     appName={effectiveAppName}
                 />
             )}

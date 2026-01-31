@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame, TrendingUp, DollarSign, ShoppingBag, ArrowRight, Play, Printer, ChevronRight, Gift, QrCode, Search, ExternalLink, Menu, Target, Navigation, Bell, User, ArrowLeft, CreditCard, Banknote, Tag, ThumbsUp, PartyPopper } from 'lucide-react';
+import { X, PlusCircle, Bike, Store, Minus, Plus, Trash2, Camera, UploadCloud, Users, Edit, MinusCircle, ClipboardPaste, AlertCircle, CheckCircle2, Calendar, FileText, Download, Share2, Save, MapPin, History, AlertTriangle, Clock, ListPlus, Utensils, Settings as SettingsIcon, MessageCircle, Copy, Check, Send, Flame, TrendingUp, DollarSign, ShoppingBag, ArrowRight, Play, Printer, ChevronRight, Gift, QrCode, Search, ExternalLink, Menu, Target, Navigation, Bell, User, ArrowLeft, CreditCard, Banknote, Tag, ThumbsUp, PartyPopper, Trophy } from 'lucide-react';
 import { Product, Client, AppConfig, Driver, Order, Vale, DeliveryZone, GiveawayEntry } from '../types';
-import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, getOrderReceivedText, formatOrderId, getDispatchMessage, getProductionMessage, generatePixPayload, checkShopStatus } from '../utils';
+import { capitalize, compressImage, formatCurrency, normalizePhone, parseCurrency, formatDate, copyToClipboard, generateReceiptText, formatTime, toSentenceCase, getOrderReceivedText, formatOrderId, getDispatchMessage, getProductionMessage, generatePixPayload, checkShopStatus, sendDispatchNotification } from '../utils';
 import { PixIcon } from './Shared';
 
 export function GenericAlertModal({ isOpen, onClose, title, message, type = "info" }: any) {
@@ -169,7 +170,7 @@ export function NewDriverModal({ onClose, onSave, initialData }: any) {
                     <div className="flex justify-center mb-4"><div className="relative group cursor-pointer"><img src={form.avatar} alt="Avatar" className="w-24 h-24 rounded-full border-4 border-slate-800 object-cover" /><div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Camera className="text-white" /></div><input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleAvatarUpload} /></div></div>
                     <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Nome</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Telefone</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div></div>
                     <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Veículo</label><select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={form.vehicle} onChange={e => setForm({...form, vehicle: e.target.value})}><option value="Moto">Moto</option><option value="Carro">Carro</option><option value="Bike">Bike</option></select></div><div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Placa</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={form.plate} onChange={e => setForm({...form, plate: e.target.value})} /></div></div>
-                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800"><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Modelo de Pagamento</label><div className="flex gap-2 mb-3"><button type="button" onClick={() => setPaymentModel('fixed_per_delivery')} className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg border ${paymentModel === 'fixed_per_delivery' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-500'}`}>Por Entrega</button><button type="button" onClick={() => setPaymentModel('percentage')} className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg border ${paymentModel === 'percentage' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-500'}`}>Porcentagem</button><button type="button" onClick={() => setPaymentModel('salary')} className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg border ${paymentModel === 'salary' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-500'}`}>Salário Fixo</button></div>{paymentModel !== 'salary' && (<div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">{paymentModel === 'percentage' ? 'Porcentagem (%)' : 'Valor por Entrega (R$)'}</label><input type="number" step="0.01" className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={paymentRate} onChange={e => setPaymentRate(e.target.value)} /></div>)}</div>
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800"><label className="text-xs font-bold text-slate-500 uppercase block mb-2">Modelo de Pagamento</label><div className="flex gap-2 mb-3"><button type="button" onClick={() => setPaymentModel('fixed_per_delivery')} className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg border ${paymentModel === 'fixed_per_delivery' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-500'}`}>Por Entrega</button><button type="button" onClick={() => setPaymentModel('percentage')} className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg border ${paymentModel === 'percentage' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-500'}`}>Porcentagem</button><button type="button" onClick={() => setPaymentModel('salary')} className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg border ${paymentModel === 'salary' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-500'}`}>Salário Fixo</button></div>{paymentModel !== 'salary' && (<div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">{paymentModel === 'percentage' ? 'Porcentagem (%)' : 'Valor por Entrega (R$)'}</label><input type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" value={paymentRate} onChange={e => setPaymentRate(e.target.value)} /></div>)}</div>
                     <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Senha de Acesso</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-amber-500 outline-none" placeholder="Opcional" value={form.password} onChange={e => setForm({...form, password: e.target.value})} /></div>
                     <button type="submit" className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl mt-2 transition-colors">Salvar Motoboy</button>
                 </form>
@@ -303,11 +304,92 @@ export function ReceiptModal({ order, onClose, appConfig }: any) {
     );
 }
 
-export function KitchenHistoryModal({ order, onClose, products }: any) {
+// MODAL APRIMORADO DE DETALHES DO PEDIDO
+export function KitchenHistoryModal({ order, onClose, products, totalClientOrders }: any) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-slate-900 rounded-2xl w-full max-w-sm p-6 border border-slate-800 shadow-2xl relative">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white"><X size={24}/></button><div className="text-center mb-6"><div className="bg-slate-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3"><History size={32} className="text-slate-400"/></div><h2 className="text-xl font-bold text-white">Detalhes do Pedido</h2><p className="text-slate-500 text-sm font-mono">{formatOrderId(order.id)}</p></div><div className="space-y-4 mb-6"><div className="bg-slate-950 p-4 rounded-xl border border-slate-800"><p className="text-xs text-slate-500 font-bold uppercase mb-1">Cliente</p><p className="text-white font-bold text-lg">{order.customer}</p></div><div className="bg-slate-950 p-4 rounded-xl border border-slate-800"><p className="text-xs text-slate-500 font-bold uppercase mb-1">Itens</p><p className="text-slate-300 whitespace-pre-wrap leading-relaxed">{order.items}</p></div><div className="flex justify-between text-sm"><span className="text-slate-500">Iniciado em:</span><span className="text-white font-mono">{formatTime(order.createdAt)}</span></div><div className="flex justify-between text-sm"><span className="text-slate-500">Finalizado em:</span><span className="text-white font-mono">{order.completedAt ? formatTime(order.completedAt) : order.assignedAt ? formatTime(order.assignedAt) : '-'}</span></div></div><button onClick={onClose} className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700">Fechar</button>
+            <div className="bg-slate-900 rounded-2xl w-full max-w-md p-6 border border-slate-800 shadow-2xl relative animate-in fade-in zoom-in">
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white"><X size={24}/></button>
+                <div className="text-center mb-6">
+                    <div className="bg-slate-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 border border-slate-700 shadow-lg">
+                        <History size={32} className="text-emerald-400"/>
+                    </div>
+                    <h2 className="text-xl font-bold text-white">Detalhes do Pedido</h2>
+                    <p className="text-slate-500 text-sm font-mono bg-slate-950 px-3 py-1 rounded inline-block mt-2">{formatOrderId(order.id)}</p>
+                </div>
+                
+                <div className="space-y-4 mb-6 max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Cliente</p>
+                        <div className="flex justify-between items-center">
+                            <p className="text-white font-bold text-lg">{order.customer}</p>
+                            <span className="flex items-center gap-1 text-xs text-amber-500 font-bold bg-amber-900/20 px-2 py-1 rounded">
+                                <Trophy size={12}/> {totalClientOrders || 1}º Pedido
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <p className="text-[10px] text-slate-500 font-bold uppercase mb-2 flex items-center gap-1"><MapPin size={12}/> Endereço</p>
+                        <p className="text-slate-300 font-medium text-sm leading-relaxed">{order.address}</p>
+                    </div>
+
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <p className="text-[10px] text-slate-500 font-bold uppercase mb-2">Itens</p>
+                        <p className="text-slate-300 whitespace-pre-wrap leading-relaxed text-sm font-medium">{order.items}</p>
+                    </div>
+
+                    <div className="flex gap-3">
+                        <div className="flex-1 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                            <p className="text-[10px] text-slate-500 font-bold uppercase mb-1 flex items-center gap-1"><CreditCard size={12}/> Pagamento</p>
+                            <p className="text-white font-bold text-sm truncate">{order.paymentMethod || 'Dinheiro'}</p>
+                        </div>
+                        <div className="flex-1 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                            <p className="text-[10px] text-slate-500 font-bold uppercase mb-1 flex items-center gap-1"><Clock size={12}/> Horário</p>
+                            <p className="text-white font-bold text-sm font-mono">{formatTime(order.createdAt)}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <button onClick={onClose} className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700 transition-colors shadow-lg">Fechar</button>
+            </div>
+        </div>
+    );
+}
+
+// MODAL DE CONFIRMAÇÃO DE SAÍDA PARA ENTREGA (DISPATCH)
+export function DispatchSuccessModal({ data, onClose, appName }: any) {
+    const [copied, setCopied] = useState(false);
+    
+    // Removing auto-close timer as per requirement to allow time for copying
+    // useEffect(() => { const timer = setTimeout(onClose, 5000); return () => clearTimeout(timer); }, [onClose]);
+    
+    const handleCopyMessage = () => { 
+        const text = getDispatchMessage(data.order, data.driverName, appName);
+        copyToClipboard(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        // Do not close immediately, let user see "Copied!"
+    };
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in zoom-in">
+            <div className="bg-slate-900 rounded-3xl w-full max-w-sm p-6 border-2 border-emerald-500 shadow-2xl relative text-center">
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={24}/></button>
+                <div className="bg-emerald-900/30 p-4 rounded-full inline-block mb-4 shadow-lg shadow-emerald-900/50 border border-emerald-500/30 animate-bounce">
+                    <Bike size={40} className="text-emerald-400" />
+                </div>
+                <h3 className="font-black text-2xl text-white mb-2 uppercase tracking-wide">Saiu para Entrega!</h3>
+                <p className="text-slate-400 text-sm mb-6">
+                    Pedido <strong>{formatOrderId(data.order.id)}</strong> entregue ao motoboy <strong>{data.driverName}</strong>.
+                </p>
+                <button 
+                    onClick={handleCopyMessage} 
+                    className={`w-full font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-wide ${copied ? 'bg-emerald-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'}`}
+                >
+                    {copied ? <Check size={20}/> : <Copy size={20}/>}
+                    {copied ? 'Mensagem Copiada!' : 'Copiar Texto para WhatsApp'}
+                </button>
             </div>
         </div>
     );

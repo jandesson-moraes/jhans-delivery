@@ -31,8 +31,17 @@ export const BrandLogo = ({ size = 'normal', dark = false, config }: { size?: 's
 
 export function SidebarBtn({ icon, label, active, onClick, highlight }: any) {
   return (
-    <button onClick={onClick} className={`w-full flex items-center gap-4 p-3.5 rounded-xl transition-all ${active ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/20' : highlight ? 'bg-white/5 text-white border border-white/10 hover:bg-white/10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-      <div className={active ? 'text-white' : highlight ? 'text-amber-400' : 'text-current'}>{icon}</div>
+    <button 
+        onClick={onClick} 
+        className={`w-full flex items-center gap-4 p-3.5 rounded-xl transition-all border-2 
+        ${active 
+            ? 'bg-slate-800 border-slate-700 text-white shadow-md' // Active: Dark Gray, firm border
+            : highlight 
+                ? 'bg-white/5 text-white border-white/10 hover:bg-white/10' // Highlight: Transparent bg, light border
+                : 'border-transparent text-slate-400 hover:bg-slate-800 hover:text-white' // Default: Transparent border
+        }`}
+    >
+      <div className={active ? 'text-emerald-500' : highlight ? 'text-amber-400' : 'text-current'}>{icon}</div>
       <span className="font-medium text-sm">{label}</span>
     </button>
   );
@@ -57,7 +66,7 @@ export function StatBox({label, value, icon, color, subtext}: any) {
 export const PixIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 48 48" className={className}>
         <path fill="currentColor" d="M11.9,12h-0.68l8.04-8.04c2.62-2.61,6.86-2.61,9.48,0L36.78,12H36.1c-1.6,0-3.11,0.62-4.24,1.76	l-6.8,6.77c-0.59,0.59-1.53,0.59-2.12,0l-6.8-6.77C15.01,12.62,13.5,12,11.9,12z"></path>
-        <path fill="currentColor" d="M36.1,36h0.68l-8.04,8.04c-2.62,2.61-6.86,2.61-9.48,0L11.22,36h0.68c1.6,0,3.11-0.62,4.24-1.76	l6.8-6.77c0.59-0.59,1.53-0.59,2.12,0l6.8,6.77C32.99,35.38,34.5,36,36.1,36z"></path>
+        <path fill="currentColor" d="M36.1,36h0.68l-8.04,8.04c-2.62,2.61-6.86,2.61-9.48,0L11.22,36h0.68c1.6,0,3.11-0.62,4.24,1.76	l6.8-6.77c0.59-0.59,1.53-0.59,2.12,0l6.8,6.77C32.99,35.38,34.5,36,36.1,36z"></path>
         <path fill="currentColor" d="M44.04,28.74L38.78,34H36.1c-1.07,0-2.07-0.42-2.83-1.17l-6.8-6.78c-1.36-1.36-3.58-1.36-4.94,0	l-6.8,6.78C13.97,33.58,12.97,34,11.9,34H9.22l-5.26-5.26c-2.61-2.62-2.61-6.86,0-9.48L9.22,14h2.68c1.07,0,2.07,0.42,2.83,1.17	l6.8,6.78c0.68,0.68,1.58,1.02,2.47,1.02s1.79-0.34,2.47-1.02l6.8-6.78C34.03,14.42,35.03,14,36.1,14h2.68l5.26,5.26	C46.65,21.88,46.65,26.12,44.04,28.74z"></path>
     </svg>
 );
