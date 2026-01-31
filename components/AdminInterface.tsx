@@ -295,8 +295,8 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
             <div className="bg-slate-950 w-full h-full md:max-w-[1400px] md:rounded-3xl border-none md:border border-slate-800 shadow-2xl flex flex-col md:flex-row overflow-hidden relative">
                 
                 {/* LADO ESQUERDO: LISTA DE PRODUTOS (CARDÁPIO) */}
-                <div className={`flex-1 flex-col bg-slate-900/50 border-r border-slate-800 min-w-0 ${mobileTab === 'cart' ? 'hidden md:flex' : 'flex'}`}>
-                    <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 md:bg-transparent">
+                <div className={`flex-1 flex-col bg-slate-900/50 border-r border-slate-800 min-w-0 min-h-0 ${mobileTab === 'cart' ? 'hidden md:flex' : 'flex'}`}>
+                    <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 md:bg-transparent shrink-0">
                         <h2 className="text-2xl font-bold text-white">Cardápio</h2>
                         <div className="relative w-48 md:w-64">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16}/>
@@ -327,12 +327,12 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
                 </div>
 
                 {/* LADO DIREITO: DADOS DO PEDIDO & CARRINHO */}
-                <div className={`w-full md:w-[400px] bg-slate-950 flex-col border-l border-slate-800 relative shadow-2xl z-20 ${mobileTab === 'products' ? 'hidden md:flex' : 'flex'}`}>
-                    <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+                <div className={`w-full md:w-[400px] bg-slate-950 flex-col border-l border-slate-800 relative shadow-2xl z-20 flex-1 min-h-0 ${mobileTab === 'products' ? 'hidden md:flex' : 'flex'}`}>
+                    <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900 shrink-0">
                         <h3 className="font-bold text-white text-lg flex items-center gap-2"><PlusCircle size={20} className="text-amber-500"/> Novo Pedido</h3>
                         <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X size={24}/></button>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar pb-24 md:pb-5">
+                    <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar pb-2 md:pb-5">
                         <div className="space-y-3">
                             <div className="flex justify-between items-end"><label className="text-xs font-bold text-slate-500 uppercase">Cliente</label><button onClick={handlePasteFromWhatsApp} className="text-[10px] text-amber-500 font-bold flex items-center gap-1 hover:text-amber-400 transition-colors"><ClipboardPaste size={12}/> Colar do WhatsApp</button></div>
                             <div className="flex gap-2 relative"><input className="w-1/3 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors" placeholder="Tel" value={phone} onChange={e => setPhone(e.target.value)} /><div className="flex-1 relative"><input className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors" placeholder="Nome" value={name} onChange={handleNameChange} autoComplete="off" />{clientSuggestions.length > 0 && (<div className="absolute top-full left-0 w-full bg-slate-800 border border-slate-700 rounded-xl mt-1 z-50 shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">{clientSuggestions.map(c => (<div key={c.id} onClick={() => fillClientData(c)} className="p-3 hover:bg-slate-700 cursor-pointer border-b border-slate-700/50 last:border-0"><p className="text-sm font-bold text-white">{c.name}</p><p className="text-xs text-slate-400">{c.phone}</p></div>))}</div>)}</div></div>
@@ -343,7 +343,7 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
                         <textarea className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white outline-none focus:border-amber-500 h-20 resize-none font-mono" placeholder="Obs: Sem cebola..." value={obs} onChange={e => setObs(e.target.value)} />
                     </div>
                     {/* ADICIONADO PADDING NO MOBILE PARA NÃO FICAR ESCONDIDO PELO MENU FLUTUANTE */}
-                    <div className="p-5 bg-slate-900 border-t border-slate-800 space-y-4 pb-24 md:pb-5">
+                    <div className="p-5 bg-slate-900 border-t border-slate-800 space-y-4 pb-24 md:pb-5 shrink-0">
                         <div className="flex justify-between items-center"><div><p className="text-[10px] font-bold text-slate-500 uppercase">Total</p><p className="text-2xl font-black text-white">{formatCurrency(finalTotal)}</p></div><div className="w-1/2"><p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Pagamento</p><select className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-sm text-white outline-none focus:border-amber-500" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}><option value="PIX">PIX</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option></select></div></div>
                         <button onClick={handleSubmit} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-all text-lg">Confirmar</button>
                     </div>
@@ -371,402 +371,180 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
     );
 }
 
-// --- SUB-COMPONENTE: GESTÃO DE FROTA (EMBUTIDO & APRIMORADO) ---
-function FleetManagementPanel({ drivers, orders, onClose, setDriverToEdit, setModal, onDeleteDriver }: { drivers: Driver[], orders: Order[], onClose: () => void, setDriverToEdit: any, setModal: any, onDeleteDriver: any }) {
-    
-    // Helper para calcular estatísticas
-    const getDriverStats = (driverId: string, lastSettlement: any) => {
-        const lastSettlementTime = lastSettlement?.seconds || 0;
-        
-        // Entregas da semana (Ciclo Atual) = Pedidos concluídos APÓS o último fechamento
-        const currentCycleCount = orders.filter(o => 
-            o.driverId === driverId && 
-            o.status === 'completed' && 
-            (o.completedAt?.seconds || 0) > lastSettlementTime
-        ).length;
-
-        return { currentCycleCount };
-    };
-
-    // Ordenar: Online primeiro, depois os outros
-    const sortedDrivers = useMemo(() => {
-        return [...drivers].sort((a, b) => {
-            if (a.status !== 'offline' && b.status === 'offline') return -1;
-            if (a.status === 'offline' && b.status !== 'offline') return 1;
-            return a.name.localeCompare(b.name);
-        });
-    }, [drivers]);
-
-    return (
-        <div className="h-full flex flex-col bg-slate-900">
-            <div className="p-4 border-b border-slate-800 flex justify-between items-center shrink-0">
-                <h3 className="font-bold text-white flex items-center gap-2 text-lg"><Bike className="text-amber-500" size={24}/> Gestão de Frota</h3>
-                <div className="flex gap-2">
-                    <button onClick={() => { setDriverToEdit(null); setModal('driver'); }} className="px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-500 rounded-lg text-xs font-bold flex items-center gap-1 shadow-lg transition-all active:scale-95">
-                        <UserPlus size={14}/> Novo
-                    </button>
-                    <button onClick={onClose} className="p-1.5 bg-slate-800 rounded-full text-slate-400 hover:text-white"><X size={20}/></button>
-                </div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                {sortedDrivers.length === 0 ? (
-                    <div className="text-center py-10 text-slate-500 flex flex-col items-center">
-                        <Bike size={40} className="mb-2 opacity-20"/>
-                        <p>Nenhum motoboy cadastrado.</p>
-                    </div>
-                ) : sortedDrivers.map(d => {
-                    const stats = getDriverStats(d.id, d.lastSettlementAt);
-                    return (
-                        <div key={d.id} className={`flex flex-col p-3 rounded-2xl border shadow-sm relative overflow-hidden transition-all group hover:border-slate-600 ${d.status !== 'offline' ? 'bg-slate-900 border-emerald-500/30' : 'bg-slate-950 border-slate-800 opacity-80'}`}>
-                            <div className="flex items-center gap-3">
-                                <div className="relative shrink-0">
-                                    <img src={d.avatar} className={`w-12 h-12 rounded-full object-cover border-2 ${d.status !== 'offline' ? 'border-emerald-500' : 'border-slate-700'}`}/>
-                                    <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-900 ${d.status==='available' ? 'bg-emerald-500' : d.status==='delivering' ? 'bg-amber-500' : 'bg-slate-500'}`}></div>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between items-start">
-                                        <p className="font-bold text-white text-base truncate">{d.name}</p>
-                                        <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => { setDriverToEdit(d); setModal('driver'); }} className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded hover:bg-slate-700"><Edit size={14}/></button>
-                                            <button onClick={() => onDeleteDriver(d.id)} className="p-1.5 bg-slate-800 text-slate-400 hover:text-red-500 rounded hover:bg-slate-700"><Trash2 size={14}/></button>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                        <span className="text-[10px] text-slate-500 uppercase font-bold bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">{d.vehicle} • {d.plate || 'S/ placa'}</span>
-                                        {d.status !== 'offline' && (
-                                            <span className={`flex items-center gap-0.5 text-[10px] font-bold ${d.battery < 20 ? 'text-red-500' : 'text-emerald-500'}`}>
-                                                <Battery size={10}/> {d.battery}%
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {/* ESTATÍSTICAS DO MOTOBOY */}
-                            <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-800/50">
-                                <div className="flex flex-col items-center bg-slate-950 p-1.5 rounded-lg border border-slate-800">
-                                    <span className="text-[9px] text-slate-500 uppercase font-bold flex items-center gap-1"><TrendingUp size={10}/> Semana</span>
-                                    <span className="text-emerald-400 font-bold text-sm">{stats.currentCycleCount}</span>
-                                </div>
-                                <div className="flex flex-col items-center bg-slate-950 p-1.5 rounded-lg border border-slate-800">
-                                    <span className="text-[9px] text-slate-500 uppercase font-bold flex items-center gap-1"><History size={10}/> Total</span>
-                                    <span className="text-white font-bold text-sm">{d.totalDeliveries || 0}</span>
-                                </div>
-                            </div>
-
-                            {d.status === 'delivering' && (
-                                <div className="mt-2 text-[10px] text-amber-400 bg-amber-900/10 px-2 py-1 rounded border border-amber-900/20 truncate text-center">
-                                    Em rota: Pedido ativo
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
-
 export default function AdminInterface(props: AdminProps) {
-    const { drivers, orders, vales, expenses, products, clients, settlements, suppliers, inventory, shoppingList, giveawayEntries, appConfig, isMobile, setModal, setModalData, onLogout, onDeleteOrder, onAssignOrder, setDriverToEdit, onDeleteDriver, setClientToEdit, onUpdateOrder, onCreateOrder } = props;
-    
-    const [view, setView] = useState('map'); 
-    const [showIntro, setShowIntro] = useState(true);
-    const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+    const [currentView, setCurrentView] = useState('dashboard');
+    const [sidebarOpen, setSidebarOpen] = useState(false);
     const [showManualOrder, setShowManualOrder] = useState(false);
     
-    const [newLeadModal, setNewLeadModal] = useState<GiveawayEntry | null>(null);
+    // Auto-center map on shop location if available
+    const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
     
-    // Estados Mobile/Desktop Dashboard
-    const [showFleetPanel, setShowFleetPanel] = useState(false);
-    
-    // Controles do Mapa
-    const [flyToLocation, setFlyToLocation] = useState<[number, number] | null>(null);
-    const [zoomLevel, setZoomLevel] = useState(14);
-    
-    const prevGiveawayCount = useRef(0);
-    const isFirstLoad = useRef(true); 
-    const giveawayAudioRef = useRef<HTMLAudioElement | null>(null);
-
-    // Map Props - Garantir que nunca seja undefined
-    const storeLocation = useMemo(() => 
-        appConfig.location ? [appConfig.location.lat, appConfig.location.lng] as [number, number] : [-23.55052, -46.633308] as [number, number]
-    , [appConfig.location]);
-
-    const onlineDrivers = drivers.filter(d => d.status !== 'offline');
-    const pendingOrders = orders.filter(o => o.status === 'pending' || o.status === 'preparing');
-
-    // Deslocar o foco inicial para cima e direita (Nordeste) para priorizar a área da cidade
-    // E aumentar a área visível (bounds)
-    const mapBounds = useMemo(() => {
-        // Delta aumentado para 0.08 (~9km) para dar mais área
-        const delta = 0.08; 
-        
-        // Centro deslocado levemente para o Nordeste (lat +, lng +) para "subir para direita"
-        const centerOffsetLat = 0.015;
-        const centerOffsetLng = 0.015;
-
-        const centerLat = storeLocation[0] + centerOffsetLat;
-        const centerLng = storeLocation[1] + centerOffsetLng;
-
-        return new L.LatLngBounds(
-            [centerLat - delta, centerLng - delta],
-            [centerLat + delta, centerLng + delta]
-        );
-    }, [storeLocation]);
-
-    // Centro inicial deslocado para alinhar com a visualização desejada
-    const initialCenter = useMemo(() => 
-        [storeLocation[0] + 0.01, storeLocation[1] + 0.01] as [number, number]
-    , [storeLocation]);
-
     useEffect(() => {
-        if (isMobile) setSidebarOpen(false);
-        else setSidebarOpen(true);
-    }, [isMobile]);
-
-    useEffect(() => {
-        giveawayAudioRef.current = new Audio(GIVEAWAY_SOUND);
-        prevGiveawayCount.current = giveawayEntries.length;
-    }, []); 
-
-    useEffect(() => {
-        // Se não tem entradas ainda, não faz nada
-        if (giveawayEntries.length === 0) return;
-
-        // Se for o primeiro carregamento, apenas atualiza o contador e marca como não-primeiro
-        if (isFirstLoad.current) {
-            prevGiveawayCount.current = giveawayEntries.length;
-            isFirstLoad.current = false;
-            return;
+        if (props.appConfig?.location) {
+            setMapCenter([props.appConfig.location.lat, props.appConfig.location.lng]);
         }
+    }, [props.appConfig]);
 
-        if (giveawayEntries.length > prevGiveawayCount.current) {
-            if (giveawayAudioRef.current) {
-                const playPromise = giveawayAudioRef.current.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch(error => console.log("Áudio bloqueado:", error));
-                }
-            }
-            const sorted = [...giveawayEntries].sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-            const newest = sorted[0];
-            if (newest) setNewLeadModal(newest);
-        }
-        prevGiveawayCount.current = giveawayEntries.length;
-    }, [giveawayEntries]);
-
-    // GARANTIA: Fechar modais de Radar/Frota se a sidebar ou Novo Pedido abrir
-    useEffect(() => {
-        if (sidebarOpen || showManualOrder) {
-            setShowFleetPanel(false);
-        }
-    }, [sidebarOpen, showManualOrder]);
-
-    // Função auxiliar para mudar de tela e fechar modais no mobile
-    const handleSwitchView = (newView: string) => {
-        setView(newView);
-        if (isMobile) {
-            setSidebarOpen(false);
-            setShowFleetPanel(false);
-        }
+    const handleLogout = () => {
+        if (confirm("Sair do sistema?")) props.onLogout();
     };
 
-    // Handler para centralizar no estabelecimento
-    const handleCenterStore = () => {
-        setFlyToLocation([...storeLocation]);
-        setZoomLevel(16); // Zoom mais próximo
-    };
+    const renderContent = () => {
+        switch (currentView) {
+            case 'dashboard':
+                return (
+                   // Dashboard with Map and Stats
+                   // We need Leaflet Map here showing drivers and store
+                   <div className="relative w-full h-full overflow-hidden flex flex-col">
+                       {/* Map Container */}
+                       <div className="flex-1 relative z-0">
+                           <MapContainer 
+                               center={mapCenter || [-23.55052, -46.633308]} 
+                               zoom={13} 
+                               style={{ height: '100%', width: '100%' }}
+                               className="bg-slate-900"
+                           >
+                               <TileLayer 
+                                   url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
+                                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                               />
+                               <MapHandler targetLocation={mapCenter} zoomLevel={13} />
+                               
+                               {/* Shop Marker */}
+                               {props.appConfig?.location && (
+                                   <Marker position={[props.appConfig.location.lat, props.appConfig.location.lng]} icon={iconStore}>
+                                       <Popup className="custom-popup">
+                                           <div className="text-center">
+                                               <p className="font-bold">{props.appConfig.appName}</p>
+                                               <p className="text-xs">Sua Loja</p>
+                                           </div>
+                                       </Popup>
+                                   </Marker>
+                               )}
 
-    // Handler para resetar visão (Mapa)
-    const handleResetMap = () => {
-        setFlyToLocation([...initialCenter]);
-        setZoomLevel(14); // Zoom padrão
+                               {/* Drivers Markers */}
+                               {props.drivers.map(driver => (
+                                   (driver.lat && driver.lng) ? (
+                                       <Marker 
+                                           key={driver.id} 
+                                           position={[driver.lat, driver.lng]} 
+                                           icon={createDriverIcon(driver.avatar, driver.status, driver.lastUpdate)}
+                                       >
+                                           <Popup>
+                                               <div className="text-center">
+                                                   <p className="font-bold">{driver.name}</p>
+                                                   <p className="text-xs uppercase">{driver.status}</p>
+                                                    <p className="text-[10px] mt-1">Bateria: {driver.battery}%</p>
+                                               </div>
+                                           </Popup>
+                                       </Marker>
+                                   ) : null
+                               ))}
+                           </MapContainer>
+                           
+                           {/* Floating Stats */}
+                           <div className="absolute top-4 left-4 right-4 z-[400] grid grid-cols-2 md:grid-cols-4 gap-3 pointer-events-none">
+                               <div className="pointer-events-auto"><StatBox label="Pedidos Hoje" value={props.orders.filter(o => { const d = new Date(o.createdAt?.seconds*1000); const n = new Date(); return d.getDate()===n.getDate() && d.getMonth()===n.getMonth(); }).length} icon={<ShoppingBag size={18}/>} /></div>
+                               <div className="pointer-events-auto"><StatBox label="Online" value={props.drivers.filter(d => d.status !== 'offline').length} icon={<Bike size={18}/>} /></div>
+                               <div className="pointer-events-auto"><StatBox label="Faturamento" value={formatCurrency(props.orders.filter(o => o.status === 'completed' && new Date(o.createdAt.seconds*1000).toDateString() === new Date().toDateString()).reduce((acc, c) => acc + (c.value || 0), 0))} icon={<DollarSign size={18}/>} /></div>
+                               <div className="pointer-events-auto md:hidden"><button onClick={() => setSidebarOpen(true)} className="w-full h-full bg-slate-800 rounded-2xl flex items-center justify-center text-white shadow-lg"><MenuIcon/></button></div>
+                           </div>
+                       </div>
+                   </div>
+                );
+            case 'orders': return <DailyOrdersView orders={props.orders} drivers={props.drivers} onDeleteOrder={props.onDeleteOrder} setModal={props.setModal} onUpdateOrder={props.onUpdateOrder} appConfig={props.appConfig} />;
+            case 'menu': return <MenuManager products={props.products} onCreate={props.onCreateProduct} onUpdate={props.onUpdateProduct} onDelete={props.onDeleteProduct} />;
+            case 'clients': return <ClientsView clients={props.clients} orders={props.orders} giveawayEntries={props.giveawayEntries} setModal={props.setModal} setClientToEdit={props.setClientToEdit} appConfig={props.appConfig} />;
+            case 'kitchen': return <KitchenDisplay orders={props.orders} products={props.products} drivers={props.drivers} onUpdateStatus={props.onUpdateOrder} onAssignOrder={props.onAssignOrder} onDeleteOrder={props.onDeleteOrder} appConfig={props.appConfig} />;
+            case 'inventory': return <InventoryManager inventory={props.inventory} suppliers={props.suppliers} shoppingList={props.shoppingList} onCreateSupplier={props.onCreateSupplier} onUpdateSupplier={props.onUpdateSupplier} onDeleteSupplier={props.onDeleteSupplier} onCreateInventory={props.onCreateInventory} onUpdateInventory={props.onUpdateInventory} onDeleteInventory={props.onDeleteInventory} onAddShoppingItem={props.onAddShoppingItem} onToggleShoppingItem={props.onToggleShoppingItem} onDeleteShoppingItem={props.onDeleteShoppingItem} onClearShoppingList={props.onClearShoppingList} appConfig={props.appConfig} />;
+            case 'analytics': return <AnalyticsView orders={props.orders} products={props.products} />;
+            case 'reports': return <ItemReportView orders={props.orders} />;
+            default: return null;
+        }
     };
 
     return (
-        <div className="flex h-screen w-screen bg-slate-950 font-sans text-slate-200 overflow-hidden">
-             {showIntro && <IntroAnimation appName={appConfig.appName} onComplete={() => setShowIntro(false)} />}
-             
-             {/* Backdrop para mobile sidebar */}
-             {isMobile && sidebarOpen && (
-                 <div className="fixed inset-0 bg-black/80 z-40 backdrop-blur-sm transition-opacity" onClick={() => setSidebarOpen(false)}></div>
-             )}
-
-             {/* Sidebar com largura fixa e firmeza (shrink-0 e min-w-[16rem]) */}
-             <aside className={`${sidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full opacity-0'} transition-all duration-300 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 w-64 min-w-[16rem] absolute md:relative z-50 h-full shadow-2xl overflow-hidden`}>
-                 <div className="p-6 border-b border-slate-800 flex justify-between items-center shrink-0">
-                     <BrandLogo size="small" dark={false} config={appConfig} />
-                     {isMobile && <button onClick={() => setSidebarOpen(false)} className="text-slate-500"><X size={20}/></button>}
-                 </div>
-                 
-                 <div className="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar">
-                     
-                     <p className="text-[10px] uppercase font-bold text-slate-500 mb-2 mt-2 px-2">Operação</p>
-                     
-                     {/* DASHBOARD AGORA PADRÃO (CINZA) */}
-                     <SidebarBtn icon={<LayoutDashboard size={18}/>} label="Dashboard / Mapa" active={view==='map'} onClick={() => handleSwitchView('map')} />
-
-                     <SidebarBtn icon={<ChefHat size={18}/>} label="Cozinha (KDS)" active={view==='kds'} onClick={() => handleSwitchView('kds')} highlight/>
-                     <SidebarBtn icon={<CalendarCheck size={18}/>} label="Pedidos do Dia" active={view==='daily'} onClick={() => handleSwitchView('daily')} />
-                     
-                     {/* BOTÃO NOVO PEDIDO REPOSICIONADO E DESTACADO (ÚNICO LARANJA) */}
-                     <div className="my-4 px-1">
-                        <button onClick={() => { setShowManualOrder(true); if(isMobile) setSidebarOpen(false); }} className="w-full bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-black py-4 rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-orange-900/40 border border-orange-500/30 tracking-wide text-sm transform hover:-translate-y-0.5">
-                            <PlusCircle size={20}/> NOVO PEDIDO
-                        </button>
-                     </div>
-
-                     <p className="text-[10px] uppercase font-bold text-slate-500 mb-2 mt-4 px-2">Gestão</p>
-                     <SidebarBtn icon={<Utensils size={18}/>} label="Cardápio" active={view==='menu'} onClick={() => handleSwitchView('menu')} />
-                     {/* REMOVIDO BOTÃO SEPARADO DE MOTOBOYS - AGORA NO MAPA */}
-                     <SidebarBtn icon={<Users size={18}/>} label="Clientes & Leads" active={view==='clients'} onClick={() => handleSwitchView('clients')} />
-                     <SidebarBtn icon={<ShoppingBag size={18}/>} label="Estoque & Compras" active={view==='inventory'} onClick={() => handleSwitchView('inventory')} />
-
-                     <p className="text-[10px] uppercase font-bold text-slate-500 mb-2 mt-4 px-2">Financeiro</p>
-                     <SidebarBtn icon={<BarChart3 size={18}/>} label="Relatórios & Vendas" active={view==='analytics'} onClick={() => handleSwitchView('analytics')} />
-                     <SidebarBtn icon={<FileText size={18}/>} label="Saída de Itens" active={view==='reports'} onClick={() => handleSwitchView('reports')} />
-                 </div>
-
-                 <div className="p-4 border-t border-slate-800 bg-slate-950/50 shrink-0">
-                     <button onClick={() => { setModal('settings'); if(isMobile) setSidebarOpen(false); }} className="w-full flex items-center gap-3 p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors mb-2">
-                         <Settings size={18}/> <span className="text-sm font-bold">Configurações</span>
-                     </button>
-                     <button onClick={onLogout} className="w-full flex items-center gap-3 p-3 text-red-400 hover:bg-red-900/20 rounded-xl transition-colors">
-                         <LogOut size={18}/> <span className="text-sm font-bold">Sair</span>
-                     </button>
-                 </div>
-             </aside>
-
-             <main className="flex-1 flex flex-col relative overflow-hidden w-full h-full bg-slate-950 min-w-0">
-                <div className="md:hidden h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 shrink-0 z-40">
-                    <div className="flex items-center gap-3">
-                        <button onClick={() => setSidebarOpen(true)} className="p-2 text-slate-400"><MenuIcon size={24}/></button>
-                        <BrandLogo size="small" config={appConfig}/>
-                    </div>
-                    {/* Atalho frota mobile top right */}
-                    {view === 'map' && (
-                        <button onClick={() => setShowFleetPanel(!showFleetPanel)} className={`p-2 rounded-lg text-slate-300 border transition-all ${showFleetPanel ? 'bg-amber-500 text-slate-900 border-amber-600' : 'bg-slate-800 border-slate-700'}`}>
-                            <Bike size={20}/>
-                        </button>
-                    )}
+        <div className="flex h-screen w-screen bg-slate-950 text-white overflow-hidden">
+            {/* Sidebar Desktop */}
+            <div className="hidden md:flex w-64 flex-col bg-slate-900 border-r border-slate-800 z-50">
+                <div className="p-6">
+                   <BrandLogo config={props.appConfig} />
                 </div>
-
-                <div className="flex-1 overflow-hidden relative w-full h-full">
+                <div className="flex-1 overflow-y-auto px-4 space-y-2 custom-scrollbar">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider px-2 mt-4 mb-2">Principal</p>
+                    <SidebarBtn icon={<LayoutDashboard size={20}/>} label="Visão Geral" active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
+                    <SidebarBtn icon={<ShoppingBag size={20}/>} label="Pedidos" active={currentView === 'orders'} onClick={() => setCurrentView('orders')} />
+                    <SidebarBtn icon={<Utensils size={20}/>} label="Cardápio" active={currentView === 'menu'} onClick={() => setCurrentView('menu')} />
                     
-                    {view === 'map' && (
-                        <div className="relative w-full h-full">
-                            <MapContainer 
-                                center={initialCenter} 
-                                zoom={14} 
-                                minZoom={12} 
-                                maxBounds={mapBounds}
-                                maxBoundsViscosity={0.7} 
-                                style={{ height: '100%', width: '100%', zIndex: 0 }} 
-                                zoomControl={false}
-                                key={`${storeLocation[0]}-${storeLocation[1]}`} // Chave para forçar remount se a loja mudar, ajudando na inicialização
-                            >
-                                <TileLayer
-                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                                />
-                                <MapHandler targetLocation={flyToLocation} zoomLevel={zoomLevel} />
-                                <Marker position={storeLocation} icon={iconStore}>
-                                    <Popup><div className="text-center font-bold">{appConfig.appName || "Loja"}</div></Popup>
-                                </Marker>
-                                {onlineDrivers.map(d => (
-                                    <Marker key={d.id} position={[d.lat || 0, d.lng || 0]} icon={createDriverIcon(d.avatar, d.status, d.lastUpdate)}>
-                                        <Popup>
-                                            <div className="p-2 text-center">
-                                                <img src={d.avatar} className="w-8 h-8 rounded-full mx-auto mb-1"/>
-                                                <strong className="block">{d.name}</strong>
-                                                <div className="text-xs text-gray-500">{d.vehicle} • {d.plate}</div>
-                                                <div className="mt-1 flex items-center justify-center gap-1 text-[10px] bg-slate-100 rounded px-1">
-                                                    <Battery size={10} className={d.battery < 20 ? "text-red-500" : "text-green-500"}/> {d.battery}%
-                                                </div>
-                                            </div>
-                                        </Popup>
-                                    </Marker>
-                                ))}
-                            </MapContainer>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider px-2 mt-6 mb-2">Operacional</p>
+                    <SidebarBtn icon={<ChefHat size={20}/>} label="Cozinha (KDS)" active={currentView === 'kitchen'} onClick={() => setCurrentView('kitchen')} />
+                    <SidebarBtn icon={<Users size={20}/>} label="Clientes" active={currentView === 'clients'} onClick={() => setCurrentView('clients')} />
+                    <SidebarBtn icon={<Bike size={20}/>} label="Motoboys" active={false} onClick={() => props.setModal('driver')} />
+                    <SidebarBtn icon={<Store size={20}/>} label="Estoque & Compras" active={currentView === 'inventory'} onClick={() => setCurrentView('inventory')} />
 
-                            {/* MOBILE FLEET MODAL (BOTTOM SHEET) - AGORA GESTÃO COMPLETA */}
-                            {isMobile && showFleetPanel && (
-                                <div className="fixed inset-0 z-[1200] bg-black/80 backdrop-blur-sm flex items-end justify-center animate-in fade-in" onClick={() => setShowFleetPanel(false)}>
-                                    <div className="bg-slate-900 w-full h-[70vh] rounded-t-3xl border-t border-slate-800 shadow-2xl flex flex-col animate-in slide-in-from-bottom-full duration-300 pointer-events-auto" onClick={e => e.stopPropagation()}>
-                                        <FleetManagementPanel 
-                                            drivers={drivers} 
-                                            orders={orders}
-                                            onClose={() => setShowFleetPanel(false)} 
-                                            setDriverToEdit={setDriverToEdit} 
-                                            setModal={setModal} 
-                                            onDeleteDriver={onDeleteDriver}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* PAINEL DIREITO FLUTUANTE: FROTA & GESTÃO (DESKTOP) */}
-                            {/* Controlado pelo botão da moto no Desktop também */}
-                            <div className={`absolute top-4 right-4 z-[400] w-80 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[70vh] flex flex-col transition-all duration-300 pointer-events-auto ${!isMobile && showFleetPanel ? 'translate-x-0 opacity-100' : 'translate-x-[120%] opacity-0 pointer-events-none hidden md:flex'}`}>
-                                <FleetManagementPanel 
-                                    drivers={drivers} 
-                                    orders={orders}
-                                    onClose={() => setShowFleetPanel(false)} 
-                                    setDriverToEdit={setDriverToEdit} 
-                                    setModal={setModal} 
-                                    onDeleteDriver={onDeleteDriver}
-                                />
-                            </div>
-
-                            {/* CONTROLES INFERIORES */}
-                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[400] flex gap-2 pointer-events-auto">
-                                <button onClick={handleCenterStore} className="bg-slate-900/90 text-white p-3 rounded-xl border border-slate-700 shadow-lg hover:bg-slate-800 transition-colors" title="Centralizar Loja"><Navigation size={20}/></button>
-                                <button onClick={handleResetMap} className="bg-slate-900/90 text-white p-3 rounded-xl border border-slate-700 shadow-lg hover:bg-slate-800 transition-colors flex items-center gap-2"><MapIcon size={20}/> <span className="text-xs font-bold hidden md:inline">Resetar Mapa</span></button>
-                                {/* BOTÃO PLUS DE PEDIDO REMOVIDO PARA DEIXAR APENAS MAPA/MONITORAMENTO */}
-                                <button onClick={() => setShowFleetPanel(!showFleetPanel)} className={`bg-slate-900/90 text-white p-3 rounded-xl border border-slate-700 shadow-lg hover:bg-slate-800 transition-colors ${showFleetPanel ? 'text-amber-500 border-amber-500' : ''}`}><Bike size={20}/></button>
-                            </div>
-                        </div>
-                    )}
-
-                    {view === 'menu' && <MenuManager products={products} onCreate={props.onCreateProduct} onUpdate={props.onUpdateProduct} onDelete={props.onDeleteProduct} />}
-                    {view === 'clients' && (
-                        <ClientsView 
-                            clients={clients} 
-                            orders={orders} 
-                            setModal={setModal} 
-                            setClientToEdit={setClientToEdit} 
-                            giveawayEntries={giveawayEntries}
-                            appConfig={appConfig} 
-                        />
-                    )}
-                    {view === 'kds' && <KitchenDisplay orders={orders} products={products} drivers={drivers} onUpdateStatus={onUpdateOrder} onAssignOrder={onAssignOrder} onDeleteOrder={onDeleteOrder} appConfig={appConfig} />}
-                    {view === 'inventory' && (
-                        <InventoryManager 
-                            inventory={inventory} suppliers={suppliers} shoppingList={shoppingList}
-                            onCreateSupplier={props.onCreateSupplier} onUpdateSupplier={props.onUpdateSupplier} onDeleteSupplier={props.onDeleteSupplier}
-                            onCreateInventory={props.onCreateInventory} onUpdateInventory={props.onUpdateInventory} onDeleteInventory={props.onDeleteInventory}
-                            onAddShoppingItem={props.onAddShoppingItem} onToggleShoppingItem={props.onToggleShoppingItem} onDeleteShoppingItem={props.onDeleteShoppingItem} onClearShoppingList={props.onClearShoppingList}
-                            appConfig={appConfig}
-                        />
-                    )}
-                    {view === 'daily' && <DailyOrdersView orders={orders} drivers={drivers} onDeleteOrder={onDeleteOrder} setModal={setModal} onUpdateOrder={onUpdateOrder} appConfig={appConfig} />}
-                    {view === 'analytics' && <AnalyticsView orders={orders} products={products} />}
-                    {view === 'reports' && <ItemReportView orders={orders} />}
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider px-2 mt-6 mb-2">Gestão</p>
+                    <SidebarBtn icon={<BarChart3 size={20}/>} label="Analytics" active={currentView === 'analytics'} onClick={() => setCurrentView('analytics')} />
+                    <SidebarBtn icon={<FileText size={20}/>} label="Relatório de Itens" active={currentView === 'reports'} onClick={() => setCurrentView('reports')} />
+                    <SidebarBtn icon={<Settings size={20}/>} label="Configurações" active={false} onClick={() => props.setModal('settings')} />
                 </div>
-             </main>
+                <div className="p-4 border-t border-slate-800">
+                     <button onClick={() => setShowManualOrder(true)} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm shadow-lg mb-3 flex items-center justify-center gap-2 transition-transform active:scale-95">
+                         <PlusCircle size={18}/> Novo Pedido
+                     </button>
+                     <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-colors text-sm font-bold">
+                         <LogOut size={18}/> Sair do Sistema
+                     </button>
+                </div>
+            </div>
 
-             {/* MODAL DE NOVO PEDIDO MANUAL (PDV) */}
-             {showManualOrder && (
-                 <ManualOrderView 
-                     products={products} 
-                     clients={clients} 
-                     onCreateOrder={props.onCreateOrder} 
-                     onClose={() => setShowManualOrder(false)}
-                     appConfig={appConfig}
-                 />
-             )}
+            {/* Mobile Menu Overlay */}
+            {sidebarOpen && (
+                <div className="fixed inset-0 z-[1000] bg-black/80 backdrop-blur-sm md:hidden" onClick={() => setSidebarOpen(false)}>
+                    <div className="w-3/4 h-full bg-slate-900 p-6 flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-8">
+                            <BrandLogo size="small" config={props.appConfig} />
+                            <button onClick={() => setSidebarOpen(false)} className="text-slate-400"><X size={24}/></button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto space-y-2">
+                            <SidebarBtn icon={<LayoutDashboard size={20}/>} label="Visão Geral" active={currentView === 'dashboard'} onClick={() => { setCurrentView('dashboard'); setSidebarOpen(false); }} />
+                            <SidebarBtn icon={<ShoppingBag size={20}/>} label="Pedidos" active={currentView === 'orders'} onClick={() => { setCurrentView('orders'); setSidebarOpen(false); }} />
+                            <SidebarBtn icon={<ChefHat size={20}/>} label="Cozinha (KDS)" active={currentView === 'kitchen'} onClick={() => { setCurrentView('kitchen'); setSidebarOpen(false); }} />
+                            <SidebarBtn icon={<Utensils size={20}/>} label="Cardápio" active={currentView === 'menu'} onClick={() => { setCurrentView('menu'); setSidebarOpen(false); }} />
+                            <SidebarBtn icon={<Users size={20}/>} label="Clientes" active={currentView === 'clients'} onClick={() => { setCurrentView('clients'); setSidebarOpen(false); }} />
+                            <SidebarBtn icon={<Bike size={20}/>} label="Motoboys" active={false} onClick={() => { props.setModal('driver'); setSidebarOpen(false); }} />
+                            <SidebarBtn icon={<Store size={20}/>} label="Estoque" active={currentView === 'inventory'} onClick={() => { setCurrentView('inventory'); setSidebarOpen(false); }} />
+                            <SidebarBtn icon={<BarChart3 size={20}/>} label="Relatórios" active={currentView === 'analytics'} onClick={() => { setCurrentView('analytics'); setSidebarOpen(false); }} />
+                            <SidebarBtn icon={<Settings size={20}/>} label="Configurações" active={false} onClick={() => { props.setModal('settings'); setSidebarOpen(false); }} />
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
+                             <button onClick={() => { setShowManualOrder(true); setSidebarOpen(false); }} className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg flex items-center justify-center gap-2">
+                                 <PlusCircle size={18}/> Novo Pedido
+                             </button>
+                             <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 text-slate-400 py-2">
+                                 <LogOut size={18}/> Sair
+                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
-             {newLeadModal && <NewLeadNotificationModal lead={newLeadModal} onClose={() => setNewLeadModal(null)} appConfig={appConfig} />}
+            {/* Main Content */}
+            <div className="flex-1 relative overflow-hidden flex flex-col">
+                {renderContent()}
+            </div>
+
+            {/* Modals */}
+            {showManualOrder && (
+                <ManualOrderView 
+                    products={props.products} 
+                    clients={props.clients} 
+                    onCreateOrder={props.onCreateOrder} 
+                    onClose={() => setShowManualOrder(false)} 
+                    appConfig={props.appConfig} 
+                />
+            )}
+            
+            <IntroAnimation appName={props.appConfig?.appName} onComplete={() => {}} />
         </div>
     );
 }

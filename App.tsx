@@ -1,3 +1,4 @@
+// ... (imports remain the same)
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { collection, addDoc, updateDoc, doc, onSnapshot, serverTimestamp, deleteDoc, setDoc, writeBatch, Timestamp, deleteField, getDoc } from "firebase/firestore";
@@ -63,10 +64,10 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]); // NOVO
-  const [inventory, setInventory] = useState<InventoryItem[]>([]); // NOVO
-  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]); // NOVO LISTA DE COMPRAS
-  const [giveawayEntries, setGiveawayEntries] = useState<GiveawayEntry[]>([]); // NOVO SORTEIO
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]); 
+  const [inventory, setInventory] = useState<InventoryItem[]>([]); 
+  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]); 
+  const [giveawayEntries, setGiveawayEntries] = useState<GiveawayEntry[]>([]); 
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [modal, setModal] = useState<any>(null);
@@ -74,7 +75,6 @@ export default function App() {
   const [driverToEdit, setDriverToEdit] = useState<Driver | null>(null);
   const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
 
-  // GLOBAL MODAL STATES (Para substituir Alerts)
   const [alertInfo, setAlertInfo] = useState<{isOpen: boolean, title: string, message: string, type: 'info'|'error'}|null>(null);
   const [confirmInfo, setConfirmInfo] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void, type?: 'info'|'danger'}|null>(null);
 
@@ -104,7 +104,6 @@ export default function App() {
         onSnapshot(doc(db, 'config', 'general'), (d) => {
             if (d.exists()) setAppConfig(d.data() as AppConfig);
             else {
-                // Se não existe no banco, cria com dados padrão
                 setDoc(doc(db, 'config', 'general'), { appName: "Jhans Burgers", appLogoUrl: "" });
             }
         }),
@@ -114,16 +113,15 @@ export default function App() {
         onSnapshot(collection(db, 'expenses'), s => setExpenses(s.docs.map(d => ({id: d.id, ...d.data()} as Expense)))),
         onSnapshot(collection(db, 'products'), s => setProducts(s.docs.map(d => ({id: d.id, ...d.data()} as Product)))),
         onSnapshot(collection(db, 'settlements'), s => setSettlements(s.docs.map(d => ({id: d.id, ...d.data()} as Settlement)))),
-        onSnapshot(collection(db, 'suppliers'), s => setSuppliers(s.docs.map(d => ({id: d.id, ...d.data()} as Supplier)))), // NOVO
-        onSnapshot(collection(db, 'inventory'), s => setInventory(s.docs.map(d => ({id: d.id, ...d.data()} as InventoryItem)))), // NOVO
-        onSnapshot(collection(db, 'shoppingList'), s => setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()} as ShoppingItem)))), // NOVO
-        onSnapshot(collection(db, 'giveaway_entries'), s => setGiveawayEntries(s.docs.map(d => ({id: d.id, ...d.data()} as GiveawayEntry)))), // NOVO SORTEIO
+        onSnapshot(collection(db, 'suppliers'), s => setSuppliers(s.docs.map(d => ({id: d.id, ...d.data()} as Supplier)))), 
+        onSnapshot(collection(db, 'inventory'), s => setInventory(s.docs.map(d => ({id: d.id, ...d.data()} as InventoryItem)))), 
+        onSnapshot(collection(db, 'shoppingList'), s => setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()} as ShoppingItem)))), 
+        onSnapshot(collection(db, 'giveaway_entries'), s => setGiveawayEntries(s.docs.map(d => ({id: d.id, ...d.data()} as GiveawayEntry)))), 
         onSnapshot(collection(db, 'clients'), s => { setClients(s.docs.map(d => ({id: d.id, ...d.data()} as Client))); setLoading(false); })
     ];
     return () => unsubs.forEach(u => u());
   }, [user]);
 
-  // HandleAction genérico agora retorna o resultado da promessa
   const handleAction = async (action: () => Promise<any>) => { 
       try { 
           return await action(); 
@@ -197,7 +195,6 @@ export default function App() {
   };
   const updateClientData = (id: string, data: any) => handleAction(async () => { await setDoc(doc(db, 'clients', id), data, { merge: true }); });
   
-  // HANDLERS NOVOS (INVENTÁRIO & COMPRAS & SORTEIO)
   const createSupplier = (data: any) => handleAction(async () => { await addDoc(collection(db, 'suppliers'), data); });
   const updateSupplier = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'suppliers', id), data); });
   const deleteSupplier = (id: string) => {
@@ -221,9 +218,12 @@ export default function App() {
   };
 
   const createGiveawayEntry = (data: any) => handleAction(async () => {
-      const cleanPhone = normalizePhone(data.phone);
-      // Usar telefone como ID para evitar duplicatas simples
-      await setDoc(doc(db, 'giveaway_entries', cleanPhone), { ...data, createdAt: serverTimestamp() });
+      // FIX: Use addDoc to allow multiple entries, avoiding overwrite if same phone is used for testing or different people
+      await addDoc(collection(db, 'giveaway_entries'), { 
+          ...data, 
+          phone: normalizePhone(data.phone), // Keep normalized phone for data consistency
+          createdAt: serverTimestamp() 
+      });
   });
 
   const handleCloseCycle = (data: any) => handleAction(async () => {
@@ -301,6 +301,7 @@ export default function App() {
           setDriverToEdit={setDriverToEdit} setClientToEdit={setClientToEdit}
           {...{modal}} 
       />
+      {/* ... (rest of modals remain same) */}
       {modal === 'settings' && <SettingsModal config={appConfig} onSave={saveSettings} onClose={() => setModal(null)} />}
       {modal === 'driver' && <NewDriverModal onClose={()=>{setModal(null); setDriverToEdit(null);}} onSave={driverToEdit ? (data: any) => updateDriver(driverToEdit.id, data) : createDriver} initialData={driverToEdit} />}
       {modal === 'vale' && driverToEdit && <NewValeModal driver={driverToEdit} onClose={() => { setModal(null); setDriverToEdit(null); }} onSave={createVale} />}
