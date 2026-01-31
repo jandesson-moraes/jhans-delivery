@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package, Zap, ZapOff, Edit, Trash2, Send, MinusCircle, AlertCircle, TrendingUp, Radio, LocateFixed, ShieldCheck, Lock } from 'lucide-react';
+import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package, Zap, ZapOff, Edit, Trash2, Send, MinusCircle, AlertCircle, TrendingUp, Radio, LocateFixed, ShieldCheck, Lock, Signal, RefreshCw } from 'lucide-react';
 import { Driver, Order, Vale } from '../types';
 import { isToday, formatTime, formatCurrency, formatDate, sendDeliveryNotification, formatOrderId } from '../utils';
 import { Footer } from './Shared';
@@ -22,6 +22,26 @@ interface DriverAppProps {
 
 const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; 
 
+// Configuração de Rastreamento
+const GPS_CONFIG = {
+    MIN_DISTANCE_METERS: 5, // Mínimo de metros para enviar atualização
+    MIN_TIME_MS: 4000,      // Mínimo de tempo (4s) entre envios
+    MAX_AGE_MS: 5000,       // Idade máxima do cache do GPS
+    TIMEOUT_MS: 10000       // Tempo limite para obter posição
+};
+
+// Função auxiliar para calcular distância (Haversine simples)
+const getDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+    const R = 6371e3; // metros
+    const φ1 = lat1 * Math.PI/180;
+    const φ2 = lat2 * Math.PI/180;
+    const Δφ = (lat2-lat1) * Math.PI/180;
+    const Δλ = (lng2-lng1) * Math.PI/180;
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+};
+
 export default function DriverInterface({ driver, orders, vales = [], onToggleStatus, onAcceptOrder, onCompleteOrder, onUpdateOrder, onDeleteOrder, onLogout, onUpdateDriver }: DriverAppProps) {
   const [activeTab, setActiveTab] = useState<'home' | 'history' | 'wallet'>('home');
   const [historyFilter, setHistoryFilter] = useState<'today' | 'all'>('today');
@@ -31,76 +51,112 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
   // ESTADOS DO RASTREAMENTO
   const [gpsActive, setGpsActive] = useState(false);
   const [gpsError, setGpsError] = useState('');
-  const [wakeLockActive, setWakeLockActive] = useState(false);
+  const [lastSentTime, setLastSentTime] = useState<Date | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  
   const wakeLockRef = useRef<any>(null);
   const watchIdRef = useRef<number | null>(null);
+  const lastPositionRef = useRef<{lat: number, lng: number, time: number} | null>(null);
 
   // Controle de áudio com Set para não repetir
   const notifiedAssignedIds = useRef<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // --- FUNÇÕES DE RASTREAMENTO (WAKE LOCK + GPS) ---
+  // --- FUNÇÕES DE RASTREAMENTO ROBUSTAS ---
 
-  const requestWakeLock = async () => {
+  const keepScreenOn = async () => {
       if ('wakeLock' in navigator) {
           try {
               const lock = await (navigator as any).wakeLock.request('screen');
               wakeLockRef.current = lock;
-              setWakeLockActive(true);
-              
-              lock.addEventListener('release', () => {
-                  setWakeLockActive(false);
-                  console.log('Wake Lock released');
-              });
-              console.log('Wake Lock active');
+              console.log('⚡ Tela mantida ligada (WakeLock Ativo)');
           } catch (err: any) {
-              console.error(`${err.name}, ${err.message}`);
+              console.warn('Falha no WakeLock:', err);
           }
+      }
+  };
+
+  const processPosition = async (position: GeolocationPosition) => {
+      const { latitude, longitude, speed, heading } = position.coords;
+      const now = Date.now();
+      
+      // Lógica de Throttle (Engarrafamento de dados)
+      // Só envia se:
+      // 1. Não tiver enviado nada ainda
+      // 2. Passou X segundos desde o ultimo envio
+      // 3. Moveu X metros desde a ultima posição enviada
+      
+      let shouldSend = false;
+      
+      if (!lastPositionRef.current) {
+          shouldSend = true;
+      } else {
+          const timeDiff = now - lastPositionRef.current.time;
+          const distDiff = getDistance(lastPositionRef.current.lat, lastPositionRef.current.lng, latitude, longitude);
+          
+          if (timeDiff >= GPS_CONFIG.MIN_TIME_MS || distDiff >= GPS_CONFIG.MIN_DISTANCE_METERS) {
+              shouldSend = true;
+          }
+      }
+
+      if (shouldSend) {
+          setIsSending(true);
+          try {
+              // Atualiza localmente para referência futura
+              lastPositionRef.current = { lat: latitude, lng: longitude, time: now };
+              
+              // Envia ao Banco
+              await onUpdateDriver(driver.id, {
+                  lat: latitude,
+                  lng: longitude,
+                  heading: heading || 0,
+                  speed: speed || 0,
+                  lastUpdate: serverTimestamp() // Importante: Server timestamp para o admin saber a latência real
+              });
+              
+              setLastSentTime(new Date());
+              setGpsError(''); // Limpa erros se teve sucesso
+              setGpsActive(true);
+          } catch (error) {
+              console.error("Erro ao enviar GPS:", error);
+          } finally {
+              setIsSending(false);
+          }
+      } else {
+          // GPS está ativo, só não precisou enviar ainda
+          setGpsActive(true);
       }
   };
 
   const startTracking = () => {
       setGpsError('');
       
-      // 1. Tentar Wake Lock (Manter tela ligada)
-      requestWakeLock();
+      // 1. Wake Lock
+      keepScreenOn();
 
-      // 2. Iniciar GPS Watcher
+      // 2. Iniciar Watcher do GPS
       if ('geolocation' in navigator) {
+          // Limpa anterior se existir
+          if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+
           watchIdRef.current = navigator.geolocation.watchPosition(
-              (position) => {
-                  setGpsActive(true);
-                  const { latitude, longitude, speed, heading } = position.coords;
-                  
-                  // Atualiza no Firestore
-                  // Nota: Adicionamos um throttle implícito pelo GPS do navegador, mas aqui enviamos sempre que muda.
-                  // Em produção real, poderíamos verificar se dist > 10m para economizar writes.
-                  onUpdateDriver(driver.id, {
-                      lat: latitude,
-                      lng: longitude,
-                      heading: heading || 0, // Direção
-                      speed: speed || 0, // Velocidade
-                      battery: 100, // Placeholder ou usar API de bateria se disponível
-                      lastUpdate: serverTimestamp()
-                  });
-              },
+              processPosition,
               (error) => {
-                  console.error("Erro GPS:", error);
+                  console.error("Erro GPS (Watch):", error);
                   setGpsActive(false);
-                  let msg = "Erro ao obter localização.";
-                  if (error.code === 1) msg = "Permissão de GPS negada. Ative nas configurações.";
-                  if (error.code === 2) msg = "Sinal de GPS indisponível.";
-                  if (error.code === 3) msg = "Tempo limite do GPS esgotado.";
-                  setGpsError(msg);
+                  if (error.code === 1) setGpsError("Permissão de GPS negada. Vá em Configurações > Permissões e ative.");
+                  else if (error.code === 2) setGpsError("Sinal de GPS perdido. Vá para céu aberto.");
+                  else if (error.code === 3) setGpsError("GPS demorou a responder.");
+                  else setGpsError("Erro desconhecido no GPS.");
               },
               {
-                  enableHighAccuracy: true, // CRÍTICO: Usa GPS do hardware
-                  timeout: 15000,
-                  maximumAge: 0
+                  enableHighAccuracy: true, // CRÍTICO: Usa chip GPS
+                  timeout: GPS_CONFIG.TIMEOUT_MS,
+                  maximumAge: 0 // Não aceita cache
               }
           );
       } else {
-          setGpsError("Seu dispositivo não suporta GPS.");
+          setGpsError("Seu celular não suporta GPS moderno.");
       }
   };
 
@@ -110,49 +166,43 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
           watchIdRef.current = null;
       }
       if (wakeLockRef.current) {
-          wakeLockRef.current.release().then(() => {
-              wakeLockRef.current = null;
-          });
+          wakeLockRef.current.release().then(() => wakeLockRef.current = null);
       }
       setGpsActive(false);
-      setWakeLockActive(false);
   };
 
-  // Monitorar visibilidade da página para reagendar Wake Lock se cair
+  // Re-ativar WakeLock se a aba voltar a ser visível
   useEffect(() => {
       const handleVisibilityChange = () => {
-          if (document.visibilityState === 'visible' && driver.status !== 'offline' && !wakeLockActive) {
-              requestWakeLock();
+          if (document.visibilityState === 'visible' && driver.status !== 'offline') {
+              keepScreenOn();
           }
       };
       document.addEventListener('visibilitychange', handleVisibilityChange);
       return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [wakeLockActive, driver.status]);
+  }, [driver.status]);
 
-  // Limpeza ao desmontar
-  useEffect(() => {
-      return () => stopTracking();
-  }, []);
-
-  // Se o motorista ficar offline pelo banco, para o rastreamento local
+  // Se o motorista ficar offline, para tudo
   useEffect(() => {
       if (driver.status === 'offline') {
           stopTracking();
+      } else {
+          // Se ficou online, inicia
+          startTracking();
       }
+      return () => stopTracking(); // Cleanup
   }, [driver.status]);
 
-
+  // --- ÁUDIO DE NOTIFICAÇÃO ---
   useEffect(() => {
     audioRef.current = new Audio(NOTIFICATION_SOUND);
+    // Popula iniciais para não tocar som de pedidos velhos
     orders.forEach(o => {
         if(o.driverId === driver.id && o.status === 'assigned') {
             notifiedAssignedIds.current.add(o.id);
         }
     });
   }, []);
-
-  // Data do último fechamento para filtrar o ciclo atual
-  const lastSettlementTime = driver.lastSettlementAt?.seconds || 0;
 
   const todaysOrders = useMemo(() => {
      return orders.filter((o: Order) => 
@@ -165,7 +215,6 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
      });
   }, [orders, driver.id]);
   
-  // Efeito para tocar som quando houver novos pedidos ATRIBUÍDOS ('assigned')
   useEffect(() => {
       let hasNew = false;
       orders.forEach(o => {
@@ -176,35 +225,28 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
       });
       if (hasNew) {
           if(audioRef.current) {
-              const playPromise = audioRef.current.play();
-              if (playPromise !== undefined) {
-                  playPromise.catch(error => { console.log("Áudio bloqueado:", error); });
-              }
+              audioRef.current.play().catch(e => console.log("Audio blocked", e));
           }
-          if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+          if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
       }
   }, [orders, driver.id]);
 
-  // Histórico completo para a aba de Histórico
   const allDeliveries = useMemo(() => {
      return orders.filter((o: Order) => o.status === 'completed' && o.driverId === driver.id)
             .sort((a: Order, b: Order) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
   }, [orders, driver.id]);
 
-  // --- LOGICA FINANCEIRA (Extrato) ATUALIZADA ---
   const financialData = useMemo(() => {
+      const lastSettlementTime = driver.lastSettlementAt?.seconds || 0;
       const currentDeliveries = orders.filter((o: Order) => o.status === 'completed' && o.driverId === driver.id && (o.completedAt?.seconds || 0) > lastSettlementTime);
       const currentVales = vales.filter((v: Vale) => v.driverId === driver.id && (v.createdAt?.seconds || 0) > lastSettlementTime);
       
       let totalDeliveriesValue = 0;
-
-      // Cálculo Dinâmico baseado no Modelo do Motoboy
       if (driver.paymentModel === 'percentage') {
           totalDeliveriesValue = currentDeliveries.reduce((acc, o) => acc + (o.value * ((driver.paymentRate || 0) / 100)), 0);
       } else if (driver.paymentModel === 'salary') {
-          totalDeliveriesValue = 0; // Salário é fixo, não soma por entrega aqui
+          totalDeliveriesValue = 0;
       } else {
-          // Padrão: Fixo por entrega (R$ 5.00 default se não definido)
           const rate = driver.paymentRate !== undefined ? driver.paymentRate : 5.00;
           totalDeliveriesValue = currentDeliveries.length * rate;
       }
@@ -212,7 +254,7 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
       const totalValesValue = currentVales.reduce((acc, v) => acc + (Number(v.amount) || 0), 0);
       const netValue = totalDeliveriesValue - totalValesValue;
       return { deliveriesCount: currentDeliveries.length, deliveriesValue: totalDeliveriesValue, valesCount: currentVales.length, valesValue: totalValesValue, netValue, valesList: currentVales };
-  }, [orders, vales, driver.id, lastSettlementTime, driver.paymentModel, driver.paymentRate]);
+  }, [orders, vales, driver.id, driver.paymentModel, driver.paymentRate, driver.lastSettlementAt]);
 
   const displayedHistory = useMemo(() => {
       if (historyFilter === 'today') { return allDeliveries.filter((o: Order) => isToday(o.completedAt)); }
@@ -235,79 +277,76 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
       return { count, total };
   }, [displayedHistory, driver.paymentModel, driver.paymentRate]);
 
-  // --- TELA DE BLOQUEIO DE GPS (CHECK-IN) ---
-  // Se o motorista estiver ONLINE no banco, mas o GPS local não estiver ativo, bloqueia tudo.
-  if (driver.status !== 'offline' && !gpsActive) {
+  // --- TELA DE BLOQUEIO / INICIAL (CHECK-IN) ---
+  if (driver.status !== 'offline' && !gpsActive && !gpsError) {
+      // Estado intermediário: Tentando conectar GPS
       return (
           <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
-              <div className="w-32 h-32 bg-slate-900 rounded-full flex items-center justify-center mb-8 relative border-4 border-slate-800">
-                  <div className="absolute inset-0 rounded-full border-4 border-emerald-500/30 animate-ping"></div>
-                  <LocateFixed size={48} className="text-emerald-500 relative z-10"/>
-              </div>
-              
-              <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-wide">Rastreamento Obrigatório</h2>
-              <p className="text-slate-400 mb-8 max-w-xs leading-relaxed">
-                  Para iniciar as entregas, precisamos ativar seu GPS e manter a tela ativa para garantir a segurança.
-              </p>
-
-              {gpsError && (
-                  <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-xl mb-6 flex items-center gap-3 text-left">
-                      <AlertCircle className="text-red-500 shrink-0" size={24}/>
-                      <p className="text-red-200 text-xs font-bold">{gpsError}</p>
-                  </div>
-              )}
-
-              <button 
-                  onClick={startTracking}
-                  className="w-full max-w-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-900/40 active:scale-95 transition-all flex items-center justify-center gap-2 text-lg uppercase tracking-wider"
-              >
-                  <Radio size={24} className="animate-pulse"/> Ativar GPS e Iniciar
-              </button>
-              
-              <button 
-                  onClick={() => { onToggleStatus(); stopTracking(); }}
-                  className="mt-6 text-slate-500 font-bold text-sm flex items-center gap-2 hover:text-white transition-colors"
-              >
-                  <LogOut size={16}/> Voltar / Ficar Offline
-              </button>
+              <RefreshCw className="animate-spin text-emerald-500 mb-4" size={48}/>
+              <h2 className="text-xl font-bold text-white">Conectando ao Satélite...</h2>
+              <p className="text-slate-400 mt-2 text-sm">Aguarde, estamos buscando sua localização exata.</p>
+              <button onClick={() => { onToggleStatus(); stopTracking(); }} className="mt-8 text-slate-500 text-xs font-bold border border-slate-800 px-4 py-2 rounded-lg">Cancelar</button>
           </div>
       );
   }
 
+  if (driver.status !== 'offline' && gpsError) {
+      // Estado de Erro no GPS
+      return (
+          <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
+              <div className="w-24 h-24 bg-red-900/20 rounded-full flex items-center justify-center mb-6 border-2 border-red-500 animate-pulse">
+                  <AlertCircle size={40} className="text-red-500"/>
+              </div>
+              <h2 className="text-2xl font-black text-white mb-2 uppercase">Sem Sinal de GPS</h2>
+              <p className="text-red-300 font-bold mb-6 max-w-xs">{gpsError}</p>
+              <button onClick={startTracking} className="w-full max-w-sm bg-white text-slate-900 font-black py-4 rounded-xl shadow-lg active:scale-95 transition-all mb-4">TENTAR NOVAMENTE</button>
+              <button onClick={() => { onToggleStatus(); stopTracking(); }} className="text-slate-500 font-bold text-sm">Sair / Ficar Offline</button>
+          </div>
+      );
+  }
+
+  // --- TELA PRINCIPAL DO DRIVER ---
   return (
     <div className="bg-slate-950 min-h-screen w-screen flex flex-col">
-      <div className="bg-slate-900 p-4 md:p-5 pb-8 rounded-b-[2rem] shadow-xl relative z-10 border-b border-slate-800 shrink-0">
+      {/* HEADER COCKPIT */}
+      <div className="bg-slate-900 p-4 md:p-5 pb-6 rounded-b-[2rem] shadow-xl relative z-10 border-b border-slate-800 shrink-0">
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-3">
-            <img src={driver.avatar} className="w-12 h-12 md:w-14 md:h-14 rounded-full border-2 border-slate-700 bg-slate-800 object-cover" alt="Driver" />
+            <div className="relative">
+                <img src={driver.avatar} className="w-14 h-14 rounded-full border-2 border-slate-700 bg-slate-800 object-cover" alt="Driver" />
+                {driver.status !== 'offline' && <div className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-slate-900 rounded-full animate-pulse"></div>}
+            </div>
             <div>
-                <h2 className="font-bold text-base md:text-lg text-white">{driver.name}</h2>
-                <div className="flex items-center gap-2">
-                    <span className="text-slate-400 text-[10px] md:text-xs font-medium bg-slate-950 px-2 py-0.5 rounded-full">{driver.plate}</span>
+                <h2 className="font-bold text-lg text-white leading-none mb-1">{driver.name}</h2>
+                <div className="flex flex-col">
+                    <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">{driver.plate}</span>
+                    
+                    {/* STATUS DO GPS (PULSE) */}
                     {driver.status !== 'offline' && (
-                        <div className="flex items-center gap-2">
-                            <span className="text-[9px] flex items-center gap-1 font-bold uppercase text-emerald-500 bg-emerald-900/20 px-2 py-0.5 rounded border border-emerald-500/30">
-                                <Radio size={10} className="animate-pulse"/> GPS Ativo
-                            </span>
-                            {wakeLockActive && <Lock size={10} className="text-slate-500" title="Tela Bloqueada Ligada"/>}
+                        <div className="flex items-center gap-2 mt-1">
+                            <div className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${isSending ? 'bg-emerald-500 text-slate-900 border-emerald-400' : 'bg-emerald-900/20 text-emerald-500 border-emerald-900/50'}`}>
+                                {isSending ? <RefreshCw size={10} className="animate-spin"/> : <Signal size={10}/>}
+                                {isSending ? 'Enviando...' : 'GPS Ativo'}
+                            </div>
+                            {lastSentTime && <span className="text-[9px] text-slate-500">{formatTime({seconds: lastSentTime.getTime()/1000})}</span>}
                         </div>
                     )}
                 </div>
             </div>
           </div>
-          <button onClick={() => { stopTracking(); onLogout(); }} className="p-2 bg-slate-800 rounded-xl hover:bg-slate-700 text-white transition-colors"><LogOut size={18}/></button>
+          <button onClick={() => { stopTracking(); onLogout(); }} className="p-2.5 bg-slate-800 rounded-xl hover:bg-red-900/20 hover:text-red-400 text-slate-400 transition-colors"><LogOut size={20}/></button>
         </div>
         
         {/* Navigation Tabs */}
-        <div className="flex bg-slate-950 p-1 rounded-xl shadow-inner border border-slate-800">
-           <button onClick={() => setActiveTab('home')} className={`flex-1 py-2.5 text-[10px] md:text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 md:gap-2 ${activeTab==='home' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>
-               <Bike size={14} className="md:w-4 md:h-4"/> Entregas
+        <div className="flex bg-slate-950 p-1.5 rounded-xl shadow-inner border border-slate-800">
+           <button onClick={() => setActiveTab('home')} className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab==='home' ? 'bg-slate-800 text-white shadow-md border border-slate-700' : 'text-slate-500 hover:text-white'}`}>
+               <Bike size={16}/> Entregas
            </button>
-           <button onClick={() => setActiveTab('history')} className={`flex-1 py-2.5 text-[10px] md:text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 md:gap-2 ${activeTab==='history' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>
-               <ClipboardList size={14} className="md:w-4 md:h-4"/> Histórico
+           <button onClick={() => setActiveTab('history')} className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab==='history' ? 'bg-slate-800 text-white shadow-md border border-slate-700' : 'text-slate-500 hover:text-white'}`}>
+               <ClipboardList size={16}/> Histórico
            </button>
-           <button onClick={() => setActiveTab('wallet')} className={`flex-1 py-2.5 text-[10px] md:text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 md:gap-2 ${activeTab==='wallet' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>
-               <Wallet size={14} className="md:w-4 md:h-4"/> Finanças
+           <button onClick={() => setActiveTab('wallet')} className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab==='wallet' ? 'bg-slate-800 text-white shadow-md border border-slate-700' : 'text-slate-500 hover:text-white'}`}>
+               <Wallet size={16}/> Carteira
            </button>
         </div>
       </div>
@@ -317,26 +356,29 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
         {/* --- ABA HOME (ENTREGAS ATUAIS) --- */}
         {activeTab === 'home' && (
           <div className="space-y-4">
-            <div className={`p-3 md:p-4 rounded-xl border shadow-lg flex items-center justify-between transition-all ${driver.status === 'offline' ? 'bg-slate-900 border-slate-800' : 'bg-emerald-900/20 border-emerald-800'}`}>
-               <div>
-                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Status</p>
-                   <span className={`font-bold text-xs md:text-sm ${driver.status === 'offline' ? 'text-slate-300' : 'text-emerald-400'}`}>{driver.status === 'offline' ? 'Você está Offline' : 'Online e Rastreando'}</span>
+            
+            {/* CARD STATUS PRINCIPAL */}
+            <div className={`p-4 rounded-2xl border shadow-xl flex items-center justify-between transition-all ${driver.status === 'offline' ? 'bg-slate-900 border-slate-800' : 'bg-gradient-to-r from-emerald-900/40 to-slate-900 border-emerald-500/30'}`}>
+               <div className="flex flex-col">
+                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Seu Status</span>
+                   <div className="flex items-center gap-2">
+                       <div className={`w-3 h-3 rounded-full ${driver.status === 'offline' ? 'bg-slate-600' : 'bg-emerald-500 animate-pulse'}`}></div>
+                       <span className={`font-black text-lg ${driver.status === 'offline' ? 'text-slate-300' : 'text-white'}`}>
+                           {driver.status === 'offline' ? 'OFFLINE' : 'ONLINE'}
+                       </span>
+                   </div>
+                   {driver.status !== 'offline' && <span className="text-[10px] text-emerald-400/70 font-mono mt-1">Mantenha a tela ligada! ⚡</span>}
                </div>
+               
                <button 
                    onClick={() => {
-                       if (driver.status === 'offline') {
-                           // Tentar ativar. Se sucesso, UI muda e o "Check-in" aparece
-                           onToggleStatus();
-                       } else {
-                           // Desativar: Para GPS e muda status
-                           stopTracking();
-                           onToggleStatus();
-                       }
+                       if (driver.status === 'offline') onToggleStatus(); 
+                       else { stopTracking(); onToggleStatus(); }
                    }} 
-                   className={`px-3 py-2 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-xs shadow-md transition-all active:scale-95 flex items-center gap-2 ${driver.status === 'offline' ? 'bg-emerald-600 text-white' : 'bg-slate-800 border border-slate-700 text-slate-300'}`}
+                   className={`h-12 px-6 rounded-xl font-bold text-xs shadow-lg transition-all active:scale-95 flex items-center gap-2 border ${driver.status === 'offline' ? 'bg-emerald-600 border-emerald-500 text-white hover:bg-emerald-500' : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'}`}
                >
-                   {driver.status === 'offline' ? <Zap size={14}/> : <ZapOff size={14}/>}
-                   {driver.status === 'offline' ? 'Ficar Online' : 'Pausar'}
+                   {driver.status === 'offline' ? <Zap size={18} fill="currentColor"/> : <ZapOff size={18}/>}
+                   {driver.status === 'offline' ? 'INICIAR' : 'PAUSAR'}
                </button>
             </div>
             
@@ -411,7 +453,7 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
           </div>
         )}
 
-        {/* --- ABA HISTÓRICO COM RESUMO --- */}
+        {/* --- ABA HISTÓRICO --- */}
         {activeTab === 'history' && (
             <div className="space-y-4">
                 <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
@@ -419,7 +461,6 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
                     <button onClick={() => setHistoryFilter('all')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${historyFilter === 'all' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Tudo</button>
                 </div>
 
-                {/* Resumo do Período */}
                 <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
                     <div>
                         <p className="text-[10px] text-slate-500 uppercase font-bold">Total {historyFilter === 'today' ? 'Hoje' : 'Geral'}</p>
@@ -436,7 +477,7 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
                         <div className="text-center py-10 bg-slate-900 rounded-xl border border-dashed border-slate-800 text-slate-500 text-sm">Nenhum histórico encontrado.</div>
                     ) : (
                         visibleHistory.map((order: Order) => (
-                            <div key={order.id} className="bg-slate-900 rounded-xl border border-slate-800 p-4 animate-in fade-in slide-in-from-bottom-2">
+                            <div key={order.id} className="bg-slate-900 rounded-xl border border-slate-800 p-4">
                                 <div className="flex justify-between items-start mb-2 border-b border-slate-800 pb-2">
                                     <div className="flex items-center gap-2 text-slate-400">
                                         <Calendar size={14}/>
@@ -446,28 +487,19 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
                                 </div>
                                 <div className="mb-2">
                                     <p className="font-bold text-white text-base">{order.customer}</p>
-                                    <div className="flex items-start gap-1 mt-1">
-                                        <MapPin size={12} className="text-slate-500 mt-0.5 shrink-0"/>
-                                        <p className="text-xs text-slate-400 leading-tight">{order.address}</p>
-                                    </div>
-                                </div>
-                                <div className="bg-slate-950 p-2 rounded-lg mb-2">
-                                    <p className="text-[10px] text-slate-500 font-bold uppercase mb-0.5">Itens</p>
-                                    <p className="text-xs text-slate-300 line-clamp-2">{order.items}</p>
+                                    <p className="text-xs text-slate-400 leading-tight mt-1">{order.address}</p>
                                 </div>
                             </div>
                         ))
                     )}
                     {displayedHistory.length > visibleItems && (
-                        <button onClick={() => setVisibleItems(prev => prev + 20)} className="w-full py-3 text-xs font-bold text-slate-400 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800 hover:text-white transition-colors flex items-center justify-center gap-2">
-                            <ChevronDown size={14}/> Carregar mais
-                        </button>
+                        <button onClick={() => setVisibleItems(prev => prev + 20)} className="w-full py-3 text-xs font-bold text-slate-400 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800 hover:text-white">Carregar mais</button>
                     )}
                 </div>
             </div>
         )}
 
-        {/* --- ABA FINANÇAS (DETALHADO COM VALES) --- */}
+        {/* --- ABA FINANÇAS --- */}
         {activeTab === 'wallet' && (
           <div className="space-y-6 pt-2">
              <div className="bg-gradient-to-br from-emerald-900 to-slate-900 p-6 rounded-2xl shadow-xl border border-emerald-500/30 ring-1 ring-emerald-500/20 text-center">
@@ -489,20 +521,6 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
                  </div>
              </div>
 
-             <div className="bg-slate-900 p-3 rounded-xl border border-slate-800">
-                 <p className="text-[10px] text-slate-500 uppercase font-bold mb-2">Seu Modelo de Contrato</p>
-                 <div className="flex items-center gap-2">
-                     <span className="text-sm font-bold text-white">
-                         {driver.paymentModel === 'percentage' ? 'Comissão' : driver.paymentModel === 'salary' ? 'Salário Fixo' : 'Por Entrega'}
-                     </span>
-                     {driver.paymentModel !== 'salary' && (
-                         <span className="bg-emerald-900/30 text-emerald-400 text-xs px-2 py-0.5 rounded font-mono">
-                             {driver.paymentModel === 'percentage' ? `${driver.paymentRate}%` : formatCurrency(driver.paymentRate || 0)}
-                         </span>
-                     )}
-                 </div>
-             </div>
-
              {financialData.valesList.length > 0 && (
                  <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4">
                      <h4 className="text-xs font-bold text-white uppercase mb-3 flex items-center gap-2"><AlertCircle size={14} className="text-amber-500"/> Detalhes dos Vales</h4>
@@ -519,12 +537,6 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
                      </div>
                  </div>
              )}
-
-             <div className="bg-slate-900/50 rounded-2xl p-4 border border-slate-800 text-center">
-                 <p className="text-slate-500 text-[10px] leading-relaxed">
-                     O fechamento do caixa e repasse dos valores é realizado pelo gerente. Solicite seu extrato completo ou vales diretamente no balcão.
-                 </p>
-             </div>
           </div>
         )}
         
