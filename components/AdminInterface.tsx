@@ -14,7 +14,7 @@ import { ItemReportView } from './ItemReportView';
 import { NewLeadNotificationModal } from './Modals';
 import { checkShopStatus, formatCurrency, normalizePhone, capitalize, toSentenceCase, sendOrderConfirmation } from '../utils';
 
-// Correção para ícones do Leaflet
+// Ícone da Loja
 const iconStore = new L.Icon({
     iconUrl: 'https://cdn-icons-png.flaticon.com/512/7877/7877890.png',
     iconSize: [48, 48],
@@ -22,15 +22,15 @@ const iconStore = new L.Icon({
     popupAnchor: [0, -48]
 });
 
-// Ícone do Driver Dinâmico (Status + Idade do Sinal)
+// Helper para criar ícones HTML seguros
 const createDriverIcon = (avatarUrl: string, status: string, lastUpdate: any) => {
-    // Verificar se o sinal é recente (menos de 2 min)
+    const safeAvatar = avatarUrl || 'https://cdn-icons-png.flaticon.com/512/147/147144.png';
     const now = Date.now();
     const lastTime = lastUpdate?.seconds ? lastUpdate.seconds * 1000 : 0;
     const diffSeconds = (now - lastTime) / 1000;
     const isStale = diffSeconds > 120; // 2 minutos sem sinal
 
-    let borderColor = 'border-slate-500'; // Offline/Stale
+    let borderColor = 'border-slate-500'; 
     let indicatorColor = 'bg-slate-500';
 
     if (!isStale && status !== 'offline') {
@@ -38,12 +38,16 @@ const createDriverIcon = (avatarUrl: string, status: string, lastUpdate: any) =>
         indicatorColor = status === 'available' ? 'bg-emerald-500' : 'bg-amber-500';
     }
 
+    const html = `
+        <div class="w-12 h-12 rounded-full border-4 ${borderColor} overflow-hidden shadow-2xl bg-slate-900 relative">
+            <img src="${safeAvatar}" style="width: 100%; height: 100%; object-fit: cover; filter: ${isStale ? 'grayscale(100%) opacity(0.7)' : 'none'};" />
+            <div class="absolute bottom-0 right-0 w-3 h-3 rounded-full ${indicatorColor} border border-white shadow-sm"></div>
+        </div>
+    `;
+
     return L.divIcon({
         className: 'custom-driver-icon',
-        html: `<div class="w-12 h-12 rounded-full border-4 ${borderColor} overflow-hidden shadow-2xl bg-slate-900 relative transition-all duration-500">
-                <img src="${avatarUrl}" class="w-full h-full object-cover ${isStale ? 'grayscale opacity-70' : ''}" />
-                <div class="absolute bottom-0 right-0 w-3 h-3 rounded-full ${indicatorColor} border border-white shadow-sm"></div>
-               </div>`,
+        html: html,
         iconSize: [48, 48],
         iconAnchor: [24, 24],
         popupAnchor: [0, -24]
@@ -121,12 +125,23 @@ const IntroAnimation = ({ appName, onComplete }: { appName: string, onComplete: 
     );
 };
 
-// Componente auxiliar para recentralizar mapa
+// Componente para centralizar o mapa sem loop infinito
 function MapRecenter({ center }: { center: [number, number] }) {
     const map = useMap();
+    
+    // Usa uma ref para guardar o último centro e evitar atualizações desnecessárias
+    const lastCenter = useRef<string>('');
+
     useEffect(() => {
-        if (center) map.flyTo(center, map.getZoom());
+        if (!center) return;
+        const centerStr = `${center[0]},${center[1]}`;
+        // Só atualiza se a posição realmente mudou significativamente
+        if (lastCenter.current !== centerStr) {
+            map.flyTo(center, map.getZoom(), { duration: 1.5 });
+            lastCenter.current = centerStr;
+        }
     }, [center, map]);
+    
     return null;
 }
 
@@ -331,11 +346,14 @@ export default function AdminInterface(props: AdminProps) {
     const [newLeadModal, setNewLeadModal] = useState<GiveawayEntry | null>(null);
     
     const prevGiveawayCount = useRef(0);
-    const isFirstLoad = useRef(true); // Ref para evitar notificação na inicialização
+    const isFirstLoad = useRef(true); 
     const giveawayAudioRef = useRef<HTMLAudioElement | null>(null);
 
-    // Map Props
-    const storeLocation: [number, number] = appConfig.location ? [appConfig.location.lat, appConfig.location.lng] : [-23.55052, -46.633308];
+    // Map Props - Garantir que nunca seja undefined
+    const storeLocation = useMemo(() => 
+        appConfig.location ? [appConfig.location.lat, appConfig.location.lng] as [number, number] : [-23.55052, -46.633308] as [number, number]
+    , [appConfig.location]);
+
     const onlineDrivers = drivers.filter(d => d.status !== 'offline');
     const pendingOrders = orders.filter(o => o.status === 'pending' || o.status === 'preparing');
 
@@ -359,7 +377,9 @@ export default function AdminInterface(props: AdminProps) {
     }, [storeLocation]);
 
     // Centro inicial deslocado para alinhar com a visualização desejada
-    const initialCenter: [number, number] = [storeLocation[0] + 0.01, storeLocation[1] + 0.01];
+    const initialCenter = useMemo(() => 
+        [storeLocation[0] + 0.01, storeLocation[1] + 0.01] as [number, number]
+    , [storeLocation]);
 
     useEffect(() => {
         if (isMobile) setSidebarOpen(false);
@@ -395,10 +415,6 @@ export default function AdminInterface(props: AdminProps) {
         }
         prevGiveawayCount.current = giveawayEntries.length;
     }, [giveawayEntries]);
-
-    const handleAssignAndNotify = (oid: string, did: string) => {
-        onAssignOrder(oid, did);
-    };
 
     return (
         <div className="flex h-screen w-screen bg-slate-950 font-sans text-slate-200 overflow-hidden">
@@ -488,12 +504,6 @@ export default function AdminInterface(props: AdminProps) {
                                                 <div className="mt-1 flex items-center justify-center gap-1 text-[10px] bg-slate-100 rounded px-1">
                                                     <Battery size={10} className={d.battery < 20 ? "text-red-500" : "text-green-500"}/> {d.battery}%
                                                 </div>
-                                                {/* Exibição da latência do sinal */}
-                                                {d.lastUpdate && (
-                                                    <div className="mt-1 text-[9px] text-slate-400 font-mono">
-                                                        Sinal: {formatCurrency(Math.floor((Date.now() - d.lastUpdate.seconds * 1000) / 1000)).replace('R$', '')}s atrás
-                                                    </div>
-                                                )}
                                             </div>
                                         </Popup>
                                     </Marker>
@@ -501,7 +511,7 @@ export default function AdminInterface(props: AdminProps) {
                             </MapContainer>
 
                             {/* PAINEL ESQUERDO FLUTUANTE: RADAR DE PEDIDOS */}
-                            <div className="absolute top-4 left-4 z-[400] w-72 md:w-80 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+                            <div className="absolute top-4 left-4 z-[400] w-72 md:w-80 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col transition-all duration-300 pointer-events-auto">
                                 <div className="p-4 border-b border-slate-800 flex justify-between items-center">
                                     <h3 className="font-bold text-white text-sm flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div> Radar de Pedidos ({pendingOrders.length})</h3>
                                 </div>
@@ -524,7 +534,7 @@ export default function AdminInterface(props: AdminProps) {
                             </div>
 
                             {/* PAINEL DIREITO FLUTUANTE: FROTA */}
-                            <div className="absolute top-4 right-4 z-[400] w-64 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[60vh] flex flex-col hidden md:flex">
+                            <div className="absolute top-4 right-4 z-[400] w-64 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-[60vh] flex flex-col hidden md:flex pointer-events-auto">
                                 <div className="p-4 border-b border-slate-800">
                                     <h3 className="font-bold text-amber-500 text-xs uppercase tracking-widest flex items-center gap-2"><Bike size={14}/> Frota Ativa ({onlineDrivers.length})</h3>
                                 </div>
@@ -559,7 +569,7 @@ export default function AdminInterface(props: AdminProps) {
                             </div>
 
                             {/* CONTROLES INFERIORES */}
-                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[400] flex gap-2">
+                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[400] flex gap-2 pointer-events-auto">
                                 <button className="bg-slate-900/90 text-white p-3 rounded-xl border border-slate-700 shadow-lg hover:bg-slate-800 transition-colors" title="Centralizar Loja"><Navigation size={20}/></button>
                                 <button className="bg-slate-900/90 text-white p-3 rounded-xl border border-slate-700 shadow-lg hover:bg-slate-800 transition-colors flex items-center gap-2"><Map size={20}/> <span className="text-xs font-bold hidden md:inline">Mapa</span></button>
                                 <button onClick={() => { setShowManualOrder(true); }} className="bg-orange-600 hover:bg-orange-500 text-white p-3 rounded-xl shadow-lg transition-colors border border-orange-500"><Plus size={20}/></button>
@@ -579,7 +589,7 @@ export default function AdminInterface(props: AdminProps) {
                             appConfig={appConfig} 
                         />
                     )}
-                    {view === 'kds' && <KitchenDisplay orders={orders} products={products} drivers={drivers} onUpdateStatus={onUpdateOrder} onAssignOrder={handleAssignAndNotify} onDeleteOrder={onDeleteOrder} appConfig={appConfig} />}
+                    {view === 'kds' && <KitchenDisplay orders={orders} products={products} drivers={drivers} onUpdateStatus={onUpdateOrder} onAssignOrder={onAssignOrder} onDeleteOrder={onDeleteOrder} appConfig={appConfig} />}
                     {view === 'inventory' && (
                         <InventoryManager 
                             inventory={inventory} suppliers={suppliers} shoppingList={shoppingList}
