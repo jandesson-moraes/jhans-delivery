@@ -162,6 +162,9 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
     const [isDelivery, setIsDelivery] = useState(true);
     const [searchProduct, setSearchProduct] = useState('');
     const [clientSuggestions, setClientSuggestions] = useState<Client[]>([]);
+    
+    // Estado para controlar a visualização no mobile (Cardápio vs Carrinho/Dados)
+    const [mobileTab, setMobileTab] = useState<'products' | 'cart'>('products');
 
     useEffect(() => {
         if (phone.length >= 8) {
@@ -288,26 +291,30 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
     }, [products]);
 
     return (
-        <div className="fixed inset-0 z-[2000] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 animate-in fade-in zoom-in duration-200">
-            <div className="bg-slate-950 w-full h-full max-w-[1400px] rounded-3xl border border-slate-800 shadow-2xl flex flex-col md:flex-row overflow-hidden relative">
-                <div className="flex-1 flex flex-col bg-slate-900/50 border-r border-slate-800 min-w-0">
-                    <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+        <div className="fixed inset-0 z-[2000] bg-black/90 backdrop-blur-sm flex items-center justify-center p-0 md:p-8 animate-in fade-in zoom-in duration-200">
+            <div className="bg-slate-950 w-full h-full md:max-w-[1400px] md:rounded-3xl border-none md:border border-slate-800 shadow-2xl flex flex-col md:flex-row overflow-hidden relative">
+                
+                {/* LADO ESQUERDO: LISTA DE PRODUTOS (CARDÁPIO) */}
+                <div className={`flex-1 flex-col bg-slate-900/50 border-r border-slate-800 min-w-0 ${mobileTab === 'cart' ? 'hidden md:flex' : 'flex'}`}>
+                    <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 md:bg-transparent">
                         <h2 className="text-2xl font-bold text-white">Cardápio</h2>
-                        <div className="relative w-64">
+                        <div className="relative w-48 md:w-64">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16}/>
-                            <input className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-sm text-white outline-none focus:border-amber-500 transition-colors" placeholder="Buscar produto..." value={searchProduct} onChange={e => setSearchProduct(e.target.value)} />
+                            <input className="w-full bg-slate-950 md:bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-sm text-white outline-none focus:border-amber-500 transition-colors" placeholder="Buscar produto..." value={searchProduct} onChange={e => setSearchProduct(e.target.value)} />
                         </div>
+                        {/* Botão fechar mobile aparece aqui se estiver na tab produtos */}
+                        <button onClick={onClose} className="md:hidden text-slate-500 ml-2"><X size={24}/></button>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-8">
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar space-y-8 pb-24 md:pb-6">
                         {groupedProducts.map(group => {
                             const items = group.items.filter(p => p.name.toLowerCase().includes(searchProduct.toLowerCase()));
                             if (items.length === 0) return null;
                             return (
                                 <div key={group.category}>
                                     <h3 className="text-amber-500 font-bold text-sm uppercase tracking-wider mb-4 border-l-4 border-amber-500 pl-3">{group.category}</h3>
-                                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
                                         {items.map(p => (
-                                            <div key={p.id} onClick={() => addToCart(p)} className="bg-slate-900 p-4 rounded-xl border border-slate-800 hover:border-amber-500/50 cursor-pointer transition-all active:scale-95 group flex flex-col justify-between h-28">
+                                            <div key={p.id} onClick={() => addToCart(p)} className="bg-slate-900 p-4 rounded-xl border border-slate-800 hover:border-amber-500/50 cursor-pointer transition-all active:scale-95 group flex flex-col justify-between h-28 shadow-sm">
                                                 <h4 className="font-bold text-white text-sm leading-tight line-clamp-2">{p.name}</h4>
                                                 <div className="flex justify-between items-end"><span className="text-emerald-400 font-bold text-sm">{formatCurrency(p.price)}</span><div className="bg-slate-800 p-1 rounded text-slate-400 group-hover:text-white group-hover:bg-amber-600 transition-colors"><Plus size={14}/></div></div>
                                             </div>
@@ -318,9 +325,14 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
                         })}
                     </div>
                 </div>
-                <div className="w-full md:w-[400px] bg-slate-950 flex flex-col border-l border-slate-800 relative shadow-2xl z-20">
-                    <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900"><h3 className="font-bold text-white text-lg flex items-center gap-2"><PlusCircle size={20} className="text-amber-500"/> Novo Pedido</h3><button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X size={24}/></button></div>
-                    <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
+
+                {/* LADO DIREITO: DADOS DO PEDIDO & CARRINHO */}
+                <div className={`w-full md:w-[400px] bg-slate-950 flex-col border-l border-slate-800 relative shadow-2xl z-20 ${mobileTab === 'products' ? 'hidden md:flex' : 'flex'}`}>
+                    <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+                        <h3 className="font-bold text-white text-lg flex items-center gap-2"><PlusCircle size={20} className="text-amber-500"/> Novo Pedido</h3>
+                        <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X size={24}/></button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar pb-24 md:pb-5">
                         <div className="space-y-3">
                             <div className="flex justify-between items-end"><label className="text-xs font-bold text-slate-500 uppercase">Cliente</label><button onClick={handlePasteFromWhatsApp} className="text-[10px] text-amber-500 font-bold flex items-center gap-1 hover:text-amber-400 transition-colors"><ClipboardPaste size={12}/> Colar do WhatsApp</button></div>
                             <div className="flex gap-2 relative"><input className="w-1/3 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors" placeholder="Tel" value={phone} onChange={e => setPhone(e.target.value)} /><div className="flex-1 relative"><input className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors" placeholder="Nome" value={name} onChange={handleNameChange} autoComplete="off" />{clientSuggestions.length > 0 && (<div className="absolute top-full left-0 w-full bg-slate-800 border border-slate-700 rounded-xl mt-1 z-50 shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">{clientSuggestions.map(c => (<div key={c.id} onClick={() => fillClientData(c)} className="p-3 hover:bg-slate-700 cursor-pointer border-b border-slate-700/50 last:border-0"><p className="text-sm font-bold text-white">{c.name}</p><p className="text-xs text-slate-400">{c.phone}</p></div>))}</div>)}</div></div>
@@ -330,11 +342,30 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
                         <div><p className="text-xs font-bold text-slate-500 uppercase mb-2">Itens ({cart.reduce((a,b)=>a+b.quantity,0)})</p><div className="space-y-2">{cart.length === 0 ? (<div className="text-center py-4 text-slate-600 text-sm border border-dashed border-slate-800 rounded-xl">Nenhum item adicionado</div>) : (cart.map((item, idx) => (<div key={idx} className="bg-slate-900 p-2 rounded-lg border border-slate-800 flex justify-between items-center group"><div className="flex-1"><div className="flex justify-between"><span className="text-white text-sm font-bold">{item.product.name}</span><span className="text-emerald-400 text-xs font-bold">{formatCurrency(item.product.price * item.quantity)}</span></div><div className="flex items-center gap-2 mt-1"><div className="flex items-center bg-slate-950 rounded px-1"><button onClick={() => updateQuantity(idx, -1)} className="text-slate-400 hover:text-white px-1">-</button><span className="text-xs text-white px-2 font-bold">{item.quantity}</span><button onClick={() => updateQuantity(idx, 1)} className="text-slate-400 hover:text-white px-1">+</button></div><input className="bg-transparent border-b border-slate-800 text-[10px] text-slate-400 focus:text-white outline-none flex-1" placeholder="Obs do item..." value={item.obs} onChange={(e) => { const newCart = [...cart]; newCart[idx].obs = e.target.value; setCart(newCart); }}/></div></div><button onClick={() => removeFromCart(idx)} className="ml-2 text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={14}/></button></div>)))}</div></div>
                         <textarea className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white outline-none focus:border-amber-500 h-20 resize-none font-mono" placeholder="Obs: Sem cebola..." value={obs} onChange={e => setObs(e.target.value)} />
                     </div>
-                    <div className="p-5 bg-slate-900 border-t border-slate-800 space-y-4">
+                    {/* ADICIONADO PADDING NO MOBILE PARA NÃO FICAR ESCONDIDO PELO MENU FLUTUANTE */}
+                    <div className="p-5 bg-slate-900 border-t border-slate-800 space-y-4 pb-24 md:pb-5">
                         <div className="flex justify-between items-center"><div><p className="text-[10px] font-bold text-slate-500 uppercase">Total</p><p className="text-2xl font-black text-white">{formatCurrency(finalTotal)}</p></div><div className="w-1/2"><p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Pagamento</p><select className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-sm text-white outline-none focus:border-amber-500" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}><option value="PIX">PIX</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option></select></div></div>
                         <button onClick={handleSubmit} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-all text-lg">Confirmar</button>
                     </div>
                 </div>
+
+                {/* MOBILE FLOATING NAVIGATION (ABAS) */}
+                <div className="md:hidden absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex gap-2 bg-slate-900/90 p-1.5 rounded-full border border-slate-700 shadow-2xl backdrop-blur-md">
+                    <button 
+                        onClick={() => setMobileTab('products')} 
+                        className={`px-6 py-3 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${mobileTab === 'products' ? 'bg-amber-500 text-slate-900 shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        <Utensils size={16}/> Cardápio
+                    </button>
+                    <button 
+                        onClick={() => setMobileTab('cart')} 
+                        className={`px-6 py-3 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${mobileTab === 'cart' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        <ShoppingBag size={16}/> Pedido
+                        {cart.length > 0 && <span className="bg-white text-emerald-600 px-1.5 py-0.5 rounded-full text-[9px] min-w-[1.2em] text-center shadow-sm">{cart.reduce((a,b)=>a+b.quantity,0)}</span>}
+                    </button>
+                </div>
+
             </div>
         </div>
     );

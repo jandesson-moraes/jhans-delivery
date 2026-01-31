@@ -112,8 +112,9 @@ export function GiveawayManagerModal({ entries, onClose, appConfig }: { entries:
                     </button>
                 </div>
 
-                <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden flex-1 relative shadow-inner">
-                   <div className="overflow-auto absolute inset-0 custom-scrollbar">
+                {/* CORREÇÃO: Removido absolute inset-0 e ajustado para flex-1 para garantir visibilidade da tabela */}
+                <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden flex-1 flex flex-col min-h-0 shadow-inner">
+                   <div className="overflow-y-auto custom-scrollbar flex-1">
                        <table className="w-full text-left text-sm text-slate-400">
                            <thead className="bg-slate-900/80 text-slate-200 font-bold uppercase tracking-wider border-b border-slate-800 sticky top-0 backdrop-blur-sm z-10">
                                <tr>
@@ -126,7 +127,9 @@ export function GiveawayManagerModal({ entries, onClose, appConfig }: { entries:
                            <tbody className="divide-y divide-slate-800">
                                {filteredLeads.length === 0 ? (
                                    <tr>
-                                       <td colSpan={4} className="p-10 text-center text-slate-500">Nenhum lead encontrado.</td>
+                                       <td colSpan={4} className="p-10 text-center text-slate-500">
+                                           {entries.length === 0 ? 'Nenhum participante inscrito ainda.' : 'Nenhum resultado para a busca.'}
+                                       </td>
                                    </tr>
                                ) : (
                                    filteredLeads.map((lead: any) => (
