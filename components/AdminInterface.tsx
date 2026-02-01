@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { LayoutDashboard, Users, ShoppingBag, Utensils, Bike, Map as MapIcon, Settings, LogOut, FileText, BarChart3, ChevronRight, Menu as MenuIcon, X, CalendarCheck, ClipboardList, ChefHat, Bell, Gift, PlusCircle, Search, Trash2, Minus, Plus, Save, CheckCircle2, CreditCard, Banknote, MapPin, DollarSign, ClipboardPaste, Store, Navigation, Battery, MessageCircle, Signal, Clock, ChevronDown, Flame, Minimize2, Edit, Power, UserPlus, TrendingUp, History } from 'lucide-react';
+import { LayoutDashboard, Users, ShoppingBag, Utensils, Bike, Map as MapIcon, Settings, LogOut, FileText, BarChart3, ChevronRight, Menu as MenuIcon, X, CalendarCheck, ClipboardList, ChefHat, Bell, Gift, PlusCircle, Search, Trash2, Minus, Plus, Save, CheckCircle2, CreditCard, Banknote, MapPin, DollarSign, ClipboardPaste, Store, Navigation, Battery, MessageCircle, Signal, Clock, ChevronDown, Flame, Minimize2, Edit, Power, UserPlus, TrendingUp, History, LocateFixed, Car, Activity, Wallet, Calendar, ArrowRight } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Driver, Order, Vale, Expense, Product, Client, Settlement, AppConfig, Supplier, InventoryItem, ShoppingItem, GiveawayEntry } from '../types';
@@ -12,7 +12,7 @@ import { DailyOrdersView } from './DailyOrdersView';
 import { AnalyticsView } from './AnalyticsView';
 import { ItemReportView } from './ItemReportView';
 import { NewLeadNotificationModal } from './Modals';
-import { checkShopStatus, formatCurrency, normalizePhone, capitalize, toSentenceCase, sendOrderConfirmation } from '../utils';
+import { checkShopStatus, formatCurrency, normalizePhone, capitalize, toSentenceCase, sendOrderConfirmation, isToday, formatTime, formatDate } from '../utils';
 
 // Ícone da Loja
 const iconStore = new L.Icon({
@@ -157,6 +157,360 @@ function MapHandler({ targetLocation, zoomLevel }: { targetLocation: [number, nu
     }, [targetLocation, zoomLevel, map]);
     
     return null;
+}
+
+// --- SUB-COMPONENTE: MODAL DE DETALHES FINANCEIROS DO MOTOBOY ---
+function DriverFinancialDetails({ driver, orders, settlements, vales, onClose, onSettle }: { driver: Driver, orders: Order[], settlements: Settlement[], vales: Vale[], onClose: () => void, onSettle: (driverId: string, data: any) => void }) {
+    const [tab, setTab] = useState<'pending' | 'history'>('pending');
+
+    // Cálculos do ciclo atual (Pendente)
+    const currentData = useMemo(() => {
+        const lastSettlementTime = driver.lastSettlementAt?.seconds || 0;
+        
+        // Corridas feitas DEPOIS do último pagamento
+        const pendingOrders = orders.filter(o => 
+            o.driverId === driver.id && 
+            o.status === 'completed' && 
+            (o.completedAt?.seconds || 0) > lastSettlementTime
+        ).sort((a,b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
+
+        // Vales pegos DEPOIS do último pagamento
+        const pendingVales = vales.filter(v => 
+            v.driverId === driver.id && 
+            (v.createdAt?.seconds || 0) > lastSettlementTime
+        );
+
+        let deliveriesValue = 0;
+        if (driver.paymentModel === 'percentage') {
+            deliveriesValue = pendingOrders.reduce((acc, o) => acc + (o.value * ((driver.paymentRate || 0) / 100)), 0);
+        } else if (driver.paymentModel === 'fixed_per_delivery') {
+            deliveriesValue = pendingOrders.length * (driver.paymentRate || 0);
+        }
+        // Se for salario fixo, o valor por corrida é 0 para pagamento variavel, mas contamos as entregas
+
+        const valesValue = pendingVales.reduce((acc, v) => acc + v.amount, 0);
+        const netValue = deliveriesValue - valesValue;
+
+        return {
+            orders: pendingOrders,
+            vales: pendingVales,
+            deliveriesCount: pendingOrders.length,
+            deliveriesValue,
+            valesValue,
+            netValue
+        };
+    }, [driver, orders, vales]);
+
+    // Histórico de Fechamentos (Settlements)
+    const driverSettlements = useMemo(() => {
+        return settlements
+            .filter(s => s.driverId === driver.id)
+            .sort((a,b) => (b.endAt?.seconds || 0) - (a.endAt?.seconds || 0));
+    }, [settlements, driver]);
+
+    const handleCloseCycle = () => {
+        if (confirm(`Confirmar fechamento de ciclo para ${driver.name}?\nValor a pagar: ${formatCurrency(currentData.netValue)}`)) {
+            onSettle(driver.id, {
+                deliveriesCount: currentData.deliveriesCount,
+                deliveriesTotal: currentData.deliveriesValue, // Valor bruto das entregas
+                valesTotal: currentData.valesValue,
+                valesCount: currentData.vales.length,
+                finalAmount: currentData.netValue,
+                startAt: driver.lastSettlementAt ? new Date(driver.lastSettlementAt.seconds * 1000).toISOString() : null,
+                endAt: new Date().toISOString()
+            });
+            onClose();
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in duration-200">
+            <div className="bg-slate-900 w-full max-w-2xl h-[85vh] rounded-3xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden">
+                
+                {/* Header */}
+                <div className="p-6 bg-slate-950 border-b border-slate-800 flex justify-between items-start">
+                    <div className="flex items-center gap-4">
+                        <img src={driver.avatar} className="w-16 h-16 rounded-full border-2 border-slate-700 object-cover" />
+                        <div>
+                            <h2 className="text-2xl font-black text-white">{driver.name}</h2>
+                            <p className="text-sm text-slate-400 flex items-center gap-1">
+                                {driver.vehicle} • {driver.plate} 
+                                <span className="bg-slate-800 px-2 rounded text-xs ml-2 border border-slate-700">
+                                    {driver.paymentModel === 'percentage' ? `${driver.paymentRate}%` : driver.paymentModel === 'fixed_per_delivery' ? `${formatCurrency(driver.paymentRate || 0)} / entrega` : 'Salário Fixo'}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 hover:text-white transition-colors"><X size={20}/></button>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex border-b border-slate-800 bg-slate-900">
+                    <button 
+                        onClick={() => setTab('pending')}
+                        className={`flex-1 py-4 text-sm font-bold border-b-2 transition-colors flex items-center justify-center gap-2 ${tab === 'pending' ? 'border-amber-500 text-amber-500 bg-amber-900/10' : 'border-transparent text-slate-500 hover:text-white'}`}
+                    >
+                        <Wallet size={18}/> A Receber (Atual)
+                    </button>
+                    <button 
+                        onClick={() => setTab('history')}
+                        className={`flex-1 py-4 text-sm font-bold border-b-2 transition-colors flex items-center justify-center gap-2 ${tab === 'history' ? 'border-emerald-500 text-emerald-500 bg-emerald-900/10' : 'border-transparent text-slate-500 hover:text-white'}`}
+                    >
+                        <History size={18}/> Histórico Pagamentos
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto bg-slate-900 p-6 custom-scrollbar">
+                    {tab === 'pending' ? (
+                        <div className="space-y-6">
+                            {/* Resumo Financeiro */}
+                            <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 shadow-xl relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-4 opacity-10"><DollarSign size={100} className="text-white"/></div>
+                                <p className="text-slate-400 font-bold uppercase text-xs tracking-wider mb-1">Saldo Acumulado (Semana Atual)</p>
+                                <h3 className="text-4xl font-black text-emerald-400 mb-4">{formatCurrency(currentData.netValue)}</h3>
+                                
+                                <div className="grid grid-cols-2 gap-4 border-t border-slate-700 pt-4">
+                                    <div>
+                                        <p className="text-xs text-slate-500 font-bold uppercase">Entregas ({currentData.deliveriesCount})</p>
+                                        <p className="text-lg font-bold text-white">{formatCurrency(currentData.deliveriesValue)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-slate-500 font-bold uppercase">Vales / Adiantamentos</p>
+                                        <p className="text-lg font-bold text-red-400">- {formatCurrency(currentData.valesValue)}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Botão Fechar Ciclo */}
+                            <button 
+                                onClick={handleCloseCycle}
+                                disabled={currentData.netValue <= 0 && currentData.deliveriesCount === 0}
+                                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-black py-4 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 uppercase tracking-wide"
+                            >
+                                <CheckCircle2 size={20}/> Fechar Semana & Pagar
+                            </button>
+
+                            {/* Lista de Corridas Pendentes */}
+                            <div>
+                                <h4 className="text-white font-bold mb-3 flex items-center gap-2"><Bike size={18} className="text-amber-500"/> Corridas Pendentes de Pagamento</h4>
+                                {currentData.orders.length === 0 ? (
+                                    <p className="text-slate-500 text-sm italic">Nenhuma corrida realizada neste ciclo.</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {currentData.orders.map(order => (
+                                            <div key={order.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl flex justify-between items-center">
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs font-mono text-slate-500 bg-slate-900 px-1 rounded">{formatDate(order.completedAt)}</span>
+                                                        <span className="text-sm font-bold text-white">{order.address}</span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 mt-0.5">Pedido: {order.customer}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-emerald-500 font-bold text-sm block">
+                                                        {driver.paymentModel === 'fixed_per_delivery' ? formatCurrency(driver.paymentRate || 0) : driver.paymentModel === 'percentage' ? formatCurrency(order.value * ((driver.paymentRate || 0)/100)) : '-'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        // TAB HISTÓRICO
+                        <div className="space-y-4">
+                            <h4 className="text-white font-bold mb-2 flex items-center gap-2"><CalendarCheck size={18} className="text-blue-500"/> Pagamentos Realizados (Fechamentos)</h4>
+                            {driverSettlements.length === 0 ? (
+                                <div className="text-center py-10 text-slate-500">
+                                    <History size={48} className="mx-auto mb-2 opacity-20"/>
+                                    <p>Nenhum fechamento de caixa registrado.</p>
+                                </div>
+                            ) : (
+                                driverSettlements.map(settlement => (
+                                    <div key={settlement.id} className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-col gap-2">
+                                        <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                                            <span className="text-slate-400 text-xs font-bold uppercase">{formatDate({seconds: new Date(settlement.endAt).getTime()/1000})}</span>
+                                            <span className="text-emerald-400 font-black text-lg">{formatCurrency(settlement.finalAmount)}</span>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2 text-xs text-slate-400">
+                                            <div>
+                                                <span className="block font-bold text-white">{settlement.deliveriesCount}</span>
+                                                Entregas
+                                            </div>
+                                            <div>
+                                                <span className="block font-bold text-emerald-500">{formatCurrency(settlement.deliveriesTotal)}</span>
+                                                Bruto
+                                            </div>
+                                            <div>
+                                                <span className="block font-bold text-red-400">- {formatCurrency(settlement.valesTotal)}</span>
+                                                Vales
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- SUB-COMPONENTE: PAINEL DA FROTA ---
+interface FleetSidebarProps {
+    drivers: Driver[];
+    orders: Order[];
+    settlements: Settlement[]; // Added settlements
+    vales: Vale[]; // Added vales
+    onClose: () => void;
+    onEditDriver: (driver: Driver) => void;
+    onAddDriver: () => void;
+    onSettle: (driverId: string, data: any) => void; // Added settlement handler
+}
+
+function FleetSidebar({ drivers, orders, settlements, vales, onClose, onEditDriver, onAddDriver, onSettle }: FleetSidebarProps) {
+    const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+    const [showFinancialModal, setShowFinancialModal] = useState<Driver | null>(null);
+
+    const calculateStats = (driver: Driver) => {
+        const completedOrders = orders.filter(o => o.driverId === driver.id && o.status === 'completed');
+        const todayOrders = completedOrders.filter(o => isToday(o.completedAt));
+        
+        let todayValue = 0;
+        let totalValue = 0;
+        const rate = driver.paymentRate || 0;
+
+        if (driver.paymentModel === 'percentage') {
+            todayValue = todayOrders.reduce((acc, o) => acc + (o.value * (rate / 100)), 0);
+            totalValue = completedOrders.reduce((acc, o) => acc + (o.value * (rate / 100)), 0);
+        } else if (driver.paymentModel === 'fixed_per_delivery') {
+            todayValue = todayOrders.length * rate;
+            totalValue = completedOrders.length * rate;
+        }
+
+        return {
+            todayCount: todayOrders.length,
+            totalCount: completedOrders.length,
+            todayValue,
+            totalValue
+        };
+    };
+
+    return (
+        <>
+            <div className="absolute top-4 right-4 bottom-4 w-80 bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-700 z-[1000] flex flex-col overflow-hidden animate-in slide-in-from-right">
+                <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+                    <h3 className="font-black text-white text-lg flex items-center gap-2">
+                        <Bike size={20} className="text-amber-500"/> Frota ({drivers.filter(d => d.status !== 'offline').length}/{drivers.length})
+                    </h3>
+                    <div className="flex gap-2">
+                        <button onClick={onAddDriver} className="p-1.5 text-emerald-400 hover:text-white bg-emerald-900/30 hover:bg-emerald-600 rounded-lg transition-colors" title="Novo Motoboy">
+                            <PlusCircle size={18}/>
+                        </button>
+                        <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-lg">
+                            <X size={18}/>
+                        </button>
+                    </div>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
+                    {drivers.map(driver => {
+                        const stats = calculateStats(driver);
+                        const isSelected = selectedDriverId === driver.id;
+                        const isOnline = driver.status !== 'offline';
+                        const isDelivering = driver.status === 'delivering';
+
+                        return (
+                            <div key={driver.id} className={`rounded-xl border transition-all relative ${isSelected ? 'bg-slate-800 border-amber-500/50' : 'bg-slate-950 border-slate-800 hover:border-slate-600'}`}>
+                                {/* Edit Button Absolute */}
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); onEditDriver(driver); }}
+                                    className="absolute top-2 right-2 p-1.5 text-slate-500 hover:text-white bg-slate-900 hover:bg-slate-700 rounded-lg z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Editar Cadastro"
+                                >
+                                    <Edit size={14}/>
+                                </button>
+
+                                {/* Header do Card */}
+                                <div 
+                                    onClick={() => setSelectedDriverId(isSelected ? null : driver.id)}
+                                    className="p-3 flex items-center gap-3 cursor-pointer group"
+                                >
+                                    <div className="relative">
+                                        <img src={driver.avatar} className={`w-10 h-10 rounded-full border-2 object-cover ${isOnline ? (isDelivering ? 'border-amber-500' : 'border-emerald-500') : 'border-slate-600 grayscale'}`} />
+                                        <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-900 flex items-center justify-center text-[8px] text-white font-bold ${isOnline ? (isDelivering ? 'bg-amber-500' : 'bg-emerald-500') : 'bg-slate-600'}`}>
+                                            {isDelivering ? <Clock size={8}/> : <CheckCircle2 size={8}/>}
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 min-w-0 pr-6">
+                                        <p className="font-bold text-sm text-white truncate">{driver.name}</p>
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                                                {driver.vehicle === 'Carro' ? <Car size={10}/> : <Bike size={10}/>} {driver.vehicle}
+                                                {isOnline && <span className="text-emerald-500 flex items-center gap-0.5 ml-1">• GPS <Signal size={8}/></span>}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Status Pill */}
+                                <div className="px-3 pb-2 pt-0">
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase inline-block ${isOnline ? (isDelivering ? 'bg-amber-900/30 text-amber-400' : 'bg-emerald-900/30 text-emerald-400') : 'bg-slate-800 text-slate-500'}`}>
+                                        {isOnline ? (isDelivering ? 'Ocupado' : 'Livre') : 'Offline'}
+                                    </span>
+                                </div>
+
+                                {/* Detalhes Expandidos */}
+                                {isSelected && (
+                                    <div className="px-3 pb-3 pt-0 animate-in slide-in-from-top-2 border-t border-slate-700/50 mt-2">
+                                        <div className="bg-slate-900 rounded-lg p-2 grid grid-cols-2 gap-2 border border-slate-700/50 mt-2">
+                                            <div className="bg-slate-950 p-2 rounded border border-slate-800">
+                                                <p className="text-[9px] text-slate-500 uppercase font-bold mb-0.5">Hoje</p>
+                                                <p className="text-xs font-bold text-white">{stats.todayCount} entregas</p>
+                                                <p className="text-xs font-black text-emerald-400">{formatCurrency(stats.todayValue)}</p>
+                                            </div>
+                                            <div className="bg-slate-950 p-2 rounded border border-slate-800">
+                                                <p className="text-[9px] text-slate-500 uppercase font-bold mb-0.5">Geral</p>
+                                                <p className="text-xs font-bold text-slate-300">{stats.totalCount} total</p>
+                                                <p className="text-xs font-bold text-slate-400">{formatCurrency(stats.totalValue)}</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <button 
+                                            onClick={() => setShowFinancialModal(driver)}
+                                            className="w-full mt-3 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold py-2 rounded-lg transition-colors flex items-center justify-center gap-2 border border-slate-700 shadow-sm"
+                                        >
+                                            <Wallet size={14}/> Financeiro & Histórico
+                                        </button>
+
+                                        <div className="flex justify-between items-center mt-3 text-[10px] text-slate-500 px-1 border-t border-slate-800/50 pt-2">
+                                            <span className="flex items-center gap-1"><Battery size={10} className={driver.battery < 20 ? 'text-red-500' : 'text-slate-400'}/> {driver.battery}% Bateria</span>
+                                            <span>Atualizado: {formatTime(driver.lastUpdate)}</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Modal Financeiro */}
+            {showFinancialModal && (
+                <DriverFinancialDetails 
+                    driver={showFinancialModal}
+                    orders={orders}
+                    settlements={settlements}
+                    vales={vales}
+                    onClose={() => setShowFinancialModal(null)}
+                    onSettle={onSettle}
+                />
+            )}
+        </>
+    );
 }
 
 // --- SUB-COMPONENTE: NOVO PEDIDO MANUAL (PDV) ---
@@ -566,6 +920,7 @@ export function AdminInterface(props: AdminProps) {
     const [currentView, setCurrentView] = useState('dashboard');
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [showManualOrder, setShowManualOrder] = useState(false);
+    const [showFleetPanel, setShowFleetPanel] = useState(false);
     
     // Auto-center map on shop location if available
     const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
@@ -576,9 +931,42 @@ export function AdminInterface(props: AdminProps) {
         }
     }, [props.appConfig]);
 
+    const handleCenterMap = () => {
+        if (props.appConfig?.location) {
+            // Pequeno hack para forçar re-render do MapHandler se a posição for a mesma
+            setMapCenter(null); 
+            setTimeout(() => setMapCenter([props.appConfig.location!.lat, props.appConfig.location!.lng]), 50);
+        } else {
+            alert("Localização da loja não configurada.");
+        }
+    };
+
     const handleLogout = () => {
         if (confirm("Sair do sistema?")) props.onLogout();
     };
+
+    // Função de atalho para adicionar motoboy
+    const handleAddDriver = () => {
+        props.setDriverToEdit(null);
+        props.setModal('driver');
+    };
+
+    // Função de atalho para editar motoboy
+    const handleEditDriver = (driver: Driver) => {
+        props.setDriverToEdit(driver);
+        props.setModal('driver');
+    };
+
+    // Função para abrir o modal de fechamento de ciclo (passada para FleetSidebar -> DriverFinancialDetails)
+    const handleSettleDriver = (driverId: string, data: any) => {
+        // Encontra o driver
+        const driver = props.drivers.find(d => d.id === driverId);
+        if(driver) {
+            props.setDriverToEdit(driver);
+            props.setModalData(data);
+            props.setModal('closeCycle');
+        }
+    }
 
     const renderContent = () => {
         switch (currentView) {
@@ -594,6 +982,7 @@ export function AdminInterface(props: AdminProps) {
                                zoom={13} 
                                style={{ height: '100%', width: '100%' }}
                                className="bg-slate-900"
+                               zoomControl={false}
                            >
                                <TileLayer 
                                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
@@ -638,8 +1027,39 @@ export function AdminInterface(props: AdminProps) {
                                <div className="pointer-events-auto"><StatBox label="Pedidos Hoje" value={props.orders.filter(o => { const d = new Date(o.createdAt?.seconds*1000); const n = new Date(); return d.getDate()===n.getDate() && d.getMonth()===n.getMonth(); }).length} icon={<ShoppingBag size={18}/>} /></div>
                                <div className="pointer-events-auto"><StatBox label="Online" value={props.drivers.filter(d => d.status !== 'offline').length} icon={<Bike size={18}/>} /></div>
                                <div className="pointer-events-auto"><StatBox label="Faturamento" value={formatCurrency(props.orders.filter(o => o.status === 'completed' && new Date(o.createdAt.seconds*1000).toDateString() === new Date().toDateString()).reduce((acc, c) => acc + (c.value || 0), 0))} icon={<DollarSign size={18}/>} /></div>
-                               {/* Removed Mobile Menu Button from here as per global header change */}
                            </div>
+
+                           {/* MAP CONTROLS (RIGHT SIDE) */}
+                           <div className="absolute top-24 right-4 z-[400] flex flex-col gap-2">
+                               <button 
+                                   onClick={handleCenterMap}
+                                   className="bg-slate-900 border border-slate-700 text-white p-3 rounded-xl shadow-xl hover:bg-slate-800 transition-colors"
+                                   title="Centralizar Loja"
+                               >
+                                   <LocateFixed size={20} />
+                               </button>
+                               <button 
+                                   onClick={() => setShowFleetPanel(!showFleetPanel)}
+                                   className={`border p-3 rounded-xl shadow-xl transition-all ${showFleetPanel ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800'}`}
+                                   title="Painel da Frota"
+                               >
+                                   <Bike size={20} />
+                               </button>
+                           </div>
+
+                           {/* FLEET PANEL OVERLAY */}
+                           {showFleetPanel && (
+                               <FleetSidebar 
+                                   drivers={props.drivers} 
+                                   orders={props.orders}
+                                   settlements={props.settlements}
+                                   vales={props.vales}
+                                   onClose={() => setShowFleetPanel(false)}
+                                   onAddDriver={handleAddDriver}
+                                   onEditDriver={handleEditDriver}
+                                   onSettle={handleSettleDriver}
+                               />
+                           )}
                        </div>
                    </div>
                 );
@@ -656,8 +1076,8 @@ export function AdminInterface(props: AdminProps) {
 
     return (
         <div className="flex h-screen w-screen bg-slate-950 text-white overflow-hidden">
-            {/* Sidebar Desktop */}
-            <div className="hidden md:flex w-64 flex-col bg-slate-900 border-r border-slate-800 z-50">
+            {/* Sidebar Desktop - WIDENED TO 72 (approx 10-12% increase from 64) */}
+            <div className="hidden md:flex w-72 flex-col bg-slate-900 border-r border-slate-800 z-50">
                 <div className="p-6">
                    <BrandLogo config={props.appConfig} />
                 </div>
@@ -675,7 +1095,8 @@ export function AdminInterface(props: AdminProps) {
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wider px-2 mt-6 mb-2">Operacional</p>
                     <SidebarBtn icon={<ChefHat size={20}/>} label="Cozinha (KDS)" active={currentView === 'kitchen'} onClick={() => setCurrentView('kitchen')} />
                     <SidebarBtn icon={<Users size={20}/>} label="Clientes" active={currentView === 'clients'} onClick={() => setCurrentView('clients')} />
-                    <SidebarBtn icon={<Bike size={20}/>} label="Motoboys" active={false} onClick={() => props.setModal('driver')} />
+                    {/* MOTOBOYS REMOVED FROM SIDEBAR as requested */}
+                    {/* <SidebarBtn icon={<Bike size={20}/>} label="Motoboys" active={false} onClick={() => props.setModal('driver')} /> */}
                     <SidebarBtn icon={<Store size={20}/>} label="Estoque & Compras" active={currentView === 'inventory'} onClick={() => setCurrentView('inventory')} />
 
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wider px-2 mt-6 mb-2">Gestão</p>
@@ -731,7 +1152,8 @@ export function AdminInterface(props: AdminProps) {
 
                             <SidebarBtn icon={<ChefHat size={20}/>} label="Cozinha (KDS)" active={currentView === 'kitchen'} onClick={() => { setCurrentView('kitchen'); setSidebarOpen(false); }} />
                             <SidebarBtn icon={<Users size={20}/>} label="Clientes" active={currentView === 'clients'} onClick={() => { setCurrentView('clients'); setSidebarOpen(false); }} />
-                            <SidebarBtn icon={<Bike size={20}/>} label="Motoboys" active={false} onClick={() => { props.setModal('driver'); setSidebarOpen(false); }} />
+                            {/* Mobile Sidebar - Motoboys Link removed too to force usage of dashboard */}
+                            {/* <SidebarBtn icon={<Bike size={20}/>} label="Motoboys" active={false} onClick={() => { props.setModal('driver'); setSidebarOpen(false); }} /> */}
                             <SidebarBtn icon={<Store size={20}/>} label="Estoque" active={currentView === 'inventory'} onClick={() => { setCurrentView('inventory'); setSidebarOpen(false); }} />
                             <SidebarBtn icon={<BarChart3 size={20}/>} label="Relatórios" active={currentView === 'analytics'} onClick={() => { setCurrentView('analytics'); setSidebarOpen(false); }} />
                             <SidebarBtn icon={<Settings size={20}/>} label="Configurações" active={false} onClick={() => { props.setModal('settings'); setSidebarOpen(false); }} />
