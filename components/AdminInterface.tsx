@@ -543,7 +543,7 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-3 pt-2 pb-20 md:pb-0">
+                        <div className="flex items-center gap-3 pt-2 pb-2 md:pb-0">
                             <div className="flex-1"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total</p><p className="text-2xl font-black text-white tracking-tight leading-none">{formatCurrency(finalTotal)}</p></div>
                             <button onClick={handleSubmit} className="flex-[2] bg-emerald-600 hover:bg-emerald-500 text-white font-black h-12 rounded-xl shadow-lg active:scale-95 transition-all text-sm uppercase tracking-wide flex items-center justify-center gap-2">Confirmar <CheckCircle2 size={18}/></button>
                         </div>
@@ -657,7 +657,7 @@ export function AdminInterface(props: AdminProps) {
                 return (
                    <div className="relative w-full h-full overflow-hidden flex flex-col">
                        <div className="flex-1 relative z-0">
-                           <MapContainer center={mapCenter || [-23.55052, -46.633308]} zoom={13} style={{ height: '100%', width: '100%' }} className="bg-slate-900" zoomControl={false}>
+                           <MapContainer center={mapCenter || [-23.55052, -46.633308]} zoom={13} style={{ height: '100%', width: '100%' }} className="bg-slate-900" zoomControl={false} attributionControl={false}>
                                <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' />
                                <MapHandler targetLocation={mapCenter} zoomLevel={13} />
                                {props.appConfig?.location && (<Marker position={[props.appConfig.location.lat, props.appConfig.location.lng]} icon={iconStore}><Popup className="custom-popup"><div className="text-center"><p className="font-bold">{props.appConfig.appName}</p><p className="text-xs">Sua Loja</p></div></Popup></Marker>)}
@@ -666,6 +666,18 @@ export function AdminInterface(props: AdminProps) {
                            <div className="absolute top-4 left-4 right-4 z-[400] grid grid-cols-2 md:grid-cols-4 gap-3 pointer-events-none"><div className="pointer-events-auto"><StatBox label="Pedidos Hoje" value={props.orders.filter(o => { const d = new Date(o.createdAt?.seconds*1000); const n = new Date(); return d.getDate()===n.getDate() && d.getMonth()===n.getMonth(); }).length} icon={<ShoppingBag size={18}/>} /></div><div className="pointer-events-auto"><StatBox label="Online" value={props.drivers.filter(d => d.status !== 'offline').length} icon={<Bike size={18}/>} /></div><div className="pointer-events-auto"><StatBox label="Faturamento" value={formatCurrency(props.orders.filter(o => o.status === 'completed' && new Date(o.createdAt.seconds*1000).toDateString() === new Date().toDateString()).reduce((acc, c) => acc + (c.value || 0), 0))} icon={<DollarSign size={18}/>} /></div></div>
                            <div className="absolute top-24 right-4 z-[400] flex flex-col gap-2"><button onClick={handleCenterMap} className="bg-slate-900 border border-slate-700 text-white p-3 rounded-xl shadow-xl hover:bg-slate-800 transition-colors" title="Centralizar Loja"><LocateFixed size={20} /></button><button onClick={() => setShowFleetPanel(!showFleetPanel)} className={`border p-3 rounded-xl shadow-xl transition-all ${showFleetPanel ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800'}`} title="Painel da Frota"><Bike size={20} /></button></div>
                            {showFleetPanel && (<FleetSidebar drivers={props.drivers} orders={props.orders} settlements={props.settlements} vales={props.vales} onClose={() => setShowFleetPanel(false)} onAddDriver={handleAddDriver} onEditDriver={handleEditDriver} onSettle={handleSettleDriver} />)}
+                           
+                           {/* Developer Credits Overlay */}
+                           <div className="absolute bottom-6 right-1/2 translate-x-1/2 md:translate-x-0 md:right-4 md:bottom-4 z-[400] pointer-events-none">
+                                <div className="bg-slate-900/90 backdrop-blur border border-slate-800 px-6 py-3 rounded-2xl shadow-xl flex flex-col items-center justify-center">
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1 whitespace-nowrap">
+                                        Desenvolvido por <span className="text-amber-600 font-black">Jhan Houzer</span>
+                                    </p>
+                                    <p className="text-[9px] text-slate-600 font-medium whitespace-nowrap">
+                                        © Todos os direitos reservados 2026
+                                    </p>
+                                </div>
+                           </div>
                        </div>
                    </div>
                 );

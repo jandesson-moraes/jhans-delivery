@@ -661,12 +661,12 @@ export function SettingsModal({ config, onSave, onClose }: any) {
                             {daysOfWeek.map((day, idx) => {
                                 const config = schedule[idx] || { enabled: false, open: '18:00', close: '23:00' };
                                 return (
-                                    <div key={idx} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${config.enabled ? 'bg-slate-900 border-slate-700 shadow-sm' : 'bg-slate-950 border-slate-800 opacity-60'}`}>
-                                        <div className="flex items-center gap-3">
+                                    <div key={idx} className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border transition-all gap-3 sm:gap-0 ${config.enabled ? 'bg-slate-900 border-slate-700 shadow-sm' : 'bg-slate-950 border-slate-800 opacity-60'}`}>
+                                        <div className="flex items-center gap-3 w-full sm:w-auto">
                                             {/* Custom Toggle Switch */}
                                             <div 
                                                 onClick={() => handleUpdateSchedule(idx, 'enabled', !config.enabled)}
-                                                className={`w-10 h-5 rounded-full relative cursor-pointer transition-colors ${config.enabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                                                className={`w-10 h-5 rounded-full relative cursor-pointer transition-colors shrink-0 ${config.enabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
                                             >
                                                 <div className={`w-3 h-3 bg-white rounded-full absolute top-1 transition-all shadow-sm ${config.enabled ? 'left-6' : 'left-1'}`} />
                                             </div>
@@ -674,23 +674,23 @@ export function SettingsModal({ config, onSave, onClose }: any) {
                                         </div>
                                         
                                         {config.enabled ? (
-                                            <div className="flex items-center gap-1 animate-in fade-in">
+                                            <div className="flex items-center gap-2 w-full sm:w-auto animate-in fade-in">
                                                 <input 
                                                     type="time" 
                                                     value={config.open} 
                                                     onChange={e => handleUpdateSchedule(idx, 'open', e.target.value)} 
-                                                    className="bg-slate-950 border border-slate-700 text-white text-xs font-bold rounded-lg px-2 py-1 w-20 text-center outline-none focus:border-amber-500"
+                                                    className="flex-1 sm:flex-none bg-slate-950 border border-slate-700 text-white text-xs font-bold rounded-lg px-2 py-2 sm:py-1 sm:w-20 text-center outline-none focus:border-amber-500"
                                                 />
-                                                <span className="text-slate-600 text-xs font-bold">às</span>
+                                                <span className="text-slate-600 text-xs font-bold shrink-0">às</span>
                                                 <input 
                                                     type="time" 
                                                     value={config.close} 
                                                     onChange={e => handleUpdateSchedule(idx, 'close', e.target.value)} 
-                                                    className="bg-slate-950 border border-slate-700 text-white text-xs font-bold rounded-lg px-2 py-1 w-20 text-center outline-none focus:border-amber-500"
+                                                    className="flex-1 sm:flex-none bg-slate-950 border border-slate-700 text-white text-xs font-bold rounded-lg px-2 py-2 sm:py-1 sm:w-20 text-center outline-none focus:border-amber-500"
                                                 />
                                             </div>
                                         ) : (
-                                            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider px-2">Fechado</span>
+                                            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider px-2 w-full sm:w-auto text-left sm:text-right">Fechado</span>
                                         )}
                                     </div>
                                 )
