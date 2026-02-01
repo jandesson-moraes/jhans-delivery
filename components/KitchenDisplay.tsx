@@ -127,16 +127,8 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
         const text = getOrderReceivedText(order, effectiveAppName);
         copyToClipboard(text);
         
-        // Marca como copiado para parar de piscar
+        // Marca como copiado para parar de piscar e mudar o estilo do botão
         setCopiedMessages(prev => new Set(prev).add(order.id));
-
-        const btn = e.currentTarget as HTMLButtonElement;
-        const originalContent = btn.innerHTML;
-        btn.innerHTML = `<span class="text-white font-bold">Copiado!</span>`;
-        // Remove classes de animação imediatamente para feedback visual
-        btn.className = btn.className.replace('animate-pulse', '').replace('bg-emerald-900/40', 'bg-slate-800/50').replace('text-emerald-400', 'text-slate-400').replace('border-emerald-500/50', 'border-transparent');
-        
-        setTimeout(() => { btn.innerHTML = originalContent; }, 2000);
     };
 
     const handleAssignDriver = (oid: string, did: string) => {
