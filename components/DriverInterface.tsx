@@ -3,7 +3,7 @@ import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, C
 import { Driver, Order, Vale } from '../types';
 import { isToday, formatTime, formatCurrency, formatDate, sendDeliveryNotification, formatOrderId } from '../utils';
 import { Footer } from './Shared';
-import { EditOrderModal } from './Modals';
+import { EditOrderModal, GenericConfirmModal } from './Modals';
 import { serverTimestamp } from 'firebase/firestore';
 
 interface DriverAppProps {
@@ -52,6 +52,9 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
   const [gpsError, setGpsError] = useState('');
   const [lastSentTime, setLastSentTime] = useState<Date | null>(null);
   const [isSending, setIsSending] = useState(false);
+  
+  // Estado para confirmação de logout
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   
   const wakeLockRef = useRef<any>(null);
   const watchIdRef = useRef<number | null>(null);
@@ -333,7 +336,7 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
                 </div>
             </div>
           </div>
-          <button onClick={() => { stopTracking(); onLogout(); }} className="p-2.5 bg-slate-800 rounded-xl hover:bg-red-900/20 hover:text-red-400 text-slate-400 transition-colors"><LogOut size={20}/></button>
+          <button onClick={() => setShowLogoutConfirm(true)} className="p-2.5 bg-slate-800 rounded-xl hover:bg-red-900/20 hover:text-red-400 text-slate-400 transition-colors"><LogOut size={20}/></button>
         </div>
         
         {/* Navigation Tabs */}
@@ -544,6 +547,22 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
                 order={editingOrder} 
                 onClose={() => setEditingOrder(null)} 
                 onSave={onUpdateOrder} 
+            />
+        )}
+
+        {showLogoutConfirm && (
+            <GenericConfirmModal 
+                isOpen={true}
+                title="Sair do Plantão?"
+                message="Isso irá desconectar sua conta e parar o rastreamento GPS."
+                onClose={() => setShowLogoutConfirm(false)}
+                onConfirm={() => {
+                    stopTracking();
+                    onLogout();
+                    setShowLogoutConfirm(false);
+                }}
+                confirmText="Confirmar Saída"
+                type="danger"
             />
         )}
         

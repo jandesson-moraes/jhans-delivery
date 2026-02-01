@@ -11,7 +11,7 @@ import { InventoryManager } from './InventoryManager';
 import { DailyOrdersView } from './DailyOrdersView';
 import { AnalyticsView } from './AnalyticsView';
 import { ItemReportView } from './ItemReportView';
-import { NewLeadNotificationModal, NewOrderModal, ReceiptModal } from './Modals';
+import { NewLeadNotificationModal, NewOrderModal, ReceiptModal, GenericConfirmModal } from './Modals';
 import { checkShopStatus, formatCurrency, normalizePhone, capitalize, toSentenceCase, sendOrderConfirmation, isToday, formatTime, formatDate } from '../utils';
 
 // Ícone da Loja
@@ -468,7 +468,7 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
             <div className="bg-slate-950 w-full h-full md:max-w-[95vw] md:rounded-3xl border-none md:border border-slate-800 shadow-2xl flex flex-col md:flex-row overflow-hidden relative">
                 
                 {/* --- SEÇÃO CARDÁPIO (ESQUERDA) --- */}
-                <div className={`flex-col bg-slate-900/30 border-r border-slate-800 min-w-0 min-h-0 w-full md:w-[65%] ${mobileTab === 'cart' ? 'hidden md:flex' : 'flex'}`}>
+                <div className={`flex-col bg-slate-900/30 border-r border-slate-800 min-w-0 min-h-0 w-full md:w-[72%] ${mobileTab === 'cart' ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-4 md:p-6 border-b border-slate-800 flex flex-col gap-4 bg-slate-950 md:bg-transparent shrink-0">
                         <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Cardápio</h2><button onClick={onClose} className="md:hidden text-slate-500 ml-2"><X size={24}/></button></div>
                         <div className="flex flex-col md:flex-row gap-3"><div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16}/><input className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white outline-none focus:border-amber-500 transition-colors" placeholder="Buscar produto..." value={searchProduct} onChange={e => setSearchProduct(e.target.value)} /></div></div>
@@ -480,7 +480,7 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
                                 <div className="bg-slate-900/80 backdrop-blur-sm border-l-4 border-amber-500 p-3 rounded-r-lg mb-4 sticky top-0 z-20 shadow-sm"><h3 className="text-amber-500 font-black uppercase text-sm tracking-[0.2em] flex items-center gap-2">{group.category}</h3></div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
                                     {group.items.map(p => (
-                                        <div key={p.id} onClick={() => addToCart(p)} className="bg-slate-900 p-2 md:p-3 rounded-xl border border-slate-800 hover:border-amber-500 cursor-pointer transition-all active:scale-95 group flex flex-col justify-between shadow-md relative overflow-hidden min-h-[90px] md:min-h-[110px]">
+                                        <div key={p.id} onClick={() => addToCart(p)} className="bg-slate-900 p-2 border border-slate-800 hover:border-amber-500 cursor-pointer transition-all active:scale-95 group flex flex-col justify-between shadow-md relative overflow-hidden min-h-[80px] md:min-h-[100px] rounded-xl">
                                             <div className="relative z-10"><h4 className="font-bold text-white text-xs md:text-sm leading-tight line-clamp-2">{p.name}</h4></div>
                                             <div className="relative z-10 flex justify-between items-end mt-2"><span className="text-emerald-400 font-black text-xs whitespace-nowrap">{formatCurrency(p.price)}</span><div className="bg-slate-800 p-1 md:p-1.5 rounded-lg text-slate-400 group-hover:text-white group-hover:bg-amber-600 transition-colors shadow-sm"><Plus size={14}/></div></div>
                                             <div className="absolute -bottom-4 -right-4 w-12 h-12 md:w-16 md:h-16 bg-amber-500/5 rounded-full blur-xl group-hover:bg-amber-500/10 transition-colors"></div>
@@ -494,7 +494,7 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
                 </div>
 
                 {/* --- SEÇÃO CARRINHO / DADOS (DIREITA) --- */}
-                <div className={`flex-col bg-slate-950 border-l border-slate-800 relative shadow-2xl z-20 flex-1 min-h-0 w-full md:w-[35%] ${mobileTab === 'products' ? 'hidden md:flex' : 'flex'}`}>
+                <div className={`flex-col bg-slate-950 border-l border-slate-800 relative shadow-2xl z-20 flex-1 min-h-0 w-full md:w-[28%] ${mobileTab === 'products' ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900 shrink-0">
                         <div className="flex items-center gap-3">
                             <h3 className="font-bold text-white text-lg flex items-center gap-2 text-amber-500"><PlusCircle size={20}/> Novo Pedido</h3>
@@ -508,7 +508,30 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
                             {isDelivery && (<div className="space-y-3 animate-in fade-in slide-in-from-top-2"><input className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors placeholder-slate-600" placeholder="Endereço Completo" value={address} onChange={e => setAddress(e.target.value)} /><input className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-3 text-xs text-white outline-none focus:border-amber-500 transition-colors font-mono placeholder-slate-600" placeholder="Link Google Maps (Opcional)" value={mapsLink} onChange={e => setMapsLink(e.target.value)} /></div>)}
                         </div>
                         <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 shadow-inner"><button onClick={() => setIsDelivery(true)} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${isDelivery ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}><Bike size={16}/> Entrega</button><button onClick={() => setIsDelivery(false)} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${!isDelivery ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}><Store size={16}/> Retira</button></div>
-                        <div className="flex-1 min-h-[150px]"><p className="text-xs font-bold text-slate-500 uppercase mb-2 tracking-wider">Itens ({cart.reduce((a,b)=>a+b.quantity,0)})</p><div className="space-y-2">{cart.length === 0 ? <div className="text-center py-8 text-slate-600 text-sm border-2 border-dashed border-slate-800 rounded-xl bg-slate-900/50">Carrinho vazio</div> : cart.map((item, idx) => (<div key={idx} className="bg-slate-900 p-3 rounded-xl border border-slate-800 flex flex-col gap-2 group hover:border-slate-700 transition-colors"><div className="flex justify-between items-start"><div className="flex-1"><span className="text-white text-sm font-bold block">{item.product.name}</span><span className="text-emerald-400 text-xs font-bold">{formatCurrency(item.product.price * item.quantity)}</span></div><button onClick={() => removeFromCart(idx)} className="text-slate-600 hover:text-red-500 transition-colors p-1"><Trash2 size={14}/></button></div><div className="flex items-center gap-3"><div className="flex items-center bg-slate-950 rounded-lg border border-slate-800"><button onClick={() => updateQuantity(idx, -1)} className="text-slate-400 hover:text-white px-2 py-1 hover:bg-slate-800 rounded-l-lg transition-colors">-</button><span className="text-xs text-white px-2 font-bold min-w-[20px] text-center">{item.quantity}</span><button onClick={() => updateQuantity(idx, 1)} className="text-slate-400 hover:text-white px-2 py-1 hover:bg-slate-800 rounded-r-lg transition-colors">+</button></div><input className="bg-transparent border-b border-slate-800 text-[10px] text-slate-400 focus:text-white outline-none flex-1 py-1 focus:border-amber-500 transition-colors placeholder-slate-600" placeholder="Obs do item..." value={item.obs} onChange={(e) => { const newCart = [...cart]; newCart[idx].obs = e.target.value; setCart(newCart); }}/></div></div>))}</div></div>
+                        <div className="flex-1 min-h-[150px]">
+                            <p className="text-xs font-bold text-slate-500 uppercase mb-2 tracking-wider">Itens ({cart.reduce((a,b)=>a+b.quantity,0)})</p>
+                            <div className="space-y-2">
+                                {cart.length === 0 ? <div className="text-center py-8 text-slate-600 text-sm border-2 border-dashed border-slate-800 rounded-xl bg-slate-900/50">Carrinho vazio</div> : cart.map((item, idx) => (
+                                    <div key={idx} className="bg-slate-900 p-2 rounded-xl border border-slate-800 flex flex-col gap-1 group hover:border-slate-700 transition-colors">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-white text-sm font-bold truncate flex-1 mr-2">{item.product.name}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-emerald-400 text-xs font-bold whitespace-nowrap">{formatCurrency(item.product.price * item.quantity)}</span>
+                                                <button onClick={() => removeFromCart(idx)} className="text-slate-600 hover:text-red-500 transition-colors p-1"><Trash2 size={14}/></button>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex items-center bg-slate-950 rounded-lg border border-slate-800">
+                                                <button onClick={() => updateQuantity(idx, -1)} className="text-slate-400 hover:text-white px-2 py-1 hover:bg-slate-800 rounded-l-lg transition-colors">-</button>
+                                                <span className="text-xs text-white px-2 font-bold min-w-[20px] text-center">{item.quantity}</span>
+                                                <button onClick={() => updateQuantity(idx, 1)} className="text-slate-400 hover:text-white px-2 py-1 hover:bg-slate-800 rounded-r-lg transition-colors">+</button>
+                                            </div>
+                                            <input className="bg-transparent border-b border-slate-800 text-[10px] text-slate-400 focus:text-white outline-none flex-1 py-1 focus:border-amber-500 transition-colors placeholder-slate-600" placeholder="Obs do item..." value={item.obs} onChange={(e) => { const newCart = [...cart]; newCart[idx].obs = e.target.value; setCart(newCart); }}/>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                         <textarea className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white outline-none focus:border-amber-500 h-20 resize-none font-mono placeholder-slate-600" placeholder="Observações Gerais: Ex: Sem cebola, Campainha quebrada..." value={obs} onChange={e => setObs(e.target.value)} />
                         
                         <div className="bg-slate-900 p-4 border border-slate-800 rounded-xl">
@@ -562,6 +585,7 @@ export function AdminInterface(props: AdminProps) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [showManualOrder, setShowManualOrder] = useState(false);
     const [showFleetPanel, setShowFleetPanel] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     
     // NEW: Alert State
     const [newOrderAlert, setNewOrderAlert] = useState<Order | null>(null);
@@ -622,7 +646,7 @@ export function AdminInterface(props: AdminProps) {
         }
     };
 
-    const handleLogout = () => { if (confirm("Sair do sistema?")) props.onLogout(); };
+    const handleLogout = () => { setShowLogoutConfirm(true); };
     const handleAddDriver = () => { props.setDriverToEdit(null); props.setModal('driver'); };
     const handleEditDriver = (driver: Driver) => { props.setDriverToEdit(driver); props.setModal('driver'); };
     const handleSettleDriver = (driverId: string, data: any) => { const driver = props.drivers.find(d => d.id === driverId); if(driver) { props.setDriverToEdit(driver); props.setModalData(data); props.setModal('closeCycle'); } }
@@ -718,6 +742,21 @@ export function AdminInterface(props: AdminProps) {
                     order={receiptOrder} 
                     onClose={() => setReceiptOrder(null)} 
                     appConfig={props.appConfig} 
+                />
+            )}
+
+            {showLogoutConfirm && (
+                <GenericConfirmModal
+                    isOpen={true}
+                    title="Sair do Sistema?"
+                    message="Deseja realmente desconectar da sua conta de administrador?"
+                    onClose={() => setShowLogoutConfirm(false)}
+                    onConfirm={() => {
+                        props.onLogout();
+                        setShowLogoutConfirm(false);
+                    }}
+                    confirmText="Sair Agora"
+                    type="danger"
                 />
             )}
 
