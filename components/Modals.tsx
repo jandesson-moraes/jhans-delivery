@@ -4,7 +4,7 @@ import {
     Plus, Minus, UploadCloud, DollarSign, Calendar, 
     MapPin, Phone, User, Bike, Store, FileText, 
     AlertTriangle, ShieldCheck, Gift, Trophy, CheckCircle2, 
-    AlertCircle, Printer, Share2, Search, Edit 
+    AlertCircle, Printer, Share2, Search, Edit, Bell
 } from 'lucide-react';
 import { 
     Driver, Order, AppConfig, Product, Client, 
@@ -54,6 +54,63 @@ export function GenericConfirmModal({ isOpen, title, message, onConfirm, onClose
 }
 
 // --- ORDER MODALS ---
+
+export function NewOrderModal({ order, onClose, onAccept, onPrint }: any) {
+    useEffect(() => {
+        // Prevent body scroll?
+    }, []);
+
+    if (!order) return null;
+
+    return (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in zoom-in duration-300">
+            <div className="bg-slate-900 w-full max-w-md rounded-3xl border-2 border-amber-500 shadow-[0_0_50px_rgba(245,158,11,0.3)] p-6 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 animate-pulse"></div>
+                
+                <div className="text-center mb-6">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-amber-500/20 text-amber-500 mb-4 ring-4 ring-amber-500/10 animate-bounce">
+                        <Bell size={40} fill="currentColor" />
+                    </div>
+                    <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Novo Pedido!</h2>
+                    <p className="text-slate-400 font-mono text-sm mt-1">#{order.id.startsWith('PED-') ? order.id.slice(-6) : order.id.substring(0,6)} • {formatTime(order.createdAt)}</p>
+                </div>
+
+                <div className="bg-slate-950 rounded-xl p-4 border border-slate-800 mb-6">
+                    <div className="flex justify-between items-start mb-2">
+                        <h3 className="font-bold text-white text-lg">{order.customer}</h3>
+                        <span className="text-emerald-400 font-black text-lg">{formatCurrency(order.value)}</span>
+                    </div>
+                    <p className="text-slate-400 text-sm whitespace-pre-wrap font-medium">{order.items}</p>
+                    {order.paymentMethod && (
+                        <div className="mt-3 pt-3 border-t border-slate-800 flex items-center gap-2 text-xs font-bold text-slate-500 uppercase">
+                            <DollarSign size={14}/> {order.paymentMethod}
+                        </div>
+                    )}
+                    {order.address && (
+                        <div className="mt-2 text-xs text-slate-400 flex items-start gap-1">
+                            <MapPin size={12} className="shrink-0 mt-0.5"/> {order.address}
+                        </div>
+                    )}
+                </div>
+
+                <div className="space-y-3">
+                    <button onClick={onAccept} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl text-lg shadow-lg shadow-emerald-900/20 active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-wide">
+                        <CheckCircle2 size={24}/> Aceitar Pedido
+                    </button>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                        <button onClick={onPrint} className="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+                            <Printer size={18}/> Imprimir
+                        </button>
+                        <button onClick={onClose} className="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white font-bold py-3 rounded-xl transition-colors">
+                            Ver Depois
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export function EditOrderModal({ order, onClose, onSave }: any) {
     const [data, setData] = useState({ ...order });
