@@ -5,7 +5,7 @@ import {
     MapPin, Phone, User, Bike, Store, FileText, 
     AlertTriangle, ShieldCheck, Gift, Trophy, CheckCircle2, 
     AlertCircle, Printer, Share2, Search, Edit, Bell, Clock,
-    Image as ImageIcon, Power
+    Image as ImageIcon, Power, Users, List
 } from 'lucide-react';
 import { 
     Driver, Order, AppConfig, Product, Client, 
@@ -18,7 +18,6 @@ import {
     checkShopStatus, parseOrderItems, compressImage
 } from '../utils';
 
-// ... (Generic Alert, Confirm, Order Modals remain unchanged) ...
 // --- GENERIC MODALS ---
 
 export function GenericAlertModal({ isOpen, title, message, onClose, type = 'info' }: any) {
@@ -798,8 +797,10 @@ export function ProductFormModal({ isOpen, onClose, product, onSave, existingCat
 export function EditClientModal({ client, orders, onClose, onUpdateOrder, onSave }: any) {
     const [form, setForm] = useState({ name: client.name, phone: client.phone, address: client.address || '', obs: client.obs || '' });
     
-    // Filtra últimos pedidos
-    const clientOrders = orders.filter((o: Order) => normalizePhone(o.phone) === normalizePhone(client.phone)).slice(0, 5);
+    // Obtém todos os pedidos do cliente, ordenados do mais recente para o mais antigo
+    const clientOrders = orders
+        .filter((o: Order) => normalizePhone(o.phone) === normalizePhone(client.phone))
+        .sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -808,8 +809,8 @@ export function EditClientModal({ client, orders, onClose, onUpdateOrder, onSave
 
     return (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-slate-900 w-full max-w-2xl rounded-2xl border border-slate-800 p-6 shadow-2xl flex flex-col md:flex-row gap-6 max-h-[90vh] overflow-y-auto">
-                <div className="flex-1">
+            <div className="bg-slate-900 w-full max-w-4xl rounded-2xl border border-slate-800 p-6 shadow-2xl flex flex-col md:flex-row gap-6 h-[85vh] overflow-hidden">
+                <div className="w-full md:w-1/3 flex flex-col border-b md:border-b-0 md:border-r border-slate-800 pb-6 md:pb-0 pr-0 md:pr-6 overflow-y-auto">
                     <h3 className="font-bold text-xl text-white mb-4">Editar Cliente</h3>
                     <form onSubmit={handleSubmit} className="space-y-3">
                         <input required placeholder="Nome" className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
@@ -820,15 +821,43 @@ export function EditClientModal({ client, orders, onClose, onUpdateOrder, onSave
                     </form>
                     <button onClick={onClose} className="w-full mt-2 text-slate-500 py-2">Fechar</button>
                 </div>
-                <div className="flex-1 border-l border-slate-800 pl-0 md:pl-6 pt-6 md:pt-0 border-t md:border-t-0">
-                    <h4 className="font-bold text-white mb-4">Últimos Pedidos</h4>
-                    <div className="space-y-2">
-                        {clientOrders.length === 0 ? <p className="text-slate-500 text-sm">Nenhum pedido recente.</p> : clientOrders.map((o: Order) => (
-                            <div key={o.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs">
-                                <div className="flex justify-between mb-1"><span className="text-white font-bold">{formatDate(o.createdAt)}</span><span className="text-emerald-400 font-bold">{formatCurrency(o.value)}</span></div>
-                                <p className="text-slate-400 line-clamp-2">{o.items}</p>
+                
+                <div className="flex-1 flex flex-col min-h-0">
+                    <h4 className="font-bold text-white mb-4 flex items-center gap-2">
+                        <Clock size={18} className="text-amber-500"/> 
+                        Histórico de Pedidos ({clientOrders.length})
+                    </h4>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
+                        {clientOrders.length === 0 ? (
+                            <div className="text-center py-10 text-slate-500 border border-dashed border-slate-800 rounded-xl">
+                                Nenhum pedido encontrado para este cliente.
                             </div>
-                        ))}
+                        ) : (
+                            clientOrders.map((o: Order) => (
+                                <div key={o.id} className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-sm hover:border-slate-700 transition-colors">
+                                    <div className="flex justify-between items-start mb-2 border-b border-slate-800/50 pb-2">
+                                        <div>
+                                            <span className="text-white font-bold block">{formatDate(o.createdAt)} • {formatTime(o.createdAt)}</span>
+                                            <span className="text-[10px] text-slate-500 font-mono">#{o.id}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-emerald-400 font-bold block text-base">{formatCurrency(o.value)}</span>
+                                            <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${o.status === 'completed' ? 'bg-emerald-900/30 text-emerald-500' : 'bg-amber-900/30 text-amber-500'}`}>
+                                                {o.status === 'completed' ? 'Entregue' : 'Em Andamento'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-800/50">
+                                        <pre className="text-slate-300 whitespace-pre-wrap font-sans text-xs leading-relaxed">{o.items}</pre>
+                                    </div>
+                                    {o.obs && (
+                                        <p className="text-[11px] text-amber-500 mt-2 italic border-t border-slate-800/50 pt-1">
+                                            Obs: {o.obs}
+                                        </p>
+                                    )}
+                                </div>
+                            ))
+                        )}
                     </div>
                 </div>
             </div>
@@ -850,6 +879,7 @@ export function NewLeadNotificationModal({ onClose }: any) {
 export function GiveawayManagerModal({ entries, onClose, appConfig }: any) {
     const [winner, setWinner] = useState<any>(null);
     const [isAnimating, setIsAnimating] = useState(false);
+    const [viewMode, setViewMode] = useState<'draw' | 'list'>('draw');
 
     const handleDraw = () => {
         if (entries.length === 0) return alert("Nenhum participante!");
@@ -863,32 +893,84 @@ export function GiveawayManagerModal({ entries, onClose, appConfig }: any) {
 
     return (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-purple-500 p-8 shadow-2xl text-center relative overflow-hidden">
+            <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-purple-500 p-8 shadow-2xl text-center relative overflow-hidden flex flex-col max-h-[90vh]">
                  <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
-                 <Trophy size={64} className="text-amber-400 mx-auto mb-4 drop-shadow-lg" />
-                 <h3 className="font-black text-2xl text-white mb-2 uppercase">Sorteio Oficial</h3>
-                 <p className="text-slate-400 mb-6">{entries.length} participantes registrados</p>
                  
-                 {isAnimating ? (
-                     <div className="py-10">
-                         <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 animate-pulse">
-                             SORTEANDO...
-                         </div>
-                     </div>
-                 ) : winner ? (
-                     <div className="bg-gradient-to-br from-purple-900/50 to-slate-900 p-6 rounded-2xl border border-purple-500/50 animate-in zoom-in">
-                         <p className="text-purple-300 text-sm font-bold uppercase mb-2">O Vencedor é:</p>
-                         <h2 className="text-3xl font-black text-white mb-1">{winner.name}</h2>
-                         <p className="text-slate-400 font-mono text-lg mb-4">{winner.phone}</p>
-                         <button onClick={() => window.open(`https://wa.me/55${normalizePhone(winner.phone)}?text=Parabéns! Você ganhou o sorteio!`, '_blank')} className="bg-emerald-600 text-white px-6 py-2 rounded-full font-bold text-sm shadow-lg hover:bg-emerald-500 transition-colors flex items-center justify-center gap-2 mx-auto">
-                             <MessageCircle size={16}/> Avisar Vencedor
+                 <div className="shrink-0">
+                     <Trophy size={64} className="text-amber-400 mx-auto mb-4 drop-shadow-lg" />
+                     <h3 className="font-black text-2xl text-white mb-2 uppercase">Sorteio Oficial</h3>
+                     <p className="text-slate-400 mb-6">{entries.length} participantes registrados</p>
+                     
+                     <div className="flex bg-slate-950 p-1 rounded-xl mb-6 border border-slate-800">
+                         <button 
+                            onClick={() => setViewMode('draw')}
+                            className={`flex-1 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${viewMode === 'draw' ? 'bg-purple-600 text-white' : 'text-slate-500 hover:text-white'}`}
+                         >
+                             <Gift size={16}/> Sorteio
+                         </button>
+                         <button 
+                            onClick={() => setViewMode('list')}
+                            className={`flex-1 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors ${viewMode === 'list' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-white'}`}
+                         >
+                             <List size={16}/> Participantes
                          </button>
                      </div>
-                 ) : (
-                     <button onClick={handleDraw} className="bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 px-10 rounded-full shadow-lg hover:scale-105 transition-transform uppercase tracking-widest text-lg">
-                         Realizar Sorteio
-                     </button>
-                 )}
+                 </div>
+
+                 <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
+                     {viewMode === 'draw' ? (
+                         <>
+                             {isAnimating ? (
+                                 <div className="py-10">
+                                     <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 animate-pulse">
+                                         SORTEANDO...
+                                     </div>
+                                 </div>
+                             ) : winner ? (
+                                 <div className="bg-gradient-to-br from-purple-900/50 to-slate-900 p-6 rounded-2xl border border-purple-500/50 animate-in zoom-in">
+                                     <p className="text-purple-300 text-sm font-bold uppercase mb-2">O Vencedor é:</p>
+                                     <h2 className="text-3xl font-black text-white mb-1">{winner.name}</h2>
+                                     <p className="text-slate-400 font-mono text-lg mb-4">{winner.phone}</p>
+                                     <button onClick={() => window.open(`https://wa.me/55${normalizePhone(winner.phone)}?text=Parabéns! Você ganhou o sorteio!`, '_blank')} className="bg-emerald-600 text-white px-6 py-2 rounded-full font-bold text-sm shadow-lg hover:bg-emerald-500 transition-colors flex items-center justify-center gap-2 mx-auto">
+                                         <MessageCircle size={16}/> Avisar Vencedor
+                                     </button>
+                                 </div>
+                             ) : (
+                                 <div className="py-6">
+                                    <button onClick={handleDraw} className="bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 px-10 rounded-full shadow-lg hover:scale-105 transition-transform uppercase tracking-widest text-lg w-full">
+                                        Realizar Sorteio
+                                    </button>
+                                    <p className="text-xs text-slate-500 mt-4">Clique para escolher um ganhador aleatoriamente.</p>
+                                 </div>
+                             )}
+                         </>
+                     ) : (
+                         <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden text-left">
+                             {entries.length === 0 ? (
+                                 <div className="p-8 text-center text-slate-500">Nenhum participante ainda.</div>
+                             ) : (
+                                 <table className="w-full text-sm">
+                                     <thead className="bg-slate-900 text-slate-400 font-bold uppercase text-xs border-b border-slate-800">
+                                         <tr>
+                                             <th className="p-3 pl-4">Nome</th>
+                                             <th className="p-3">Telefone</th>
+                                             <th className="p-3 text-right pr-4">Data</th>
+                                         </tr>
+                                     </thead>
+                                     <tbody className="divide-y divide-slate-800">
+                                         {entries.map((entry: any) => (
+                                             <tr key={entry.id} className="hover:bg-slate-900/50">
+                                                 <td className="p-3 pl-4 font-bold text-white">{entry.name}</td>
+                                                 <td className="p-3 text-slate-400 font-mono text-xs">{entry.phone}</td>
+                                                 <td className="p-3 text-right pr-4 text-slate-500 text-xs">{formatDate(entry.createdAt)}</td>
+                                             </tr>
+                                         ))}
+                                     </tbody>
+                                 </table>
+                             )}
+                         </div>
+                     )}
+                 </div>
             </div>
         </div>
     );

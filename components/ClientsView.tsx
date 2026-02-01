@@ -94,17 +94,17 @@ export function ClientsView({ clients, orders, giveawayEntries, setModal, setCli
     const top3 = filteredClients.slice(0, 3);
 
     const getRankIcon = (index: number) => {
-        if (index === 0) return <Crown size={24} className="text-amber-400 fill-amber-400 animate-pulse"/>;
-        if (index === 1) return <Medal size={24} className="text-slate-300 fill-slate-300"/>;
-        if (index === 2) return <Medal size={24} className="text-orange-700 fill-orange-700"/>;
+        if (index === 0) return <Crown size={32} className="text-amber-400 fill-amber-400 animate-pulse drop-shadow-lg"/>;
+        if (index === 1) return <Medal size={28} className="text-slate-300 fill-slate-300 drop-shadow-md"/>;
+        if (index === 2) return <Medal size={28} className="text-orange-700 fill-orange-700 drop-shadow-md"/>;
         return <span className="font-bold text-slate-500 text-lg">#{index + 1}</span>;
     };
 
     return (
        <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar flex flex-col">
-           <div className="flex-1">
+           <div className="flex-1 w-full max-w-6xl mx-auto">
                {/* Header & Controls */}
-               <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-6">
+               <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-4">
                    <div>
                        <h2 className="text-3xl font-black text-white flex items-center gap-3">
                            <Trophy className="text-amber-500" /> Hall da Fama
@@ -154,54 +154,65 @@ export function ClientsView({ clients, orders, giveawayEntries, setModal, setCli
                    </div>
                </div>
 
-               {/* TOP 3 CARDS */}
-               {!searchTerm && (
-                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 relative">
+               {/* TOP 3 PODIUM - ADJUSTED & ALIGNED */}
+               {!searchTerm && top3.length > 0 && (
+                   <div className="relative mb-12 mt-8">
                        {/* Efeito de fundo decorativo */}
-                       <div className="absolute inset-0 bg-gradient-to-b from-amber-500/5 to-transparent rounded-3xl -z-10 pointer-events-none"></div>
+                       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-32 bg-amber-500/5 blur-3xl rounded-full -z-10 pointer-events-none"></div>
                        
-                       {top3.map((client: any, index: number) => {
-                           const isFirst = index === 0;
-                           return (
-                               <div 
-                                   key={client.id} 
-                                   onClick={() => { setClientToEdit(client); setModal('client'); }}
-                                   className={`relative group cursor-pointer flex flex-col items-center text-center p-6 rounded-3xl border transition-all hover:-translate-y-1 duration-300 ${
-                                       isFirst 
-                                       ? 'bg-gradient-to-b from-amber-900/40 to-slate-900 border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.15)] z-10 scale-105 md:scale-110' 
-                                       : 'bg-slate-900 border-slate-800 hover:border-slate-600 shadow-xl opacity-90 hover:opacity-100'
-                                   }`}
-                               >
-                                   <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-slate-950 rounded-full p-2 border border-slate-800 shadow-xl">
-                                       {getRankIcon(index)}
-                                   </div>
-                                   
-                                   <div className="mt-4 mb-2">
-                                       <h3 className={`font-black text-white truncate max-w-[200px] ${isFirst ? 'text-2xl' : 'text-xl'}`}>{client.name}</h3>
-                                       <p className="text-xs text-slate-500">{client.phone}</p>
-                                   </div>
+                       <div className="flex flex-col md:flex-row items-center md:items-end justify-center gap-4 md:gap-6">
+                           {top3.map((client: any, index: number) => {
+                               const isFirst = index === 0;
+                               const isSecond = index === 1;
+                               const isThird = index === 2;
 
-                                   <div className="grid grid-cols-2 gap-4 w-full mt-4 bg-black/20 p-3 rounded-2xl">
-                                       <div className="flex flex-col">
-                                           <span className="text-[10px] uppercase text-slate-500 font-bold">Total Gasto</span>
-                                           <span className={`font-black ${isFirst ? 'text-amber-400 text-lg' : 'text-emerald-400 text-base'}`}>
-                                               {formatCurrency(client.totalSpent)}
-                                           </span>
+                               // Layout Order Logic for Desktop Podium (2 - 1 - 3)
+                               let orderClass = "";
+                               if (isFirst) orderClass = "order-1 md:order-2 z-30 w-full md:w-[32%]";
+                               else if (isSecond) orderClass = "order-2 md:order-1 z-20 w-full md:w-[30%]";
+                               else orderClass = "order-3 md:order-3 z-20 w-full md:w-[30%]";
+
+                               return (
+                                   <div 
+                                       key={client.id} 
+                                       onClick={() => { setClientToEdit(client); setModal('client'); }}
+                                       className={`${orderClass} relative group cursor-pointer flex flex-col items-center text-center p-6 rounded-3xl border transition-all duration-300 ${
+                                           isFirst 
+                                           ? 'bg-gradient-to-b from-amber-900/40 via-slate-900 to-slate-900 border-amber-500/50 shadow-[0_0_40px_rgba(245,158,11,0.15)] md:mb-12 min-h-[280px] md:scale-105' 
+                                           : 'bg-slate-900 border-slate-800 hover:border-slate-600 shadow-xl min-h-[240px] hover:-translate-y-1'
+                                       }`}
+                                   >
+                                       <div className={`absolute -top-6 left-1/2 -translate-x-1/2 rounded-full p-4 border shadow-xl ${isFirst ? 'bg-slate-950 border-amber-500' : 'bg-slate-900 border-slate-700'}`}>
+                                           {getRankIcon(index)}
                                        </div>
-                                       <div className="flex flex-col border-l border-white/10">
-                                           <span className="text-[10px] uppercase text-slate-500 font-bold">Pedidos</span>
-                                           <span className="font-black text-white text-lg">{client.count}</span>
+                                       
+                                       <div className="mt-8 mb-4 w-full px-2">
+                                           <h3 className={`font-black text-white truncate ${isFirst ? 'text-2xl text-amber-100' : 'text-lg'}`}>{client.name}</h3>
+                                           <p className="text-xs text-slate-500 font-mono mt-1">{normalizePhone(client.phone)}</p>
                                        </div>
+
+                                       <div className="grid grid-cols-2 gap-3 w-full mt-auto bg-black/20 p-3 rounded-2xl border border-white/5">
+                                           <div className="flex flex-col items-center justify-center">
+                                               <span className="text-[9px] uppercase text-slate-500 font-bold mb-0.5">Total</span>
+                                               <span className={`font-black ${isFirst ? 'text-amber-400 text-lg' : 'text-emerald-400 text-base'}`}>
+                                                   {formatCurrency(client.totalSpent)}
+                                               </span>
+                                           </div>
+                                           <div className="flex flex-col items-center justify-center border-l border-white/5">
+                                               <span className="text-[9px] uppercase text-slate-500 font-bold mb-0.5">Pedidos</span>
+                                               <span className="font-black text-white text-lg">{client.count}</span>
+                                           </div>
+                                       </div>
+                                       
+                                       {client.obs && (
+                                           <div className="mt-3 text-[9px] text-slate-400 bg-slate-950/50 px-3 py-1 rounded-full border border-slate-800 max-w-full truncate w-full">
+                                               {client.obs}
+                                           </div>
+                                       )}
                                    </div>
-                                   
-                                   {client.obs && (
-                                       <div className="mt-3 text-[10px] text-slate-400 bg-slate-800/50 px-3 py-1 rounded-full border border-slate-700/50 max-w-full truncate">
-                                           Obs: {client.obs}
-                                       </div>
-                                   )}
-                               </div>
-                           );
-                       })}
+                               );
+                           })}
+                       </div>
                    </div>
                )}
 
@@ -211,42 +222,42 @@ export function ClientsView({ clients, orders, giveawayEntries, setModal, setCli
                       <table className="w-full text-left text-sm text-slate-400">
                           <thead className="bg-slate-950 text-slate-200 font-bold uppercase tracking-wider border-b border-slate-800">
                               <tr>
-                                  <th className="p-5 pl-8"># Rank</th>
-                                  <th className="p-5">Cliente</th>
-                                  <th className="p-5 hidden md:table-cell">Endereço</th>
-                                  <th className="p-5 text-right cursor-pointer hover:text-white transition-colors" onClick={()=>setRankingMode('count')}>
+                                  <th className="p-4 pl-6"># Rank</th>
+                                  <th className="p-4">Cliente</th>
+                                  <th className="p-4 hidden md:table-cell">Endereço</th>
+                                  <th className="p-4 text-right cursor-pointer hover:text-white transition-colors" onClick={()=>setRankingMode('count')}>
                                       <div className="flex items-center justify-end gap-1">Pedidos {rankingMode==='count' && <ChevronDown size={14}/>}</div>
                                   </th>
-                                  <th className="p-5 text-right cursor-pointer hover:text-white transition-colors" onClick={()=>setRankingMode('spent')}>
+                                  <th className="p-4 text-right cursor-pointer hover:text-white transition-colors" onClick={()=>setRankingMode('spent')}>
                                       <div className="flex items-center justify-end gap-1">Total Gasto {rankingMode==='spent' && <ChevronDown size={14}/>}</div>
                                   </th>
-                                  <th className="p-5 text-center">Ação</th>
+                                  <th className="p-4 text-center">Ação</th>
                               </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-800">
                               {visibleClients.map((client, index) => (
                                   <tr key={client.id} className="hover:bg-slate-800/50 transition-colors group cursor-pointer" onClick={() => { setClientToEdit(client); setModal('client'); }}>
-                                      <td className="p-5 pl-8 font-mono font-bold text-slate-600 group-hover:text-amber-500 transition-colors">
+                                      <td className="p-4 pl-6 font-mono font-bold text-slate-600 group-hover:text-amber-500 transition-colors">
                                           {index + 1}º
                                       </td>
-                                      <td className="p-5">
+                                      <td className="p-4">
                                           <p className="font-bold text-white text-base">{client.name}</p>
                                           <p className="text-xs text-slate-500">{client.phone}</p>
                                       </td>
-                                      <td className="p-5 hidden md:table-cell max-w-xs">
+                                      <td className="p-4 hidden md:table-cell max-w-xs">
                                           <p className="truncate text-xs">{client.address || 'Sem endereço cadastrado'}</p>
                                       </td>
-                                      <td className="p-5 text-right">
+                                      <td className="p-4 text-right">
                                           <span className={`font-bold px-2 py-1 rounded ${rankingMode === 'count' ? 'bg-blue-900/30 text-blue-400' : 'text-slate-300'}`}>
                                               {client.count}
                                           </span>
                                       </td>
-                                      <td className="p-5 text-right">
+                                      <td className="p-4 text-right">
                                           <span className={`font-bold px-2 py-1 rounded ${rankingMode === 'spent' ? 'bg-emerald-900/30 text-emerald-400' : 'text-emerald-500/80'}`}>
                                               {formatCurrency(client.totalSpent || 0)}
                                           </span>
                                       </td>
-                                      <td className="p-5 text-center">
+                                      <td className="p-4 text-center">
                                           <button onClick={(e) => { e.stopPropagation(); setClientToEdit(client); setModal('client'); }} className="p-2 bg-slate-800 hover:bg-amber-600 hover:text-white rounded-xl transition-colors text-slate-400 border border-slate-700 shadow-sm">
                                               <Edit size={16}/>
                                           </button>
