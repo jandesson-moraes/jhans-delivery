@@ -70,8 +70,8 @@ export function MenuManager({ products, onCreate, onUpdate, onDelete }: MenuProp
     };
 
     return (
-        <div className="flex-1 bg-slate-950 p-6 md:p-10 overflow-auto w-full h-full pb-28 md:pb-8">
-            <div className="w-full max-w-6xl mx-auto">
+        <div className="flex-1 bg-slate-950 p-6 md:p-10 overflow-auto w-full h-full pb-28 md:pb-8 flex flex-col">
+            <div className="w-full max-w-6xl mx-auto flex-1">
                 <div className="flex justify-between items-center mb-8">
                     <div>
                         <h2 className="font-bold text-2xl text-white">Cardápio Digital</h2>

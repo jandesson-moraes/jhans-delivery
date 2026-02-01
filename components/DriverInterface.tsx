@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package, Zap, ZapOff, Edit, Trash2, Send, MinusCircle, AlertCircle, TrendingUp, Radio, LocateFixed, ShieldCheck, Lock, Signal, RefreshCw } from 'lucide-react';
 import { Driver, Order, Vale } from '../types';
@@ -351,11 +350,11 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
         </div>
       </div>
 
-      <div className="flex-1 px-3 md:px-4 -mt-4 pb-4 overflow-y-auto z-20 custom-scrollbar pt-6 w-full">
+      <div className="flex-1 px-3 md:px-4 -mt-4 pb-4 overflow-y-auto z-20 custom-scrollbar pt-6 w-full flex flex-col">
         
         {/* --- ABA HOME (ENTREGAS ATUAIS) --- */}
         {activeTab === 'home' && (
-          <div className="space-y-4">
+          <div className="space-y-4 flex-1">
             
             {/* CARD STATUS PRINCIPAL */}
             <div className={`p-4 rounded-2xl border shadow-xl flex items-center justify-between transition-all ${driver.status === 'offline' ? 'bg-slate-900 border-slate-800' : 'bg-gradient-to-r from-emerald-900/40 to-slate-900 border-emerald-500/30'}`}>
@@ -455,7 +454,7 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
 
         {/* --- ABA HISTÓRICO --- */}
         {activeTab === 'history' && (
-            <div className="space-y-4">
+            <div className="space-y-4 flex-1">
                 <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
                     <button onClick={() => setHistoryFilter('today')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${historyFilter === 'today' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Hoje</button>
                     <button onClick={() => setHistoryFilter('all')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${historyFilter === 'all' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Tudo</button>
@@ -501,7 +500,7 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
 
         {/* --- ABA FINANÇAS --- */}
         {activeTab === 'wallet' && (
-          <div className="space-y-6 pt-2">
+          <div className="space-y-6 pt-2 flex-1">
              <div className="bg-gradient-to-br from-emerald-900 to-slate-900 p-6 rounded-2xl shadow-xl border border-emerald-500/30 ring-1 ring-emerald-500/20 text-center">
                 <p className="text-emerald-200 text-[10px] font-bold uppercase mb-2">Saldo Líquido a Receber</p>
                 <h3 className="text-4xl font-black text-white">{formatCurrency(financialData.netValue)}</h3>

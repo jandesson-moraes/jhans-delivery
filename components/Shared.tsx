@@ -72,7 +72,7 @@ export const PixIcon = ({ size = 24, className = "" }: { size?: number, classNam
 );
 
 export const Footer = () => (
-    <div className="w-full py-8 mt-auto flex flex-col items-center justify-center border-t border-slate-800/50 bg-transparent">
+    <div className="w-full py-8 mt-auto flex flex-col items-center justify-center border-t border-slate-800/50 bg-transparent shrink-0">
         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1">
             Desenvolvido por <span className="text-amber-600/90 font-black">Jhan Houzer</span>
         </p>
