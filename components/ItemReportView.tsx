@@ -50,7 +50,7 @@ export function ItemReportView({ orders }: ItemReportProps) {
     };
 
     return (
-        <div className="flex-1 bg-slate-950 p-6 md:p-10 overflow-auto w-full h-full pb-20 flex flex-col">
+        <div className="flex-1 bg-slate-950 p-6 md:p-10 overflow-auto w-full h-full pb-8 flex flex-col">
             <div className="flex-1">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <div>
@@ -74,4 +74,38 @@ export function ItemReportView({ orders }: ItemReportProps) {
                         <table className="w-full text-left text-sm text-slate-400">
                             <thead className="bg-slate-950 text-slate-200 font-bold uppercase tracking-wider border-b border-slate-800">
                                 <tr>
-                                    <th className="p-4">
+                                    <th className="p-4">Data</th>
+                                    <th className="p-4">Pedido</th>
+                                    <th className="p-4">Produto</th>
+                                    <th className="p-4 text-right">Qtd</th>
+                                    <th className="p-4">Pagamento</th>
+                                    <th className="p-4">Cliente</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800">
+                                {reportData.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={6} className="p-8 text-center text-slate-500">Nenhum dado encontrado para o período.</td>
+                                    </tr>
+                                ) : (
+                                    reportData.map((row, idx) => (
+                                        <tr key={idx} className="hover:bg-slate-800/50 transition-colors">
+                                            <td className="p-4 font-mono text-xs">{row.date}</td>
+                                            <td className="p-4 font-mono text-xs text-slate-500">{row.orderId}</td>
+                                            <td className="p-4 font-bold text-white">{row.product}</td>
+                                            <td className="p-4 text-right font-bold text-emerald-400">{row.qty}</td>
+                                            <td className="p-4 text-xs">{row.payment}</td>
+                                            <td className="p-4 text-xs">{row.customer}</td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <Footer />
+        </div>
+    );
+}
