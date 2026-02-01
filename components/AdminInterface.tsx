@@ -3,7 +3,7 @@ import { LayoutDashboard, Users, ShoppingBag, Utensils, Bike, Map as MapIcon, Se
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Driver, Order, Vale, Expense, Product, Client, Settlement, AppConfig, Supplier, InventoryItem, ShoppingItem, GiveawayEntry } from '../types';
-import { BrandLogo, Footer, SidebarBtn, StatBox } from './Shared';
+import { BrandLogo, Footer, SidebarBtn, StatBox, PixIcon } from './Shared';
 import { MenuManager } from './MenuManager';
 import { ClientsView } from './ClientsView';
 import { KitchenDisplay } from './KitchenDisplay';
@@ -104,23 +104,32 @@ interface AdminProps {
 const GIVEAWAY_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3';
 
 const IntroAnimation = ({ appName, onComplete }: { appName: string, onComplete: () => void }) => {
+    const [visible, setVisible] = useState(true);
+    const [fading, setFading] = useState(false);
+
     useEffect(() => {
-        const timer = setTimeout(onComplete, 2500);
-        return () => clearTimeout(timer);
+        const timerFade = setTimeout(() => setFading(true), 2000);
+        const timerRemove = setTimeout(() => {
+            setVisible(false);
+            onComplete();
+        }, 2500);
+        return () => { clearTimeout(timerFade); clearTimeout(timerRemove); };
     }, [onComplete]);
 
+    if (!visible) return null;
+
     return (
-        <div className="fixed inset-0 z-[9999] bg-slate-950 flex flex-col items-center justify-center animate-out fade-out duration-500 delay-[2000ms] pointer-events-none">
+        <div className={`fixed inset-0 z-[9999] bg-slate-950 flex flex-col items-center justify-center transition-opacity duration-500 ease-out ${fading ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
             <div className="relative mb-6">
                 <div className="absolute inset-0 bg-amber-500 blur-2xl opacity-20 animate-pulse rounded-full"></div>
                 <div className="bg-slate-900 p-6 rounded-2xl shadow-2xl border border-slate-800 relative z-10 animate-bounce">
                     <Utensils size={48} className="text-amber-500" />
                 </div>
             </div>
-            <h1 className="text-3xl font-black text-white tracking-tight animate-in slide-in-from-bottom-4 duration-700">
+            <h1 className="text-3xl font-black text-white tracking-tight">
                 {appName || "Sistema Delivery"}
             </h1>
-            <p className="text-slate-500 mt-2 font-mono text-xs uppercase tracking-[0.3em] animate-in slide-in-from-bottom-8 duration-1000">Carregando Módulos...</p>
+            <p className="text-slate-500 mt-2 font-mono text-xs uppercase tracking-[0.3em]">Carregando Módulos...</p>
         </div>
     );
 };
@@ -151,7 +160,15 @@ function MapHandler({ targetLocation, zoomLevel }: { targetLocation: [number, nu
 }
 
 // --- SUB-COMPONENTE: NOVO PEDIDO MANUAL (PDV) ---
-function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig }: any) {
+interface ManualOrderViewProps {
+    products: Product[];
+    clients: Client[];
+    onCreateOrder: (data: any) => void;
+    onClose: () => void;
+    appConfig: AppConfig;
+}
+
+function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig }: ManualOrderViewProps) {
     const [cart, setCart] = useState<{product: Product, quantity: number, obs: string}[]>([]);
     const [phone, setPhone] = useState('');
     const [name, setName] = useState('');
@@ -161,6 +178,7 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
     const [paymentMethod, setPaymentMethod] = useState('PIX');
     const [isDelivery, setIsDelivery] = useState(true);
     const [searchProduct, setSearchProduct] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('Todos');
     const [clientSuggestions, setClientSuggestions] = useState<Client[]>([]);
     
     // Estado para controlar a visualização no mobile (Cardápio vs Carrinho/Dados)
@@ -273,79 +291,252 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
         onClose(); 
     };
 
-    const groupedProducts = useMemo(() => {
-        const groups: {[key: string]: Product[]} = {};
-        products.forEach((p: Product) => {
-            if (!groups[p.category]) groups[p.category] = [];
-            groups[p.category].push(p);
-        });
+    const categories = useMemo(() => {
+        const cats = Array.from(new Set(products.map(p => p.category)));
         const ORDER = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
-        return Object.keys(groups).sort((a,b) => {
+        return ['Todos', ...cats.sort((a, b) => {
             const ia = ORDER.indexOf(a);
             const ib = ORDER.indexOf(b);
             if (ia !== -1 && ib !== -1) return ia - ib;
             if (ia !== -1) return -1;
             if (ib !== -1) return 1;
             return a.localeCompare(b);
-        }).map(cat => ({ category: cat, items: groups[cat] }));
+        })];
     }, [products]);
+
+    // Filtragem e Agrupamento
+    const groupedProducts = useMemo(() => {
+        // 1. Filtrar
+        let items = products;
+        if (selectedCategory !== 'Todos') items = items.filter(p => p.category === selectedCategory);
+        if (searchProduct) items = items.filter(p => p.name.toLowerCase().includes(searchProduct.toLowerCase()));
+
+        // 2. Agrupar
+        const groups: Record<string, Product[]> = {};
+        items.forEach(p => {
+            if (!groups[p.category]) groups[p.category] = [];
+            groups[p.category].push(p);
+        });
+
+        // 3. Ordenar Grupos
+        const ORDER = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
+        return Object.keys(groups).sort((a, b) => {
+             const ia = ORDER.indexOf(a);
+             const ib = ORDER.indexOf(b);
+             if (ia !== -1 && ib !== -1) return ia - ib;
+             if (ia !== -1) return -1;
+             if (ib !== -1) return 1;
+             return a.localeCompare(b);
+        }).map(cat => ({ category: cat, items: groups[cat] }));
+    }, [products, selectedCategory, searchProduct]);
 
     return (
         <div className="fixed inset-0 z-[2000] bg-black/90 backdrop-blur-sm flex items-center justify-center p-0 md:p-8 animate-in fade-in zoom-in duration-200">
-            <div className="bg-slate-950 w-full h-full md:max-w-[1400px] md:rounded-3xl border-none md:border border-slate-800 shadow-2xl flex flex-col md:flex-row overflow-hidden relative">
+            <div className="bg-slate-950 w-full h-full md:max-w-[95vw] md:rounded-3xl border-none md:border border-slate-800 shadow-2xl flex flex-col md:flex-row overflow-hidden relative">
                 
-                {/* LADO ESQUERDO: LISTA DE PRODUTOS (CARDÁPIO) */}
-                <div className={`flex-1 flex-col bg-slate-900/50 border-r border-slate-800 min-w-0 min-h-0 ${mobileTab === 'cart' ? 'hidden md:flex' : 'flex'}`}>
-                    <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 md:bg-transparent shrink-0">
-                        <h2 className="text-2xl font-bold text-white">Cardápio</h2>
-                        <div className="relative w-48 md:w-64">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16}/>
-                            <input className="w-full bg-slate-950 md:bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-sm text-white outline-none focus:border-amber-500 transition-colors" placeholder="Buscar produto..." value={searchProduct} onChange={e => setSearchProduct(e.target.value)} />
+                {/* LADO ESQUERDO: LISTA DE PRODUTOS (CARDÁPIO) - 65% WIDTH */}
+                <div className={`flex-col bg-slate-900/30 border-r border-slate-800 min-w-0 min-h-0 w-full md:w-[65%] ${mobileTab === 'cart' ? 'hidden md:flex' : 'flex'}`}>
+                    <div className="p-4 md:p-6 border-b border-slate-800 flex flex-col gap-4 bg-slate-950 md:bg-transparent shrink-0">
+                        <div className="flex justify-between items-center">
+                            <h2 className="text-2xl font-bold text-white">Cardápio</h2>
+                            {/* Botão fechar mobile aparece aqui se estiver na tab produtos */}
+                            <button onClick={onClose} className="md:hidden text-slate-500 ml-2"><X size={24}/></button>
                         </div>
-                        {/* Botão fechar mobile aparece aqui se estiver na tab produtos */}
-                        <button onClick={onClose} className="md:hidden text-slate-500 ml-2"><X size={24}/></button>
+                        
+                        <div className="flex flex-col md:flex-row gap-3">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16}/>
+                                <input className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white outline-none focus:border-amber-500 transition-colors" placeholder="Buscar produto..." value={searchProduct} onChange={e => setSearchProduct(e.target.value)} />
+                            </div>
+                        </div>
+
+                        {/* CATEGORY TABS */}
+                        <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar hide-scrollbar">
+                            {categories.map(cat => (
+                                <button 
+                                    key={cat} 
+                                    onClick={() => setSelectedCategory(cat)} 
+                                    className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all border ${selectedCategory === cat ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                                >
+                                    {cat}
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar space-y-8 pb-24 md:pb-6">
-                        {groupedProducts.map(group => {
-                            const items = group.items.filter(p => p.name.toLowerCase().includes(searchProduct.toLowerCase()));
-                            if (items.length === 0) return null;
-                            return (
-                                <div key={group.category}>
-                                    <h3 className="text-amber-500 font-bold text-sm uppercase tracking-wider mb-4 border-l-4 border-amber-500 pl-3">{group.category}</h3>
-                                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-                                        {items.map(p => (
-                                            <div key={p.id} onClick={() => addToCart(p)} className="bg-slate-900 p-4 rounded-xl border border-slate-800 hover:border-amber-500/50 cursor-pointer transition-all active:scale-95 group flex flex-col justify-between h-28 shadow-sm">
-                                                <h4 className="font-bold text-white text-sm leading-tight line-clamp-2">{p.name}</h4>
-                                                <div className="flex justify-between items-end"><span className="text-emerald-400 font-bold text-sm">{formatCurrency(p.price)}</span><div className="bg-slate-800 p-1 rounded text-slate-400 group-hover:text-white group-hover:bg-amber-600 transition-colors"><Plus size={14}/></div></div>
-                                            </div>
-                                        ))}
-                                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar pb-24 md:pb-6 bg-slate-950/50">
+                        {groupedProducts.map((group) => (
+                            <div key={group.category} className="mb-8 last:mb-0">
+                                {/* Header da Sessão Separado */}
+                                <div className="bg-slate-900/80 backdrop-blur-sm border-l-4 border-amber-500 p-3 rounded-r-lg mb-4 sticky top-0 z-20 shadow-sm">
+                                    <h3 className="text-amber-500 font-black uppercase text-sm tracking-[0.2em] flex items-center gap-2">
+                                        {group.category}
+                                    </h3>
                                 </div>
-                            )
-                        })}
+                                
+                                {/* GRID ADJUSTED: UP TO 4 COLUMNS, Reduced Height (110px) */}
+                                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                                    {group.items.map(p => (
+                                        <div key={p.id} onClick={() => addToCart(p)} className="bg-slate-900 p-3 rounded-xl border border-slate-800 hover:border-amber-500 cursor-pointer transition-all active:scale-95 group flex flex-col justify-between shadow-md relative overflow-hidden min-h-[110px]">
+                                            <div className="relative z-10">
+                                                <h4 className="font-bold text-white text-sm leading-tight line-clamp-2">{p.name}</h4>
+                                            </div>
+                                            
+                                            <div className="relative z-10 flex justify-between items-end mt-2">
+                                                <span className="text-emerald-400 font-black text-xs whitespace-nowrap">{formatCurrency(p.price)}</span>
+                                                <div className="bg-slate-800 p-1.5 rounded-lg text-slate-400 group-hover:text-white group-hover:bg-amber-600 transition-colors shadow-sm">
+                                                    <Plus size={18}/>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Decoration */}
+                                            <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-amber-500/5 rounded-full blur-xl group-hover:bg-amber-500/10 transition-colors"></div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                        {groupedProducts.length === 0 && (
+                            <div className="col-span-full text-center py-10 text-slate-500">Nenhum produto encontrado.</div>
+                        )}
                     </div>
                 </div>
 
-                {/* LADO DIREITO: DADOS DO PEDIDO & CARRINHO */}
-                <div className={`w-full md:w-[400px] bg-slate-950 flex-col border-l border-slate-800 relative shadow-2xl z-20 flex-1 min-h-0 ${mobileTab === 'products' ? 'hidden md:flex' : 'flex'}`}>
+                {/* LADO DIREITO: DADOS DO PEDIDO & CARRINHO - 35% WIDTH */}
+                <div className={`flex-col bg-slate-950 border-l border-slate-800 relative shadow-2xl z-20 flex-1 min-h-0 w-full md:w-[35%] ${mobileTab === 'products' ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900 shrink-0">
-                        <h3 className="font-bold text-white text-lg flex items-center gap-2"><PlusCircle size={20} className="text-amber-500"/> Novo Pedido</h3>
+                        <h3 className="font-bold text-white text-lg flex items-center gap-2 text-amber-500"><PlusCircle size={20}/> Novo Pedido</h3>
                         <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X size={24}/></button>
                     </div>
+                    
                     <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar pb-2 md:pb-5">
+                        {/* CLIENTE SECTION */}
                         <div className="space-y-3">
-                            <div className="flex justify-between items-end"><label className="text-xs font-bold text-slate-500 uppercase">Cliente</label><button onClick={handlePasteFromWhatsApp} className="text-[10px] text-amber-500 font-bold flex items-center gap-1 hover:text-amber-400 transition-colors"><ClipboardPaste size={12}/> Colar do WhatsApp</button></div>
-                            <div className="flex gap-2 relative"><input className="w-1/3 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors" placeholder="Tel" value={phone} onChange={e => setPhone(e.target.value)} /><div className="flex-1 relative"><input className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors" placeholder="Nome" value={name} onChange={handleNameChange} autoComplete="off" />{clientSuggestions.length > 0 && (<div className="absolute top-full left-0 w-full bg-slate-800 border border-slate-700 rounded-xl mt-1 z-50 shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">{clientSuggestions.map(c => (<div key={c.id} onClick={() => fillClientData(c)} className="p-3 hover:bg-slate-700 cursor-pointer border-b border-slate-700/50 last:border-0"><p className="text-sm font-bold text-white">{c.name}</p><p className="text-xs text-slate-400">{c.phone}</p></div>))}</div>)}</div></div>
-                            {isDelivery && (<div className="space-y-3 animate-in fade-in slide-in-from-top-2"><input className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors" placeholder="Endereço" value={address} onChange={e => setAddress(e.target.value)} /><input className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-amber-500 transition-colors font-mono" placeholder="Link Google Maps (Opcional)" value={mapsLink} onChange={e => setMapsLink(e.target.value)} /></div>)}
+                            <div className="flex justify-between items-end">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Dados do Cliente</label>
+                                <button onClick={handlePasteFromWhatsApp} className="text-[10px] text-amber-500 font-bold flex items-center gap-1 hover:text-amber-400 transition-colors bg-amber-900/10 px-2 py-1 rounded border border-amber-900/20">
+                                    <ClipboardPaste size={12}/> Colar
+                                </button>
+                            </div>
+                            
+                            {/* TELEFONE E NOME NA MESMA LINHA */}
+                            <div className="grid grid-cols-[130px_1fr] gap-3 relative">
+                                <input className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors placeholder-slate-600" placeholder="Tel (11)..." value={phone} onChange={e => setPhone(e.target.value)} />
+                                <div className="relative">
+                                    <input className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors placeholder-slate-600" placeholder="Nome" value={name} onChange={handleNameChange} autoComplete="off" />
+                                    {clientSuggestions.length > 0 && (
+                                        <div className="absolute top-full left-0 w-full bg-slate-800 border border-slate-700 rounded-xl mt-1 z-50 shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
+                                            {clientSuggestions.map(c => (
+                                                <div key={c.id} onClick={() => fillClientData(c)} className="p-3 hover:bg-slate-700 cursor-pointer border-b border-slate-700/50 last:border-0">
+                                                    <p className="text-sm font-bold text-white">{c.name}</p>
+                                                    <p className="text-xs text-slate-400">{c.phone}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            {isDelivery && (
+                                <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                                    <input className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors placeholder-slate-600" placeholder="Endereço Completo" value={address} onChange={e => setAddress(e.target.value)} />
+                                    <input className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-3 text-xs text-white outline-none focus:border-amber-500 transition-colors font-mono placeholder-slate-600" placeholder="Link Google Maps (Opcional)" value={mapsLink} onChange={e => setMapsLink(e.target.value)} />
+                                </div>
+                            )}
                         </div>
-                        <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800"><button onClick={() => setIsDelivery(true)} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${isDelivery ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}><Bike size={16}/> Entrega</button><button onClick={() => setIsDelivery(false)} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${!isDelivery ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}><Store size={16}/> Retira</button></div>
-                        <div><p className="text-xs font-bold text-slate-500 uppercase mb-2">Itens ({cart.reduce((a,b)=>a+b.quantity,0)})</p><div className="space-y-2">{cart.length === 0 ? (<div className="text-center py-4 text-slate-600 text-sm border border-dashed border-slate-800 rounded-xl">Nenhum item adicionado</div>) : (cart.map((item, idx) => (<div key={idx} className="bg-slate-900 p-2 rounded-lg border border-slate-800 flex justify-between items-center group"><div className="flex-1"><div className="flex justify-between"><span className="text-white text-sm font-bold">{item.product.name}</span><span className="text-emerald-400 text-xs font-bold">{formatCurrency(item.product.price * item.quantity)}</span></div><div className="flex items-center gap-2 mt-1"><div className="flex items-center bg-slate-950 rounded px-1"><button onClick={() => updateQuantity(idx, -1)} className="text-slate-400 hover:text-white px-1">-</button><span className="text-xs text-white px-2 font-bold">{item.quantity}</span><button onClick={() => updateQuantity(idx, 1)} className="text-slate-400 hover:text-white px-1">+</button></div><input className="bg-transparent border-b border-slate-800 text-[10px] text-slate-400 focus:text-white outline-none flex-1" placeholder="Obs do item..." value={item.obs} onChange={(e) => { const newCart = [...cart]; newCart[idx].obs = e.target.value; setCart(newCart); }}/></div></div><button onClick={() => removeFromCart(idx)} className="ml-2 text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={14}/></button></div>)))}</div></div>
-                        <textarea className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white outline-none focus:border-amber-500 h-20 resize-none font-mono" placeholder="Obs: Sem cebola..." value={obs} onChange={e => setObs(e.target.value)} />
+
+                        {/* TOGGLE ENTREGA/RETIRA */}
+                        <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 shadow-inner">
+                            <button onClick={() => setIsDelivery(true)} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${isDelivery ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>
+                                <Bike size={16}/> Entrega
+                            </button>
+                            <button onClick={() => setIsDelivery(false)} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${!isDelivery ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>
+                                <Store size={16}/> Retira
+                            </button>
+                        </div>
+
+                        {/* ITENS LIST */}
+                        <div className="flex-1 min-h-[150px]">
+                            <p className="text-xs font-bold text-slate-500 uppercase mb-2 tracking-wider">Itens ({cart.reduce((a,b)=>a+b.quantity,0)})</p>
+                            <div className="space-y-2">
+                                {cart.length === 0 ? (
+                                    <div className="text-center py-8 text-slate-600 text-sm border-2 border-dashed border-slate-800 rounded-xl bg-slate-900/50">
+                                        Carrinho vazio
+                                    </div>
+                                ) : (
+                                    cart.map((item, idx) => (
+                                        <div key={idx} className="bg-slate-900 p-3 rounded-xl border border-slate-800 flex flex-col gap-2 group hover:border-slate-700 transition-colors">
+                                            <div className="flex justify-between items-start">
+                                                <div className="flex-1">
+                                                    <span className="text-white text-sm font-bold block">{item.product.name}</span>
+                                                    <span className="text-emerald-400 text-xs font-bold">{formatCurrency(item.product.price * item.quantity)}</span>
+                                                </div>
+                                                <button onClick={() => removeFromCart(idx)} className="text-slate-600 hover:text-red-500 transition-colors p-1">
+                                                    <Trash2 size={14}/>
+                                                </button>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex items-center bg-slate-950 rounded-lg border border-slate-800">
+                                                    <button onClick={() => updateQuantity(idx, -1)} className="text-slate-400 hover:text-white px-2 py-1 hover:bg-slate-800 rounded-l-lg transition-colors">-</button>
+                                                    <span className="text-xs text-white px-2 font-bold min-w-[20px] text-center">{item.quantity}</span>
+                                                    <button onClick={() => updateQuantity(idx, 1)} className="text-slate-400 hover:text-white px-2 py-1 hover:bg-slate-800 rounded-r-lg transition-colors">+</button>
+                                                </div>
+                                                <input 
+                                                    className="bg-transparent border-b border-slate-800 text-[10px] text-slate-400 focus:text-white outline-none flex-1 py-1 focus:border-amber-500 transition-colors placeholder-slate-600" 
+                                                    placeholder="Obs do item..." 
+                                                    value={item.obs} 
+                                                    onChange={(e) => { const newCart = [...cart]; newCart[idx].obs = e.target.value; setCart(newCart); }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                        
+                        <textarea className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white outline-none focus:border-amber-500 h-20 resize-none font-mono placeholder-slate-600" placeholder="Observações Gerais: Ex: Sem cebola, Campainha quebrada..." value={obs} onChange={e => setObs(e.target.value)} />
                     </div>
-                    {/* ADICIONADO PADDING NO MOBILE PARA NÃO FICAR ESCONDIDO PELO MENU FLUTUANTE */}
-                    <div className="p-5 bg-slate-900 border-t border-slate-800 space-y-4 pb-24 md:pb-5 shrink-0">
-                        <div className="flex justify-between items-center"><div><p className="text-[10px] font-bold text-slate-500 uppercase">Total</p><p className="text-2xl font-black text-white">{formatCurrency(finalTotal)}</p></div><div className="w-1/2"><p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Pagamento</p><select className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-sm text-white outline-none focus:border-amber-500" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}><option value="PIX">PIX</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option></select></div></div>
-                        <button onClick={handleSubmit} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-all text-lg">Confirmar</button>
+
+                    {/* FOOTER TOTAL - COMPACT */}
+                    <div className="p-4 bg-slate-900 border-t border-slate-800 space-y-4 pb-24 md:pb-5 shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-30">
+                        {/* Payment Selection with Icons */}
+                        <div>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-wider">Pagamento</p>
+                            <div className="grid grid-cols-3 gap-2">
+                                <button 
+                                    onClick={() => setPaymentMethod('PIX')}
+                                    className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-all active:scale-95 ${paymentMethod === 'PIX' ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-400 shadow-inner' : 'bg-slate-950 border-slate-800 text-slate-500 hover:bg-slate-800 hover:text-slate-300'}`}
+                                >
+                                    <PixIcon size={20} className={paymentMethod === 'PIX' ? 'text-emerald-400 fill-current' : 'text-slate-500 fill-current'} />
+                                    <span className="text-[9px] font-bold">PIX</span>
+                                </button>
+                                <button 
+                                    onClick={() => setPaymentMethod('Dinheiro')}
+                                    className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-all active:scale-95 ${paymentMethod === 'Dinheiro' ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-400 shadow-inner' : 'bg-slate-950 border-slate-800 text-slate-500 hover:bg-slate-800 hover:text-slate-300'}`}
+                                >
+                                    <Banknote size={20} />
+                                    <span className="text-[9px] font-bold">Dinheiro</span>
+                                </button>
+                                <button 
+                                    onClick={() => setPaymentMethod('Cartão')}
+                                    className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-all active:scale-95 ${paymentMethod === 'Cartão' ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-400 shadow-inner' : 'bg-slate-950 border-slate-800 text-slate-500 hover:bg-slate-800 hover:text-slate-300'}`}
+                                >
+                                    <CreditCard size={20} />
+                                    <span className="text-[9px] font-bold">Cartão</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 pt-2">
+                            <div className="flex-1">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total</p>
+                                <p className="text-2xl font-black text-white tracking-tight leading-none">{formatCurrency(finalTotal)}</p>
+                            </div>
+                            <button onClick={handleSubmit} className="flex-[2] bg-emerald-600 hover:bg-emerald-500 text-white font-black h-12 rounded-xl shadow-lg active:scale-95 transition-all text-sm uppercase tracking-wide flex items-center justify-center gap-2">
+                                Confirmar <CheckCircle2 size={18}/>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -371,7 +562,7 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
     );
 }
 
-export default function AdminInterface(props: AdminProps) {
+export function AdminInterface(props: AdminProps) {
     const [currentView, setCurrentView] = useState('dashboard');
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [showManualOrder, setShowManualOrder] = useState(false);
@@ -447,7 +638,7 @@ export default function AdminInterface(props: AdminProps) {
                                <div className="pointer-events-auto"><StatBox label="Pedidos Hoje" value={props.orders.filter(o => { const d = new Date(o.createdAt?.seconds*1000); const n = new Date(); return d.getDate()===n.getDate() && d.getMonth()===n.getMonth(); }).length} icon={<ShoppingBag size={18}/>} /></div>
                                <div className="pointer-events-auto"><StatBox label="Online" value={props.drivers.filter(d => d.status !== 'offline').length} icon={<Bike size={18}/>} /></div>
                                <div className="pointer-events-auto"><StatBox label="Faturamento" value={formatCurrency(props.orders.filter(o => o.status === 'completed' && new Date(o.createdAt.seconds*1000).toDateString() === new Date().toDateString()).reduce((acc, c) => acc + (c.value || 0), 0))} icon={<DollarSign size={18}/>} /></div>
-                               <div className="pointer-events-auto md:hidden"><button onClick={() => setSidebarOpen(true)} className="w-full h-full bg-slate-800 rounded-2xl flex items-center justify-center text-white shadow-lg"><MenuIcon/></button></div>
+                               {/* Removed Mobile Menu Button from here as per global header change */}
                            </div>
                        </div>
                    </div>
@@ -476,6 +667,11 @@ export default function AdminInterface(props: AdminProps) {
                     <SidebarBtn icon={<ShoppingBag size={20}/>} label="Pedidos" active={currentView === 'orders'} onClick={() => setCurrentView('orders')} />
                     <SidebarBtn icon={<Utensils size={20}/>} label="Cardápio" active={currentView === 'menu'} onClick={() => setCurrentView('menu')} />
                     
+                    {/* Botão Novo Pedido Movido e Estilizado */}
+                    <button onClick={() => setShowManualOrder(true)} className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-900 py-3 rounded-xl font-black text-sm shadow-lg shadow-amber-500/20 mb-4 mt-2 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] border border-amber-400/50">
+                        <PlusCircle size={20} className="text-slate-900"/> NOVO PEDIDO
+                    </button>
+                    
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wider px-2 mt-6 mb-2">Operacional</p>
                     <SidebarBtn icon={<ChefHat size={20}/>} label="Cozinha (KDS)" active={currentView === 'kitchen'} onClick={() => setCurrentView('kitchen')} />
                     <SidebarBtn icon={<Users size={20}/>} label="Clientes" active={currentView === 'clients'} onClick={() => setCurrentView('clients')} />
@@ -488,19 +684,37 @@ export default function AdminInterface(props: AdminProps) {
                     <SidebarBtn icon={<Settings size={20}/>} label="Configurações" active={false} onClick={() => props.setModal('settings')} />
                 </div>
                 <div className="p-4 border-t border-slate-800">
-                     <button onClick={() => setShowManualOrder(true)} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm shadow-lg mb-3 flex items-center justify-center gap-2 transition-transform active:scale-95">
-                         <PlusCircle size={18}/> Novo Pedido
-                     </button>
                      <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-colors text-sm font-bold">
                          <LogOut size={18}/> Sair do Sistema
                      </button>
                 </div>
             </div>
 
+            {/* Mobile Header (Global) */}
+            <div className="md:hidden fixed top-0 left-0 right-0 z-[100] bg-slate-900 border-b border-slate-800 h-16 flex items-center px-4 justify-between shadow-lg">
+                <div className="flex items-center gap-3">
+                    <button onClick={() => setSidebarOpen(true)} className="text-slate-400 hover:text-white p-1">
+                        <MenuIcon size={24}/>
+                    </button>
+                    <span className="font-bold text-lg text-white truncate">
+                        {currentView === 'dashboard' ? 'Visão Geral' : 
+                         currentView === 'orders' ? 'Pedidos' : 
+                         currentView === 'menu' ? 'Cardápio' : 
+                         currentView === 'kitchen' ? 'Cozinha' : 
+                         currentView === 'clients' ? 'Clientes' : 
+                         currentView === 'inventory' ? 'Estoque' : 
+                         currentView === 'analytics' ? 'Relatórios' : 'Sistema'}
+                    </span>
+                </div>
+                <button onClick={() => setShowManualOrder(true)} className="bg-amber-500 text-slate-900 p-2 rounded-lg shadow-lg">
+                    <PlusCircle size={20}/>
+                </button>
+            </div>
+
             {/* Mobile Menu Overlay */}
             {sidebarOpen && (
                 <div className="fixed inset-0 z-[1000] bg-black/80 backdrop-blur-sm md:hidden" onClick={() => setSidebarOpen(false)}>
-                    <div className="w-3/4 h-full bg-slate-900 p-6 flex flex-col" onClick={e => e.stopPropagation()}>
+                    <div className="w-3/4 h-full bg-slate-900 p-6 flex flex-col border-r border-slate-800" onClick={e => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-8">
                             <BrandLogo size="small" config={props.appConfig} />
                             <button onClick={() => setSidebarOpen(false)} className="text-slate-400"><X size={24}/></button>
@@ -508,8 +722,14 @@ export default function AdminInterface(props: AdminProps) {
                         <div className="flex-1 overflow-y-auto space-y-2">
                             <SidebarBtn icon={<LayoutDashboard size={20}/>} label="Visão Geral" active={currentView === 'dashboard'} onClick={() => { setCurrentView('dashboard'); setSidebarOpen(false); }} />
                             <SidebarBtn icon={<ShoppingBag size={20}/>} label="Pedidos" active={currentView === 'orders'} onClick={() => { setCurrentView('orders'); setSidebarOpen(false); }} />
-                            <SidebarBtn icon={<ChefHat size={20}/>} label="Cozinha (KDS)" active={currentView === 'kitchen'} onClick={() => { setCurrentView('kitchen'); setSidebarOpen(false); }} />
                             <SidebarBtn icon={<Utensils size={20}/>} label="Cardápio" active={currentView === 'menu'} onClick={() => { setCurrentView('menu'); setSidebarOpen(false); }} />
+                            
+                            {/* Botão Novo Pedido Mobile */}
+                            <button onClick={() => { setShowManualOrder(true); setSidebarOpen(false); }} className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-900 py-3 rounded-xl font-black text-sm shadow-lg shadow-amber-500/20 mb-2 mt-2 flex items-center justify-center gap-2 border border-amber-400/50">
+                                <PlusCircle size={20} className="text-slate-900"/> NOVO PEDIDO
+                            </button>
+
+                            <SidebarBtn icon={<ChefHat size={20}/>} label="Cozinha (KDS)" active={currentView === 'kitchen'} onClick={() => { setCurrentView('kitchen'); setSidebarOpen(false); }} />
                             <SidebarBtn icon={<Users size={20}/>} label="Clientes" active={currentView === 'clients'} onClick={() => { setCurrentView('clients'); setSidebarOpen(false); }} />
                             <SidebarBtn icon={<Bike size={20}/>} label="Motoboys" active={false} onClick={() => { props.setModal('driver'); setSidebarOpen(false); }} />
                             <SidebarBtn icon={<Store size={20}/>} label="Estoque" active={currentView === 'inventory'} onClick={() => { setCurrentView('inventory'); setSidebarOpen(false); }} />
@@ -517,9 +737,6 @@ export default function AdminInterface(props: AdminProps) {
                             <SidebarBtn icon={<Settings size={20}/>} label="Configurações" active={false} onClick={() => { props.setModal('settings'); setSidebarOpen(false); }} />
                         </div>
                         <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
-                             <button onClick={() => { setShowManualOrder(true); setSidebarOpen(false); }} className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg flex items-center justify-center gap-2">
-                                 <PlusCircle size={18}/> Novo Pedido
-                             </button>
                              <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 text-slate-400 py-2">
                                  <LogOut size={18}/> Sair
                              </button>
@@ -529,7 +746,7 @@ export default function AdminInterface(props: AdminProps) {
             )}
 
             {/* Main Content */}
-            <div className="flex-1 relative overflow-hidden flex flex-col">
+            <div className="flex-1 relative overflow-hidden flex flex-col pt-16 md:pt-0">
                 {renderContent()}
             </div>
 

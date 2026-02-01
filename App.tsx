@@ -6,7 +6,7 @@ import { auth, db } from './services/firebase';
 import { UserType, Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement, Supplier, InventoryItem, ShoppingItem, GiveawayEntry } from './types';
 import { BrandLogo, Footer } from './components/Shared';
 import DriverInterface from './components/DriverInterface';
-import AdminInterface from './components/AdminInterface';
+import { AdminInterface } from './components/AdminInterface';
 import ClientInterface from './components/ClientInterface';
 import { NewDriverModal, SettingsModal, ImportModal, NewExpenseModal, NewValeModal, EditClientModal, CloseCycleModal, GenericAlertModal, GenericConfirmModal } from './components/Modals';
 import { Loader2, TrendingUp, ChevronRight, Bike, ShoppingBag } from 'lucide-react';
