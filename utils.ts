@@ -272,7 +272,18 @@ export const getOrderReceivedText = (order: any, appName: string) => {
     const isPix = order.paymentMethod?.toLowerCase().includes('pix');
     const displayId = formatOrderId(order.id);
     
-    return `Olá *${order.customer}*! ${EMOJI.WAVE}\nRecebemos seu pedido no *${safeName}* e ficamos muito felizes!\n\n*Fique tranquilo!* ${EMOJI.SMILE_HEARTS}\nSeu pedido *${displayId}* já entrou no nosso sistema e será aceito e preparado com todo o cuidado.\n\n${EMOJI.MONEY_BAG} Total: *${formatCurrency(order.value)}*\n${isPix ? `\n${EMOJI.WARNING} *Assim que puder, nos envie o comprovante PIX.*\nCaso já tenha feito o pagamento, favor desconsiderar a cobrança ${EMOJI.SMILE}` : ''}\n\n${EMOJI.SCOOTER} Avisaremos assim que sair para entrega!`;
+    // Formata a lista de itens removendo separadores visuais (---) para ficar mais limpo no WhatsApp
+    // Assumindo que order.items é uma string.
+    const itemsFormatted = order.items
+        .split('\n')
+        .filter((line: string) => line.trim() !== '' && !line.includes('---'))
+        .map((line: string) => {
+            if (line.toLowerCase().startsWith('obs:')) return `   _(${line})_`; // Indenta e italico na Obs
+            return `▪️ ${line.trim()}`;
+        })
+        .join('\n');
+
+    return `Olá *${order.customer}*! ${EMOJI.WAVE}\nRecebemos seu pedido no *${safeName}*!\n\n*PEDIDO ${displayId}*\n\n*📝 O que você pediu:*\n${itemsFormatted}\n\n*💰 Total:* ${formatCurrency(order.value)}\n*💳 Pagamento:* ${order.paymentMethod || 'Dinheiro'}\n\n*Tudo certo!* ${EMOJI.SMILE_HEARTS}\nJá vamos começar a preparar com muito carinho.\n${isPix ? `\n${EMOJI.WARNING} *Aguardando Comprovante PIX*\n` : ''}\n${EMOJI.SCOOTER} Assim que sair para entrega te avisamos aqui!`;
 };
 
 export const sendOrderConfirmation = (order: any, appName: string) => {
