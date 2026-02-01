@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Product, AppConfig } from '../types';
 import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard, formatTime, formatDate, generatePixPayload, EMOJI, checkShopStatus } from '../utils';
-import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode, Gift, LogOut, ShieldCheck, CalendarClock, Ban, Moon, CalendarDays, DoorClosed, Ticket, Instagram, Mic } from 'lucide-react';
+import { ShoppingBag, Minus, Plus, X, Search, Utensils, ChevronRight, MapPin, Phone, CreditCard, Banknote, Bike, Store, ArrowLeft, CheckCircle2, MessageCircle, Copy, Check, TrendingUp, Lock, Star, Flame, Loader2, Navigation, AlertCircle, Receipt, Clock, QrCode, Gift, LogOut, ShieldCheck, CalendarClock, Ban, Moon, CalendarDays, DoorClosed, Ticket, Instagram } from 'lucide-react';
 import { BrandLogo, Footer, PixIcon } from './Shared';
 import { GenericConfirmModal, GenericAlertModal } from './Modals';
 
@@ -20,10 +20,6 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const [showClosedWarning, setShowClosedWarning] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
-    // Voice Recognition States
-    const [isListening, setIsListening] = useState(false);
-    const [voiceText, setVoiceText] = useState('');
     
     const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, action: () => void, title: string, message: string, type?: 'info' | 'danger'} | null>(null);
     const [alertModal, setAlertModal] = useState<{isOpen: boolean, title: string, message: string, type?: 'info' | 'error'} | null>(null);
@@ -162,89 +158,6 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             if (existing) return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
             return [...prev, { product, quantity: 1, obs: '' }];
         });
-    };
-
-    // --- VOICE ORDER LOGIC ---
-    const handleVoiceOrder = () => {
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            setAlertModal({ isOpen: true, title: "Erro de Voz", message: "Seu navegador não suporta reconhecimento de voz.", type: 'error' });
-            return;
-        }
-
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'pt-BR';
-        recognition.continuous = false;
-        recognition.interimResults = false;
-
-        recognition.onstart = () => {
-            setIsListening(true);
-            setVoiceText('Ouvindo...');
-        };
-
-        recognition.onend = () => {
-            setIsListening(false);
-        };
-
-        recognition.onresult = (event: any) => {
-            const transcript = event.results[0][0].transcript.toLowerCase();
-            setVoiceText(transcript);
-            processVoiceOrder(transcript);
-        };
-
-        recognition.start();
-    };
-
-    const processVoiceOrder = (text: string) => {
-        // Normaliza texto removendo acentos
-        const cleanText = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const words = cleanText.split(' ');
-        
-        const addedItems: string[] = [];
-        let matchesFound = 0;
-
-        // Estratégia simples: Verificar se alguma palavra do produto está na frase
-        // Para evitar falsos positivos com palavras comuns como "de", "com", "e", filtramos produtos
-        
-        products.forEach(p => {
-            const pNameClean = p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-            
-            // Verifica se o nome completo do produto (ou parte significativa) está na frase
-            // Ex: "X-Bacon" -> verifica se "x bacon" está na frase
-            if (cleanText.includes(pNameClean)) {
-                addToCart(p);
-                addedItems.push(p.name);
-                matchesFound++;
-            } 
-            // Fallback: Tenta palavras chaves fortes se o nome for composto
-            else {
-                const keywords = pNameClean.split(' ').filter(w => w.length > 3); // Ignora palavras curtas
-                if (keywords.length > 0) {
-                    const match = keywords.every(kw => cleanText.includes(kw));
-                    if (match && keywords.length >= 2) { // Só adiciona se der match em pelo menos 2 palavras chaves (ex: "X" e "Salada")
-                         addToCart(p);
-                         addedItems.push(p.name);
-                         matchesFound++;
-                    }
-                }
-            }
-        });
-
-        if (matchesFound > 0) {
-            setAlertModal({ 
-                isOpen: true, 
-                title: "Itens Adicionados! 🎤", 
-                message: `Entendi: "${text}".\n\nAdicionei ao carrinho:\n${addedItems.join(', ')}`, 
-                type: 'info' 
-            });
-        } else {
-            setAlertModal({ 
-                isOpen: true, 
-                title: "Não entendi", 
-                message: `Você disse: "${text}", mas não encontrei itens correspondentes no cardápio. Tente falar o nome exato do lanche.`, 
-                type: 'error' 
-            });
-        }
     };
 
     const updateQuantity = (index: number, delta: number) => {
@@ -477,26 +390,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
 
             <div className="sticky top-0 z-30 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 shadow-xl py-3 px-4">
                  <div className="max-w-5xl mx-auto w-full">
-                    <div className="relative mb-3 flex gap-2">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-3 text-slate-400" size={18}/>
-                            <input 
-                                className="w-full bg-slate-900 border border-slate-800 rounded-2xl pl-10 pr-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors focus:bg-slate-900 shadow-inner" 
-                                placeholder="Buscar lanche, bebida..." 
-                                value={search} 
-                                onChange={e => setSearch(e.target.value)}
-                            />
-                        </div>
-                        {/* VOICE ORDER BUTTON */}
-                        <button 
-                            onClick={handleVoiceOrder}
-                            className={`p-3 rounded-2xl border transition-all shadow-lg flex items-center justify-center ${isListening ? 'bg-red-600 border-red-500 text-white mic-listening' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'}`}
-                            title="Fazer pedido por voz"
-                        >
-                            <Mic size={20} />
-                        </button>
-                    </div>
-                    {isListening && <p className="text-xs text-amber-400 text-center animate-pulse mb-2">🎤 {voiceText || "Ouvindo..."}</p>}
+                    <div className="relative mb-3"><Search className="absolute left-3 top-3 text-slate-400" size={18}/><input className="w-full bg-slate-900 border border-slate-800 rounded-2xl pl-10 pr-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors focus:bg-slate-900 shadow-inner" placeholder="Buscar lanche, bebida..." value={search} onChange={e => setSearch(e.target.value)}/></div>
                     <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar hide-scrollbar -mx-2 px-2">{categories.map(cat => (<button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-5 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border shadow-sm ${selectedCategory === cat ? 'bg-white text-red-700 shadow-lg border-white' : 'bg-black/20 text-amber-100 border-white/10 hover:bg-black/30'}`}>{cat}</button>))}</div>
                  </div>
             </div>

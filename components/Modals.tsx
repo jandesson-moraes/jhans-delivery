@@ -4,7 +4,8 @@ import {
     Plus, Minus, UploadCloud, DollarSign, Calendar, 
     MapPin, Phone, User, Bike, Store, FileText, 
     AlertTriangle, ShieldCheck, Gift, Trophy, CheckCircle2, 
-    AlertCircle, Printer, Share2, Search, Edit, Bell
+    AlertCircle, Printer, Share2, Search, Edit, Bell, Clock,
+    Image as ImageIcon, Power
 } from 'lucide-react';
 import { 
     Driver, Order, AppConfig, Product, Client, 
@@ -14,9 +15,10 @@ import {
     formatCurrency, copyToClipboard, getProductionMessage, 
     normalizePhone, generateReceiptText, formatDate, 
     formatTime, getDispatchMessage, sendDispatchNotification,
-    checkShopStatus, parseOrderItems
+    checkShopStatus, parseOrderItems, compressImage
 } from '../utils';
 
+// ... (Generic Alert, Confirm, Order Modals remain unchanged) ...
 // --- GENERIC MODALS ---
 
 export function GenericAlertModal({ isOpen, title, message, onClose, type = 'info' }: any) {
@@ -388,7 +390,8 @@ export function KitchenHistoryModal({ order, onClose, products, totalClientOrder
 // --- DRIVER MODALS ---
 
 export function NewDriverModal({ onClose, onSave, initialData }: any) {
-    const [form, setForm] = useState(initialData || { name: '', phone: '', vehicle: 'Moto', plate: '', paymentModel: 'fixed_per_delivery', paymentRate: 5.00 });
+    const [form, setForm] = useState(initialData || { name: '', phone: '', vehicle: 'Moto', plate: '', paymentModel: 'fixed_per_delivery', paymentRate: 5.00, avatar: '' });
+    const fileInputRef = useRef<HTMLInputElement>(null);
     
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -396,31 +399,67 @@ export function NewDriverModal({ onClose, onSave, initialData }: any) {
         onClose();
     };
 
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            try {
+                const base64 = await compressImage(file);
+                setForm(prev => ({ ...prev, avatar: base64 }));
+            } catch (err) {
+                console.error("Erro ao processar imagem", err);
+                alert("Erro ao carregar imagem. Tente outra.");
+            }
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 p-6 shadow-2xl">
-                <h3 className="font-bold text-xl text-white mb-4">{initialData ? 'Editar' : 'Novo'} Motoboy</h3>
-                <form onSubmit={handleSubmit} className="space-y-3">
-                    <input required placeholder="Nome" className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
-                    <input required placeholder="Telefone" className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} />
+            <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 p-6 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
+                <h3 className="font-bold text-xl text-white mb-6">{initialData ? 'Editar' : 'Novo'} Motoboy</h3>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* Avatar Upload */}
+                    <div className="flex justify-center mb-4">
+                        <div 
+                            onClick={() => fileInputRef.current?.click()}
+                            className="w-24 h-24 rounded-full border-2 border-dashed border-slate-700 hover:border-amber-500 bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-colors overflow-hidden relative group"
+                        >
+                            {form.avatar ? (
+                                <>
+                                    <img src={form.avatar} className="w-full h-full object-cover" alt="Avatar" />
+                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Edit size={20} className="text-white"/>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <UploadCloud size={24} className="text-slate-500 mb-1"/>
+                                    <span className="text-[10px] text-slate-500 font-bold uppercase">Foto</span>
+                                </>
+                            )}
+                        </div>
+                        <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={handleAvatarUpload} />
+                    </div>
+
+                    <input required placeholder="Nome" className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 outline-none" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+                    <input required placeholder="Telefone" className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 outline-none" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} />
                     <div className="grid grid-cols-2 gap-3">
-                         <select className="bg-slate-950 border border-slate-700 rounded-lg p-3 text-white" value={form.vehicle} onChange={e => setForm({...form, vehicle: e.target.value})}>
+                         <select className="bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 outline-none" value={form.vehicle} onChange={e => setForm({...form, vehicle: e.target.value})}>
                              <option value="Moto">Moto</option><option value="Carro">Carro</option><option value="Bike">Bike</option>
                          </select>
-                         <input placeholder="Placa" className="bg-slate-950 border border-slate-700 rounded-lg p-3 text-white" value={form.plate} onChange={e => setForm({...form, plate: e.target.value})} />
+                         <input placeholder="Placa" className="bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 outline-none" value={form.plate} onChange={e => setForm({...form, plate: e.target.value})} />
                     </div>
                     <div className="border-t border-slate-800 pt-3">
                         <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Pagamento</label>
-                        <select className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white mb-2" value={form.paymentModel} onChange={e => setForm({...form, paymentModel: e.target.value})}>
+                        <select className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white mb-2 focus:border-amber-500 outline-none" value={form.paymentModel} onChange={e => setForm({...form, paymentModel: e.target.value})}>
                             <option value="fixed_per_delivery">Taxa Fixa por Entrega</option>
                             <option value="percentage">Porcentagem (%)</option>
                             <option value="salary">Salário Fixo</option>
                         </select>
-                        <input type="number" placeholder={form.paymentModel === 'percentage' ? "Porcentagem (Ex: 10)" : "Valor (Ex: 5.00)"} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white" value={form.paymentRate} onChange={e => setForm({...form, paymentRate: parseFloat(e.target.value)})} />
+                        <input type="number" placeholder={form.paymentModel === 'percentage' ? "Porcentagem (Ex: 10)" : "Valor (Ex: 5.00)"} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 outline-none" value={form.paymentRate} onChange={e => setForm({...form, paymentRate: parseFloat(e.target.value)})} />
                     </div>
-                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl mt-2">Salvar</button>
+                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl mt-2 shadow-lg">Salvar</button>
                 </form>
-                <button onClick={onClose} className="w-full mt-2 text-slate-500 py-2">Cancelar</button>
+                <button onClick={onClose} className="w-full mt-2 text-slate-500 py-2 hover:text-white transition-colors">Cancelar</button>
             </div>
         </div>
     );
@@ -452,6 +491,7 @@ export function NewValeModal({ driver, onClose, onSave }: any) {
     );
 }
 
+// ... (Rest of modal components unchanged: CloseCycleModal, SettingsModal, ImportModal, NewExpenseModal, ProductFormModal, EditClientModal, NewLeadNotificationModal, GiveawayManagerModal) ...
 export function CloseCycleModal({ data, onClose, onConfirm }: any) {
     return (
         <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -473,58 +513,197 @@ export function CloseCycleModal({ data, onClose, onConfirm }: any) {
 
 export function SettingsModal({ config, onSave, onClose }: any) {
     const [form, setForm] = useState(config || { appName: '', appLogoUrl: '', storePhone: '', pixKey: '', pixName: '', pixCity: '', enableDeliveryFees: false });
-    const [jsonZones, setJsonZones] = useState(JSON.stringify(config.deliveryZones || [], null, 2));
-    const [jsonSchedule, setJsonSchedule] = useState(JSON.stringify(config.schedule || {}, null, 2));
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    
+    // Zonas de Entrega
+    const [zones, setZones] = useState<any[]>(config.deliveryZones || []);
+    
+    // Horários (Schedule)
+    const [schedule, setSchedule] = useState<{ [key: number]: any }>(config.schedule || {});
+    const daysOfWeek = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+    // Handlers para Zonas
+    const handleAddZone = () => setZones([...zones, { name: '', fee: 0 }]);
+    const handleUpdateZone = (idx: number, field: string, val: any) => {
+        const newZones = [...zones];
+        newZones[idx] = { ...newZones[idx], [field]: val };
+        setZones(newZones);
+    };
+    const handleRemoveZone = (idx: number) => setZones(zones.filter((_, i) => i !== idx));
+
+    // Handlers para Horários
+    const handleUpdateSchedule = (dayIdx: number, field: string, val: any) => {
+        setSchedule(prev => ({
+            ...prev,
+            [dayIdx]: { ...(prev[dayIdx] || { enabled: false, open: '18:00', close: '23:00' }), [field]: val }
+        }));
+    };
+
+    // Handler para Logo Upload
+    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            try {
+                const base64 = await compressImage(file);
+                setForm(prev => ({ ...prev, appLogoUrl: base64 }));
+            } catch (err) {
+                console.error("Erro ao processar imagem", err);
+                alert("Erro ao carregar imagem. Tente outra.");
+            }
+        }
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        try {
-            const zones = JSON.parse(jsonZones);
-            const sched = JSON.parse(jsonSchedule);
-            onSave({ ...form, deliveryZones: zones, schedule: sched });
-            onClose();
-        } catch (e) {
-            alert("Erro no formato JSON das Taxas ou Horários.");
-        }
+        onSave({ 
+            ...form, 
+            deliveryZones: zones, 
+            schedule: schedule 
+        });
+        onClose();
     };
 
     return (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-slate-900 w-full max-w-2xl rounded-2xl border border-slate-800 p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
-                <h3 className="font-bold text-xl text-white mb-4">Configurações da Loja</h3>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label className="text-xs text-slate-500 font-bold uppercase">Nome da Loja</label><input className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white" value={form.appName} onChange={e => setForm({...form, appName: e.target.value})} /></div>
-                        <div><label className="text-xs text-slate-500 font-bold uppercase">Logo URL</label><input className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white" value={form.appLogoUrl} onChange={e => setForm({...form, appLogoUrl: e.target.value})} /></div>
+            <div className="bg-slate-900 w-full max-w-3xl rounded-2xl border border-slate-800 p-6 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-xl text-white">Configurações da Loja</h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                </div>
+                
+                <form onSubmit={handleSubmit} className="space-y-8">
+                    {/* DADOS GERAIS & LOGO */}
+                    <div className="flex flex-col md:flex-row gap-6 items-start">
+                        {/* Area de Logo */}
+                        <div className="w-full md:w-auto flex flex-col items-center gap-2">
+                            <div 
+                                onClick={() => fileInputRef.current?.click()}
+                                className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-700 hover:border-amber-500 bg-slate-950 flex flex-col items-center justify-center cursor-pointer transition-colors overflow-hidden relative group"
+                            >
+                                {form.appLogoUrl ? (
+                                    <>
+                                        <img src={form.appLogoUrl} className="w-full h-full object-cover" alt="Logo" />
+                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Edit size={20} className="text-white"/>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <UploadCloud size={24} className="text-slate-500 mb-1"/>
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase">Logo</span>
+                                    </>
+                                )}
+                            </div>
+                            <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={handleLogoUpload} />
+                            <span className="text-[10px] text-slate-500 cursor-pointer hover:text-amber-500" onClick={() => fileInputRef.current?.click()}>Alterar Logo</span>
+                        </div>
+
+                        {/* Inputs Gerais */}
+                        <div className="flex-1 space-y-4 w-full">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div><label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Nome da Loja</label><input className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 outline-none transition-colors" value={form.appName} onChange={e => setForm({...form, appName: e.target.value})} /></div>
+                                <div><label className="text-xs text-slate-500 font-bold uppercase mb-1 block">WhatsApp da Loja</label><input className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-amber-500 outline-none transition-colors" value={form.storePhone} onChange={e => setForm({...form, storePhone: e.target.value})} /></div>
+                            </div>
+                        </div>
                     </div>
-                    <div><label className="text-xs text-slate-500 font-bold uppercase">WhatsApp da Loja</label><input className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white" value={form.storePhone} onChange={e => setForm({...form, storePhone: e.target.value})} /></div>
                     
+                    {/* PIX */}
                     <div className="border-t border-slate-800 pt-4">
-                        <h4 className="text-sm font-bold text-emerald-400 mb-2">Configuração PIX</h4>
+                        <h4 className="text-sm font-bold text-emerald-400 mb-3 flex items-center gap-2"><DollarSign size={16}/> Configuração PIX</h4>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <input placeholder="Chave PIX" className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-white" value={form.pixKey} onChange={e => setForm({...form, pixKey: e.target.value})} />
-                            <input placeholder="Nome Titular" className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-white" value={form.pixName} onChange={e => setForm({...form, pixName: e.target.value})} />
-                            <input placeholder="Cidade" className="bg-slate-950 border border-slate-700 rounded-lg p-2 text-white" value={form.pixCity} onChange={e => setForm({...form, pixCity: e.target.value})} />
+                            <input placeholder="Chave PIX" className="bg-slate-950 border border-slate-700 rounded-lg p-3 text-white text-sm" value={form.pixKey} onChange={e => setForm({...form, pixKey: e.target.value})} />
+                            <input placeholder="Nome Titular" className="bg-slate-950 border border-slate-700 rounded-lg p-3 text-white text-sm" value={form.pixName} onChange={e => setForm({...form, pixName: e.target.value})} />
+                            <input placeholder="Cidade" className="bg-slate-950 border border-slate-700 rounded-lg p-3 text-white text-sm" value={form.pixCity} onChange={e => setForm({...form, pixCity: e.target.value})} />
                         </div>
                     </div>
 
+                    {/* TAXAS DE ENTREGA */}
                     <div className="border-t border-slate-800 pt-4">
-                        <div className="flex justify-between items-center mb-2">
-                             <h4 className="text-sm font-bold text-blue-400">Taxas de Entrega (JSON)</h4>
-                             <label className="flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={form.enableDeliveryFees} onChange={e => setForm({...form, enableDeliveryFees: e.target.checked})} /> Ativar Taxas</label>
+                        <div className="flex justify-between items-center mb-3">
+                             <h4 className="text-sm font-bold text-blue-400 flex items-center gap-2"><Bike size={16}/> Taxas de Entrega (Bairros)</h4>
+                             <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer bg-slate-950 border border-slate-700 px-3 py-1 rounded-full hover:bg-slate-800 transition-colors"><input type="checkbox" checked={form.enableDeliveryFees} onChange={e => setForm({...form, enableDeliveryFees: e.target.checked})} className="accent-blue-500" /> Ativar Taxas</label>
                         </div>
-                        <textarea className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-300 font-mono text-xs h-32" value={jsonZones} onChange={e => setJsonZones(e.target.value)} />
-                        <p className="text-[10px] text-slate-500 mt-1">Ex: [{`{"name": "Centro", "fee": 5}`}]</p>
+                        
+                        {form.enableDeliveryFees && (
+                            <div className="space-y-2 bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+                                {zones.map((zone, idx) => (
+                                    <div key={idx} className="flex gap-2 items-center animate-in slide-in-from-left-2">
+                                        <input 
+                                            placeholder="Nome do Bairro" 
+                                            className="flex-1 bg-slate-900 border border-slate-700 rounded-lg p-2 text-white text-sm focus:border-blue-500 outline-none" 
+                                            value={zone.name} 
+                                            onChange={e => handleUpdateZone(idx, 'name', e.target.value)} 
+                                        />
+                                        <div className="relative w-24">
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 text-xs">R$</span>
+                                            <input 
+                                                type="number" 
+                                                placeholder="0.00" 
+                                                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 pl-6 text-white text-sm focus:border-blue-500 outline-none" 
+                                                value={zone.fee} 
+                                                onChange={e => handleUpdateZone(idx, 'fee', parseFloat(e.target.value))} 
+                                            />
+                                        </div>
+                                        <button type="button" onClick={() => handleRemoveZone(idx)} className="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-800 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                                    </div>
+                                ))}
+                                <button type="button" onClick={handleAddZone} className="w-full py-2 border-2 border-dashed border-slate-700 text-slate-500 rounded-lg text-xs font-bold hover:border-slate-500 hover:text-slate-300 transition-colors mt-2 flex items-center justify-center gap-2">
+                                    <Plus size={14}/> Adicionar Bairro
+                                </button>
+                            </div>
+                        )}
                     </div>
 
+                    {/* HORÁRIOS */}
                     <div className="border-t border-slate-800 pt-4">
-                        <h4 className="text-sm font-bold text-orange-400 mb-2">Horários (JSON)</h4>
-                        <textarea className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-300 font-mono text-xs h-32" value={jsonSchedule} onChange={e => setJsonSchedule(e.target.value)} />
+                        <h4 className="text-sm font-bold text-orange-400 mb-4 flex items-center gap-2"><Clock size={16}/> Horários de Funcionamento</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {daysOfWeek.map((day, idx) => {
+                                const config = schedule[idx] || { enabled: false, open: '18:00', close: '23:00' };
+                                return (
+                                    <div key={idx} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${config.enabled ? 'bg-slate-900 border-slate-700 shadow-sm' : 'bg-slate-950 border-slate-800 opacity-60'}`}>
+                                        <div className="flex items-center gap-3">
+                                            {/* Custom Toggle Switch */}
+                                            <div 
+                                                onClick={() => handleUpdateSchedule(idx, 'enabled', !config.enabled)}
+                                                className={`w-10 h-5 rounded-full relative cursor-pointer transition-colors ${config.enabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                                            >
+                                                <div className={`w-3 h-3 bg-white rounded-full absolute top-1 transition-all shadow-sm ${config.enabled ? 'left-6' : 'left-1'}`} />
+                                            </div>
+                                            <span className={`text-sm font-bold ${config.enabled ? 'text-white' : 'text-slate-500'}`}>{day}</span>
+                                        </div>
+                                        
+                                        {config.enabled ? (
+                                            <div className="flex items-center gap-1 animate-in fade-in">
+                                                <input 
+                                                    type="time" 
+                                                    value={config.open} 
+                                                    onChange={e => handleUpdateSchedule(idx, 'open', e.target.value)} 
+                                                    className="bg-slate-950 border border-slate-700 text-white text-xs font-bold rounded-lg px-2 py-1 w-20 text-center outline-none focus:border-amber-500"
+                                                />
+                                                <span className="text-slate-600 text-xs font-bold">às</span>
+                                                <input 
+                                                    type="time" 
+                                                    value={config.close} 
+                                                    onChange={e => handleUpdateSchedule(idx, 'close', e.target.value)} 
+                                                    className="bg-slate-950 border border-slate-700 text-white text-xs font-bold rounded-lg px-2 py-1 w-20 text-center outline-none focus:border-amber-500"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider px-2">Fechado</span>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
                     </div>
 
-                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl">Salvar Configurações</button>
+                    <div className="pt-4 border-t border-slate-800">
+                        <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                            <Save size={20}/> Salvar Configurações
+                        </button>
+                    </div>
                 </form>
-                <button onClick={onClose} className="w-full mt-2 text-slate-500 py-2">Cancelar</button>
             </div>
         </div>
     );
@@ -572,8 +751,7 @@ export function NewExpenseModal({ onClose, onSave }: any) {
     );
 }
 
-// --- PRODUCT & CLIENT MODALS ---
-
+// ... (ProductFormModal, EditClientModal, NewLeadNotificationModal, GiveawayManagerModal remain unchanged) ...
 export function ProductFormModal({ isOpen, onClose, product, onSave, existingCategories }: any) {
     const [form, setForm] = useState({ name: '', description: '', price: '', category: 'Hambúrgueres', costPrice: '' });
     
@@ -657,8 +835,6 @@ export function EditClientModal({ client, orders, onClose, onUpdateOrder, onSave
         </div>
     );
 }
-
-// --- OTHER MODALS ---
 
 export function NewLeadNotificationModal({ onClose }: any) {
     return (

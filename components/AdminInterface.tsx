@@ -1,6 +1,5 @@
-// ... (imports remain the same)
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { LayoutDashboard, Users, ShoppingBag, Utensils, Bike, Map as MapIcon, Settings, LogOut, FileText, BarChart3, ChevronRight, Menu as MenuIcon, X, CalendarCheck, ClipboardList, ChefHat, Bell, Gift, PlusCircle, Search, Trash2, Minus, Plus, Save, CheckCircle2, CreditCard, Banknote, MapPin, DollarSign, ClipboardPaste, Store, Navigation, Battery, MessageCircle, Signal, Clock, ChevronDown, Flame, Minimize2, Edit, Power, UserPlus, TrendingUp, History, LocateFixed, Car, Activity, Wallet, Calendar, ArrowRight } from 'lucide-react';
+import { LayoutDashboard, Users, ShoppingBag, Utensils, Bike, Map as MapIcon, Settings, LogOut, FileText, BarChart3, ChevronRight, Menu as MenuIcon, X, CalendarCheck, ClipboardList, ChefHat, Bell, Gift, PlusCircle, Search, Trash2, Minus, Plus, Save, CheckCircle2, CreditCard, Banknote, MapPin, DollarSign, ClipboardPaste, Store, Navigation, Battery, MessageCircle, Signal, Clock, ChevronDown, Flame, Minimize2, Edit, Power, UserPlus, TrendingUp, History, LocateFixed, Car, Activity, Wallet, Calendar, ArrowRight, ArrowLeft, User } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Driver, Order, Vale, Expense, Product, Client, Settlement, AppConfig, Supplier, InventoryItem, ShoppingItem, GiveawayEntry } from '../types';
@@ -15,7 +14,6 @@ import { ItemReportView } from './ItemReportView';
 import { NewLeadNotificationModal, NewOrderModal, ReceiptModal } from './Modals';
 import { checkShopStatus, formatCurrency, normalizePhone, capitalize, toSentenceCase, sendOrderConfirmation, isToday, formatTime, formatDate } from '../utils';
 
-// ... (iconStore and createDriverIcon remain same)
 // Ícone da Loja
 const iconStore = new L.Icon({
     iconUrl: 'https://cdn-icons-png.flaticon.com/512/7877/7877890.png',
@@ -56,7 +54,6 @@ const createDriverIcon = (avatarUrl: string, status: string, lastUpdate: any) =>
     });
 };
 
-// ... (Interfaces remain same)
 interface AdminProps {
     drivers: Driver[];
     orders: Order[];
@@ -107,7 +104,6 @@ interface AdminProps {
 const GIVEAWAY_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3';
 const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
-// ... (Subcomponents remain same until AdminInterface function)
 const IntroAnimation = ({ appName, onComplete }: { appName: string, onComplete: () => void }) => {
     const [visible, setVisible] = useState(true);
     const [fading, setFading] = useState(false);
@@ -147,7 +143,6 @@ function MapHandler({ targetLocation, zoomLevel }: { targetLocation: [number, nu
     return null;
 }
 
-// ... (DriverFinancialDetails, FleetSidebar, ManualOrderView omitted for brevity, assumes they exist as defined previously)
 function DriverFinancialDetails({ driver, orders, settlements, vales, onClose, onSettle }: { driver: Driver, orders: Order[], settlements: Settlement[], vales: Vale[], onClose: () => void, onSettle: (driverId: string, data: any) => void }) {
     const [tab, setTab] = useState<'pending' | 'history'>('pending');
     
@@ -223,7 +218,7 @@ function DriverFinancialDetails({ driver, orders, settlements, vales, onClose, o
                                 {currentData.orders.length === 0 ? <p className="text-slate-500 text-sm italic">Nenhuma corrida realizada neste ciclo.</p> : (
                                     <div className="space-y-3">
                                         {currentData.orders.map(order => (
-                                            <div key={order.id} className="bg-slate-950 border border-slate-800 p-4 rounded-xl shadow-sm">
+                                            <div key={order.id} className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-sm">
                                                 <div className="flex justify-between items-start">
                                                     <div className="flex-1 mr-4">
                                                         <div className="flex items-center gap-2 mb-1"><span className="text-white font-bold">{order.customer}</span><span className="text-[10px] text-slate-500 font-mono bg-slate-900 px-1 rounded">{formatDate(order.completedAt)}</span></div>
@@ -290,7 +285,7 @@ function FleetSidebar({ drivers, orders, settlements, vales, onClose, onEditDriv
                         const isOnline = driver.status !== 'offline'; 
                         const isDelivering = driver.status === 'delivering'; 
                         return (
-                            <div key={driver.id} className={`rounded-xl border transition-all relative ${isSelected ? 'bg-slate-800 border-amber-500/50' : 'bg-slate-900 border-slate-800 hover:border-slate-600'}`}>
+                            <div key={driver.id} className={`rounded-xl border transition-all relative ${isSelected ? 'bg-slate-800 border-amber-500/50' : 'bg-slate-950 border-slate-800 hover:border-slate-600'}`}>
                                 <button onClick={(e) => { e.stopPropagation(); onEditDriver(driver); }} className="absolute top-2 right-2 p-1.5 text-slate-500 hover:text-white bg-slate-900 hover:bg-slate-700 rounded-lg z-10 opacity-0 group-hover:opacity-100 transition-opacity" title="Editar Cadastro"><Edit size={14}/></button>
                                 <div onClick={() => setSelectedDriverId(isSelected ? null : driver.id)} className="p-3 flex items-center gap-3 cursor-pointer group">
                                     <div className="relative">
@@ -471,6 +466,8 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
     return (
         <div className="fixed inset-0 z-[2000] bg-black/90 backdrop-blur-sm flex items-center justify-center p-0 md:p-8 animate-in fade-in zoom-in duration-200">
             <div className="bg-slate-950 w-full h-full md:max-w-[95vw] md:rounded-3xl border-none md:border border-slate-800 shadow-2xl flex flex-col md:flex-row overflow-hidden relative">
+                
+                {/* --- SEÇÃO CARDÁPIO (ESQUERDA) --- */}
                 <div className={`flex-col bg-slate-900/30 border-r border-slate-800 min-w-0 min-h-0 w-full md:w-[65%] ${mobileTab === 'cart' ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-4 md:p-6 border-b border-slate-800 flex flex-col gap-4 bg-slate-950 md:bg-transparent shrink-0">
                         <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Cardápio</h2><button onClick={onClose} className="md:hidden text-slate-500 ml-2"><X size={24}/></button></div>
@@ -479,14 +476,14 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
                     </div>
                     <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar pb-24 md:pb-6 bg-slate-950/50">
                         {groupedProducts.map((group) => (
-                            <div key={group.category} className="mb-8 last:mb-0">
+                            <div key={group.category} className="mb-4 md:mb-8 last:mb-0">
                                 <div className="bg-slate-900/80 backdrop-blur-sm border-l-4 border-amber-500 p-3 rounded-r-lg mb-4 sticky top-0 z-20 shadow-sm"><h3 className="text-amber-500 font-black uppercase text-sm tracking-[0.2em] flex items-center gap-2">{group.category}</h3></div>
-                                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
                                     {group.items.map(p => (
-                                        <div key={p.id} onClick={() => addToCart(p)} className="bg-slate-900 p-3 rounded-xl border border-slate-800 hover:border-amber-500 cursor-pointer transition-all active:scale-95 group flex flex-col justify-between shadow-md relative overflow-hidden min-h-[110px]">
-                                            <div className="relative z-10"><h4 className="font-bold text-white text-sm leading-tight line-clamp-2">{p.name}</h4></div>
-                                            <div className="relative z-10 flex justify-between items-end mt-2"><span className="text-emerald-400 font-black text-xs whitespace-nowrap">{formatCurrency(p.price)}</span><div className="bg-slate-800 p-1.5 rounded-lg text-slate-400 group-hover:text-white group-hover:bg-amber-600 transition-colors shadow-sm"><Plus size={18}/></div></div>
-                                            <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-amber-500/5 rounded-full blur-xl group-hover:bg-amber-500/10 transition-colors"></div>
+                                        <div key={p.id} onClick={() => addToCart(p)} className="bg-slate-900 p-2 md:p-3 rounded-xl border border-slate-800 hover:border-amber-500 cursor-pointer transition-all active:scale-95 group flex flex-col justify-between shadow-md relative overflow-hidden min-h-[90px] md:min-h-[110px]">
+                                            <div className="relative z-10"><h4 className="font-bold text-white text-xs md:text-sm leading-tight line-clamp-2">{p.name}</h4></div>
+                                            <div className="relative z-10 flex justify-between items-end mt-2"><span className="text-emerald-400 font-black text-xs whitespace-nowrap">{formatCurrency(p.price)}</span><div className="bg-slate-800 p-1 md:p-1.5 rounded-lg text-slate-400 group-hover:text-white group-hover:bg-amber-600 transition-colors shadow-sm"><Plus size={14}/></div></div>
+                                            <div className="absolute -bottom-4 -right-4 w-12 h-12 md:w-16 md:h-16 bg-amber-500/5 rounded-full blur-xl group-hover:bg-amber-500/10 transition-colors"></div>
                                         </div>
                                     ))}
                                 </div>
@@ -495,9 +492,16 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
                         {groupedProducts.length === 0 && <div className="col-span-full text-center py-10 text-slate-500">Nenhum produto encontrado.</div>}
                     </div>
                 </div>
+
+                {/* --- SEÇÃO CARRINHO / DADOS (DIREITA) --- */}
                 <div className={`flex-col bg-slate-950 border-l border-slate-800 relative shadow-2xl z-20 flex-1 min-h-0 w-full md:w-[35%] ${mobileTab === 'products' ? 'hidden md:flex' : 'flex'}`}>
-                    <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900 shrink-0"><h3 className="font-bold text-white text-lg flex items-center gap-2 text-amber-500"><PlusCircle size={20}/> Novo Pedido</h3><button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X size={24}/></button></div>
-                    <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar pb-2 md:pb-5">
+                    <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900 shrink-0">
+                        <div className="flex items-center gap-3">
+                            <h3 className="font-bold text-white text-lg flex items-center gap-2 text-amber-500"><PlusCircle size={20}/> Novo Pedido</h3>
+                        </div>
+                        <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X size={24}/></button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar pb-32 md:pb-5">
                         <div className="space-y-3">
                             <div className="flex justify-between items-end"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Dados do Cliente</label><button onClick={handlePasteFromWhatsApp} className="text-[10px] text-amber-500 font-bold flex items-center gap-1 hover:text-amber-400 transition-colors bg-amber-900/10 px-2 py-1 rounded border border-amber-900/20"><ClipboardPaste size={12}/> Colar</button></div>
                             <div className="grid grid-cols-[130px_1fr] gap-3 relative"><input className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors placeholder-slate-600" placeholder="Tel (11)..." value={phone} onChange={e => setPhone(e.target.value)} /><div className="relative"><input className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-3 text-sm text-white outline-none focus:border-amber-500 transition-colors placeholder-slate-600" placeholder="Nome" value={name} onChange={handleNameChange} autoComplete="off" />{clientSuggestions.length > 0 && (<div className="absolute top-full left-0 w-full bg-slate-800 border border-slate-700 rounded-xl mt-1 z-50 shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">{clientSuggestions.map(c => (<div key={c.id} onClick={() => fillClientData(c)} className="p-3 hover:bg-slate-700 cursor-pointer border-b border-slate-700/50 last:border-0"><p className="text-sm font-bold text-white">{c.name}</p><p className="text-xs text-slate-400">{c.phone}</p></div>))}</div>)}</div></div>
@@ -506,9 +510,8 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
                         <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 shadow-inner"><button onClick={() => setIsDelivery(true)} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${isDelivery ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}><Bike size={16}/> Entrega</button><button onClick={() => setIsDelivery(false)} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${!isDelivery ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}><Store size={16}/> Retira</button></div>
                         <div className="flex-1 min-h-[150px]"><p className="text-xs font-bold text-slate-500 uppercase mb-2 tracking-wider">Itens ({cart.reduce((a,b)=>a+b.quantity,0)})</p><div className="space-y-2">{cart.length === 0 ? <div className="text-center py-8 text-slate-600 text-sm border-2 border-dashed border-slate-800 rounded-xl bg-slate-900/50">Carrinho vazio</div> : cart.map((item, idx) => (<div key={idx} className="bg-slate-900 p-3 rounded-xl border border-slate-800 flex flex-col gap-2 group hover:border-slate-700 transition-colors"><div className="flex justify-between items-start"><div className="flex-1"><span className="text-white text-sm font-bold block">{item.product.name}</span><span className="text-emerald-400 text-xs font-bold">{formatCurrency(item.product.price * item.quantity)}</span></div><button onClick={() => removeFromCart(idx)} className="text-slate-600 hover:text-red-500 transition-colors p-1"><Trash2 size={14}/></button></div><div className="flex items-center gap-3"><div className="flex items-center bg-slate-950 rounded-lg border border-slate-800"><button onClick={() => updateQuantity(idx, -1)} className="text-slate-400 hover:text-white px-2 py-1 hover:bg-slate-800 rounded-l-lg transition-colors">-</button><span className="text-xs text-white px-2 font-bold min-w-[20px] text-center">{item.quantity}</span><button onClick={() => updateQuantity(idx, 1)} className="text-slate-400 hover:text-white px-2 py-1 hover:bg-slate-800 rounded-r-lg transition-colors">+</button></div><input className="bg-transparent border-b border-slate-800 text-[10px] text-slate-400 focus:text-white outline-none flex-1 py-1 focus:border-amber-500 transition-colors placeholder-slate-600" placeholder="Obs do item..." value={item.obs} onChange={(e) => { const newCart = [...cart]; newCart[idx].obs = e.target.value; setCart(newCart); }}/></div></div>))}</div></div>
                         <textarea className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-white outline-none focus:border-amber-500 h-20 resize-none font-mono placeholder-slate-600" placeholder="Observações Gerais: Ex: Sem cebola, Campainha quebrada..." value={obs} onChange={e => setObs(e.target.value)} />
-                    </div>
-                    <div className="p-4 bg-slate-900 border-t border-slate-800 space-y-4 pb-24 md:pb-5 shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-30">
-                        <div>
+                        
+                        <div className="bg-slate-900 p-4 border border-slate-800 rounded-xl">
                             <p className="text-[10px] font-bold text-slate-500 uppercase mb-2 tracking-wider">Pagamento</p>
                             <div className="grid grid-cols-3 gap-2">
                                 <button onClick={() => setPaymentMethod('PIX')} className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-all active:scale-95 ${paymentMethod === 'PIX' ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-400 shadow-inner' : 'bg-slate-950 border-slate-800 text-slate-500 hover:bg-slate-800 hover:text-slate-300'}`}><PixIcon size={20} className={paymentMethod === 'PIX' ? 'text-emerald-400 fill-current' : 'text-slate-500 fill-current'} /><span className="text-[9px] font-bold">PIX</span></button>
@@ -516,10 +519,37 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
                                 <button onClick={() => setPaymentMethod('Cartão')} className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-all active:scale-95 ${paymentMethod === 'Cartão' ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-400 shadow-inner' : 'bg-slate-950 border-slate-800 text-slate-500 hover:bg-slate-800 hover:text-slate-300'}`}><CreditCard size={20} /><span className="text-[9px] font-bold">Cartão</span></button>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3 pt-2">
+
+                        <div className="flex items-center gap-3 pt-2 pb-20 md:pb-0">
                             <div className="flex-1"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total</p><p className="text-2xl font-black text-white tracking-tight leading-none">{formatCurrency(finalTotal)}</p></div>
                             <button onClick={handleSubmit} className="flex-[2] bg-emerald-600 hover:bg-emerald-500 text-white font-black h-12 rounded-xl shadow-lg active:scale-95 transition-all text-sm uppercase tracking-wide flex items-center justify-center gap-2">Confirmar <CheckCircle2 size={18}/></button>
                         </div>
+                    </div>
+                </div>
+
+                {/* --- MODERN FLOATING ISLAND NAVIGATION (MOBILE) --- */}
+                <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm">
+                    <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 rounded-full p-1.5 shadow-2xl flex relative">
+                        {/* Indicador de Movimento (Pílula Ativa) */}
+                        <div className={`absolute inset-y-1.5 w-[calc(50%-6px)] bg-slate-800 rounded-full transition-all duration-300 ease-out border border-slate-600/50 ${mobileTab === 'cart' ? 'left-[calc(50%+3px)]' : 'left-1.5'}`}></div>
+
+                        <button 
+                            onClick={() => setMobileTab('products')} 
+                            className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-3 rounded-full text-xs font-bold transition-colors ${mobileTab === 'products' ? 'text-white' : 'text-slate-400'}`}
+                        >
+                            <Utensils size={16}/> <span>Cardápio</span>
+                        </button>
+                        
+                        <button 
+                            onClick={() => setMobileTab('cart')} 
+                            className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-3 rounded-full text-xs font-bold transition-colors ${mobileTab === 'cart' ? 'text-white' : 'text-slate-400'}`}
+                        >
+                            <div className="relative">
+                                <ShoppingBag size={16}/>
+                                {cart.length > 0 && <span className="absolute -top-1.5 -right-2 bg-emerald-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border border-slate-900 shadow-sm">{cart.reduce((a,b)=>a+b.quantity,0)}</span>}
+                            </div>
+                            <span>Carrinho</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -628,9 +658,6 @@ export function AdminInterface(props: AdminProps) {
 
     return (
         <div className="fixed inset-0 flex bg-slate-950 text-white overflow-hidden">
-            {/* --- VISUAL EFFECT: TOP SCAN LIGHT --- */}
-            <div className="admin-scan-effect"></div>
-
             {/* Sidebar Desktop - WIDENED TO 72 */}
             <div className="hidden md:flex w-72 flex-col bg-slate-900 border-r border-slate-800 z-50">
                 <div className="p-6"><BrandLogo config={props.appConfig} /></div>
@@ -676,10 +703,12 @@ export function AdminInterface(props: AdminProps) {
                     onAccept={() => {
                         props.onUpdateOrder(newOrderAlert.id, { status: 'preparing' });
                         setNewOrderAlert(null);
+                        setCurrentView('kitchen'); // Redireciona para KDS ao aceitar
                     }}
                     onPrint={() => {
                         setReceiptOrder(newOrderAlert);
                         setNewOrderAlert(null);
+                        setCurrentView('kitchen'); // Redireciona para KDS ao imprimir/aceitar
                     }}
                 />
             )}

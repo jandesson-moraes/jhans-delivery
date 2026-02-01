@@ -31,35 +31,6 @@ const GlobalStyles = () => {
         @keyframes radar-pulse { 0% { transform: scale(0); opacity: 0.5; } 100% { transform: scale(3); opacity: 0; } }
         .radar-pulse { animation: radar-pulse 2s infinite; }
         .billboard-corrector { transform: rotateX(-40deg); }
-        
-        /* ADMIN LIGHT SCAN EFFECT */
-        @keyframes scanline-drop {
-            0% { top: -20%; opacity: 0; }
-            20% { opacity: 1; }
-            100% { top: 120%; opacity: 0; }
-        }
-        .admin-scan-effect {
-            position: fixed;
-            left: 0;
-            right: 0;
-            height: 150px;
-            background: linear-gradient(to bottom, transparent, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.4), rgba(245, 158, 11, 0.15), transparent);
-            z-index: 9999;
-            pointer-events: none;
-            animation: scanline-drop 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-            filter: blur(8px);
-        }
-        
-        /* VOICE LISTENING EFFECT */
-        @keyframes mic-pulse {
-            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-        }
-        .mic-listening {
-            animation: mic-pulse 1.5s infinite;
-        }
-
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
