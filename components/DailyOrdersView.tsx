@@ -26,7 +26,7 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
     }, [orders]);
 
     return (
-        <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar">
+        <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full pb-24 md:pb-8 custom-scrollbar">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl md:text-2xl font-bold text-white">Controle Diário</h2>
                 <p className="text-xs md:text-sm text-slate-500">{new Date().toLocaleDateString('pt-BR')}</p>

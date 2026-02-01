@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Order, Product, Driver, AppConfig } from '../types';
 import { formatTime, toSentenceCase, formatDate, getOrderReceivedText, copyToClipboard, formatOrderId, isToday, normalizePhone } from '../utils';
-import { Clock, CheckCircle2, Flame, ChefHat, History, Bike, Copy, X, ListChecks, ArrowRight, PackageCheck, Edit, Trash2 } from 'lucide-react';
+import { Clock, CheckCircle2, Flame, ChefHat, History, Bike, Copy, X, ListChecks, ArrowRight, PackageCheck, Edit, Trash2, MessageSquare } from 'lucide-react';
 import { KitchenHistoryModal, ProductionSuccessModal, ConfirmCloseOrderModal, EditOrderModal, DispatchSuccessModal } from './Modals';
 import { Footer } from './Shared';
 import { serverTimestamp } from 'firebase/firestore';
@@ -26,6 +26,9 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
     const [dispatchData, setDispatchData] = useState<{order: Order, driverName: string} | null>(null);
     const [orderToClose, setOrderToClose] = useState<Order | null>(null);
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+    
+    // Rastreia quais mensagens já foram copiadas para parar de piscar
+    const [copiedMessages, setCopiedMessages] = useState<Set<string>>(new Set());
     
     // ABA MOBILE CONTROL
     const [activeTab, setActiveTab] = useState<'production' | 'ready'>('production');
@@ -123,9 +126,16 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
         e.stopPropagation();
         const text = getOrderReceivedText(order, effectiveAppName);
         copyToClipboard(text);
+        
+        // Marca como copiado para parar de piscar
+        setCopiedMessages(prev => new Set(prev).add(order.id));
+
         const btn = e.currentTarget as HTMLButtonElement;
         const originalContent = btn.innerHTML;
-        btn.innerHTML = `<span class="text-emerald-400 font-bold">Copiado!</span>`;
+        btn.innerHTML = `<span class="text-white font-bold">Copiado!</span>`;
+        // Remove classes de animação imediatamente para feedback visual
+        btn.className = btn.className.replace('animate-pulse', '').replace('bg-emerald-900/40', 'bg-slate-800/50').replace('text-emerald-400', 'text-slate-400').replace('border-emerald-500/50', 'border-transparent');
+        
         setTimeout(() => { btn.innerHTML = originalContent; }, 2000);
     };
 
@@ -154,8 +164,8 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
             </div>
 
             {/* --- LADO ESQUERDO: ÁREA DE PRODUÇÃO (PENDENTE / PREPARANDO) --- */}
-            <div className={`flex-1 flex-col border-r border-slate-800 relative ${activeTab === 'production' ? 'flex' : 'hidden md:flex'}`}>
-                <div className="p-4 md:p-6 border-b border-slate-800 bg-slate-950 flex justify-between items-center z-10 shadow-sm">
+            <div className={`flex-1 flex-col border-r border-slate-800 relative min-h-0 ${activeTab === 'production' ? 'flex' : 'hidden md:flex'}`}>
+                <div className="p-4 md:p-6 border-b border-slate-800 bg-slate-950 flex justify-between items-center z-10 shadow-sm shrink-0">
                     <div className="flex items-center gap-4">
                         <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">
                             <Flame className="text-orange-500" size={24}/> <span className="hidden md:inline">Fila de Produção</span><span className="md:hidden">Cozinha</span>
@@ -169,7 +179,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-slate-950/50">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-slate-950/50 pb-32 md:pb-20">
                     {activeOrders.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-slate-600 animate-in fade-in zoom-in opacity-50">
                             <ChefHat size={80} className="mb-4 text-slate-700"/>
@@ -177,10 +187,11 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                             <p className="text-sm">Aguardando novos pedidos...</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6 pb-20">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6">
                             {activeOrders.map(order => {
                                 const elapsedSec = (currentTime.getTime() - (order.createdAt?.seconds * 1000)) / 1000;
                                 const cardColor = getCardColor(order.status, elapsedSec);
+                                const hasCopied = copiedMessages.has(order.id);
 
                                 return (
                                     <div key={order.id} className={`flex flex-col w-full rounded-2xl border-l-[6px] shadow-2xl transition-all ${cardColor} h-auto relative group overflow-hidden`}>
@@ -267,9 +278,14 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                             )}
                                             <button 
                                                 onClick={(e) => handleCopyStatus(e, order)}
-                                                className="w-full bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg font-bold text-[10px] md:text-xs uppercase transition-colors flex items-center justify-center gap-2"
+                                                className={`w-full py-2.5 rounded-lg font-bold text-[10px] md:text-xs uppercase transition-all flex items-center justify-center gap-2 
+                                                ${hasCopied 
+                                                    ? 'bg-slate-800/50 text-slate-500 hover:text-slate-300' 
+                                                    : 'bg-emerald-900/40 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-900/60 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                                                }`}
                                             >
-                                                <Copy size={12}/> Copiar Mensagem
+                                                {hasCopied ? <CheckCircle2 size={14}/> : <MessageSquare size={14}/>}
+                                                {hasCopied ? 'Mensagem Copiada' : 'Copiar Mensagem (Avisar)'}
                                             </button>
                                         </div>
                                     </div>
@@ -282,15 +298,15 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
             </div>
 
             {/* --- LADO DIREITO: LISTA DE PRONTOS / SAÍDA --- */}
-            <div className={`w-full md:w-[380px] bg-slate-900 border-l border-slate-800 flex-col shadow-2xl z-20 ${activeTab === 'ready' ? 'flex' : 'hidden md:flex'}`}>
-                <div className="p-4 md:p-5 border-b border-slate-800 bg-slate-900 shadow-sm">
+            <div className={`w-full md:w-[380px] bg-slate-900 border-l border-slate-800 flex-col shadow-2xl z-20 min-h-0 ${activeTab === 'ready' ? 'flex' : 'hidden md:flex'}`}>
+                <div className="p-4 md:p-5 border-b border-slate-800 bg-slate-900 shadow-sm shrink-0">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
                         <PackageCheck className="text-emerald-500"/> Pedidos do Dia
                     </h3>
                     <p className="text-xs text-slate-500 mt-1">Histórico de saída de hoje</p>
                 </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3 pb-32 md:pb-4">
                     {finishedOrders.length === 0 && (
                         <div className="text-center py-10 text-slate-600">
                             <History size={40} className="mx-auto mb-2 opacity-30"/>

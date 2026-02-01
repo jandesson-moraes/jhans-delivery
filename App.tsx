@@ -1,7 +1,7 @@
 // ... (imports remain the same)
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
-import { collection, addDoc, updateDoc, doc, onSnapshot, serverTimestamp, deleteDoc, setDoc, writeBatch, Timestamp, deleteField, getDoc } from "firebase/firestore";
+import { collection, addDoc, updateDoc, doc, onSnapshot, serverTimestamp, deleteDoc, setDoc, writeBatch, Timestamp, deleteField, getDoc, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from './services/firebase';
 import { UserType, Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement, Supplier, InventoryItem, ShoppingItem, GiveawayEntry } from './types';
 import { BrandLogo, Footer } from './components/Shared';
@@ -128,7 +128,7 @@ export default function App() {
       } catch(e: any) { 
           console.error(e); 
           setAlertInfo({ isOpen: true, title: "Erro", message: e.message, type: 'error' });
-          return null;
+          throw e; // Re-throw para o componente pegar se necessário
       } 
   };
 
@@ -218,10 +218,19 @@ export default function App() {
   };
 
   const createGiveawayEntry = (data: any) => handleAction(async () => {
-      // FIX: Use addDoc to allow multiple entries, avoiding overwrite if same phone is used for testing or different people
+      const cleanPhone = normalizePhone(data.phone);
+      
+      // VERIFICAÇÃO DE DUPLICIDADE
+      const q = query(collection(db, 'giveaway_entries'), where('phone', '==', cleanPhone));
+      const snapshot = await getDocs(q);
+
+      if (!snapshot.empty) {
+          throw new Error("Este número já está cadastrado no sorteio!");
+      }
+
       await addDoc(collection(db, 'giveaway_entries'), { 
           ...data, 
-          phone: normalizePhone(data.phone), // Keep normalized phone for data consistency
+          phone: cleanPhone, 
           createdAt: serverTimestamp() 
       });
   });

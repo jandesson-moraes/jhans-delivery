@@ -335,7 +335,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                 </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar w-full">
                     <div className="max-w-2xl mx-auto w-full p-4">
-                        {!shopStatus.isOpen && <div className="bg-red-950/80 border-2 border-red-500 rounded-2xl p-5 mb-4"><div className="flex items-start gap-4"><Ban className="text-white bg-red-500 p-3 rounded-full" size={54}/><div className="flex-1"><h4 className="font-black text-white text-xl uppercase">LOJA FECHADA</h4><p className="text-sm text-red-100">Seu pedido será uma <strong>PRÉ-VENDA</strong> para quando abrirmos.</p><p className="text-xs text-amber-400 mt-1 font-bold">Entrega: {shopStatus.nextOpen}</p></div></div></div>}
+                        {!shopStatus.isOpen && <div className="bg-indigo-900/30 border border-indigo-500/50 rounded-2xl p-5 mb-4"><div className="flex items-start gap-4"><Moon className="text-white bg-indigo-500 p-2 rounded-full" size={40}/><div className="flex-1"><h4 className="font-black text-white text-lg uppercase tracking-tight">Estamos Fechados</h4><p className="text-sm text-indigo-200 leading-tight mt-1">Seu pedido será agendado como <strong className="text-amber-400">PRÉ-VENDA</strong>.</p><p className="text-xs text-white/50 mt-2 font-mono border-t border-indigo-500/30 pt-1">Entrega prevista: {shopStatus.nextOpen}</p></div></div></div>}
                         {cart.length === 0 ? <div className="h-[50vh] flex flex-col items-center justify-center text-slate-500 space-y-4"><ShoppingBag size={48} className="opacity-20"/><p>Carrinho vazio.</p><button onClick={() => setView('menu')} className="text-amber-500 font-bold text-sm">Ver Cardápio</button></div> : (
                             <div className="space-y-4">
                                 <div className="space-y-3">{cart.map((item, idx) => (<div key={idx} className="bg-slate-900 p-3 rounded-xl border border-slate-800 flex flex-col gap-3 shadow-md"><div className="flex justify-between items-start"><div className="flex items-start gap-3"><div className="bg-slate-800 p-2 rounded-lg text-amber-500"><Utensils size={16}/></div><div><p className="font-bold text-sm">{item.product.name}</p><p className="text-amber-500 font-bold text-sm">{formatCurrency(item.product.price)}</p></div></div><div className="flex items-center bg-slate-950 rounded-lg border border-slate-800"><button onClick={() => updateQuantity(idx, -1)} className="p-2 text-slate-400 hover:text-white"><Minus size={14}/></button><span className="w-6 text-center font-bold text-sm">{item.quantity}</span><button onClick={() => updateQuantity(idx, 1)} className="p-2 text-slate-400 hover:text-white"><Plus size={14}/></button></div></div><input placeholder="Observação..." className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white outline-none focus:border-amber-500" value={item.obs} onChange={e => updateObs(idx, e.target.value)}/></div>))}</div>
@@ -356,7 +356,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
                         )}
                     </div>
                 </div>
-                {cart.length > 0 && <div className="bg-slate-900 border-t border-slate-800 pb-safe w-full"><div className="max-w-2xl mx-auto w-full p-4"><div className="space-y-2 mb-4 text-sm"><div className="flex justify-between text-slate-400"><span>Subtotal</span><span>{formatCurrency(cartTotal)}</span></div><div className="flex justify-between text-emerald-400"><span>Entrega</span><span>{deliveryFee > 0 ? formatCurrency(deliveryFee) : 'GRÁTIS'}</span></div><div className="flex justify-between text-white font-bold text-lg pt-2 border-t border-slate-800"><span>Total</span><span>{formatCurrency(finalTotal)}</span></div></div><div className="mb-4 p-3 bg-slate-800/50 rounded-xl border border-slate-700 text-[10px] text-slate-400 flex items-start gap-2"><ShieldCheck size={14} className="shrink-0 text-emerald-500 mt-0.5" /><p>Ao enviar o pedido, você concorda com o uso dos dados para entrega (LGPD).</p></div><button form="checkout-form" type="submit" disabled={isSubmitting} className={`w-full text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 text-lg active:scale-95 transition-transform ${isSubmitting ? 'bg-slate-600 cursor-wait' : shopStatus.isOpen ? 'bg-gradient-to-r from-red-600 to-amber-600' : 'bg-red-700'}`}>{isSubmitting ? "Enviando..." : shopStatus.isOpen ? "Enviar Pedido" : "Agendar Pré-Venda"}</button></div></div>}
+                {cart.length > 0 && <div className="bg-slate-900 border-t border-slate-800 pb-safe w-full"><div className="max-w-2xl mx-auto w-full p-4"><div className="space-y-2 mb-4 text-sm"><div className="flex justify-between text-slate-400"><span>Subtotal</span><span>{formatCurrency(cartTotal)}</span></div><div className="flex justify-between text-emerald-400"><span>Entrega</span><span>{deliveryFee > 0 ? formatCurrency(deliveryFee) : 'GRÁTIS'}</span></div><div className="flex justify-between text-white font-bold text-lg pt-2 border-t border-slate-800"><span>Total</span><span>{formatCurrency(finalTotal)}</span></div></div><div className="mb-4 p-3 bg-slate-800/50 rounded-xl border border-slate-700 text-[10px] text-slate-400 flex items-start gap-2"><ShieldCheck size={14} className="shrink-0 text-emerald-500 mt-0.5" /><p>Ao enviar o pedido, você concorda com o uso dos dados para entrega (LGPD).</p></div><button form="checkout-form" type="submit" disabled={isSubmitting} className={`w-full text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 text-lg active:scale-95 transition-transform ${isSubmitting ? 'bg-slate-600 cursor-wait' : shopStatus.isOpen ? 'bg-gradient-to-r from-red-600 to-amber-600' : 'bg-indigo-600'}`}>{isSubmitting ? "Enviando..." : shopStatus.isOpen ? "Enviar Pedido" : "Agendar Pré-Venda"}</button></div></div>}
                 {confirmModal && <GenericConfirmModal isOpen={confirmModal.isOpen} onClose={() => setConfirmModal(null)} onConfirm={confirmModal.action} title={confirmModal.title} message={confirmModal.message} type={confirmModal.type} confirmText="Sim, Confirmar"/>}
             </div>
         );
@@ -368,7 +368,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
 
             <div className="bg-gradient-to-br from-red-700 via-red-600 to-amber-600 pb-6 pt-8 px-6 shadow-lg relative z-10">
                 <div className="max-w-5xl mx-auto w-full">
-                    <div className="flex justify-between items-center mb-6"><BrandLogo size="small" config={appConfig} />{allowSystemAccess && onSystemAccess && (<div className="flex items-center gap-2"><button onClick={() => onSystemAccess('admin')} className="flex items-center gap-2 px-3 py-1.5 bg-black/20 hover:bg-black/40 rounded-lg text-amber-100 hover:text-white transition-colors border border-white/10 backdrop-blur-sm"><Lock size={14}/><span className="text-[10px] font-bold uppercase hidden md:inline">Gerente</span></button><button onClick={() => onSystemAccess('driver')} className="flex items-center gap-2 px-3 py-1.5 bg-black/20 hover:bg-black/40 rounded-lg text-amber-100 hover:text-white transition-colors border border-white/10 backdrop-blur-sm"><Bike size={14}/><span className="text-[10px] font-bold uppercase hidden md:inline">Motoboy</span></button></div>)}{!allowSystemAccess && (<button onClick={() => setShowScheduleModal(true)} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase border shadow-sm backdrop-blur-sm ${shopStatus.isOpen ? 'bg-emerald-500 text-white border-emerald-400' : 'bg-red-500 text-white border-red-400'}`}><div className={`w-2 h-2 rounded-full ${shopStatus.isOpen ? 'bg-white animate-pulse' : 'bg-red-200'}`}></div>{shopStatus.isOpen ? (shopStatus.message !== 'Horário não configurado' ? shopStatus.message : 'Aberto') : 'Fechado'}</button>)}</div>
+                    <div className="flex justify-between items-center mb-6"><BrandLogo size="small" config={appConfig} />{allowSystemAccess && onSystemAccess && (<div className="flex items-center gap-2"><button onClick={() => onSystemAccess('admin')} className="flex items-center gap-2 px-3 py-1.5 bg-black/20 hover:bg-black/40 rounded-lg text-amber-100 hover:text-white transition-colors border border-white/10 backdrop-blur-sm"><Lock size={14}/><span className="text-[10px] font-bold uppercase hidden md:inline">Gerente</span></button><button onClick={() => onSystemAccess('driver')} className="flex items-center gap-2 px-3 py-1.5 bg-black/20 hover:bg-black/40 rounded-lg text-amber-100 hover:text-white transition-colors border border-white/10 backdrop-blur-sm"><Bike size={14}/><span className="text-[10px] font-bold uppercase hidden md:inline">Motoboy</span></button></div>)}{!allowSystemAccess && (<button onClick={() => setShowScheduleModal(true)} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase border shadow-sm backdrop-blur-sm ${shopStatus.isOpen ? 'bg-emerald-500 text-white border-emerald-400' : 'bg-slate-700 text-slate-300 border-slate-500'}`}><div className={`w-2 h-2 rounded-full ${shopStatus.isOpen ? 'bg-white animate-pulse' : 'bg-slate-400'}`}></div>{shopStatus.isOpen ? (shopStatus.message !== 'Horário não configurado' ? shopStatus.message : 'Aberto') : 'Fechado'}</button>)}</div>
                     <h1 className="text-2xl font-black text-white mb-4 leading-tight drop-shadow-sm">Bateu a fome? <br/><span className="text-amber-200">Peça agora mesmo!</span> 🍔</h1>
                     <div onClick={() => setShowGiveawayModal(true)} className="relative w-full rounded-3xl overflow-hidden mb-2 cursor-pointer group shadow-[0_0_40px_rgba(185,28,28,0.4)] border-2 border-amber-500/50 hover:border-amber-400 transition-all transform hover:scale-[1.02]">
                         <div className="absolute inset-0 bg-gradient-to-r from-red-950 via-red-900 to-red-800"></div><div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/20 blur-3xl rounded-full translate-x-10 -translate-y-10"></div>
@@ -411,7 +411,55 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
             <div className="pb-safe bg-slate-950"><Footer /></div>
 
             {showScheduleModal && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in"><div className="bg-slate-900 rounded-2xl p-6 w-full max-w-sm border border-slate-800 relative shadow-2xl"><button onClick={() => setShowScheduleModal(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button><div className="text-center mb-6"><h3 className="font-bold text-xl text-white flex items-center justify-center gap-2"><Clock size={20} className="text-amber-500"/> Horários</h3><p className={`text-sm font-bold mt-1 ${shopStatus.isOpen ? 'text-emerald-400' : 'text-red-400'}`}>{shopStatus.message}</p></div><div className="space-y-2 mb-4">{['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((day, idx) => (<div key={idx} className={`flex justify-between items-center text-sm p-2 rounded ${new Date().getDay() === idx ? 'bg-slate-800 font-bold text-white' : 'text-slate-400'}`}><span>{day}</span><span>{appConfig.schedule?.[idx]?.enabled ? `${appConfig.schedule?.[idx].open} - ${appConfig.schedule?.[idx].close}` : 'Fechado'}</span></div>))}</div><button onClick={() => setShowScheduleModal(false)} className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700">Fechar</button></div></div>}
-            {showClosedWarning && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-500"><div className="bg-slate-900 rounded-3xl w-full max-w-sm p-6 border-2 border-slate-800 shadow-2xl relative overflow-hidden flex flex-col items-center text-center"><div className="bg-red-900/30 p-4 rounded-full mb-4"><DoorClosed size={40} className="text-red-400" /></div><h3 className="font-black text-xl text-white mb-2 uppercase tracking-wide">{appConfig.appName || 'Hamburgueria'} FECHADA</h3><div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 mb-6"><p className="text-slate-300 font-medium leading-relaxed mb-3">Não estamos atendendo agora. Seu pedido será considerado uma <strong className="text-amber-400">PRÉ-VENDA (Agendamento)</strong>.</p><p className="text-sm text-white font-bold bg-slate-900 p-2 rounded border border-slate-600">Só entregaremos: <span className="text-emerald-400 block mt-1">{shopStatus.nextOpen}</span></p></div><div className="flex flex-col w-full gap-3"><button onClick={handleDismissClosedWarning} className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold p-4 rounded-xl shadow-lg flex items-center gap-4 active:scale-95 transition-transform group relative overflow-hidden"><div className="bg-black/20 p-3 rounded-full shrink-0 backdrop-blur-sm border border-white/10"><CalendarClock size={28} className="text-white drop-shadow-md"/></div><div className="text-left flex-1"><span className="block text-[10px] text-amber-100 uppercase tracking-widest font-extrabold mb-0.5">Loja Fechada</span><span className="block text-base font-black leading-none text-white">Ver Cardápio & Agendar</span></div><ChevronRight size={20} className="text-white/50 group-hover:text-white transition-colors"/></button><button onClick={handleDismissClosedWarning} className="text-slate-500 text-xs font-bold py-2 hover:text-white transition-colors">Apenas olhar o cardápio</button></div></div></div>}
+            
+            {showClosedWarning && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+                    <div className="relative bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col items-center text-center p-8 animate-in zoom-in-95 duration-300">
+                        {/* Decorative Background Elements */}
+                        <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-indigo-900/20 to-transparent pointer-events-none"></div>
+                        <div className="absolute -top-10 right-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                        {/* Icon */}
+                        <div className="relative mb-6">
+                            <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center shadow-lg border border-slate-700 relative z-10">
+                                <Moon size={40} className="text-indigo-400 fill-indigo-400/20" />
+                            </div>
+                            <div className="absolute -bottom-2 -right-2 bg-slate-900 rounded-full p-1.5 border border-slate-800 z-20">
+                                <Clock size={20} className="text-amber-500" />
+                            </div>
+                        </div>
+
+                        {/* Text */}
+                        <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Estamos Fechados</h3>
+                        <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                            Nossa chapa está esfriando agora. <br/>Mas você pode deixar seu pedido agendado!
+                        </p>
+
+                        {/* Next Open Info */}
+                        <div className="w-full bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50 mb-6 flex items-center justify-between">
+                            <div className="text-left">
+                                <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Abrimos em</p>
+                                <p className="text-emerald-400 font-bold text-sm">{shopStatus.nextOpen}</p>
+                            </div>
+                            <div className="h-8 w-[1px] bg-slate-700"></div>
+                            <div className="text-right">
+                                <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Status</p>
+                                <p className="text-amber-400 font-bold text-sm">Pré-Venda</p>
+                            </div>
+                        </div>
+
+                        {/* Buttons */}
+                        <button onClick={handleDismissClosedWarning} className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-orange-900/20 active:scale-95 transition-all flex items-center justify-center gap-2 mb-3">
+                            <CalendarClock size={20} />
+                            Agendar Pedido
+                        </button>
+
+                        <button onClick={handleDismissClosedWarning} className="text-slate-500 hover:text-white text-xs font-bold transition-colors py-2">
+                            Apenas ver o cardápio
+                        </button>
+                    </div>
+                </div>
+            )}
             
             {showGiveawayModal && <GiveawayModal onClose={() => setShowGiveawayModal(false)} onConfirm={onEnterGiveaway} appConfig={appConfig} onSuccess={() => setAlertModal({ isOpen: true, title: "Boa Sorte! 🍀", message: "A janela do WhatsApp foi aberta. Envie a mensagem pré-preenchida para validar sua participação.", type: 'info' })} />}
             {confirmModal && <GenericConfirmModal isOpen={confirmModal.isOpen} onClose={() => setConfirmModal(null)} onConfirm={confirmModal.action} title={confirmModal.title} message={confirmModal.message} type={confirmModal.type} confirmText="Sim, Confirmar"/>}
@@ -431,7 +479,13 @@ function GiveawayModal({ onClose, onConfirm, appConfig, onSuccess }: { onClose: 
         try {
             if (onConfirm) await onConfirm({ ...form, confirmed: false });
             setStep('confirm');
-        } catch (error) { console.error(error); alert("Erro ao participar. Tente novamente."); } finally { setLoading(false); }
+        } catch (error: any) { 
+            console.error(error); 
+            // Mostra o erro específico do backend se existir
+            alert(error.message || "Erro ao participar. Tente novamente."); 
+        } finally { 
+            setLoading(false); 
+        }
     };
 
     const handleConfirmWhatsApp = () => {
