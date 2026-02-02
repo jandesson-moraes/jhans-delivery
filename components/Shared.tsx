@@ -21,7 +21,7 @@ export const BrandLogo = ({ size = 'normal', dark = false, config }: { size?: 's
                 </div>
             )}
             
-            <div className="flex flex-col leading-none items-start">
+            <div className="flex flex-col leading-none items-start gap-1.5">
                 <span>{appName}</span>
                 {size !== 'small' && <span className={`text-[0.4em] uppercase tracking-widest text-left ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Delivery System</span>}
             </div>
