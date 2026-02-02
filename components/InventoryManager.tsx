@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Supplier, InventoryItem, ShoppingItem, AppConfig } from '../types';
-import { PlusCircle, Edit, Trash2, Box, Truck, Search, Phone, FileText, ShoppingCart, Send, Wand2, CheckSquare, Square, Copy, MessageCircle, X, Check } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Box, Truck, Search, Phone, FileText, ShoppingCart, Send, Wand2, CheckSquare, Square, Copy, MessageCircle, X, Check, Calculator, FlaskConical, ArrowRight, Package, Ship, Container } from 'lucide-react';
 import { formatCurrency, copyToClipboard } from '../utils';
 import { Footer } from './Shared';
 import { GenericAlertModal } from './Modals';
@@ -36,6 +37,9 @@ export function InventoryManager(props: InventoryProps) {
     const [showModal, setShowModal] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null); // Pode ser supplier ou inventory
     const [alertModal, setAlertModal] = useState<{isOpen: boolean, title: string, message: string} | null>(null);
+
+    // Mix Calculator State
+    const [showMixModal, setShowMixModal] = useState(false);
 
     // Shopping List Preview State
     const [showShoppingPreview, setShowShoppingPreview] = useState(false);
@@ -140,65 +144,95 @@ export function InventoryManager(props: InventoryProps) {
     };
 
     return (
-        <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-24 custom-scrollbar flex flex-col">
-            <div className="flex-1">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                    <div>
-                        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                            {tab === 'items' ? <Box className="text-amber-500"/> : tab === 'suppliers' ? <Truck className="text-blue-500"/> : <ShoppingCart className="text-emerald-500"/>}
-                            {tab === 'items' ? 'Controle de Estoque' : tab === 'suppliers' ? 'Fornecedores' : 'Lista de Compras'}
-                        </h2>
-                        <p className="text-slate-400 text-sm">Gerencie insumos, parceiros e reabastecimento.</p>
+        <div className="flex-1 bg-slate-950 flex flex-col h-full w-full overflow-hidden relative">
+            
+            {/* --- CABEÇALHO FIXO (Não Rola) --- */}
+            <div className="p-4 md:p-6 pb-2 shrink-0 bg-slate-950 z-10 border-b border-slate-800/50">
+                <div className="mb-4">
+                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                        {tab === 'items' ? <Box className="text-amber-500"/> : tab === 'suppliers' ? <Truck className="text-blue-500"/> : <ShoppingCart className="text-emerald-500"/>}
+                        {tab === 'items' ? 'Controle de Estoque' : tab === 'suppliers' ? 'Fornecedores' : 'Lista de Compras'}
+                    </h2>
+                    <p className="text-slate-400 text-sm">Gerencie insumos, parceiros e reabastecimento.</p>
+                </div>
+                
+                {/* TOOLBAR UNIFICADA (NÃO QUEBRA LINHA) */}
+                <div className="flex items-center gap-3 overflow-x-auto pb-2 no-scrollbar mb-2">
+                    {/* GRUPO DE ABAS */}
+                    <div className="bg-slate-900 p-1 rounded-xl border border-slate-800 flex shrink-0">
+                        <button onClick={() => setTab('items')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${tab==='items' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:text-white'}`}>Insumos</button>
+                        <button onClick={() => setTab('suppliers')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${tab==='suppliers' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:text-white'}`}>Fornecedores</button>
+                        <button onClick={() => setTab('shopping')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${tab==='shopping' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:text-emerald-400'}`}>Compras</button>
                     </div>
-                    
-                    <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-                        <div className="bg-slate-900 p-1 rounded-xl border border-slate-800 flex overflow-x-auto">
-                            <button onClick={() => setTab('items')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${tab==='items' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:text-white'}`}>Insumos</button>
-                            <button onClick={() => setTab('suppliers')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${tab==='suppliers' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:text-white'}`}>Fornecedores</button>
-                            <button onClick={() => setTab('shopping')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${tab==='shopping' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:text-emerald-400'}`}>Compras</button>
-                        </div>
-                        
+
+                    <div className="w-[1px] h-8 bg-slate-800 shrink-0"></div>
+
+                    {/* GRUPO DE AÇÕES (DIREITA) */}
+                    <div className="flex items-center gap-2 shrink-0">
+                        {tab === 'items' && (
+                            <button onClick={() => setShowMixModal(true)} className="bg-slate-900 hover:bg-purple-600 hover:border-purple-500 border border-slate-800 text-slate-300 hover:text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors h-[42px] whitespace-nowrap">
+                                <FlaskConical size={16}/> Misturas
+                            </button>
+                        )}
+
                         {tab !== 'shopping' && (
-                            <button onClick={() => openModal()} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors shadow-lg active:scale-95">
-                                <PlusCircle size={18}/> Novo {tab === 'items' ? 'Item' : 'Fornecedor'}
+                            <button onClick={() => openModal()} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 h-[42px] whitespace-nowrap">
+                                <PlusCircle size={16}/> Novo {tab === 'items' ? 'Item' : 'Fornecedor'}
                             </button>
                         )}
                     </div>
                 </div>
 
-                {/* CONTEÚDO DA ABA SHOPPING (COMPRAS) */}
-                {tab === 'shopping' && (
-                    <div className="w-full max-w-4xl mx-auto space-y-6">
-                        {/* Controles de Entrada */}
-                        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 shadow-xl">
-                            <form onSubmit={handleAddShoppingItem} className="flex gap-2 mb-4">
-                                <input 
-                                    className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500 transition-colors"
-                                    placeholder="Digite o nome do item para comprar..."
-                                    value={newShoppingItem}
-                                    onChange={e => setNewShoppingItem(e.target.value)}
-                                />
-                                <button type="submit" className="bg-slate-800 hover:bg-white hover:text-slate-900 text-white font-bold px-6 rounded-xl transition-all active:scale-95 shadow-lg">
-                                    Adicionar
+                {/* ÁREA DE CONTROLES FIXOS (BUSCA OU INPUTS DE COMPRA) */}
+                {tab === 'shopping' ? (
+                    <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 shadow-xl animate-in fade-in duration-300 mb-2">
+                        <form onSubmit={handleAddShoppingItem} className="flex gap-2 mb-4">
+                            <input 
+                                className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500 transition-colors"
+                                placeholder="Digite o nome do item para comprar..."
+                                value={newShoppingItem}
+                                onChange={e => setNewShoppingItem(e.target.value)}
+                            />
+                            <button type="submit" className="bg-slate-800 hover:bg-white hover:text-slate-900 text-white font-bold px-6 rounded-xl transition-all active:scale-95 shadow-lg">
+                                Adicionar
+                            </button>
+                        </form>
+                        
+                        <div className="flex flex-wrap gap-3">
+                            <button onClick={generateLowStockList} className="flex-1 bg-amber-600/20 border border-amber-500/30 text-amber-400 hover:bg-amber-600 hover:text-white py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95">
+                                <Wand2 size={16}/> Gerar Automático (Estoque Baixo)
+                            </button>
+                            <button onClick={prepareShoppingList} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg">
+                                <Send size={16}/> Visualizar & Compartilhar
+                            </button>
+                            {props.shoppingList.length > 0 && (
+                                <button onClick={() => props.onClearShoppingList()} className="px-4 bg-slate-800 border border-slate-700 text-slate-400 hover:text-red-400 hover:border-red-900/50 py-3 rounded-xl font-bold text-xs transition-all active:scale-95">
+                                    <Trash2 size={16}/>
                                 </button>
-                            </form>
-                            
-                            <div className="flex flex-wrap gap-3">
-                                <button onClick={generateLowStockList} className="flex-1 bg-amber-600/20 border border-amber-500/30 text-amber-400 hover:bg-amber-600 hover:text-white py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95">
-                                    <Wand2 size={16}/> Gerar Automático (Estoque Baixo)
-                                </button>
-                                <button onClick={prepareShoppingList} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg">
-                                    <Send size={16}/> Visualizar & Compartilhar
-                                </button>
-                                {props.shoppingList.length > 0 && (
-                                    <button onClick={() => props.onClearShoppingList()} className="px-4 bg-slate-800 border border-slate-700 text-slate-400 hover:text-red-400 hover:border-red-900/50 py-3 rounded-xl font-bold text-xs transition-all active:scale-95">
-                                        <Trash2 size={16}/>
-                                    </button>
-                                )}
-                            </div>
+                            )}
                         </div>
+                    </div>
+                ) : (
+                    /* Barra de Busca - AGORA FIXA SEM BOTÃO LATERAL PARA EVITAR PULO */
+                    <div className="relative w-full animate-in fade-in duration-300 mb-2">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18}/>
+                        <input 
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-white outline-none focus:border-amber-500 transition-colors" 
+                            placeholder={`Buscar ${tab === 'items' ? 'insumo' : 'fornecedor'}...`}
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                )}
+            </div>
 
-                        {/* Lista de Itens */}
+            {/* --- ÁREA DE CONTEÚDO ROLÁVEL --- */}
+            {/* scrollbar-gutter: stable impede que a largura do conteúdo mude quando a scrollbar aparece/desaparece */}
+            <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-24 custom-scrollbar" style={{ scrollbarGutter: 'stable' }}>
+                
+                {/* LISTA DE COMPRAS */}
+                {tab === 'shopping' && (
+                    <div className="w-full max-w-4xl mx-auto space-y-6 mt-4">
                         <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
                             {props.shoppingList.length === 0 ? (
                                 <div className="p-10 text-center flex flex-col items-center justify-center text-slate-500">
@@ -232,20 +266,9 @@ export function InventoryManager(props: InventoryProps) {
                     </div>
                 )}
 
-                {/* ABA ITEMS (ESTOQUE) OU FORNECEDORES */}
+                {/* LISTAS DE ITENS E FORNECEDORES */}
                 {tab !== 'shopping' && (
-                    <>
-                        {/* Barra de Busca */}
-                        <div className="mb-6 relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18}/>
-                            <input 
-                                className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-white outline-none focus:border-amber-500" 
-                                placeholder={`Buscar ${tab === 'items' ? 'insumo' : 'fornecedor'}...`}
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-
+                    <div className="mt-4">
                         {/* LISTA DE ITENS */}
                         {tab === 'items' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -263,7 +286,10 @@ export function InventoryManager(props: InventoryProps) {
                                             </div>
                                             <p className="text-xs text-slate-500 mb-4 flex items-center gap-1"><Truck size={12}/> {supplierName}</p>
                                             <div className="flex justify-between items-end border-t border-slate-800 pt-3">
-                                                <span className="text-emerald-400 font-mono font-bold">{formatCurrency(item.cost)}</span>
+                                                <div>
+                                                    <p className="text-[10px] text-slate-500 uppercase font-bold">Custo Unitário</p>
+                                                    <span className="text-emerald-400 font-mono font-bold">{formatCurrency(item.cost)}/{item.unit}</span>
+                                                </div>
                                                 <div className="flex gap-2">
                                                     <button onClick={() => openModal(item)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white"><Edit size={16}/></button>
                                                     <button onClick={() => props.onDeleteInventory(item.id)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-red-500"><Trash2 size={16}/></button>
@@ -298,21 +324,21 @@ export function InventoryManager(props: InventoryProps) {
                                 {filteredSuppliers.length === 0 && <div className="col-span-full text-center text-slate-500 py-10">Nenhum fornecedor cadastrado.</div>}
                             </div>
                         )}
-                    </>
+                    </div>
                 )}
+                
+                <Footer/>
             </div>
-
-            <Footer/>
 
             {/* MODAL UNIVERSAL PARA ESTOQUE/FORNECEDOR */}
             {showModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-                    <div className="bg-slate-900 rounded-2xl w-full max-w-md p-6 border border-slate-800 animate-in zoom-in">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
+                    <div className="bg-slate-900 rounded-2xl w-full max-w-md p-6 border border-slate-800 shadow-2xl relative overflow-y-auto max-h-[90vh]">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="font-bold text-xl text-white">
                                 {editingItem ? 'Editar' : 'Novo'} {tab === 'items' ? 'Insumo' : 'Fornecedor'}
                             </h3>
-                            <button onClick={() => setShowModal(false)} className="text-slate-500 hover:text-white">X</button>
+                            <button onClick={() => setShowModal(false)} className="text-slate-500 hover:text-white"><X size={20}/></button>
                         </div>
                         
                         <InventoryForm 
@@ -323,6 +349,11 @@ export function InventoryManager(props: InventoryProps) {
                         />
                     </div>
                 </div>
+            )}
+
+            {/* MODAL CALCULADORA DE MISTURA */}
+            {showMixModal && (
+                <MixCalculatorModal onClose={() => setShowMixModal(false)} />
             )}
 
             {/* MODAL PRÉVIA DA LISTA DE COMPRAS */}
@@ -352,11 +383,57 @@ function InventoryForm({ type, initialData, suppliers, onSave }: any) {
         : { name: '', contact: '', category: '', obs: '' }
     ));
 
+    // ESTADO PARA CALCULADORA INTERNA (PACOTE/CARGA)
+    const [showCalculator, setShowCalculator] = useState(false);
+    const [calcMode, setCalcMode] = useState<'simple' | 'advanced'>('simple');
+    
+    // Simples
+    const [packPrice, setPackPrice] = useState('');
+    const [packSize, setPackSize] = useState('');
+
+    // Avançado (Carga/Importação)
+    const [advPrice, setAdvPrice] = useState('');
+    const [advFees, setAdvFees] = useState(''); // Frete + Taxas
+    const [advQ1, setAdvQ1] = useState(''); // Caixas/Fardos (Nível 1)
+    const [advQ2, setAdvQ2] = useState(''); // Pacotes por Caixa (Nível 2)
+    const [advQ3, setAdvQ3] = useState(''); // Unidades por Pacote (Nível 3)
+
+    const calculateUnitCost = () => {
+        if (calcMode === 'simple') {
+            const price = parseFloat(packPrice);
+            const size = parseFloat(packSize);
+            if (price > 0 && size > 0) {
+                const unitCost = price / size;
+                setForm({...form, cost: parseFloat(unitCost.toFixed(4))});
+                setShowCalculator(false);
+            }
+        } else {
+            const price = parseFloat(advPrice) || 0;
+            const fees = parseFloat(advFees) || 0;
+            const q1 = parseFloat(advQ1) || 1; // Se vazio, assume 1
+            const q2 = parseFloat(advQ2) || 1;
+            const q3 = parseFloat(advQ3) || 1;
+
+            const totalCost = price + fees;
+            const totalUnits = q1 * q2 * q3;
+
+            if (totalUnits > 0) {
+                setForm({...form, cost: parseFloat((totalCost / totalUnits).toFixed(4))});
+                setShowCalculator(false);
+            }
+        }
+    };
+
+    // Prévia do cálculo avançado para mostrar ao usuário
+    const advTotalUnits = (parseFloat(advQ1)||1) * (parseFloat(advQ2)||1) * (parseFloat(advQ3)||1);
+    const advTotalCost = (parseFloat(advPrice)||0) + (parseFloat(advFees)||0);
+    const advUnitCost = advTotalUnits > 0 ? advTotalCost / advTotalUnits : 0;
+
     return (
         <form onSubmit={(e) => onSave(e, form)} className="space-y-4">
             <div>
                 <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome</label>
-                <input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+                <input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder={type === 'items' ? "Ex: Picles, Bacon Fatia" : "Nome da Empresa"} />
             </div>
 
             {type === 'suppliers' ? (
@@ -368,12 +445,94 @@ function InventoryForm({ type, initialData, suppliers, onSave }: any) {
             ) : (
                 <>
                     <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Unidade</label><select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.unit} onChange={e => setForm({...form, unit: e.target.value})}><option value="un">Unidade</option><option value="kg">Quilo (Kg)</option><option value="l">Litro (L)</option><option value="cx">Caixa</option></select></div>
-                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Custo (R$)</label><input required type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.cost} onChange={e => setForm({...form, cost: parseFloat(e.target.value)})} /></div>
+                        <div>
+                            <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Unidade de Medida</label>
+                            <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.unit} onChange={e => setForm({...form, unit: e.target.value})}>
+                                <option value="un">Unidade (un)</option>
+                                <option value="kg">Quilo (kg)</option>
+                                <option value="g">Grama (g)</option>
+                                <option value="l">Litro (l)</option>
+                                <option value="ml">Mililitro (ml)</option>
+                                <option value="fatia">Fatia</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-xs text-slate-500 font-bold uppercase block mb-1 flex justify-between">
+                                <span>Custo Unitário</span>
+                                <button type="button" onClick={() => setShowCalculator(!showCalculator)} className="text-amber-500 flex items-center gap-1 hover:text-white transition-colors"><Calculator size={10}/> Calcular</button>
+                            </label>
+                            <input required type="number" step="0.0001" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 font-mono" value={form.cost} onChange={e => setForm({...form, cost: parseFloat(e.target.value)})} placeholder="0.00" />
+                        </div>
                     </div>
+
+                    {/* CALCULADORA DE CUSTO INTEGRADA */}
+                    {showCalculator && (
+                        <div className="bg-slate-800/50 p-3 rounded-xl border border-amber-500/30 animate-in slide-in-from-top-2">
+                            <div className="flex justify-between items-center mb-3">
+                                <p className="text-[10px] text-amber-400 font-bold uppercase">Calculadora de Custo</p>
+                                <div className="flex bg-slate-900 rounded p-0.5 border border-slate-700">
+                                    <button type="button" onClick={() => setCalcMode('simple')} className={`px-2 py-0.5 text-[9px] font-bold rounded ${calcMode === 'simple' ? 'bg-amber-600 text-white' : 'text-slate-400'}`}>Simples</button>
+                                    <button type="button" onClick={() => setCalcMode('advanced')} className={`px-2 py-0.5 text-[9px] font-bold rounded ${calcMode === 'advanced' ? 'bg-amber-600 text-white' : 'text-slate-400'}`}>Atacado/Carga</button>
+                                </div>
+                            </div>
+
+                            {calcMode === 'simple' ? (
+                                <>
+                                    <div className="flex gap-2 mb-2">
+                                        <input type="number" placeholder="Preço Pago (R$)" className="w-1/2 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" value={packPrice} onChange={e => setPackPrice(e.target.value)} />
+                                        <input type="number" placeholder={`Qtd Total (${form.unit})`} className="w-1/2 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" value={packSize} onChange={e => setPackSize(e.target.value)} />
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 mb-2">Ex: Picles 400g custou R$ 20 -> Custo p/g</p>
+                                </>
+                            ) : (
+                                <div className="space-y-2">
+                                    {/* Linha 1: Custos */}
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="relative">
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 text-[10px]">R$</span>
+                                            <input type="number" placeholder="Valor Nota" className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-6 pr-2 text-xs text-white" value={advPrice} onChange={e => setAdvPrice(e.target.value)} />
+                                        </div>
+                                        <div className="relative">
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 text-[10px]">+</span>
+                                            <input type="number" placeholder="Frete/Taxas" className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-6 pr-2 text-xs text-white" value={advFees} onChange={e => setAdvFees(e.target.value)} title="Sume aqui: Frete + Porto + Impostos" />
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Linha 2: Estrutura (Multiplicadores) */}
+                                    <div className="flex items-center gap-1">
+                                        <div className="flex-1">
+                                            <p className="text-[9px] text-slate-500 mb-0.5 text-center">Caixas</p>
+                                            <input type="number" placeholder="Qtd" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-center text-white" value={advQ1} onChange={e => setAdvQ1(e.target.value)} />
+                                        </div>
+                                        <span className="text-slate-500 text-xs">x</span>
+                                        <div className="flex-1">
+                                            <p className="text-[9px] text-slate-500 mb-0.5 text-center">Pcts/Cx</p>
+                                            <input type="number" placeholder="Qtd" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-center text-white" value={advQ2} onChange={e => setAdvQ2(e.target.value)} />
+                                        </div>
+                                        <span className="text-slate-500 text-xs">x</span>
+                                        <div className="flex-1">
+                                            <p className="text-[9px] text-slate-500 mb-0.5 text-center">Und/Pct</p>
+                                            <input type="number" placeholder="Qtd" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-center text-white" value={advQ3} onChange={e => setAdvQ3(e.target.value)} />
+                                        </div>
+                                    </div>
+
+                                    {/* Resultado Prévio */}
+                                    <div className="bg-black/20 p-2 rounded border border-white/5 flex justify-between items-center text-[10px]">
+                                        <span className="text-slate-400">Total: <b className="text-white">{advTotalUnits} un</b> (R$ {formatCurrency(advTotalCost)})</span>
+                                        <span className="text-emerald-400 font-bold">{formatCurrency(advUnitCost)}/un</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex justify-end mt-2">
+                                <button type="button" onClick={calculateUnitCost} className="bg-amber-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-amber-500 w-full">Aplicar Valor</button>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Qtd Atual</label><input required type="number" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.quantity} onChange={e => setForm({...form, quantity: parseFloat(e.target.value)})} /></div>
-                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Qtd Mínima</label><input type="number" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.minQuantity} onChange={e => setForm({...form, minQuantity: parseFloat(e.target.value)})} /></div>
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Qtd em Estoque</label><input required type="number" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.quantity} onChange={e => setForm({...form, quantity: parseFloat(e.target.value)})} /></div>
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Alerta Mínimo</label><input type="number" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.minQuantity} onChange={e => setForm({...form, minQuantity: parseFloat(e.target.value)})} /></div>
                     </div>
                     <div>
                         <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Fornecedor</label>
@@ -387,6 +546,88 @@ function InventoryForm({ type, initialData, suppliers, onSave }: any) {
 
             <button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Salvar Dados</button>
         </form>
+    );
+}
+
+// --- NOVO MODAL: CALCULADORA DE MISTURA/MOLHO ---
+function MixCalculatorModal({ onClose }: { onClose: () => void }) {
+    const [items, setItems] = useState<{name: string, cost: string, qty: string}[]>([{name: '', cost: '', qty: ''}]);
+    const [result, setResult] = useState<{totalCost: number, totalWeight: number, unitCost: number} | null>(null);
+
+    const addItem = () => setItems([...items, {name: '', cost: '', qty: ''}]);
+    const updateItem = (idx: number, field: string, val: string) => {
+        const newItems = [...items];
+        (newItems[idx] as any)[field] = val;
+        setItems(newItems);
+    };
+    const removeItem = (idx: number) => {
+        const newItems = [...items];
+        newItems.splice(idx, 1);
+        setItems(newItems);
+    };
+
+    const calculate = () => {
+        let totalCost = 0;
+        let totalWeight = 0;
+        
+        items.forEach(item => {
+            const cost = parseFloat(item.cost); // Custo total do ingrediente usado
+            const qty = parseFloat(item.qty);   // Peso usado
+            if(!isNaN(cost) && !isNaN(qty)) {
+                totalCost += cost;
+                totalWeight += qty;
+            }
+        });
+
+        if (totalWeight > 0) {
+            setResult({
+                totalCost,
+                totalWeight,
+                unitCost: totalCost / totalWeight
+            });
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+            <div className="bg-slate-900 rounded-2xl w-full max-w-md p-6 border border-slate-800 animate-in zoom-in shadow-2xl relative overflow-y-auto max-h-[90vh]">
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
+                <h3 className="font-bold text-xl text-white mb-2 flex items-center gap-2"><FlaskConical className="text-purple-500"/> Calculadora de Misturas</h3>
+                <p className="text-xs text-slate-400 mb-4">Use para calcular o custo por grama de molhos (Ex: Cheddar + Creme de Leite ou Maionese + Ketchup).</p>
+
+                <div className="space-y-2 mb-4">
+                    {items.map((item, idx) => (
+                        <div key={idx} className="flex gap-2">
+                            <input placeholder="Ingrediente (Opcional)" className="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" value={item.name} onChange={e => updateItem(idx, 'name', e.target.value)} />
+                            <input type="number" placeholder="Custo R$ (do que usou)" className="w-24 bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" value={item.cost} onChange={e => updateItem(idx, 'cost', e.target.value)} />
+                            <input type="number" placeholder="Peso (g/ml)" className="w-20 bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" value={item.qty} onChange={e => updateItem(idx, 'qty', e.target.value)} />
+                            {items.length > 1 && <button onClick={() => removeItem(idx)} className="text-red-500"><Trash2 size={16}/></button>}
+                        </div>
+                    ))}
+                    <button onClick={addItem} className="text-xs font-bold text-blue-400 flex items-center gap-1 hover:text-white"><PlusCircle size={14}/> Adicionar Ingrediente</button>
+                </div>
+
+                <button onClick={calculate} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl mb-4 shadow-lg">Calcular Custo Final</button>
+
+                {result && (
+                    <div className="bg-slate-800 p-4 rounded-xl border border-purple-500/30">
+                        <div className="flex justify-between mb-2">
+                            <span className="text-slate-400 text-xs">Peso Final:</span>
+                            <span className="text-white font-bold text-sm">{result.totalWeight} g/ml</span>
+                        </div>
+                        <div className="flex justify-between mb-4">
+                            <span className="text-slate-400 text-xs">Custo Total da Mistura:</span>
+                            <span className="text-white font-bold text-sm">{formatCurrency(result.totalCost)}</span>
+                        </div>
+                        <div className="pt-3 border-t border-slate-700 text-center">
+                            <p className="text-xs text-purple-400 font-bold uppercase mb-1">Custo por Grama/ML</p>
+                            <p className="text-2xl font-black text-white">{formatCurrency(result.unitCost)}</p>
+                            <p className="text-[10px] text-slate-500 mt-2">Dica: Crie um novo Item no estoque com este valor de custo unitário.</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
     );
 }
 
