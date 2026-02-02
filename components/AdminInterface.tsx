@@ -12,7 +12,7 @@ import { InventoryManager } from './InventoryManager';
 import { DailyOrdersView } from './DailyOrdersView';
 import { AnalyticsView } from './AnalyticsView';
 import { ItemReportView } from './ItemReportView';
-import { NewOrderModal, ReceiptModal, GenericConfirmModal } from './Modals';
+import { NewOrderModal, ReceiptModal, GenericConfirmModal, EditOrderModal, DispatchSuccessModal, ProductionSuccessModal } from './Modals';
 import { checkShopStatus, formatCurrency, normalizePhone, capitalize, toSentenceCase, sendOrderConfirmation, isToday, formatTime, formatDate } from '../utils';
 
 const iconStore = new L.Icon({
@@ -99,6 +99,7 @@ interface AdminProps {
     onClearShoppingList: () => void;
     setAppConfig: (config: AppConfig) => void;
     modal: any;
+    modalData: any; // Adicionado para corrigir erro de tipagem
 }
 
 const GIVEAWAY_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3';
@@ -241,10 +242,8 @@ const FleetSidebar = ({ drivers, orders, settlements, vales, onClose, onAddDrive
     );
 };
 
-const ManualOrderView = ({ products, clients, onCreateOrder, onClose, appConfig, orderToEdit }: any) => {
-    // FIX: State to hold the editing ID safely
-    const [targetId, setTargetId] = useState<string | undefined>(orderToEdit?.id);
-    
+const ManualOrderView = ({ products, clients, onCreateOrder, onClose, appConfig }: any) => {
+    // REMOVIDA LÓGICA DE EDIÇÃO - APENAS NOVO PEDIDO
     const [cart, setCart] = useState<{product: Product, quantity: number, obs: string}[]>([]);
     const [customerPhone, setCustomerPhone] = useState('');
     const [customerName, setCustomerName] = useState('');
@@ -259,58 +258,6 @@ const ManualOrderView = ({ products, clients, onCreateOrder, onClose, appConfig,
     
     // Autocomplete State
     const [nameSuggestions, setNameSuggestions] = useState<Client[]>([]);
-
-    // EFEITO PARA CARREGAR DADOS DO PEDIDO A EDITAR
-    useEffect(() => {
-        if (orderToEdit) {
-            setTargetId(orderToEdit.id); // Garante que temos o ID
-            setCustomerPhone(orderToEdit.phone || '');
-            setCustomerName(orderToEdit.customer || '');
-            setAddress(orderToEdit.address || '');
-            setMapsLink(orderToEdit.mapsLink || '');
-            setPaymentMethod(orderToEdit.paymentMethod || 'Dinheiro');
-            setServiceType(orderToEdit.serviceType || 'delivery');
-            setDeliveryFee(orderToEdit.deliveryFee || 0);
-            setObs(orderToEdit.obs || '');
-
-            // PARSE DOS ITENS (Reconstruir carrinho)
-            if (orderToEdit.items) {
-                const lines = orderToEdit.items.split('\n');
-                const loadedCart: {product: Product, quantity: number, obs: string}[] = [];
-
-                lines.forEach((line: string) => {
-                    const cleanLine = line.trim();
-                    if (!cleanLine || cleanLine.startsWith('---')) return;
-
-                    // Regex para capturar: "2x Nome do Produto (Obs: Sem cebola)"
-                    const match = cleanLine.match(/^(\d+)x\s+(.+?)(?:\s+\((.+)\))?$/);
-
-                    if (match) {
-                        const qty = parseInt(match[1]);
-                        const name = match[2].trim();
-                        const itemObs = match[3] || '';
-
-                        // Tenta encontrar o produto no catálogo
-                        const product = products.find((p: Product) => p.name.toLowerCase() === name.toLowerCase());
-
-                        if (product) {
-                            loadedCart.push({ product, quantity: qty, obs: itemObs.replace('Obs: ', '') });
-                        } else {
-                            // Produto legado ou customizado
-                            loadedCart.push({
-                                product: { id: 'manual-' + Date.now(), name: name, price: 0, category: 'Outros' },
-                                quantity: qty,
-                                obs: itemObs.replace('Obs: ', '')
-                            });
-                        }
-                    }
-                });
-                setCart(loadedCart);
-            }
-        } else {
-            setTargetId(undefined); // Limpa ID se for novo
-        }
-    }, [orderToEdit, products]);
 
     const categoriesPriority = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
 
@@ -402,7 +349,7 @@ const ManualOrderView = ({ products, clients, onCreateOrder, onClose, appConfig,
 
     const handleSubmit = () => {
         if (!customerName) return alert("Nome do cliente obrigatório");
-        if (cart.length === 0 && !orderToEdit) return alert("Carrinho vazio");
+        if (cart.length === 0) return alert("Carrinho vazio");
 
         const itemsText = cart.map(i => `${i.quantity}x ${i.product.name}${i.obs ? ` (${i.obs})` : ''}`).join('\n');
 
@@ -411,19 +358,15 @@ const ManualOrderView = ({ products, clients, onCreateOrder, onClose, appConfig,
             phone: customerPhone,
             address: serviceType === 'delivery' ? address : 'Balcão',
             mapsLink: mapsLink, // Link do Google Maps
-            items: itemsText || (orderToEdit ? orderToEdit.items : ''),
-            amount: formatCurrency(total || (orderToEdit ? orderToEdit.value : 0)),
-            value: total || (orderToEdit ? orderToEdit.value : 0),
+            items: itemsText,
+            amount: formatCurrency(total),
+            value: total,
             paymentMethod,
             serviceType,
             deliveryFee,
             obs,
             origin: 'manual',
-            status: orderToEdit ? orderToEdit.status : 'pending',
-            // PRESERVAR CREATED_AT SE FOR EDIÇÃO (para não resetar tempo na cozinha)
-            createdAt: orderToEdit ? orderToEdit.createdAt : undefined,
-            // IMPORTANTE: Usar o ID capturado no estado para garantir que não se perca
-            id: targetId 
+            status: 'pending'
         };
 
         onCreateOrder(orderData);
@@ -491,7 +434,7 @@ const ManualOrderView = ({ products, clients, onCreateOrder, onClose, appConfig,
                 {/* Right: Order Details */}
                 <div className="w-full md:w-96 bg-slate-950 border-l border-slate-800 flex flex-col h-full shadow-2xl">
                     <div className="p-4 border-b border-slate-800 bg-slate-900">
-                        <h3 className="font-bold text-white text-lg">{orderToEdit ? 'Editar Pedido' : 'Novo Pedido'}</h3>
+                        <h3 className="font-bold text-white text-lg">Novo Pedido</h3>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-4">
@@ -592,7 +535,7 @@ const ManualOrderView = ({ products, clients, onCreateOrder, onClose, appConfig,
                              <span className="text-emerald-400">{formatCurrency(total)}</span>
                          </div>
                          <button onClick={handleSubmit} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
-                             <CheckCircle2 size={18}/> {orderToEdit ? 'Salvar Alterações' : 'Confirmar Pedido'}
+                             <CheckCircle2 size={18}/> Confirmar Pedido
                          </button>
                     </div>
                 </div>
@@ -608,6 +551,7 @@ export function AdminInterface(props: AdminProps) {
     const [showFleetPanel, setShowFleetPanel] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+    const [showSimpleEdit, setShowSimpleEdit] = useState(false);
     
     // NEW: Alert State
     const [newOrderAlert, setNewOrderAlert] = useState<Order | null>(null);
@@ -636,11 +580,18 @@ export function AdminInterface(props: AdminProps) {
 
     // Monitoring Orders
     useEffect(() => {
+        // ZOMBIE KILLER & AUDIO LOGIC
         const pendingOrders = props.orders.filter(o => o.status === 'pending');
         let hasNew = false;
         let latestNewOrder: Order | null = null;
 
         pendingOrders.forEach(order => {
+            // ZOMBIE SILENCER: Force ignore this specific zombie ID from ANY audio/modal triggers
+            if (order.id.includes('w8wSUDWOkyWnrL1UxfXC')) {
+                processedOrderIds.current.add(order.id); // Mark as processed so it never triggers new
+                return;
+            }
+
             if (!processedOrderIds.current.has(order.id)) {
                 hasNew = true;
                 latestNewOrder = order;
@@ -648,9 +599,20 @@ export function AdminInterface(props: AdminProps) {
             }
         });
 
+        // PREVENT DOUBLE AUDIO: If Kitchen view is active, Admin suppresses its own sound, letting Kitchen handle it?
+        // Actually, KitchenDisplay sound logic is "pending count increased".
+        // Admin logic is "new order ID detected".
+        // To be safe and fix the "duplicated sound" issue:
+        // We will make AdminInterface the PRIMARY sound source for "New Order".
+        // And we will tell KitchenDisplay to SHUT UP via props.
+        
         if (hasNew && latestNewOrder) {
             setNewOrderAlert(latestNewOrder);
             try {
+                // If we are NOT in kitchen view, play sound.
+                // If we ARE in kitchen view, KitchenDisplay might try to play sound.
+                // But KitchenDisplay logic relies on `count > prevCount`.
+                // Let's just play sound here consistently and disable KitchenDisplay sound.
                 audioRef.current?.play();
                 if ("vibrate" in navigator) navigator.vibrate([500, 200, 500]);
             } catch (e) {
@@ -676,6 +638,7 @@ export function AdminInterface(props: AdminProps) {
     const renderContent = () => {
         switch (currentView) {
             case 'dashboard':
+                // ... (dashboard code)
                 return (
                    <div className="relative w-full h-full overflow-hidden flex flex-col">
                        <div className="flex-1 relative z-0">
@@ -717,8 +680,9 @@ export function AdminInterface(props: AdminProps) {
                     appConfig={props.appConfig}
                     onEditOrder={(order) => {
                         setEditingOrder(order);
-                        setShowManualOrder(true);
+                        setShowSimpleEdit(true);
                     }}
+                    disableSound={true} // VITAL: Prevents double audio since AdminInterface already plays it!
                 />
             );
             case 'inventory': return <InventoryManager inventory={props.inventory} suppliers={props.suppliers} shoppingList={props.shoppingList} onCreateSupplier={props.onCreateSupplier} onUpdateSupplier={props.onUpdateSupplier} onDeleteSupplier={props.onDeleteSupplier} onCreateInventory={props.onCreateInventory} onUpdateInventory={props.onUpdateInventory} onDeleteInventory={props.onDeleteInventory} onAddShoppingItem={props.onAddShoppingItem} onToggleShoppingItem={props.onToggleShoppingItem} onDeleteShoppingItem={props.onDeleteShoppingItem} onClearShoppingList={props.onClearShoppingList} appConfig={props.appConfig} />;
@@ -773,7 +737,14 @@ export function AdminInterface(props: AdminProps) {
                     onCreateOrder={props.onCreateOrder} 
                     onClose={() => { setShowManualOrder(false); setEditingOrder(null); }} 
                     appConfig={props.appConfig} 
-                    orderToEdit={editingOrder}
+                />
+            )}
+            
+            {showSimpleEdit && editingOrder && (
+                <EditOrderModal 
+                    order={editingOrder} 
+                    onClose={() => { setShowSimpleEdit(false); setEditingOrder(null); }} 
+                    onSave={props.onUpdateOrder} 
                 />
             )}
             
@@ -799,6 +770,23 @@ export function AdminInterface(props: AdminProps) {
                     order={receiptOrder} 
                     onClose={() => setReceiptOrder(null)} 
                     appConfig={props.appConfig} 
+                />
+            )}
+
+            {/* FALTAVAM ESTES MODAIS PARA FUNCIONAR CORRETAMENTE */}
+            {props.modal === 'dispatch' && props.modalData && (
+                <DispatchSuccessModal 
+                    data={props.modalData} 
+                    onClose={() => props.setModal(null)} 
+                    appName={props.appConfig.appName}
+                />
+            )}
+            
+            {props.modal === 'productionSuccess' && props.modalData && (
+                <ProductionSuccessModal 
+                    order={props.modalData} 
+                    onClose={() => props.setModal(null)}
+                    appName={props.appConfig.appName}
                 />
             )}
 

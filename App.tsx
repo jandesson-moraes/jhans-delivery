@@ -20,6 +20,9 @@ import {
 import { Loader2 } from 'lucide-react';
 import { normalizePhone, formatCurrency } from './utils';
 
+// Lista de IDs que devem ser exterminados automaticamente caso apareçam
+const ZOMBIE_IDS = ['w8wSUDWOkyWnrL1UxfXC'];
+
 // Default Config
 const DEFAULT_CONFIG: AppConfig = {
     appName: 'Jhans Burgers',
@@ -112,8 +115,16 @@ export default function App() {
   // Auth Listener - Anonymous Login
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (u) => {
-      if (u) setUser(u);
-      else signInAnonymously(auth).catch(console.error);
+      if (u) {
+          console.log("Usuário autenticado:", u.uid);
+          setUser(u);
+      } else {
+          console.log("Tentando login anônimo...");
+          signInAnonymously(auth).catch(err => {
+              console.error("Erro no login anônimo:", err);
+              setAlertInfo({ isOpen: true, title: "Erro de Login", message: "Falha ao conectar com o servidor.", type: 'error' });
+          });
+      }
     });
     return () => unsubAuth();
   }, []);
@@ -122,7 +133,7 @@ export default function App() {
   useEffect(() => {
       if (!user) return;
 
-      // Config - RESTORED PATH TO config/general
+      // Config
       const unsubConfig = onSnapshot(doc(db, 'config', 'general'), (doc) => {
           if (doc.exists()) setAppConfigState(doc.data() as AppConfig);
           else setDoc(doc.ref, DEFAULT_CONFIG);
@@ -138,9 +149,29 @@ export default function App() {
           setDrivers(snap.docs.map(d => ({id: d.id, ...d.data()} as Driver)));
       });
 
-      // Orders
+      // Orders - ROBUST FILTERING WITH ZOMBIE KILLER
+      console.log("Iniciando listener de pedidos...");
       const unsubOrders = onSnapshot(query(collection(db, 'orders'), orderBy('createdAt', 'desc')), (snap) => {
-          setOrders(snap.docs.map(d => ({id: d.id, ...d.data()} as Order)));
+          console.log("Atualização de Pedidos recebida. Total bruto:", snap.docs.length);
+          const mappedOrders = snap.docs.map(d => ({id: d.id, ...d.data()} as Order));
+          
+          // EXTERMINADOR DE ZUMBIS: Se um ID problemático for encontrado, deleta silenciosamente
+          mappedOrders.forEach(o => {
+              if (ZOMBIE_IDS.includes(o.id) || ZOMBIE_IDS.some(z => o.id.includes(z))) {
+                  console.warn(`[Auto-Killer] Pedido Zumbi detectado (${o.id}). Exterminando...`);
+                  deleteDoc(doc(db, 'orders', o.id)).catch(e => console.error("Falha ao exterminar:", e));
+              }
+          });
+
+          // Filter out orders marked as deleted OR in the zombie list
+          const validOrders = mappedOrders.filter(o => 
+              o.status !== 'deleted' && 
+              !ZOMBIE_IDS.includes(o.id) &&
+              !ZOMBIE_IDS.some(z => o.id.includes(z))
+          );
+          setOrders(validOrders);
+      }, (error) => {
+          console.error("Erro no listener de pedidos:", error);
       });
 
       // Clients
@@ -149,40 +180,14 @@ export default function App() {
           setLoading(false);
       });
 
-      // Vales
-      const unsubVales = onSnapshot(collection(db, 'vales'), (snap) => {
-          setVales(snap.docs.map(d => ({id: d.id, ...d.data()} as Vale)));
-      });
-      
-      // Expenses
-      const unsubExpenses = onSnapshot(collection(db, 'expenses'), (snap) => {
-          setExpenses(snap.docs.map(d => ({id: d.id, ...d.data()} as Expense)));
-      });
-
-      // Settlements
-      const unsubSettlements = onSnapshot(collection(db, 'settlements'), (snap) => {
-          setSettlements(snap.docs.map(d => ({id: d.id, ...d.data()} as Settlement)));
-      });
-
-      // Suppliers
-      const unsubSuppliers = onSnapshot(collection(db, 'suppliers'), (snap) => {
-          setSuppliers(snap.docs.map(d => ({id: d.id, ...d.data()} as Supplier)));
-      });
-
-      // Inventory
-      const unsubInventory = onSnapshot(collection(db, 'inventory'), (snap) => {
-          setInventory(snap.docs.map(d => ({id: d.id, ...d.data()} as InventoryItem)));
-      });
-
-      // Shopping List
-      const unsubShopping = onSnapshot(collection(db, 'shoppingList'), (snap) => {
-          setShoppingList(snap.docs.map(d => ({id: d.id, ...d.data()} as ShoppingItem)));
-      });
-
-      // Giveaway
-      const unsubGiveaway = onSnapshot(collection(db, 'giveaway_entries'), (snap) => {
-          setGiveawayEntries(snap.docs.map(d => ({id: d.id, ...d.data()} as GiveawayEntry)));
-      });
+      // Other Collections...
+      const unsubVales = onSnapshot(collection(db, 'vales'), (snap) => setVales(snap.docs.map(d => ({id: d.id, ...d.data()} as Vale))));
+      const unsubExpenses = onSnapshot(collection(db, 'expenses'), (snap) => setExpenses(snap.docs.map(d => ({id: d.id, ...d.data()} as Expense))));
+      const unsubSettlements = onSnapshot(collection(db, 'settlements'), (snap) => setSettlements(snap.docs.map(d => ({id: d.id, ...d.data()} as Settlement))));
+      const unsubSuppliers = onSnapshot(collection(db, 'suppliers'), (snap) => setSuppliers(snap.docs.map(d => ({id: d.id, ...d.data()} as Supplier))));
+      const unsubInventory = onSnapshot(collection(db, 'inventory'), (snap) => setInventory(snap.docs.map(d => ({id: d.id, ...d.data()} as InventoryItem))));
+      const unsubShopping = onSnapshot(collection(db, 'shoppingList'), (snap) => setShoppingList(snap.docs.map(d => ({id: d.id, ...d.data()} as ShoppingItem))));
+      const unsubGiveaway = onSnapshot(collection(db, 'giveaway_entries'), (snap) => setGiveawayEntries(snap.docs.map(d => ({id: d.id, ...d.data()} as GiveawayEntry))));
 
       return () => {
           unsubConfig(); unsubProducts(); unsubDrivers(); unsubOrders();
@@ -197,8 +202,8 @@ export default function App() {
     try {
       await action();
     } catch (error: any) {
-      console.error(error);
-      setAlertInfo({ isOpen: true, title: "Erro", message: error.message || "Ocorreu um erro.", type: 'error' });
+      console.error("Erro na ação:", error);
+      setAlertInfo({ isOpen: true, title: "Erro na Operação", message: error.message || "Falha ao executar ação no banco de dados.", type: 'error' });
     }
   };
 
@@ -206,7 +211,6 @@ export default function App() {
       localStorage.removeItem('jhans_viewMode');
       localStorage.removeItem('jhans_driverId');
       setViewMode('landing');
-      // Força reload para limpar estados se necessário
       window.location.href = window.location.href.split('?')[0]; 
   };
 
@@ -221,70 +225,105 @@ export default function App() {
 
   // Orders
   const createOrder = (data: any) => handleAction(async () => {
-    // FIX: Remove 'id' se estiver undefined para evitar erro do Firebase addDoc
     const payload = { ...data };
-    
-    // Sanitização rigorosa: Remove campos undefined
     Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
     
-    if (payload.id && !payload.id.startsWith('PED-') && payload.id.length > 20) {
-        // Se já tem ID do firebase, atualiza o existente
-        const orderRef = doc(db, 'orders', payload.id);
-        // Se createdAt existe e for string/date, pode manter, mas se não vier, não removemos o que já está lá (merge trata isso)
-        // Se createdAt for undefined, já foi removido acima
-        await setDoc(orderRef, payload, { merge: true });
+    const { id, ...cleanPayload } = payload;
+    // Ensure we don't accidentally create an empty or space-only ID
+    if (payload.id && payload.id.trim().startsWith('PED-')) {
+         const orderRef = doc(db, 'orders', payload.id.trim());
+         await setDoc(orderRef, { ...cleanPayload, status: payload.status || 'pending', createdAt: payload.createdAt || serverTimestamp() }, { merge: true });
     } else {
-        // CRIAÇÃO: Novo pedido
-        // Se tiver um ID manual (ex: PED-123456), usa setDoc, senão addDoc
-        if (payload.id) {
-             const orderRef = doc(db, 'orders', payload.id);
-             await setDoc(orderRef, { ...payload, status: payload.status || 'pending', createdAt: payload.createdAt || serverTimestamp() }, { merge: true });
-        } else {
-             // Caso addDoc seja usado, payload NÃO pode ter id no corpo
-             const { id, ...cleanPayload } = payload;
-             await addDoc(collection(db, 'orders'), { ...cleanPayload, status: 'pending', createdAt: serverTimestamp() });
-        }
+         await addDoc(collection(db, 'orders'), { ...cleanPayload, status: 'pending', createdAt: serverTimestamp() });
     }
     
-    // Atualiza cliente
     if (payload.phone) {
         const cleanPhone = normalizePhone(payload.phone);
         if (cleanPhone) await setDoc(doc(db, 'clients', cleanPhone), { name: payload.customer, phone: payload.phone, address: payload.address, mapsLink: payload.mapsLink || '', lastOrderAt: serverTimestamp() }, { merge: true });
     }
   });
 
-  const updateOrder = (id: string, data: any) => handleAction(async () => {
-      if (data.status && ['pending', 'preparing', 'ready'].includes(data.status)) {
+  const updateOrder = async (id: string, data: any) => {
+      if (!id) return console.error("ID inválido para atualização");
+      
+      console.log(`[App] Atualizando Pedido ${id}`, data);
+      
+      const { id: dataId, ...dataToUpdate } = data;
+
+      // ATUALIZAÇÃO OTIMISTA
+      setOrders(prev => prev.map(o => o.id === id ? { ...o, ...dataToUpdate } : o));
+
+      const orderRef = doc(db, 'orders', id);
+      
+      // Driver Release Logic
+      if (dataToUpdate.status && ['pending', 'preparing', 'ready'].includes(dataToUpdate.status)) {
           const currentOrder = orders.find(o => o.id === id);
           if (currentOrder && currentOrder.driverId) {
-              await updateDoc(doc(db, 'drivers', currentOrder.driverId), { status: 'available', currentOrderId: null });
-              data.driverId = deleteField();
-              data.assignedAt = deleteField();
+              updateDoc(doc(db, 'drivers', currentOrder.driverId), { status: 'available', currentOrderId: null })
+                .catch(e => console.warn("Falha ao liberar driver:", e));
+              
+              dataToUpdate.driverId = deleteField();
+              dataToUpdate.assignedAt = deleteField();
           }
       }
-      await setDoc(doc(db, 'orders', id), data, { merge: true });
-  });
+
+      try {
+          // Changed to updateDoc to strictly UPDATE existing document. 
+          await updateDoc(orderRef, dataToUpdate);
+          console.log(`[App] Pedido ${id} atualizado com sucesso no DB.`);
+      } catch (error: any) {
+          console.error(`[App] Erro fatal ao atualizar pedido ${id}:`, error);
+          
+          // ZOMBIE HANDLING: Se o documento não existe, limpamos da UI e avisamos sem erro grave.
+          if (error.code === 'not-found' || error.message.includes('No document to update')) {
+              console.warn(`[App] Pedido ${id} não existe no DB (Zombie). Removendo localmente.`);
+              setOrders(prev => prev.filter(o => o.id !== id));
+              setAlertInfo({ 
+                  isOpen: true, 
+                  title: "Pedido Inexistente", 
+                  message: "Este pedido não foi encontrado no sistema e foi removido da lista.", 
+                  type: 'info' 
+              });
+              return;
+          }
+
+          setAlertInfo({ isOpen: true, title: "Erro de Conexão", message: `Não foi possível salvar as alterações: ${error.message}`, type: 'error' });
+      }
+  };
 
   const deleteOrder = (id: string) => {
-      if (!id) return;
+      if (!id) {
+          setAlertInfo({ isOpen: true, title: "Erro", message: "ID inválido.", type: 'error' });
+          return;
+      }
+      
       setConfirmInfo({ 
           isOpen: true, 
           title: "Excluir Pedido?", 
-          message: "Tem certeza que deseja excluir este pedido? Se estiver em andamento, o motoboy será liberado.", 
+          message: `Tem certeza que deseja excluir o pedido?`, 
           type: "danger", 
-          onConfirm: () => {
-              // Fecha o modal imediatamente para evitar travamentos visuais
+          onConfirm: async () => {
               setConfirmInfo(null);
               
-              handleAction(async () => {
-                  const order = orders.find(o => o.id === id);
-                  if (order && order.driverId && order.status !== 'completed') {
-                      try {
-                          await updateDoc(doc(db, 'drivers', order.driverId), { status: 'available', currentOrderId: null });
-                      } catch (e) { console.warn("Erro ao liberar motoboy:", e); }
-                  }
+              // ATUALIZAÇÃO OTIMISTA (FORCE REMOVE)
+              console.log(`[App] Removendo visualmente pedido: ${id}`);
+              setOrders(prev => prev.filter(o => o.id !== id));
+
+              // TENTATIVA 1: Soft Delete
+              try {
+                  await updateDoc(doc(db, 'orders', id), { status: 'deleted' });
+              } catch (e) { console.log('Soft delete failed, trying hard delete'); }
+
+              // TENTATIVA 2: Hard Delete
+              try {
                   await deleteDoc(doc(db, 'orders', id));
-              });
+                  console.log(`[App] Pedido ${id} deletado.`);
+              } catch (error: any) {
+                  // Se não existir (not-found), consideramos sucesso pois já sumiu
+                  if (error.code !== 'not-found') {
+                      console.error("[App] Erro durante exclusão:", error);
+                  }
+              }
           } 
       });
   };
@@ -294,7 +333,7 @@ export default function App() {
       await updateDoc(doc(db, 'drivers', did), { status: 'delivering', currentOrderId: oid }); 
   });
 
-  // Other Entities
+  // Other Entities...
   const createProduct = (data: any) => handleAction(async () => { await addDoc(collection(db, 'products'), data); });
   const updateProduct = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'products', id), data); });
   const deleteProduct = (id: string) => handleAction(async () => { await deleteDoc(doc(db, 'products', id)); });
@@ -480,6 +519,7 @@ export default function App() {
             onClearShoppingList={clearShoppingList}
             setAppConfig={updateAppConfig}
             modal={modal}
+            modalData={modalData}
         />
         
         {/* GLOBAL MODALS CONTROLLED BY STATE */}

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Order, Product, Driver, AppConfig } from '../types';
 import { formatTime, toSentenceCase, formatDate, getOrderReceivedText, copyToClipboard, formatOrderId, isToday, normalizePhone } from '../utils';
@@ -16,11 +17,12 @@ interface KDSProps {
     onBack?: () => void;
     appConfig: AppConfig;
     onEditOrder?: (order: Order) => void;
+    disableSound?: boolean; // New prop to control internal sound logic
 }
 
 const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
-export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateStatus, onAssignOrder, onDeleteOrder, appConfig, onEditOrder }: KDSProps) {
+export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateStatus, onAssignOrder, onDeleteOrder, appConfig, onEditOrder, disableSound = false }: KDSProps) {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [selectedHistoryOrder, setSelectedHistoryOrder] = useState<Order | null>(null);
     const [productionOrder, setProductionOrder] = useState<Order | null>(null);
@@ -37,7 +39,8 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
     const [activeTab, setActiveTab] = useState<'production' | 'ready'>('production');
     
     // Inicializa com a contagem ATUAL para não tocar som ao abrir a tela se já houver pedidos
-    const prevPendingCountRef = useRef(orders.filter(o => o.status === 'pending').length);
+    // ZOMBIE SILENCER: Exclude the zombie ID from initial count
+    const prevPendingCountRef = useRef(orders.filter(o => o.status === 'pending' && !o.id.includes('w8wSUDWOkyWnrL1UxfXC')).length);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     
     const effectiveAppName = (appConfig && appConfig.appName && appConfig.appName !== 'undefined') ? appConfig.appName : "Jhans Burgers";
@@ -47,7 +50,8 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
     // 1. Pedidos Ativos (O que a cozinha tem que fazer AGORA)
     const activeOrders = useMemo(() => {
         return orders.filter(o => 
-            ['pending', 'preparing'].includes(o.status)
+            ['pending', 'preparing'].includes(o.status) &&
+            !o.id.includes('w8wSUDWOkyWnrL1UxfXC') // Ensure zombie is hidden in UI too
         ).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)); // Mais antigos primeiro (FIFO)
     }, [orders]);
 
@@ -56,7 +60,8 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
         return orders.filter(o => 
             // Inclui 'ready' (Pronto na bancada) e outros status de finalização, mas apenas do dia
             (['ready', 'assigned', 'delivering', 'completed'].includes(o.status)) && 
-            (isToday(o.createdAt) || o.status === 'ready') 
+            (isToday(o.createdAt) || o.status === 'ready') &&
+            !o.id.includes('w8wSUDWOkyWnrL1UxfXC')
         ).sort((a, b) => {
             // Ordenar: 'ready' primeiro, depois os mais recentes finalizados
             if (a.status === 'ready' && b.status !== 'ready') return -1;
@@ -82,10 +87,12 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
 
     // Efeito sonoro
     useEffect(() => {
-        const pendingCount = orders.filter(o => o.status === 'pending').length;
+        // ZOMBIE SILENCER: Filter out zombie ID from pending count
+        const pendingCount = orders.filter(o => o.status === 'pending' && !o.id.includes('w8wSUDWOkyWnrL1UxfXC')).length;
         
         // Só toca se a contagem AUMENTOU em relação à referência anterior
-        if (pendingCount > prevPendingCountRef.current) {
+        // E se não estiver desabilitado (pela AdminInterface)
+        if (!disableSound && pendingCount > prevPendingCountRef.current) {
             if(audioRef.current) {
                 const playPromise = audioRef.current.play();
                 if (playPromise !== undefined) {
@@ -95,7 +102,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
         }
         // Atualiza a referência para a próxima comparação
         prevPendingCountRef.current = pendingCount;
-    }, [orders]);
+    }, [orders, disableSound]);
 
     const getElapsedTime = (timestamp: any) => {
         if (!timestamp) return '00:00';
@@ -131,10 +138,9 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
 
     const handleCopyStatus = (e: React.MouseEvent, order: Order) => {
         e.stopPropagation();
+        e.preventDefault();
         const text = getOrderReceivedText(order, effectiveAppName);
         copyToClipboard(text);
-        
-        // Marca como copiado para parar de piscar e mudar o estilo do botão
         setCopiedMessages(prev => new Set(prev).add(order.id));
     };
 
@@ -194,8 +200,8 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
 
                                 return (
                                     <div key={order.id} className={`flex flex-col w-full rounded-2xl border-l-[6px] shadow-2xl transition-all ${cardColor} h-auto relative group overflow-hidden`}>
-                                        {/* Cabeçalho do Card */}
-                                        <div className="p-3 md:p-4 border-b border-white/5 bg-black/20 flex justify-between items-start">
+                                        {/* Cabeçalho do Card - REMOVIDO POINTER-EVENTS-NONE para evitar problemas de clique */}
+                                        <div className="p-3 md:p-4 border-b border-white/5 bg-black/20 flex justify-between items-start relative">
                                             <div className="flex flex-col overflow-hidden mr-2">
                                                 <span className="font-black text-lg md:text-xl text-white truncate w-full tracking-tight">
                                                     {order.customer}
@@ -204,40 +210,43 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                             </div>
                                             <div className="flex flex-col items-end shrink-0 gap-2">
                                                 <div className="flex gap-1">
-                                                    {/* NEW PRINT BUTTON */}
                                                     <button 
                                                         onClick={(e) => { 
-                                                            e.stopPropagation(); 
+                                                            e.stopPropagation(); e.preventDefault();
                                                             setOrderToPrint(order); 
                                                         }}
-                                                        className="p-1.5 hover:bg-slate-700 text-slate-500 hover:text-blue-400 rounded-lg transition-colors bg-slate-900/50"
+                                                        className="p-1.5 hover:bg-slate-700 text-slate-500 hover:text-blue-400 rounded-lg transition-colors bg-slate-900/50 cursor-pointer"
                                                         title="Imprimir Pedido"
                                                     >
                                                         <Printer size={14} />
                                                     </button>
                                                     <button 
                                                         onClick={(e) => { 
-                                                            e.stopPropagation(); 
+                                                            e.stopPropagation(); e.preventDefault();
                                                             if (onEditOrder) onEditOrder(order); 
                                                         }}
-                                                        className="p-1.5 hover:bg-slate-700 text-slate-500 hover:text-white rounded-lg transition-colors bg-slate-900/50"
+                                                        className="p-1.5 hover:bg-slate-700 text-slate-500 hover:text-white rounded-lg transition-colors bg-slate-900/50 cursor-pointer"
                                                         title="Editar Pedido"
                                                     >
                                                         <Edit size={14} />
                                                     </button>
                                                     <button 
                                                         onClick={(e) => { 
-                                                            e.stopPropagation(); 
+                                                            e.stopPropagation(); e.preventDefault();
+                                                            console.log('Botão excluir clicado para:', order.id);
                                                             if (onDeleteOrder) onDeleteOrder(order.id); 
                                                         }}
-                                                        className="p-1.5 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-lg transition-colors bg-slate-900/50"
+                                                        className="p-1.5 bg-slate-900/80 hover:bg-red-900/50 text-slate-400 hover:text-red-400 rounded-lg transition-colors border border-transparent hover:border-red-500/30 shadow-sm cursor-pointer"
                                                         title="Excluir Permanentemente"
                                                     >
                                                         <Trash2 size={14} />
                                                     </button>
                                                     <button 
-                                                        onClick={(e) => { e.stopPropagation(); setOrderToClose(order); }}
-                                                        className="p-1.5 hover:bg-emerald-500/20 text-slate-500 hover:text-emerald-400 rounded-lg transition-colors bg-slate-900/50"
+                                                        onClick={(e) => { 
+                                                            e.stopPropagation(); e.preventDefault();
+                                                            setOrderToClose(order); 
+                                                        }}
+                                                        className="p-1.5 hover:bg-emerald-500/20 text-slate-500 hover:text-emerald-400 rounded-lg transition-colors bg-slate-900/50 cursor-pointer"
                                                         title="Concluir/Fechar"
                                                     >
                                                         <X size={14} />
@@ -250,7 +259,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                         </div>
                                         
                                         {/* Lista de Itens */}
-                                        <div className="p-3 md:p-4 flex-1 space-y-3">
+                                        <div className="p-3 md:p-4 flex-1 space-y-3 relative">
                                             {order.items.split('\n').filter(l => l.trim()).map((line, i) => {
                                                 if (line.includes('---')) return <hr key={i} className="border-white/10 my-2"/>;
                                                 const isObs = line.toLowerCase().startsWith('obs:');
@@ -271,27 +280,35 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                             })}
                                         </div>
 
-                                        {/* Ações */}
-                                        <div className="p-3 mt-auto border-t border-white/5 bg-black/20 grid grid-cols-1 gap-2">
+                                        {/* Ações - REMOVIDO Z-INDEX desnecessário e pointer-events-none */}
+                                        <div className="p-3 mt-auto border-t border-white/5 bg-black/20 grid grid-cols-1 gap-2 relative">
                                             {order.status === 'pending' && (
                                                 <button 
-                                                    onClick={() => {
+                                                    onClick={(e) => {
+                                                        e.preventDefault(); e.stopPropagation();
+                                                        console.log("Clicou Iniciar Preparo:", order.id);
                                                         onUpdateStatus(order.id, {status: 'preparing'});
                                                         setProductionOrder(order); 
                                                     }} 
-                                                    className="w-full bg-orange-600 hover:bg-orange-500 text-white py-3 rounded-xl font-black uppercase text-xs md:text-sm shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+                                                    className="w-full bg-orange-600 hover:bg-orange-500 text-white py-3 rounded-xl font-black uppercase text-xs md:text-sm shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
                                                 >
                                                     <Flame size={18}/> Iniciar Preparo
                                                 </button>
                                             )}
                                             {order.status === 'preparing' && (
-                                                <button onClick={() => onUpdateStatus(order.id, {status: 'ready', completedAt: serverTimestamp()})} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-black uppercase text-xs md:text-sm shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.preventDefault(); e.stopPropagation();
+                                                        onUpdateStatus(order.id, {status: 'ready', completedAt: serverTimestamp()});
+                                                    }}
+                                                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-black uppercase text-xs md:text-sm shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                                >
                                                     <CheckCircle2 size={18}/> Marcar Pronto
                                                 </button>
                                             )}
                                             <button 
                                                 onClick={(e) => handleCopyStatus(e, order)}
-                                                className={`w-full py-2.5 rounded-lg font-bold text-[10px] md:text-xs uppercase transition-all flex items-center justify-center gap-2 
+                                                className={`w-full py-2.5 rounded-lg font-bold text-[10px] md:text-xs uppercase transition-all flex items-center justify-center gap-2 cursor-pointer
                                                 ${hasCopied 
                                                     ? 'bg-slate-800/50 text-slate-500 hover:text-slate-300' 
                                                     : 'bg-emerald-900/40 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-900/60 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.2)]'
@@ -312,6 +329,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
 
             {/* --- LADO DIREITO: LISTA DE PRONTOS / SAÍDA --- */}
             <div className={`w-full md:w-[380px] bg-slate-900 border-l border-slate-800 flex-col shadow-2xl z-20 min-h-0 ${activeTab === 'ready' ? 'flex' : 'hidden md:flex'}`}>
+                {/* ... (rest of right side remains largely unchanged, just ensure buttons are clean) ... */}
                 <div className="p-4 md:p-5 border-b border-slate-800 bg-slate-900 shadow-sm shrink-0">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
                         <PackageCheck className="text-emerald-500"/> Pedidos do Dia
@@ -377,33 +395,32 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                 )}
 
                                 <div className="flex justify-end gap-2 mt-2 border-t border-slate-800/50 pt-2">
-                                    {/* PRINT BUTTON ON FINISHED LIST TOO */}
                                     <button 
                                         onClick={(e) => { 
-                                            e.stopPropagation(); 
+                                            e.stopPropagation(); e.preventDefault();
                                             setOrderToPrint(order); 
                                         }}
-                                        className="p-1.5 hover:bg-slate-800 rounded text-slate-500 hover:text-blue-500 transition-colors"
+                                        className="p-1.5 hover:bg-slate-800 rounded text-slate-500 hover:text-blue-500 transition-colors cursor-pointer"
                                         title="Imprimir"
                                     >
                                         <Printer size={14}/>
                                     </button>
                                     <button 
                                         onClick={(e) => { 
-                                            e.stopPropagation(); 
+                                            e.stopPropagation(); e.preventDefault();
                                             if (onEditOrder) onEditOrder(order); 
                                         }}
-                                        className="p-1.5 hover:bg-slate-800 rounded text-slate-500 hover:text-amber-500 transition-colors"
+                                        className="p-1.5 hover:bg-slate-800 rounded text-slate-500 hover:text-amber-500 transition-colors cursor-pointer"
                                         title="Editar"
                                     >
                                         <Edit size={14}/>
                                     </button>
                                     <button 
                                         onClick={(e) => { 
-                                            e.stopPropagation(); 
+                                            e.stopPropagation(); e.preventDefault();
                                             if(onDeleteOrder) onDeleteOrder(order.id); 
                                         }}
-                                        className="p-1.5 hover:bg-slate-800 rounded text-slate-500 hover:text-red-500 transition-colors"
+                                        className="p-1.5 hover:bg-slate-800 rounded text-slate-500 hover:text-red-500 transition-colors cursor-pointer"
                                         title="Excluir"
                                     >
                                         <Trash2 size={14}/>
