@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Supplier, InventoryItem, ShoppingItem, AppConfig } from '../types';
 import { PlusCircle, Edit, Trash2, Box, Truck, Search, Phone, FileText, ShoppingCart, Send, Wand2, CheckSquare, Square, Copy, MessageCircle, X, Check, Calculator, FlaskConical, ArrowRight } from 'lucide-react';
@@ -439,7 +440,7 @@ function InventoryForm({ type, initialData, suppliers, onSave }: any) {
                                 <input type="number" placeholder={`Qtd Total (${form.unit})`} className="w-1/2 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" value={packSize} onChange={e => setPackSize(e.target.value)} />
                             </div>
                             <div className="flex justify-between items-center">
-                                <p className="text-[10px] text-slate-400">Ex: Picles 400g pagou R$ 20 &rarr; Custo p/g</p>
+                                <p className="text-[10px] text-slate-400">Ex: Picles 400g pagou R$ 20 -> Custo p/g</p>
                                 <button type="button" onClick={calculateUnitCost} className="bg-amber-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-amber-500">Aplicar</button>
                             </div>
                         </div>
