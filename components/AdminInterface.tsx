@@ -1,3 +1,5 @@
+
+// ... (imports remain the same)
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { LayoutDashboard, Users, ShoppingBag, Utensils, Bike, Map as MapIcon, Settings, LogOut, FileText, BarChart3, ChevronRight, Menu as MenuIcon, X, CalendarCheck, ClipboardList, ChefHat, Bell, Gift, PlusCircle, Search, Trash2, Minus, Plus, Save, CheckCircle2, CreditCard, Banknote, MapPin, DollarSign, ClipboardPaste, Store, Navigation, Battery, MessageCircle, Signal, Clock, ChevronDown, Flame, Minimize2, Edit, Power, UserPlus, TrendingUp, History, LocateFixed, Car, Activity, Wallet, Calendar, ArrowRight, ArrowLeft, User } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
@@ -11,10 +13,10 @@ import { InventoryManager } from './InventoryManager';
 import { DailyOrdersView } from './DailyOrdersView';
 import { AnalyticsView } from './AnalyticsView';
 import { ItemReportView } from './ItemReportView';
-import { NewLeadNotificationModal, NewOrderModal, ReceiptModal, GenericConfirmModal } from './Modals';
+import { NewOrderModal, ReceiptModal, GenericConfirmModal } from './Modals';
 import { checkShopStatus, formatCurrency, normalizePhone, capitalize, toSentenceCase, sendOrderConfirmation, isToday, formatTime, formatDate } from '../utils';
 
-// Ícone da Loja
+// ... (iconStore and createDriverIcon remain the same)
 const iconStore = new L.Icon({
     iconUrl: 'https://cdn-icons-png.flaticon.com/512/7877/7877890.png',
     iconSize: [48, 48],
@@ -104,6 +106,7 @@ interface AdminProps {
 const GIVEAWAY_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3';
 const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
+// ... (IntroAnimation remains the same)
 const IntroAnimation = ({ appName, onComplete }: { appName: string, onComplete: () => void }) => {
     const [visible, setVisible] = useState(true);
     const [fading, setFading] = useState(false);
@@ -135,7 +138,7 @@ const IntroAnimation = ({ appName, onComplete }: { appName: string, onComplete: 
     );
 };
 
-// Componente Controlador do Mapa
+// ... (MapHandler, DriverFinancialDetails, FleetSidebar, ManualOrderView remain the same)
 function MapHandler({ targetLocation, zoomLevel }: { targetLocation: [number, number] | null, zoomLevel: number }) {
     const map = useMap();
     useEffect(() => { const timer = setTimeout(() => { map.invalidateSize(); }, 200); return () => clearTimeout(timer); }, [map]);
@@ -318,7 +321,8 @@ function FleetSidebar({ drivers, orders, settlements, vales, onClose, onEditDriv
     );
 }
 
-function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig }: { products: Product[], clients: Client[], onCreateOrder: (data: any) => void, onClose: () => void, appConfig: AppConfig }) {
+// ... (ManualOrderView remains the same)
+function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig, orderToEdit }: { products: Product[], clients: Client[], onCreateOrder: (data: any) => void, onClose: () => void, appConfig: AppConfig, orderToEdit?: Order | null }) {
     const [cart, setCart] = useState<{product: Product, quantity: number, obs: string}[]>([]);
     const [phone, setPhone] = useState('');
     const [name, setName] = useState('');
@@ -332,13 +336,66 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
     const [clientSuggestions, setClientSuggestions] = useState<Client[]>([]);
     const [mobileTab, setMobileTab] = useState<'products' | 'cart'>('products');
 
+    useEffect(() => {
+        if (orderToEdit) {
+            setPhone(orderToEdit.phone);
+            setName(orderToEdit.customer);
+            setAddress(orderToEdit.address);
+            setMapsLink(orderToEdit.mapsLink || '');
+            setObs(orderToEdit.obs || '');
+            setPaymentMethod(orderToEdit.paymentMethod || 'PIX');
+            setIsDelivery(orderToEdit.serviceType !== 'pickup');
+
+            // Parse items back to cart
+            const parts = orderToEdit.items.split('---');
+            const newCart: any[] = [];
+            
+            parts.forEach(part => {
+                const lines = part.trim().split('\n');
+                if (lines.length === 0) return;
+                
+                // First line is usually "Qty x Name"
+                const firstLine = lines[0].trim();
+                const match = firstLine.match(/^(\d+)[xX\s]+(.+)/);
+                
+                let qty = 1;
+                let prodName = firstLine;
+                
+                if (match) {
+                    qty = parseInt(match[1]);
+                    prodName = match[2].trim();
+                }
+                
+                // Try to find obs
+                let itemObs = '';
+                for (let i = 1; i < lines.length; i++) {
+                    const l = lines[i].trim();
+                    if (l.toLowerCase().startsWith('obs:') || l.toLowerCase().startsWith('(obs:')) {
+                        itemObs = l.replace(/^[\(]?obs:\s*/i, '').replace(/[\)]$/, '');
+                    }
+                }
+                
+                // Find product
+                const product = products.find(p => p.name.toLowerCase() === prodName.toLowerCase()) || {
+                    id: 'temp-' + Date.now() + Math.random(),
+                    name: prodName,
+                    price: 0, 
+                    category: 'Outros'
+                };
+                
+                newCart.push({ product, quantity: qty, obs: itemObs });
+            });
+            setCart(newCart);
+        }
+    }, [orderToEdit, products]);
+
     useEffect(() => { 
-        if (phone.length >= 8) { 
+        if (phone.length >= 8 && !orderToEdit) { 
             const cleanPhone = normalizePhone(phone); 
             const found = clients.find((c: Client) => normalizePhone(c.phone) === cleanPhone || normalizePhone(c.phone).includes(cleanPhone)); 
             if (found) fillClientData(found); 
         } 
-    }, [phone, clients]);
+    }, [phone, clients, orderToEdit]);
 
     const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => { 
         const val = e.target.value; 
@@ -412,7 +469,7 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
         if (cart.length === 0) return alert("Carrinho vazio."); 
         const itemsText = cart.map(i => `${i.quantity}x ${i.product.name}${i.obs ? `\n(Obs: ${i.obs})` : ''}`).join('\n---\n'); 
         const orderData = { 
-            id: `PED-${Date.now().toString().slice(-6)}`, 
+            id: orderToEdit ? orderToEdit.id : `PED-${Date.now().toString().slice(-6)}`, 
             customer: capitalize(name), 
             phone, 
             address: isDelivery ? toSentenceCase(address) : 'Retirada no Balcão', 
@@ -424,9 +481,9 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
             serviceType: isDelivery ? 'delivery' : 'pickup', 
             deliveryFee, 
             obs, 
-            origin: 'manual', 
-            status: 'pending', 
-            createdAt: { seconds: Date.now() / 1000 } 
+            origin: orderToEdit ? orderToEdit.origin : 'manual', 
+            status: orderToEdit ? orderToEdit.status : 'pending', 
+            createdAt: orderToEdit ? orderToEdit.createdAt : { seconds: Date.now() / 1000 } 
         }; 
         onCreateOrder(orderData); 
         onClose(); 
@@ -497,7 +554,10 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
                 <div className={`flex-col bg-slate-950 border-l border-slate-800 relative shadow-2xl z-20 flex-1 min-h-0 w-full md:w-[28%] ${mobileTab === 'products' ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900 shrink-0">
                         <div className="flex items-center gap-3">
-                            <h3 className="font-bold text-white text-lg flex items-center gap-2 text-amber-500"><PlusCircle size={20}/> Novo Pedido</h3>
+                            <h3 className="font-bold text-white text-lg flex items-center gap-2 text-amber-500">
+                                {orderToEdit ? <Edit size={20}/> : <PlusCircle size={20}/>} 
+                                {orderToEdit ? 'Editar Pedido' : 'Novo Pedido'}
+                            </h3>
                         </div>
                         <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X size={24}/></button>
                     </div>
@@ -545,7 +605,7 @@ function ManualOrderView({ products, clients, onCreateOrder, onClose, appConfig 
 
                         <div className="flex items-center gap-3 pt-2 pb-2 md:pb-0">
                             <div className="flex-1"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total</p><p className="text-2xl font-black text-white tracking-tight leading-none">{formatCurrency(finalTotal)}</p></div>
-                            <button onClick={handleSubmit} className="flex-[2] bg-emerald-600 hover:bg-emerald-500 text-white font-black h-12 rounded-xl shadow-lg active:scale-95 transition-all text-sm uppercase tracking-wide flex items-center justify-center gap-2">Confirmar <CheckCircle2 size={18}/></button>
+                            <button onClick={handleSubmit} className="flex-[2] bg-emerald-600 hover:bg-emerald-500 text-white font-black h-12 rounded-xl shadow-lg active:scale-95 transition-all text-sm uppercase tracking-wide flex items-center justify-center gap-2">{orderToEdit ? 'Salvar Edição' : 'Confirmar'} <CheckCircle2 size={18}/></button>
                         </div>
                     </div>
                 </div>
@@ -586,6 +646,7 @@ export function AdminInterface(props: AdminProps) {
     const [showManualOrder, setShowManualOrder] = useState(false);
     const [showFleetPanel, setShowFleetPanel] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     
     // NEW: Alert State
     const [newOrderAlert, setNewOrderAlert] = useState<Order | null>(null);
@@ -682,9 +743,23 @@ export function AdminInterface(props: AdminProps) {
                    </div>
                 );
             case 'orders': return <DailyOrdersView orders={props.orders} drivers={props.drivers} onDeleteOrder={props.onDeleteOrder} setModal={props.setModal} onUpdateOrder={props.onUpdateOrder} appConfig={props.appConfig} />;
-            case 'menu': return <MenuManager products={props.products} onCreate={props.onCreateProduct} onUpdate={props.onUpdateProduct} onDelete={props.onDeleteProduct} />;
+            case 'menu': return <MenuManager products={props.products} inventory={props.inventory} onCreate={props.onCreateProduct} onUpdate={props.onUpdateProduct} onDelete={props.onDeleteProduct} />;
             case 'clients': return <ClientsView clients={props.clients} orders={props.orders} giveawayEntries={props.giveawayEntries} setModal={props.setModal} setClientToEdit={props.setClientToEdit} appConfig={props.appConfig} />;
-            case 'kitchen': return <KitchenDisplay orders={props.orders} products={props.products} drivers={props.drivers} onUpdateStatus={props.onUpdateOrder} onAssignOrder={props.onAssignOrder} onDeleteOrder={props.onDeleteOrder} appConfig={props.appConfig} />;
+            case 'kitchen': return (
+                <KitchenDisplay 
+                    orders={props.orders} 
+                    products={props.products} 
+                    drivers={props.drivers} 
+                    onUpdateStatus={props.onUpdateOrder} 
+                    onAssignOrder={props.onAssignOrder} 
+                    onDeleteOrder={props.onDeleteOrder} 
+                    appConfig={props.appConfig}
+                    onEditOrder={(order) => {
+                        setEditingOrder(order);
+                        setShowManualOrder(true);
+                    }}
+                />
+            );
             case 'inventory': return <InventoryManager inventory={props.inventory} suppliers={props.suppliers} shoppingList={props.shoppingList} onCreateSupplier={props.onCreateSupplier} onUpdateSupplier={props.onUpdateSupplier} onDeleteSupplier={props.onDeleteSupplier} onCreateInventory={props.onCreateInventory} onUpdateInventory={props.onUpdateInventory} onDeleteInventory={props.onDeleteInventory} onAddShoppingItem={props.onAddShoppingItem} onToggleShoppingItem={props.onToggleShoppingItem} onDeleteShoppingItem={props.onDeleteShoppingItem} onClearShoppingList={props.onClearShoppingList} appConfig={props.appConfig} />;
             case 'analytics': return <AnalyticsView orders={props.orders} products={props.products} />;
             case 'reports': return <ItemReportView orders={props.orders} />;
@@ -693,7 +768,7 @@ export function AdminInterface(props: AdminProps) {
     };
 
     return (
-        <div className="fixed inset-0 flex bg-slate-950 text-white overflow-hidden">
+        <div className="fixed inset-0 flex bg-slate-900 text-white overflow-hidden">
             {/* Sidebar Desktop - WIDENED TO 72 */}
             <div className="hidden md:flex w-72 flex-col bg-slate-900 border-r border-slate-800 z-50">
                 <div className="p-6"><BrandLogo config={props.appConfig} /></div>
@@ -730,7 +805,16 @@ export function AdminInterface(props: AdminProps) {
             </div>
 
             {/* Modals */}
-            {showManualOrder && (<ManualOrderView products={props.products} clients={props.clients} onCreateOrder={props.onCreateOrder} onClose={() => setShowManualOrder(false)} appConfig={props.appConfig} />)}
+            {showManualOrder && (
+                <ManualOrderView 
+                    products={props.products} 
+                    clients={props.clients} 
+                    onCreateOrder={props.onCreateOrder} 
+                    onClose={() => { setShowManualOrder(false); setEditingOrder(null); }} 
+                    appConfig={props.appConfig} 
+                    orderToEdit={editingOrder}
+                />
+            )}
             
             {newOrderAlert && (
                 <NewOrderModal 

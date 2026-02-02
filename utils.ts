@@ -1,3 +1,4 @@
+
 import { AppConfig } from "./types";
 
 export const formatTime = (timestamp: any) => {
@@ -37,6 +38,24 @@ export const normalizePhone = (phone: string) => {
         p = p.substring(0, 2) + p.substring(3);
     }
     return p;
+};
+
+// --- NOVA FUNÇÃO DE FORMATAÇÃO VISUAL ---
+export const formatPhoneNumberDisplay = (value: string) => {
+    if (!value) return "";
+    
+    // Remove tudo que não é número
+    const numbers = value.replace(/\D/g, "");
+    
+    // Aplica a máscara (XX) XXXXX-XXXX para celular BR
+    if (numbers.length <= 11) {
+        return numbers
+            .replace(/^(\d{2})/, "($1) ")
+            .replace(/(\d{5})(\d)/, "$1-$2")
+            .substr(0, 15); // Limita tamanho
+    }
+    
+    return value; // Retorna original se for muito longo (ex: internacional sem tratativa especifica)
 };
 
 export const capitalize = (str: string) => {
@@ -80,13 +99,20 @@ export const compressImage = (file: File): Promise<string> => {
             img.src = event.target?.result as string;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 200; 
-                const scaleSize = MAX_WIDTH / img.width;
-                canvas.width = MAX_WIDTH;
-                canvas.height = img.height * scaleSize;
+                const MAX_WIDTH = 400; // Aumentado um pouco para logos
+                let width = img.width;
+                let height = img.height;
+
+                if (width > MAX_WIDTH) {
+                    height = height * (MAX_WIDTH / width);
+                    width = MAX_WIDTH;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 if (ctx) ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                resolve(canvas.toDataURL('image/jpeg', 0.7)); 
+                resolve(canvas.toDataURL('image/jpeg', 0.8)); 
             };
         };
         reader.onerror = (error) => reject(error);
@@ -257,6 +283,99 @@ export const generateReceiptText = (order: any, appName: string, pixData?: any) 
     return text;
 };
 
+// --- NOVA FUNÇÃO: IMPRESSÃO DE TICKET TÉRMICO ---
+export const printOrderTicket = (order: any, appConfig: any) => {
+    const width = appConfig.printerWidth || '80mm';
+    const safeName = appConfig.appName || 'Delivery';
+    const displayId = formatOrderId(order.id);
+    const date = formatDate(order.createdAt);
+    const time = formatTime(order.createdAt);
+    
+    // Tratamento dos itens para HTML
+    const itemsHtml = order.items.split('\n').map((line: string) => {
+        if (line.includes('---')) return '<hr style="border-top: 1px dashed #000; margin: 5px 0;">';
+        if (line.toLowerCase().startsWith('obs:')) return `<div style="font-size: 0.9em; font-style: italic; margin-left: 10px;">${line}</div>`;
+        return `<div style="font-weight: bold; margin-bottom: 2px;">${line}</div>`;
+    }).join('');
+
+    const printWindow = window.open('', '', 'height=600,width=400');
+    if (!printWindow) return alert('Habilite popups para imprimir.');
+
+    const htmlContent = `
+        <html>
+        <head>
+            <title>Cupom #${displayId}</title>
+            <style>
+                @page { margin: 0; }
+                body { 
+                    font-family: 'Courier New', Courier, monospace; 
+                    width: ${width}; 
+                    margin: 0 auto; 
+                    padding: 10px;
+                    color: #000;
+                    background: #fff;
+                }
+                .header { text-align: center; margin-bottom: 10px; }
+                .title { font-size: 1.2em; font-weight: bold; text-transform: uppercase; }
+                .subtitle { font-size: 0.9em; }
+                .divider { border-top: 1px dashed #000; margin: 10px 0; }
+                .info { font-size: 0.9em; margin-bottom: 5px; }
+                .label { font-weight: bold; }
+                .items { margin: 10px 0; font-size: 0.9em; }
+                .total { text-align: right; font-size: 1.2em; font-weight: bold; margin-top: 10px; }
+                .footer { text-align: center; font-size: 0.8em; margin-top: 20px; }
+                @media print {
+                    .no-print { display: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="title">${safeName}</div>
+                <div class="subtitle">Pedido ${displayId}</div>
+                <div class="subtitle">${date} - ${time}</div>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <div class="info"><span class="label">Cliente:</span> ${order.customer}</div>
+            <div class="info"><span class="label">Tel:</span> ${order.phone}</div>
+            <div class="info"><span class="label">End:</span> ${order.address}</div>
+            ${order.neighborhood ? `<div class="info"><span class="label">Bairro:</span> ${order.neighborhood}</div>` : ''}
+            
+            <div class="divider"></div>
+            
+            <div class="items">
+                ${itemsHtml}
+            </div>
+            
+            <div class="divider"></div>
+            
+            <div class="info"><span class="label">Pagamento:</span> ${order.paymentMethod}</div>
+            ${order.deliveryFee > 0 ? `<div class="info" style="text-align: right;">Entrega: ${formatCurrency(order.deliveryFee)}</div>` : ''}
+            <div class="total">TOTAL: ${formatCurrency(order.value)}</div>
+            
+            ${order.obs ? `<div class="divider"></div><div class="info"><span class="label">Obs Geral:</span> ${order.obs}</div>` : ''}
+            
+            <div class="footer">
+                <p>Obrigado pela preferência!</p>
+                <p>--- Fim do Cupom ---</p>
+            </div>
+
+            <script>
+                window.onload = function() {
+                    window.print();
+                    // window.close(); // Opcional: fechar automaticamente
+                }
+            </script>
+        </body>
+        </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+};
+
 export const downloadCSV = (content: string, fileName: string) => {
     const encodedUri = encodeURI("data:text/csv;charset=utf-8," + content);
     const link = document.createElement("a");
@@ -399,3 +518,36 @@ export const checkShopStatus = (schedule?: { [key: number]: any }) => {
         nextOpenTime: nextOpen
     };
 };
+
+export const COUNTRY_CODES = [
+    { code: "+244", country: "🇦🇴 AO" }, // Angola
+    { code: "+54",  country: "🇦🇷 AR" }, // Argentina
+    { code: "+61",  country: "🇦🇺 AU" }, // Austrália
+    { code: "+32",  country: "🇧🇪 BE" }, // Bélgica
+    { code: "+591", country: "🇧🇴 BO" }, // Bolívia
+    { code: "+55",  country: "🇧🇷 BR" }, // Brasil
+    { code: "+1",   country: "🇨🇦 CA" }, // Canadá
+    { code: "+41",  country: "🇨🇭 CH" }, // Suíça
+    { code: "+56",  country: "🇨🇱 CL" }, // Chile
+    { code: "+86",  country: "🇨🇳 CN" }, // China
+    { code: "+57",  country: "🇨🇴 CO" }, // Colômbia
+    { code: "+238", country: "🇨🇻 CV" }, // Cabo Verde
+    { code: "+49",  country: "🇩🇪 DE" }, // Alemanha
+    { code: "+34",  country: "🇪🇸 ES" }, // Espanha
+    { code: "+33",  country: "🇫🇷 FR" }, // França
+    { code: "+44",  country: "🇬🇧 GB" }, // Reino Unido
+    { code: "+245", country: "🇬🇼 GW" }, // Guiné-Bissau
+    { code: "+81",  country: "🇯🇵 JP" }, // Japão
+    { code: "+82",  country: "🇰🇷 KR" }, // Coreia do Sul
+    { code: "+52",  country: "🇲🇽 MX" }, // México
+    { code: "+258", country: "🇲🇿 MZ" }, // Moçambique
+    { code: "+51",  country: "🇵🇪 PE" }, // Peru
+    { code: "+351", country: "🇵🇹 PT" }, // Portugal
+    { code: "+595", country: "🇵🇾 PY" }, // Paraguai
+    { code: "+7",   country: "🇷🇺 RU" }, // Rússia
+    { code: "+239", country: "🇸🇹 ST" }, // São Tomé
+    { code: "+670", country: "🇹🇱 TL" }, // Timor-Leste
+    { code: "+1",   country: "🇺🇸 US" }, // EUA
+    { code: "+598", country: "🇺🇾 UY" }, // Uruguai
+    { code: "+58",  country: "🇻🇪 VE" }, // Venezuela
+];

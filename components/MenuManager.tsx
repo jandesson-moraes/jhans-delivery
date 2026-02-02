@@ -1,18 +1,20 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { Product } from '../types';
+import { Product, InventoryItem } from '../types';
 import { formatCurrency, copyToClipboard } from '../utils';
-import { PlusCircle, Edit, Utensils, ListPlus, Trash2, Link as LinkIcon, ExternalLink, Copy, Check, Globe } from 'lucide-react';
+import { PlusCircle, Edit, Utensils, ListPlus, Trash2, Link as LinkIcon, ExternalLink, Copy, Check, Globe, TrendingUp } from 'lucide-react';
 import { ProductFormModal } from './Modals';
 import { Footer } from './Shared';
 
 interface MenuProps {
     products: Product[];
+    inventory: InventoryItem[]; // Novo: Recebe o estoque
     onCreate: (data: any) => void;
     onUpdate: (id: string, data: any) => void;
     onDelete: (id: string) => void;
 }
 
-export function MenuManager({ products, onCreate, onUpdate, onDelete }: MenuProps) {
+export function MenuManager({ products, inventory, onCreate, onUpdate, onDelete }: MenuProps) {
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -75,7 +77,7 @@ export function MenuManager({ products, onCreate, onUpdate, onDelete }: MenuProp
                 <div className="flex justify-between items-center mb-8">
                     <div>
                         <h2 className="font-bold text-2xl text-white">Cardápio Digital</h2>
-                        <p className="text-slate-400 text-sm mt-1">Gerencie produtos e preços</p>
+                        <p className="text-slate-400 text-sm mt-1">Gerencie produtos, preços e fichas técnicas.</p>
                     </div>
                     <button 
                         onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
@@ -157,21 +159,48 @@ export function MenuManager({ products, onCreate, onUpdate, onDelete }: MenuProp
                                 {index % 2 === 0 ? <Utensils size={20}/> : <ListPlus size={20}/>} {group.category}
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                {group.items.map((p: Product) => (
-                                    <div key={p.id} className="border border-slate-800 p-5 rounded-2xl shadow-sm bg-slate-900 flex flex-col justify-between hover:border-slate-700 transition-colors group">
-                                        <div>
-                                            <div className="flex justify-between items-start mb-2">
-                                                <h4 className="font-bold text-white text-lg leading-tight line-clamp-2">{p.name}</h4>
-                                                <p className="font-extrabold text-lg text-emerald-400 whitespace-nowrap ml-2">{formatCurrency(p.price)}</p>
+                                {group.items.map((p: Product) => {
+                                    // Cálculo rápido de margem para visualização no card
+                                    const cost = p.costPrice || 0;
+                                    const opCost = p.operationalCost || 0;
+                                    const totalCost = cost + opCost;
+                                    const profit = p.price - totalCost;
+                                    const margin = p.price > 0 ? (profit / p.price) * 100 : 0;
+                                    
+                                    // Cor do indicador de margem
+                                    let marginColor = 'text-slate-500';
+                                    if (p.ingredients && p.ingredients.length > 0) {
+                                        if (margin < 20) marginColor = 'text-red-500';
+                                        else if (margin < 40) marginColor = 'text-amber-500';
+                                        else marginColor = 'text-emerald-500';
+                                    }
+
+                                    return (
+                                        <div key={p.id} className="border border-slate-800 p-5 rounded-2xl shadow-sm bg-slate-900 flex flex-col justify-between hover:border-slate-700 transition-colors group relative overflow-hidden">
+                                            <div>
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <h4 className="font-bold text-white text-lg leading-tight line-clamp-2">{p.name}</h4>
+                                                    <p className="font-extrabold text-lg text-emerald-400 whitespace-nowrap ml-2">{formatCurrency(p.price)}</p>
+                                                </div>
+                                                {p.description && <p className="text-xs text-slate-500 leading-relaxed mb-4 line-clamp-3 min-h-[3em]">{p.description}</p>}
+                                                
+                                                {/* Mini Indicador de Margem */}
+                                                {totalCost > 0 && (
+                                                    <div className="flex items-center gap-2 text-[10px] bg-slate-950 p-2 rounded-lg border border-slate-800 mb-2">
+                                                        <TrendingUp size={12} className={marginColor}/>
+                                                        <span className="text-slate-400">Margem:</span>
+                                                        <span className={`font-bold ${marginColor}`}>{margin.toFixed(0)}%</span>
+                                                        <span className="text-slate-600 ml-auto">Custo: {formatCurrency(totalCost)}</span>
+                                                    </div>
+                                                )}
                                             </div>
-                                            {p.description && <p className="text-xs text-slate-500 leading-relaxed mb-4 line-clamp-3 min-h-[3em]">{p.description}</p>}
+                                            <div className="flex justify-end pt-3 border-t border-slate-800/50 gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:bg-amber-600 hover:text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold"><Edit size={14}/> Editar / Ficha</button>
+                                                <button onClick={() => onDelete(p.id)} className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:bg-red-600 hover:text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold"><Trash2 size={14}/> Excluir</button>
+                                            </div>
                                         </div>
-                                        <div className="flex justify-end pt-3 border-t border-slate-800/50 gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:bg-amber-600 hover:text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold"><Edit size={14}/> Editar</button>
-                                            <button onClick={() => onDelete(p.id)} className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:bg-red-600 hover:text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold"><Trash2 size={14}/> Excluir</button>
-                                        </div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>
                         </div>
                     ))}
@@ -191,6 +220,7 @@ export function MenuManager({ products, onCreate, onUpdate, onDelete }: MenuProp
                 product={editingProduct}
                 onSave={handleSave}
                 existingCategories={availableCategories}
+                inventory={inventory} // Passa o estoque para o modal
             />
             
             <Footer />

@@ -1,3 +1,4 @@
+
 // ... (imports remain the same)
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
@@ -12,6 +13,7 @@ import { NewDriverModal, SettingsModal, ImportModal, NewExpenseModal, NewValeMod
 import { Loader2, TrendingUp, ChevronRight, Bike, ShoppingBag } from 'lucide-react';
 import { normalizePhone, capitalize, formatCurrency } from './utils';
 
+// ... (GlobalStyles remain the same)
 const GlobalStyles = () => {
     useEffect(() => {
       const style = document.createElement('style');
@@ -133,8 +135,8 @@ export default function App() {
   };
 
   const saveSettings = (newConfig: AppConfig) => handleAction(async () => {
-      await setDoc(doc(db, 'config', 'general'), newConfig);
-      setAppConfig(newConfig);
+      await setDoc(doc(db, 'config', 'general'), newConfig, { merge: true });
+      setAppConfig(prev => ({ ...prev, ...newConfig }));
   });
 
   const createOrder = (data: any) => handleAction(async () => {
@@ -155,6 +157,7 @@ export default function App() {
     }
   });
 
+  // ... (rest of the functions: createDriver, updateDriver, etc. remain unchanged)
   const createDriver = (data: any) => handleAction(async () => { await addDoc(collection(db, 'drivers'), data); });
   const updateDriver = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'drivers', id), data); });
   const deleteDriver = (id: string) => {
@@ -310,7 +313,6 @@ export default function App() {
           setDriverToEdit={setDriverToEdit} setClientToEdit={setClientToEdit}
           {...{modal}} 
       />
-      {/* ... (rest of modals remain same) */}
       {modal === 'settings' && <SettingsModal config={appConfig} onSave={saveSettings} onClose={() => setModal(null)} />}
       {modal === 'driver' && <NewDriverModal onClose={()=>{setModal(null); setDriverToEdit(null);}} onSave={driverToEdit ? (data: any) => updateDriver(driverToEdit.id, data) : createDriver} initialData={driverToEdit} />}
       {modal === 'vale' && driverToEdit && <NewValeModal driver={driverToEdit} onClose={() => { setModal(null); setDriverToEdit(null); }} onSave={createVale} />}
@@ -345,6 +347,7 @@ export default function App() {
   );
 }
 
+// ... (DriverSelection remains the same)
 function DriverSelection({ drivers, onSelect, onBack }: { drivers: Driver[], onSelect: (id: string) => void, onBack: () => void }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [password, setPassword] = useState('');

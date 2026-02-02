@@ -17,12 +17,19 @@ export interface AppConfig {
     appName: string;
     appLogoUrl: string;
     storePhone?: string; 
+    storeCountryCode?: string; // Novo: DDI do telefone
     pixKey?: string;      // Chave PIX
     pixName?: string;     // Nome do Titular
     pixCity?: string;     // Cidade do Titular
     deliveryZones?: DeliveryZone[]; // Lista de Bairros e Taxas
     enableDeliveryFees?: boolean;   // Ativar/Desativar taxas
     schedule?: { [key: number]: DaySchedule }; // 0 (Domingo) a 6 (Sábado)
+    
+    // NOVAS SUGESTÕES IMPLEMENTADAS
+    minOrderValue?: number; // Pedido Mínimo
+    estimatedTime?: string; // Ex: "40-60 min"
+    printerWidth?: '58mm' | '80mm'; // Largura impressão
+    packagingFee?: number; // Taxa de embalagem opcional
     
     // NOVA CONFIGURAÇÃO DE LOCALIZAÇÃO DA LOJA
     location?: {
@@ -114,13 +121,23 @@ export interface Expense {
   createdAt: any;
 }
 
+// --- FICHA TÉCNICA ---
+export interface ProductIngredient {
+    inventoryId: string; // ID do item no estoque
+    qty: number;         // Quantidade usada na receita
+}
+
 export interface Product {
   id: string;
   name: string;
   category: string;
   price: number;
   description?: string;
-  costPrice?: number; // Preço de custo para análise
+  
+  // PRECIFICAÇÃO E CUSTOS
+  ingredients?: ProductIngredient[]; // Ficha técnica
+  costPrice?: number; // Custo calculado dos ingredientes (CMV)
+  operationalCost?: number; // Custo fixo estimado por item (embalagem, gás, etc)
 }
 
 export interface Client {
@@ -151,7 +168,7 @@ export interface InventoryItem {
     unit: string; // kg, un, l
     quantity: number;
     minQuantity: number;
-    cost: number;
+    cost: number; // Preço de custo da unidade de compra
     supplierId?: string;
 }
 

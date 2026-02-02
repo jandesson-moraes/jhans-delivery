@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Order, Product, Driver, AppConfig } from '../types';
 import { formatTime, toSentenceCase, formatDate, getOrderReceivedText, copyToClipboard, formatOrderId, isToday, normalizePhone } from '../utils';
-import { Clock, CheckCircle2, Flame, ChefHat, History, Bike, Copy, X, ListChecks, ArrowRight, PackageCheck, Edit, Trash2, MessageSquare } from 'lucide-react';
-import { KitchenHistoryModal, ProductionSuccessModal, ConfirmCloseOrderModal, EditOrderModal, DispatchSuccessModal } from './Modals';
+import { Clock, CheckCircle2, Flame, ChefHat, History, Bike, Copy, X, ListChecks, ArrowRight, PackageCheck, Edit, Trash2, MessageSquare, Printer } from 'lucide-react';
+import { KitchenHistoryModal, ProductionSuccessModal, ConfirmCloseOrderModal, DispatchSuccessModal, ReceiptModal } from './Modals';
 import { Footer } from './Shared';
 import { serverTimestamp } from 'firebase/firestore';
 
@@ -15,25 +15,29 @@ interface KDSProps {
     onDeleteOrder?: (id: string) => void;
     onBack?: () => void;
     appConfig: AppConfig;
+    onEditOrder?: (order: Order) => void;
 }
 
 const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
-export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateStatus, onAssignOrder, onDeleteOrder, appConfig }: KDSProps) {
+export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateStatus, onAssignOrder, onDeleteOrder, appConfig, onEditOrder }: KDSProps) {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [selectedHistoryOrder, setSelectedHistoryOrder] = useState<Order | null>(null);
     const [productionOrder, setProductionOrder] = useState<Order | null>(null);
     const [dispatchData, setDispatchData] = useState<{order: Order, driverName: string} | null>(null);
     const [orderToClose, setOrderToClose] = useState<Order | null>(null);
-    const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     
     // Rastreia quais mensagens já foram copiadas para parar de piscar
     const [copiedMessages, setCopiedMessages] = useState<Set<string>>(new Set());
     
+    // Estado para impressão
+    const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
+
     // ABA MOBILE CONTROL
     const [activeTab, setActiveTab] = useState<'production' | 'ready'>('production');
     
-    const prevPendingCountRef = useRef(0);
+    // Inicializa com a contagem ATUAL para não tocar som ao abrir a tela se já houver pedidos
+    const prevPendingCountRef = useRef(orders.filter(o => o.status === 'pending').length);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     
     const effectiveAppName = (appConfig && appConfig.appName && appConfig.appName !== 'undefined') ? appConfig.appName : "Jhans Burgers";
@@ -79,6 +83,8 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
     // Efeito sonoro
     useEffect(() => {
         const pendingCount = orders.filter(o => o.status === 'pending').length;
+        
+        // Só toca se a contagem AUMENTOU em relação à referência anterior
         if (pendingCount > prevPendingCountRef.current) {
             if(audioRef.current) {
                 const playPromise = audioRef.current.play();
@@ -87,6 +93,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                 }
             }
         }
+        // Atualiza a referência para a próxima comparação
         prevPendingCountRef.current = pendingCount;
     }, [orders]);
 
@@ -197,8 +204,22 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                             </div>
                                             <div className="flex flex-col items-end shrink-0 gap-2">
                                                 <div className="flex gap-1">
+                                                    {/* NEW PRINT BUTTON */}
                                                     <button 
-                                                        onClick={(e) => { e.stopPropagation(); setEditingOrder(order); }}
+                                                        onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            setOrderToPrint(order); 
+                                                        }}
+                                                        className="p-1.5 hover:bg-slate-700 text-slate-500 hover:text-blue-400 rounded-lg transition-colors bg-slate-900/50"
+                                                        title="Imprimir Pedido"
+                                                    >
+                                                        <Printer size={14} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            if (onEditOrder) onEditOrder(order); 
+                                                        }}
                                                         className="p-1.5 hover:bg-slate-700 text-slate-500 hover:text-white rounded-lg transition-colors bg-slate-900/50"
                                                         title="Editar Pedido"
                                                     >
@@ -356,8 +377,22 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                                 )}
 
                                 <div className="flex justify-end gap-2 mt-2 border-t border-slate-800/50 pt-2">
+                                    {/* PRINT BUTTON ON FINISHED LIST TOO */}
                                     <button 
-                                        onClick={(e) => { e.stopPropagation(); setEditingOrder(order); }}
+                                        onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            setOrderToPrint(order); 
+                                        }}
+                                        className="p-1.5 hover:bg-slate-800 rounded text-slate-500 hover:text-blue-500 transition-colors"
+                                        title="Imprimir"
+                                    >
+                                        <Printer size={14}/>
+                                    </button>
+                                    <button 
+                                        onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            if (onEditOrder) onEditOrder(order); 
+                                        }}
                                         className="p-1.5 hover:bg-slate-800 rounded text-slate-500 hover:text-amber-500 transition-colors"
                                         title="Editar"
                                     >
@@ -418,11 +453,11 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
                 />
             )}
 
-            {editingOrder && (
-                <EditOrderModal 
-                    order={editingOrder} 
-                    onClose={() => setEditingOrder(null)} 
-                    onSave={onUpdateStatus} 
+            {orderToPrint && (
+                <ReceiptModal 
+                    order={orderToPrint} 
+                    onClose={() => setOrderToPrint(null)} 
+                    appConfig={appConfig} 
                 />
             )}
         </div>
