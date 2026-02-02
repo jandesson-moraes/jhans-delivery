@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Supplier, InventoryItem, ShoppingItem, AppConfig } from '../types';
-import { PlusCircle, Edit, Trash2, Box, Truck, Search, Phone, FileText, ShoppingCart, Send, Wand2, CheckSquare, Square, Copy, MessageCircle, X, Check, Calculator, FlaskConical, ArrowRight, Package, Ship, Container } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Box, Truck, Search, Phone, FileText, ShoppingCart, Send, Wand2, CheckSquare, Square, Copy, MessageCircle, X, Check, Calculator, FlaskConical, ArrowRight } from 'lucide-react';
 import { formatCurrency, copyToClipboard } from '../utils';
 import { Footer } from './Shared';
 import { GenericAlertModal } from './Modals';
@@ -379,51 +379,21 @@ function InventoryForm({ type, initialData, suppliers, onSave }: any) {
         : { name: '', contact: '', category: '', obs: '' }
     ));
 
-    // ESTADO PARA CALCULADORA INTERNA (PACOTE/CARGA)
+    // ESTADO PARA CALCULADORA INTERNA (PACOTE)
     const [showCalculator, setShowCalculator] = useState(false);
-    const [calcMode, setCalcMode] = useState<'simple' | 'advanced'>('simple');
-    
-    // Simples
     const [packPrice, setPackPrice] = useState('');
     const [packSize, setPackSize] = useState('');
 
-    // Avançado (Carga/Importação)
-    const [advPrice, setAdvPrice] = useState('');
-    const [advFees, setAdvFees] = useState(''); // Frete + Taxas
-    const [advQ1, setAdvQ1] = useState(''); // Caixas/Fardos (Nível 1)
-    const [advQ2, setAdvQ2] = useState(''); // Pacotes por Caixa (Nível 2)
-    const [advQ3, setAdvQ3] = useState(''); // Unidades por Pacote (Nível 3)
-
     const calculateUnitCost = () => {
-        if (calcMode === 'simple') {
-            const price = parseFloat(packPrice);
-            const size = parseFloat(packSize);
-            if (price > 0 && size > 0) {
-                const unitCost = price / size;
-                setForm({...form, cost: parseFloat(unitCost.toFixed(4))});
-                setShowCalculator(false);
-            }
-        } else {
-            const price = parseFloat(advPrice) || 0;
-            const fees = parseFloat(advFees) || 0;
-            const q1 = parseFloat(advQ1) || 1; // Se vazio, assume 1
-            const q2 = parseFloat(advQ2) || 1;
-            const q3 = parseFloat(advQ3) || 1;
-
-            const totalCost = price + fees;
-            const totalUnits = q1 * q2 * q3;
-
-            if (totalUnits > 0) {
-                setForm({...form, cost: parseFloat((totalCost / totalUnits).toFixed(4))});
-                setShowCalculator(false);
-            }
+        const price = parseFloat(packPrice);
+        const size = parseFloat(packSize);
+        if (price > 0 && size > 0) {
+            const unitCost = price / size;
+            // Arredonda para 4 casas decimais para precisão em gramas
+            setForm({...form, cost: parseFloat(unitCost.toFixed(4))});
+            setShowCalculator(false);
         }
     };
-
-    // Prévia do cálculo avançado para mostrar ao usuário
-    const advTotalUnits = (parseFloat(advQ1)||1) * (parseFloat(advQ2)||1) * (parseFloat(advQ3)||1);
-    const advTotalCost = (parseFloat(advPrice)||0) + (parseFloat(advFees)||0);
-    const advUnitCost = advTotalUnits > 0 ? advTotalCost / advTotalUnits : 0;
 
     return (
         <form onSubmit={(e) => onSave(e, form)} className="space-y-4">
@@ -461,67 +431,17 @@ function InventoryForm({ type, initialData, suppliers, onSave }: any) {
                         </div>
                     </div>
 
-                    {/* CALCULADORA DE CUSTO INTEGRADA */}
+                    {/* CALCULADORA DE PACOTE INTEGRADA */}
                     {showCalculator && (
                         <div className="bg-slate-800/50 p-3 rounded-xl border border-amber-500/30 animate-in slide-in-from-top-2">
-                            <div className="flex justify-between items-center mb-3">
-                                <p className="text-[10px] text-amber-400 font-bold uppercase">Calculadora de Custo</p>
-                                <div className="flex bg-slate-900 rounded p-0.5 border border-slate-700">
-                                    <button type="button" onClick={() => setCalcMode('simple')} className={`px-2 py-0.5 text-[9px] font-bold rounded ${calcMode === 'simple' ? 'bg-amber-600 text-white' : 'text-slate-400'}`}>Simples</button>
-                                    <button type="button" onClick={() => setCalcMode('advanced')} className={`px-2 py-0.5 text-[9px] font-bold rounded ${calcMode === 'advanced' ? 'bg-amber-600 text-white' : 'text-slate-400'}`}>Atacado/Carga</button>
-                                </div>
+                            <p className="text-[10px] text-amber-400 font-bold uppercase mb-2">Calculadora de Custo por {form.unit || 'unidade'}</p>
+                            <div className="flex gap-2 mb-2">
+                                <input type="number" placeholder="Preço Pago (R$)" className="w-1/2 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" value={packPrice} onChange={e => setPackPrice(e.target.value)} />
+                                <input type="number" placeholder={`Qtd Total (${form.unit})`} className="w-1/2 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" value={packSize} onChange={e => setPackSize(e.target.value)} />
                             </div>
-
-                            {calcMode === 'simple' ? (
-                                <>
-                                    <div className="flex gap-2 mb-2">
-                                        <input type="number" placeholder="Preço Pago (R$)" className="w-1/2 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" value={packPrice} onChange={e => setPackPrice(e.target.value)} />
-                                        <input type="number" placeholder={`Qtd Total (${form.unit})`} className="w-1/2 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" value={packSize} onChange={e => setPackSize(e.target.value)} />
-                                    </div>
-                                    <p className="text-[10px] text-slate-400 mb-2">Ex: Picles 400g custou R$ 20 -> Custo p/g</p>
-                                </>
-                            ) : (
-                                <div className="space-y-2">
-                                    {/* Linha 1: Custos */}
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div className="relative">
-                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 text-[10px]">R$</span>
-                                            <input type="number" placeholder="Valor Nota" className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-6 pr-2 text-xs text-white" value={advPrice} onChange={e => setAdvPrice(e.target.value)} />
-                                        </div>
-                                        <div className="relative">
-                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 text-[10px]">+</span>
-                                            <input type="number" placeholder="Frete/Taxas" className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-6 pr-2 text-xs text-white" value={advFees} onChange={e => setAdvFees(e.target.value)} title="Sume aqui: Frete + Porto + Impostos" />
-                                        </div>
-                                    </div>
-                                    
-                                    {/* Linha 2: Estrutura (Multiplicadores) */}
-                                    <div className="flex items-center gap-1">
-                                        <div className="flex-1">
-                                            <p className="text-[9px] text-slate-500 mb-0.5 text-center">Caixas</p>
-                                            <input type="number" placeholder="Qtd" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-center text-white" value={advQ1} onChange={e => setAdvQ1(e.target.value)} />
-                                        </div>
-                                        <span className="text-slate-500 text-xs">x</span>
-                                        <div className="flex-1">
-                                            <p className="text-[9px] text-slate-500 mb-0.5 text-center">Pcts/Cx</p>
-                                            <input type="number" placeholder="Qtd" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-center text-white" value={advQ2} onChange={e => setAdvQ2(e.target.value)} />
-                                        </div>
-                                        <span className="text-slate-500 text-xs">x</span>
-                                        <div className="flex-1">
-                                            <p className="text-[9px] text-slate-500 mb-0.5 text-center">Und/Pct</p>
-                                            <input type="number" placeholder="Qtd" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-center text-white" value={advQ3} onChange={e => setAdvQ3(e.target.value)} />
-                                        </div>
-                                    </div>
-
-                                    {/* Resultado Prévio */}
-                                    <div className="bg-black/20 p-2 rounded border border-white/5 flex justify-between items-center text-[10px]">
-                                        <span className="text-slate-400">Total: <b className="text-white">{advTotalUnits} un</b> (R$ {formatCurrency(advTotalCost)})</span>
-                                        <span className="text-emerald-400 font-bold">{formatCurrency(advUnitCost)}/un</span>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="flex justify-end mt-2">
-                                <button type="button" onClick={calculateUnitCost} className="bg-amber-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-amber-500 w-full">Aplicar Valor</button>
+                            <div className="flex justify-between items-center">
+                                <p className="text-[10px] text-slate-400">Ex: Picles 400g pagou R$ 20 -> Custo p/g</p>
+                                <button type="button" onClick={calculateUnitCost} className="bg-amber-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-amber-500">Aplicar</button>
                             </div>
                         </div>
                     )}
