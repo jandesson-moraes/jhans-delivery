@@ -1,19 +1,35 @@
 
-// ... (imports remain the same)
 import React, { useState, useEffect } from 'react';
-import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
-import { collection, addDoc, updateDoc, doc, onSnapshot, serverTimestamp, deleteDoc, setDoc, writeBatch, Timestamp, deleteField, getDoc, query, where, getDocs } from "firebase/firestore";
-import { auth, db } from './services/firebase';
-import { UserType, Driver, Order, Vale, Expense, Product, Client, AppConfig, Settlement, Supplier, InventoryItem, ShoppingItem, GiveawayEntry } from './types';
-import { BrandLogo, Footer } from './components/Shared';
-import DriverInterface from './components/DriverInterface';
+import { 
+  collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, 
+  setDoc, serverTimestamp, deleteField, query, orderBy, writeBatch, Timestamp, where, getDocs 
+} from 'firebase/firestore';
+import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import { db, auth } from './services/firebase';
+import { 
+  AppConfig, Driver, Order, Product, Client, Vale, Expense, 
+  Settlement, Supplier, InventoryItem, ShoppingItem, GiveawayEntry, UserType 
+} from './types';
 import { AdminInterface } from './components/AdminInterface';
+import DriverInterface from './components/DriverInterface';
 import ClientInterface from './components/ClientInterface';
-import { NewDriverModal, SettingsModal, ImportModal, NewExpenseModal, NewValeModal, EditClientModal, CloseCycleModal, GenericAlertModal, GenericConfirmModal } from './components/Modals';
-import { Loader2, TrendingUp, ChevronRight, Bike, ShoppingBag } from 'lucide-react';
-import { normalizePhone, capitalize, formatCurrency } from './utils';
+import { 
+    GenericConfirmModal, GenericAlertModal, SettingsModal, 
+    NewDriverModal, CloseCycleModal, ImportModal, EditClientModal, NewValeModal, NewExpenseModal 
+} from './components/Modals';
+import { Loader2 } from 'lucide-react';
+import { normalizePhone, formatCurrency } from './utils';
 
-// ... (GlobalStyles remain the same)
+// Default Config
+const DEFAULT_CONFIG: AppConfig = {
+    appName: 'Jhans Burgers',
+    appLogoUrl: '',
+    deliveryZones: [],
+    enableDeliveryFees: false,
+    schedule: {}
+};
+
+// Global Styles for animations
 const GlobalStyles = () => {
     useEffect(() => {
       const style = document.createElement('style');
@@ -48,7 +64,9 @@ const GlobalStyles = () => {
 };
 
 export default function App() {
+  // State
   const [user, setUser] = useState<any>(null);
+  // Revertido para usar o localStorage ou URL para definir o modo, sem login forçado de email
   const [viewMode, setViewMode] = useState<UserType>(() => { 
       try { 
           const params = new URLSearchParams(window.location.search);
@@ -58,33 +76,32 @@ export default function App() {
   });
   
   const [currentDriverId, setCurrentDriverId] = useState<string | null>(() => { try { return localStorage.getItem('jhans_driverId'); } catch { return null; } });
-  const [appConfig, setAppConfig] = useState<AppConfig>({ appName: "Jhans Burgers", appLogoUrl: "" });
-  const [drivers, setDrivers] = useState<Driver[]>([]);
+  
+  // Data Collections
   const [orders, setOrders] = useState<Order[]>([]);
-  const [vales, setVales] = useState<Vale[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [vales, setVales] = useState<Vale[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]); 
-  const [inventory, setInventory] = useState<InventoryItem[]>([]); 
-  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]); 
-  const [giveawayEntries, setGiveawayEntries] = useState<GiveawayEntry[]>([]); 
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
+  const [giveawayEntries, setGiveawayEntries] = useState<GiveawayEntry[]>([]);
+  const [appConfig, setAppConfigState] = useState<AppConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [modal, setModal] = useState<any>(null);
+
+  // UI State
+  const [modal, setModal] = useState<string | null>(null);
   const [modalData, setModalData] = useState<any>(null);
   const [driverToEdit, setDriverToEdit] = useState<Driver | null>(null);
   const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
+  
+  const [confirmInfo, setConfirmInfo] = useState<{isOpen: boolean, title: string, message: string, type?: 'info'|'danger'|'error', onConfirm: () => void} | null>(null);
+  const [alertInfo, setAlertInfo] = useState<{isOpen: boolean, title: string, message: string, type?: 'info'|'error'|'success'} | null>(null);
 
-  const [alertInfo, setAlertInfo] = useState<{isOpen: boolean, title: string, message: string, type: 'info'|'error'}|null>(null);
-  const [confirmInfo, setConfirmInfo] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void, type?: 'info'|'danger'}|null>(null);
-
-  useEffect(() => {
-      const handleResize = () => setIsMobile(window.innerWidth < 768);
-      window.addEventListener('resize', handleResize);
-      return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  // --- INITIALIZATION ---
 
   useEffect(() => {
       if (viewMode && viewMode !== 'client') {
@@ -92,6 +109,7 @@ export default function App() {
       }
   }, [viewMode]);
 
+  // Auth Listener - Anonymous Login
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (u) => {
       if (u) setUser(u);
@@ -100,70 +118,141 @@ export default function App() {
     return () => unsubAuth();
   }, []);
 
+  // Data Listeners
   useEffect(() => {
-    if (!user) return;
-    const unsubs = [
-        onSnapshot(doc(db, 'config', 'general'), (d) => {
-            if (d.exists()) setAppConfig(d.data() as AppConfig);
-            else {
-                setDoc(doc(db, 'config', 'general'), { appName: "Jhans Burgers", appLogoUrl: "" });
-            }
-        }),
-        onSnapshot(collection(db, 'drivers'), s => setDrivers(s.docs.map(d => ({id: d.id, ...d.data()} as Driver)))),
-        onSnapshot(collection(db, 'orders'), s => setOrders(s.docs.map(d => ({id: d.id, ...d.data()} as Order)))),
-        onSnapshot(collection(db, 'vales'), s => setVales(s.docs.map(d => ({id: d.id, ...d.data()} as Vale)))),
-        onSnapshot(collection(db, 'expenses'), s => setExpenses(s.docs.map(d => ({id: d.id, ...d.data()} as Expense)))),
-        onSnapshot(collection(db, 'products'), s => setProducts(s.docs.map(d => ({id: d.id, ...d.data()} as Product)))),
-        onSnapshot(collection(db, 'settlements'), s => setSettlements(s.docs.map(d => ({id: d.id, ...d.data()} as Settlement)))),
-        onSnapshot(collection(db, 'suppliers'), s => setSuppliers(s.docs.map(d => ({id: d.id, ...d.data()} as Supplier)))), 
-        onSnapshot(collection(db, 'inventory'), s => setInventory(s.docs.map(d => ({id: d.id, ...d.data()} as InventoryItem)))), 
-        onSnapshot(collection(db, 'shoppingList'), s => setShoppingList(s.docs.map(d => ({id: d.id, ...d.data()} as ShoppingItem)))), 
-        onSnapshot(collection(db, 'giveaway_entries'), s => setGiveawayEntries(s.docs.map(d => ({id: d.id, ...d.data()} as GiveawayEntry)))), 
-        onSnapshot(collection(db, 'clients'), s => { setClients(s.docs.map(d => ({id: d.id, ...d.data()} as Client))); setLoading(false); })
-    ];
-    return () => unsubs.forEach(u => u());
+      if (!user) return;
+
+      // Config - RESTORED PATH TO config/general
+      const unsubConfig = onSnapshot(doc(db, 'config', 'general'), (doc) => {
+          if (doc.exists()) setAppConfigState(doc.data() as AppConfig);
+          else setDoc(doc.ref, DEFAULT_CONFIG);
+      });
+
+      // Products
+      const unsubProducts = onSnapshot(collection(db, 'products'), (snap) => {
+          setProducts(snap.docs.map(d => ({id: d.id, ...d.data()} as Product)));
+      });
+
+      // Drivers
+      const unsubDrivers = onSnapshot(collection(db, 'drivers'), (snap) => {
+          setDrivers(snap.docs.map(d => ({id: d.id, ...d.data()} as Driver)));
+      });
+
+      // Orders
+      const unsubOrders = onSnapshot(query(collection(db, 'orders'), orderBy('createdAt', 'desc')), (snap) => {
+          setOrders(snap.docs.map(d => ({id: d.id, ...d.data()} as Order)));
+      });
+
+      // Clients
+      const unsubClients = onSnapshot(collection(db, 'clients'), (snap) => {
+          setClients(snap.docs.map(d => ({id: d.id, ...d.data()} as Client)));
+          setLoading(false);
+      });
+
+      // Vales
+      const unsubVales = onSnapshot(collection(db, 'vales'), (snap) => {
+          setVales(snap.docs.map(d => ({id: d.id, ...d.data()} as Vale)));
+      });
+      
+      // Expenses
+      const unsubExpenses = onSnapshot(collection(db, 'expenses'), (snap) => {
+          setExpenses(snap.docs.map(d => ({id: d.id, ...d.data()} as Expense)));
+      });
+
+      // Settlements
+      const unsubSettlements = onSnapshot(collection(db, 'settlements'), (snap) => {
+          setSettlements(snap.docs.map(d => ({id: d.id, ...d.data()} as Settlement)));
+      });
+
+      // Suppliers
+      const unsubSuppliers = onSnapshot(collection(db, 'suppliers'), (snap) => {
+          setSuppliers(snap.docs.map(d => ({id: d.id, ...d.data()} as Supplier)));
+      });
+
+      // Inventory
+      const unsubInventory = onSnapshot(collection(db, 'inventory'), (snap) => {
+          setInventory(snap.docs.map(d => ({id: d.id, ...d.data()} as InventoryItem)));
+      });
+
+      // Shopping List
+      const unsubShopping = onSnapshot(collection(db, 'shoppingList'), (snap) => {
+          setShoppingList(snap.docs.map(d => ({id: d.id, ...d.data()} as ShoppingItem)));
+      });
+
+      // Giveaway
+      const unsubGiveaway = onSnapshot(collection(db, 'giveaway_entries'), (snap) => {
+          setGiveawayEntries(snap.docs.map(d => ({id: d.id, ...d.data()} as GiveawayEntry)));
+      });
+
+      return () => {
+          unsubConfig(); unsubProducts(); unsubDrivers(); unsubOrders();
+          unsubClients(); unsubVales(); unsubExpenses(); unsubSettlements();
+          unsubSuppliers(); unsubInventory(); unsubShopping(); unsubGiveaway();
+      };
   }, [user]);
 
-  const handleAction = async (action: () => Promise<any>) => { 
-      try { 
-          return await action(); 
-      } catch(e: any) { 
-          console.error(e); 
-          setAlertInfo({ isOpen: true, title: "Erro", message: e.message, type: 'error' });
-          throw e; // Re-throw para o componente pegar se necessário
-      } 
+  // --- ACTIONS ---
+
+  const handleAction = async (action: () => Promise<any>) => {
+    try {
+      await action();
+    } catch (error: any) {
+      console.error(error);
+      setAlertInfo({ isOpen: true, title: "Erro", message: error.message || "Ocorreu um erro.", type: 'error' });
+    }
   };
 
-  const saveSettings = (newConfig: AppConfig) => handleAction(async () => {
-      await setDoc(doc(db, 'config', 'general'), newConfig, { merge: true });
-      setAppConfig(prev => ({ ...prev, ...newConfig }));
-  });
+  const handleLogout = () => {
+      localStorage.removeItem('jhans_viewMode');
+      localStorage.removeItem('jhans_driverId');
+      setViewMode('landing');
+      // Força reload para limpar estados se necessário
+      window.location.href = window.location.href.split('?')[0]; 
+  };
 
-  const createOrder = (data: any) => handleAction(async () => {
-    if (data.id && data.id.startsWith('PED-')) {
-        await setDoc(doc(db, 'orders', data.id), { ...data, status: 'pending', createdAt: serverTimestamp() });
-        if (data.phone) {
-            const cleanPhone = normalizePhone(data.phone);
-            if (cleanPhone) await setDoc(doc(db, 'clients', cleanPhone), { name: data.customer, phone: data.phone, address: data.address, mapsLink: data.mapsLink || '', lastOrderAt: serverTimestamp() }, { merge: true });
-        }
-        return data.id; 
-    } else {
-        const docRef = await addDoc(collection(db, 'orders'), { ...data, status: 'pending', createdAt: serverTimestamp() });
-        if (data.phone) {
-            const cleanPhone = normalizePhone(data.phone);
-            if (cleanPhone) await setDoc(doc(db, 'clients', cleanPhone), { name: data.customer, phone: data.phone, address: data.address, mapsLink: data.mapsLink || '', lastOrderAt: serverTimestamp() }, { merge: true });
-        }
-        return docRef.id;
-    }
-  });
-
-  // ... (rest of the functions: createDriver, updateDriver, etc. remain unchanged)
+  // CRUD Actions
+  
+  // Drivers
   const createDriver = (data: any) => handleAction(async () => { await addDoc(collection(db, 'drivers'), data); });
   const updateDriver = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'drivers', id), data); });
   const deleteDriver = (id: string) => {
-      setConfirmInfo({ isOpen: true, title: "Excluir Motoboy?", message: "Tem certeza que deseja remover este motoboy? Isso não pode ser desfeito.", type: "danger", onConfirm: () => handleAction(async () => await deleteDoc(doc(db, 'drivers', id))) });
+      setConfirmInfo({ isOpen: true, title: "Excluir Motoboy?", message: "Tem certeza que deseja remover este motoboy? Isso não pode ser desfeito.", type: "danger", onConfirm: () => handleAction(async () => { await deleteDoc(doc(db, 'drivers', id)); setConfirmInfo(null); }) });
   };
-  
+
+  // Orders
+  const createOrder = (data: any) => handleAction(async () => {
+    // FIX: Remove 'id' se estiver undefined para evitar erro do Firebase addDoc
+    const payload = { ...data };
+    
+    // Sanitização rigorosa: Remove campos undefined
+    Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
+    
+    if (payload.id && !payload.id.startsWith('PED-') && payload.id.length > 20) {
+        // Se já tem ID do firebase, atualiza o existente
+        const orderRef = doc(db, 'orders', payload.id);
+        // Se createdAt existe e for string/date, pode manter, mas se não vier, não removemos o que já está lá (merge trata isso)
+        // Se createdAt for undefined, já foi removido acima
+        await setDoc(orderRef, payload, { merge: true });
+    } else {
+        // CRIAÇÃO: Novo pedido
+        // Se tiver um ID manual (ex: PED-123456), usa setDoc, senão addDoc
+        if (payload.id) {
+             const orderRef = doc(db, 'orders', payload.id);
+             await setDoc(orderRef, { ...payload, status: payload.status || 'pending', createdAt: payload.createdAt || serverTimestamp() }, { merge: true });
+        } else {
+             // Caso addDoc seja usado, payload NÃO pode ter id no corpo
+             const { id, ...cleanPayload } = payload;
+             await addDoc(collection(db, 'orders'), { ...cleanPayload, status: 'pending', createdAt: serverTimestamp() });
+        }
+    }
+    
+    // Atualiza cliente
+    if (payload.phone) {
+        const cleanPhone = normalizePhone(payload.phone);
+        if (cleanPhone) await setDoc(doc(db, 'clients', cleanPhone), { name: payload.customer, phone: payload.phone, address: payload.address, mapsLink: payload.mapsLink || '', lastOrderAt: serverTimestamp() }, { merge: true });
+    }
+  });
+
   const updateOrder = (id: string, data: any) => handleAction(async () => {
       if (data.status && ['pending', 'preparing', 'ready'].includes(data.status)) {
           const currentOrder = orders.find(o => o.id === id);
@@ -173,42 +262,64 @@ export default function App() {
               data.assignedAt = deleteField();
           }
       }
-      await updateDoc(doc(db, 'orders', id), data);
+      await setDoc(doc(db, 'orders', id), data, { merge: true });
   });
 
   const deleteOrder = (id: string) => {
-      setConfirmInfo({ isOpen: true, title: "Excluir Pedido?", message: "Tem certeza que deseja excluir este pedido?", type: "danger", onConfirm: () => handleAction(async () => await deleteDoc(doc(db, 'orders', id))) });
+      if (!id) return;
+      setConfirmInfo({ 
+          isOpen: true, 
+          title: "Excluir Pedido?", 
+          message: "Tem certeza que deseja excluir este pedido? Se estiver em andamento, o motoboy será liberado.", 
+          type: "danger", 
+          onConfirm: () => {
+              // Fecha o modal imediatamente para evitar travamentos visuais
+              setConfirmInfo(null);
+              
+              handleAction(async () => {
+                  const order = orders.find(o => o.id === id);
+                  if (order && order.driverId && order.status !== 'completed') {
+                      try {
+                          await updateDoc(doc(db, 'drivers', order.driverId), { status: 'available', currentOrderId: null });
+                      } catch (e) { console.warn("Erro ao liberar motoboy:", e); }
+                  }
+                  await deleteDoc(doc(db, 'orders', id));
+              });
+          } 
+      });
   };
 
-  const assignOrder = (oid: string, did: string) => handleAction(async () => { await updateDoc(doc(db, 'orders', oid), { status: 'assigned', assignedAt: serverTimestamp(), driverId: did }); await updateDoc(doc(db, 'drivers', did), { status: 'delivering', currentOrderId: oid }); });
-  const acceptOrder = (id: string) => handleAction(async () => { await updateDoc(doc(db, 'orders', id), { status: 'delivering' }); });
-  const completeOrder = (oid: string, did: string) => handleAction(async () => {
-      const drv = drivers.find(d => d.id === did);
-      await updateDoc(doc(db, 'orders', oid), { status: 'completed', completedAt: serverTimestamp() });
-      if(drv?.currentOrderId === oid) await updateDoc(doc(db, 'drivers', did), { status: 'available', currentOrderId: null, totalDeliveries: (drv.totalDeliveries || 0) + 1 });
-      else await updateDoc(doc(db, 'drivers', did), { totalDeliveries: (drv?.totalDeliveries || 0) + 1 });
+  const assignOrder = (oid: string, did: string) => handleAction(async () => { 
+      await updateDoc(doc(db, 'orders', oid), { status: 'assigned', assignedAt: serverTimestamp(), driverId: did }); 
+      await updateDoc(doc(db, 'drivers', did), { status: 'delivering', currentOrderId: oid }); 
   });
-  const toggleStatus = (did: string) => handleAction(async () => { const d = drivers.find(drv => drv.id === did); if(d) await updateDoc(doc(db, 'drivers', did), { status: d.status === 'offline' ? 'available' : 'offline' }); });
-  const createVale = (data: any) => handleAction(async () => { await addDoc(collection(db, 'vales'), { ...data, createdAt: serverTimestamp() }); });
-  const createExpense = (data: any) => handleAction(async () => { await addDoc(collection(db, 'expenses'), { ...data, createdAt: serverTimestamp() }); });
+
+  // Other Entities
   const createProduct = (data: any) => handleAction(async () => { await addDoc(collection(db, 'products'), data); });
   const updateProduct = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'products', id), data); });
-  const deleteProduct = (id: string) => {
-      setConfirmInfo({ isOpen: true, title: "Excluir Produto?", message: "Deseja realmente excluir este produto do cardápio?", type: "danger", onConfirm: () => handleAction(async () => await deleteDoc(doc(db, 'products', id))) });
-  };
+  const deleteProduct = (id: string) => handleAction(async () => { await deleteDoc(doc(db, 'products', id)); });
+
   const updateClientData = (id: string, data: any) => handleAction(async () => { await setDoc(doc(db, 'clients', id), data, { merge: true }); });
-  
+
+  const createVale = (data: any) => handleAction(async () => { await addDoc(collection(db, 'vales'), { ...data, createdAt: serverTimestamp() }); });
+  const createExpense = (data: any) => handleAction(async () => { await addDoc(collection(db, 'expenses'), { ...data, createdAt: serverTimestamp() }); });
+
+  const closeCycle = (driverId: string, data: any) => handleAction(async () => {
+      const timestamp = data.endAt ? Timestamp.fromDate(new Date(data.endAt)) : serverTimestamp();
+      await addDoc(collection(db, 'settlements'), { ...data, driverId, endAt: timestamp });
+      await updateDoc(doc(db, 'drivers', driverId), { lastSettlementAt: timestamp });
+      setAlertInfo({ isOpen: true, title: "Sucesso!", message: "Ciclo fechado e pagamento registrado.", type: "info" });
+      setModal(null);
+  });
+
   const createSupplier = (data: any) => handleAction(async () => { await addDoc(collection(db, 'suppliers'), data); });
   const updateSupplier = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'suppliers', id), data); });
-  const deleteSupplier = (id: string) => {
-      setConfirmInfo({ isOpen: true, title: "Excluir Fornecedor?", message: "Isso removerá o fornecedor da lista.", type: "danger", onConfirm: () => handleAction(async () => await deleteDoc(doc(db, 'suppliers', id))) });
-  };
+  const deleteSupplier = (id: string) => handleAction(async () => { await deleteDoc(doc(db, 'suppliers', id)); });
+
   const createInventory = (data: any) => handleAction(async () => { await addDoc(collection(db, 'inventory'), data); });
   const updateInventory = (id: string, data: any) => handleAction(async () => { await updateDoc(doc(db, 'inventory', id), data); });
-  const deleteInventory = (id: string) => {
-      setConfirmInfo({ isOpen: true, title: "Excluir Item de Estoque?", message: "Isso removerá o item do controle de estoque.", type: "danger", onConfirm: () => handleAction(async () => await deleteDoc(doc(db, 'inventory', id))) });
-  };
-  
+  const deleteInventory = (id: string) => handleAction(async () => { await deleteDoc(doc(db, 'inventory', id)); });
+
   const addShoppingItem = (name: string) => handleAction(async () => { await addDoc(collection(db, 'shoppingList'), { name, isChecked: false, createdAt: serverTimestamp() }); });
   const toggleShoppingItem = (id: string, currentVal: boolean) => handleAction(async () => { await updateDoc(doc(db, 'shoppingList', id), { isChecked: !currentVal }); });
   const deleteShoppingItem = (id: string) => handleAction(async () => { await deleteDoc(doc(db, 'shoppingList', id)); });
@@ -217,33 +328,21 @@ export default function App() {
           const batch = writeBatch(db);
           shoppingList.forEach(item => { const ref = doc(db, 'shoppingList', item.id); batch.delete(ref); });
           await batch.commit();
+          setConfirmInfo(null);
       })});
   };
 
   const createGiveawayEntry = (data: any) => handleAction(async () => {
       const cleanPhone = normalizePhone(data.phone);
-      
-      // VERIFICAÇÃO DE DUPLICIDADE
       const q = query(collection(db, 'giveaway_entries'), where('phone', '==', cleanPhone));
       const snapshot = await getDocs(q);
-
-      if (!snapshot.empty) {
-          throw new Error("Este número já está cadastrado no sorteio!");
-      }
-
-      await addDoc(collection(db, 'giveaway_entries'), { 
-          ...data, 
-          phone: cleanPhone, 
-          createdAt: serverTimestamp() 
-      });
+      if (!snapshot.empty) throw new Error("Este número já está cadastrado no sorteio!");
+      await addDoc(collection(db, 'giveaway_entries'), { ...data, phone: cleanPhone, createdAt: serverTimestamp() });
   });
 
-  const handleCloseCycle = (data: any) => handleAction(async () => {
-      if (!driverToEdit) return;
-      const timestamp = data.endAt ? Timestamp.fromDate(new Date(data.endAt)) : serverTimestamp();
-      await addDoc(collection(db, 'settlements'), { ...data, driverId: driverToEdit.id, endAt: timestamp });
-      await updateDoc(doc(db, 'drivers', driverToEdit.id), { lastSettlementAt: timestamp });
-      setAlertInfo({ isOpen: true, title: "Sucesso!", message: "Ciclo fechado e pagamento registrado.", type: "info" });
+  const updateAppConfig = (config: AppConfig) => handleAction(async () => { 
+      await setDoc(doc(db, 'config', 'general'), config, { merge: true }); 
+      setAppConfigState(prev => ({...prev, ...config}));
   });
 
   const handleImportCSV = async (csvText: string) => {
@@ -259,7 +358,6 @@ export default function App() {
              if (isNaN(val)) return;
              const timestamp = new Date(`${date}T${time || '12:00'}`);
              if (type === 'income') {
-                 // GERA ID CURTO PARA IMPORTAÇÃO TAMBÉM
                  const generatedId = `PED-${Math.floor(100000 + Math.random() * 900000)}`;
                  const orderRef = doc(db, 'orders', id || generatedId);
                  dbBatch.set(orderRef, { customer: cols[10], phone: cols[12] || '', address: cols[13] || '', items: desc, amount: formatCurrency(val), value: val, status: 'completed', completedAt: Timestamp.fromDate(timestamp), createdAt: Timestamp.fromDate(timestamp), origin: 'manual' });
@@ -269,90 +367,229 @@ export default function App() {
       try { await dbBatch.commit(); setAlertInfo({ isOpen: true, title: "Importação Concluída", message: "Dados importados com sucesso!", type: "info" }); setModal(null); } catch(e: any) { console.error(e); setAlertInfo({ isOpen: true, title: "Erro na Importação", message: e.message, type: "error" }); }
   };
 
-  const handleLogout = () => { 
-      localStorage.removeItem('jhans_viewMode');
-      localStorage.removeItem('jhans_driverId');
-      window.location.href = window.location.href.split('?')[0]; 
-  };
+  // --- RENDER ---
 
-  if (loading && !user) return <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 text-white"><Loader2 className="animate-spin w-10 h-10 text-amber-500 mb-4"/> <span className="font-medium">Iniciando...</span></div>;
-
-  if (viewMode === 'client') return <><GlobalStyles /><ClientInterface products={products} appConfig={appConfig} onCreateOrder={async (data) => await createOrder(data)} onEnterGiveaway={createGiveawayEntry} /></>;
-  if (viewMode === 'landing') return <><GlobalStyles /><ClientInterface products={products} appConfig={appConfig} onCreateOrder={async (data) => await createOrder(data)} onEnterGiveaway={createGiveawayEntry} allowSystemAccess={true} onSystemAccess={(type) => { if (type === 'driver') setCurrentDriverId('select'); setViewMode(type); }} /></>;
-
-  if (viewMode === 'driver') {
-    if (currentDriverId === 'select' || !currentDriverId) return <DriverSelection drivers={drivers} onSelect={(id) => { setCurrentDriverId(id); localStorage.setItem('jhans_driverId', id); }} onBack={handleLogout} />;
-    const driver = drivers.find(d => d.id === currentDriverId);
-    if (!driver) return <div className="p-10 text-center text-white bg-slate-900 h-screen"><button onClick={handleLogout}>Sair</button></div>;
-    return <><GlobalStyles /><DriverInterface driver={driver} orders={orders} vales={vales} onToggleStatus={() => toggleStatus(driver.id)} onAcceptOrder={acceptOrder} onCompleteOrder={completeOrder} onUpdateOrder={updateOrder} onDeleteOrder={deleteOrder} onLogout={handleLogout} onUpdateDriver={updateDriver} /></>;
+  if (loading && !user) {
+      return (
+          <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center">
+              <Loader2 className="animate-spin text-amber-500 w-12 h-12 mb-4"/>
+              <p className="text-white font-bold animate-pulse">Carregando Sistema...</p>
+          </div>
+      );
   }
 
+  // CLIENT & LANDING (Menu Cardápio)
+  if (viewMode === 'client' || viewMode === 'landing') {
+      return (
+          <>
+            <GlobalStyles />
+            <ClientInterface 
+                products={products} 
+                appConfig={appConfig} 
+                onCreateOrder={createOrder} 
+                onEnterGiveaway={createGiveawayEntry}
+                allowSystemAccess={viewMode === 'landing'}
+                onSystemAccess={(type) => { 
+                    if(type === 'driver') setCurrentDriverId('select');
+                    setViewMode(type); 
+                }}
+            />
+          </>
+      );
+  }
+
+  // DRIVER INTERFACE
+  if (viewMode === 'driver') {
+      if (currentDriverId === 'select' || !currentDriverId) {
+          return <DriverSelection drivers={drivers} onSelect={(id) => { setCurrentDriverId(id); localStorage.setItem('jhans_driverId', id); }} onBack={handleLogout} />;
+      }
+      const myDriver = drivers.find(d => d.id === currentDriverId);
+      if (!myDriver) return <div className="p-10 text-center text-white bg-slate-900 h-screen"><button onClick={handleLogout} className="border p-2 rounded">Sair (Motorista não encontrado)</button></div>;
+
+      return (
+          <>
+            <GlobalStyles />
+            <DriverInterface 
+                driver={myDriver} 
+                orders={orders} 
+                vales={vales}
+                onToggleStatus={() => updateDriver(myDriver.id, { status: myDriver.status === 'offline' ? 'available' : 'offline' })}
+                onAcceptOrder={(oid) => { 
+                    updateOrder(oid, { status: 'delivering', driverId: myDriver.id, assignedAt: serverTimestamp() });
+                    updateDriver(myDriver.id, { status: 'delivering', currentOrderId: oid });
+                }}
+                onCompleteOrder={(oid, did) => {
+                    updateOrder(oid, { status: 'completed', completedAt: serverTimestamp() });
+                    updateDriver(did, { status: 'available', currentOrderId: null, totalDeliveries: (myDriver.totalDeliveries || 0) + 1 });
+                }}
+                onUpdateOrder={updateOrder}
+                onDeleteOrder={deleteOrder}
+                onLogout={handleLogout}
+                onUpdateDriver={updateDriver}
+            />
+          </>
+      );
+  }
+
+  // ADMIN INTERFACE
   return (
-    <>
-      <GlobalStyles />
-      <AdminInterface 
-          drivers={drivers} orders={orders} vales={vales} expenses={expenses} products={products} clients={clients} settlements={settlements} suppliers={suppliers} inventory={inventory}
-          onAssignOrder={assignOrder} onCreateDriver={createDriver} onUpdateDriver={updateDriver} onDeleteDriver={deleteDriver} 
-          onCreateOrder={createOrder} onDeleteOrder={deleteOrder} onUpdateOrder={updateOrder} onCreateVale={createVale} onCreateExpense={createExpense}
-          onCreateProduct={createProduct} onDeleteProduct={deleteProduct} onUpdateProduct={updateProduct} onUpdateClient={updateClientData} onLogout={handleLogout}
-          onCloseCycle={(driverId, data) => handleCloseCycle(data)} 
-          onCreateSupplier={createSupplier} onUpdateSupplier={updateSupplier} onDeleteSupplier={deleteSupplier}
-          onCreateInventory={createInventory} onUpdateInventory={updateInventory} onDeleteInventory={deleteInventory}
-          
-          // Shopping List Props
-          shoppingList={shoppingList}
-          onAddShoppingItem={addShoppingItem}
-          onToggleShoppingItem={toggleShoppingItem}
-          onDeleteShoppingItem={deleteShoppingItem}
-          onClearShoppingList={clearShoppingList}
+      <>
+        <GlobalStyles />
+        <AdminInterface 
+            drivers={drivers}
+            orders={orders}
+            vales={vales}
+            expenses={expenses}
+            products={products}
+            clients={clients}
+            settlements={settlements}
+            suppliers={suppliers}
+            inventory={inventory}
+            shoppingList={shoppingList}
+            giveawayEntries={giveawayEntries}
+            appConfig={appConfig}
+            isMobile={window.innerWidth < 768}
+            setModal={setModal}
+            setModalData={setModalData}
+            onLogout={handleLogout}
+            onDeleteOrder={deleteOrder}
+            onAssignOrder={assignOrder}
+            setDriverToEdit={setDriverToEdit}
+            onDeleteDriver={deleteDriver}
+            setClientToEdit={setClientToEdit}
+            onUpdateOrder={updateOrder}
+            onCreateOrder={createOrder}
+            onCreateDriver={createDriver}
+            onUpdateDriver={updateDriver}
+            onCreateVale={createVale}
+            onCreateExpense={(data: any) => { createExpense(data); setModal(null); }}
+            onCreateProduct={createProduct}
+            onDeleteProduct={deleteProduct}
+            onUpdateProduct={updateProduct}
+            onUpdateClient={(id, data) => { updateClientData(id, data); setModal(null); }}
+            onCloseCycle={(driverId, data) => closeCycle(driverId, data)}
+            onCreateSupplier={createSupplier}
+            onUpdateSupplier={updateSupplier}
+            onDeleteSupplier={deleteSupplier}
+            onCreateInventory={createInventory}
+            onUpdateInventory={updateInventory}
+            onDeleteInventory={deleteInventory}
+            onAddShoppingItem={addShoppingItem}
+            onToggleShoppingItem={toggleShoppingItem}
+            onDeleteShoppingItem={deleteShoppingItem}
+            onClearShoppingList={clearShoppingList}
+            setAppConfig={updateAppConfig}
+            modal={modal}
+        />
+        
+        {/* GLOBAL MODALS CONTROLLED BY STATE */}
+        {modal === 'settings' && (
+            <SettingsModal 
+                config={appConfig} 
+                onSave={updateAppConfig} 
+                onClose={() => setModal(null)} 
+            />
+        )}
+        
+        {modal === 'driver' && (
+            <NewDriverModal 
+                initialData={driverToEdit} 
+                onSave={(data: any) => { 
+                    if(driverToEdit) updateDriver(driverToEdit.id, data); 
+                    else createDriver(data); 
+                }} 
+                onClose={() => { setModal(null); setDriverToEdit(null); }} 
+            />
+        )}
+        
+        {modal === 'vale' && driverToEdit && (
+            <NewValeModal 
+                driver={driverToEdit} 
+                onClose={() => { setModal(null); setDriverToEdit(null); }} 
+                onSave={createVale} 
+            />
+        )}
 
-          // Giveaway Props
-          giveawayEntries={giveawayEntries}
-
-          isMobile={isMobile} appConfig={appConfig} setAppConfig={setAppConfig} setModal={setModal} setModalData={setModalData}
-          setDriverToEdit={setDriverToEdit} setClientToEdit={setClientToEdit}
-          {...{modal}} 
-      />
-      {modal === 'settings' && <SettingsModal config={appConfig} onSave={saveSettings} onClose={() => setModal(null)} />}
-      {modal === 'driver' && <NewDriverModal onClose={()=>{setModal(null); setDriverToEdit(null);}} onSave={driverToEdit ? (data: any) => updateDriver(driverToEdit.id, data) : createDriver} initialData={driverToEdit} />}
-      {modal === 'vale' && driverToEdit && <NewValeModal driver={driverToEdit} onClose={() => { setModal(null); setDriverToEdit(null); }} onSave={createVale} />}
-      {modal === 'import' && <ImportModal onClose={() => setModal(null)} onImportCSV={handleImportCSV} />}
-      {modal === 'expense' && <NewExpenseModal onClose={() => setModal(null)} onSave={createExpense} />}
-      {modal === 'client' && clientToEdit && <EditClientModal client={clientToEdit} orders={orders} onClose={() => setModal(null)} onUpdateOrder={updateOrder} onSave={(data: any) => { updateClientData(clientToEdit.id, data); setModal(null); }} />}
-      {modal === 'closeCycle' && driverToEdit && modalData && (
-          <CloseCycleModal data={modalData} onClose={() => { setModal(null); setDriverToEdit(null); setModalData(null); }} onConfirm={(data: any) => handleCloseCycle(data)} />
-      )}
-
-      {/* GLOBAL ALERTS & CONFIRMS */}
-      {alertInfo && (
-          <GenericAlertModal 
-              isOpen={alertInfo.isOpen} 
-              title={alertInfo.title} 
-              message={alertInfo.message} 
-              type={alertInfo.type} 
-              onClose={() => setAlertInfo(null)} 
-          />
-      )}
-      {confirmInfo && (
-          <GenericConfirmModal 
-              isOpen={confirmInfo.isOpen} 
-              title={confirmInfo.title} 
-              message={confirmInfo.message} 
-              type={confirmInfo.type || 'info'} 
-              onConfirm={() => { confirmInfo.onConfirm(); setConfirmInfo(null); }} 
-              onClose={() => setConfirmInfo(null)}
-          />
-      )}
-    </>
+        {modal === 'expense' && (
+            <NewExpenseModal 
+                onClose={() => setModal(null)} 
+                onSave={(data: any) => { createExpense(data); setModal(null); }} 
+            />
+        )}
+        
+        {modal === 'closeCycle' && modalData && (
+            <CloseCycleModal 
+                data={modalData} 
+                onConfirm={(data: any) => closeCycle(driverToEdit?.id || '', data)} 
+                onClose={() => { setModal(null); setDriverToEdit(null); }} 
+            />
+        )}
+        
+        {modal === 'import' && (
+            <ImportModal 
+                onImportCSV={handleImportCSV} 
+                onClose={() => setModal(null)} 
+            />
+        )}
+        
+        {modal === 'client' && clientToEdit && (
+            <EditClientModal 
+                client={clientToEdit} 
+                orders={orders} 
+                onSave={(data: any) => { 
+                    updateClientData(clientToEdit.id, data); 
+                    setModal(null); 
+                }} 
+                onClose={() => { setModal(null); setClientToEdit(null); }} 
+                onUpdateOrder={updateOrder} 
+            />
+        )}
+        
+        {/* CONFIRMATION & ALERTS */}
+        {confirmInfo && (
+            <GenericConfirmModal 
+                isOpen={confirmInfo.isOpen} 
+                title={confirmInfo.title} 
+                message={confirmInfo.message} 
+                onConfirm={confirmInfo.onConfirm} 
+                onClose={() => setConfirmInfo(null)}
+                type={confirmInfo.type}
+            />
+        )}
+        
+        {alertInfo && (
+            <GenericAlertModal 
+                isOpen={alertInfo.isOpen} 
+                title={alertInfo.title} 
+                message={alertInfo.message} 
+                type={alertInfo.type}
+                onClose={() => setAlertInfo(null)}
+            />
+        )}
+      </>
   );
 }
 
-// ... (DriverSelection remains the same)
+// Driver Selection Component (Simple Auth)
 function DriverSelection({ drivers, onSelect, onBack }: { drivers: Driver[], onSelect: (id: string) => void, onBack: () => void }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const handleLogin = (e: React.FormEvent) => { e.preventDefault(); const driver = drivers.find((d) => d.id === selectedId); if (!driver?.password) { onSelect(driver?.id || ''); return; } if (driver.password === password) { onSelect(driver.id); } else { setError("Senha incorreta"); } };
+  
+  const handleLogin = (e: React.FormEvent) => { 
+      e.preventDefault(); 
+      const driver = drivers.find((d) => d.id === selectedId); 
+      if (!driver?.password) { 
+          onSelect(driver?.id || ''); 
+          return; 
+      } 
+      if (driver.password === password) { 
+          onSelect(driver.id); 
+      } else { 
+          setError("Senha incorreta"); 
+      } 
+  };
+
   if (selectedId) {
       const driver = drivers.find((d) => d.id === selectedId);
       return (
