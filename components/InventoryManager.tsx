@@ -147,37 +147,33 @@ export function InventoryManager(props: InventoryProps) {
         <div className="flex-1 bg-slate-950 flex flex-col h-full w-full overflow-hidden relative">
             
             {/* --- CABEÇALHO FIXO (Não Rola) --- */}
-            <div className="p-4 md:p-6 pb-2 shrink-0 bg-slate-950 z-10 border-b border-slate-800/50">
-                <div className="mb-4">
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                        {tab === 'items' ? <Box className="text-amber-500"/> : tab === 'suppliers' ? <Truck className="text-blue-500"/> : <ShoppingCart className="text-emerald-500"/>}
-                        {tab === 'items' ? 'Controle de Estoque' : tab === 'suppliers' ? 'Fornecedores' : 'Lista de Compras'}
-                    </h2>
-                    <p className="text-slate-400 text-sm">Gerencie insumos, parceiros e reabastecimento.</p>
-                </div>
-                
-                {/* TOOLBAR UNIFICADA (NÃO QUEBRA LINHA) */}
-                <div className="flex items-center gap-3 overflow-x-auto pb-2 no-scrollbar mb-2">
-                    {/* GRUPO DE ABAS */}
-                    <div className="bg-slate-900 p-1 rounded-xl border border-slate-800 flex shrink-0">
-                        <button onClick={() => setTab('items')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${tab==='items' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:text-white'}`}>Insumos</button>
-                        <button onClick={() => setTab('suppliers')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${tab==='suppliers' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:text-white'}`}>Fornecedores</button>
-                        <button onClick={() => setTab('shopping')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${tab==='shopping' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:text-emerald-400'}`}>Compras</button>
+            <div className="p-4 md:p-8 pb-4 shrink-0 bg-slate-950 z-10 border-b border-slate-800/50">
+                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
+                    <div>
+                        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                            {tab === 'items' ? <Box className="text-amber-500"/> : tab === 'suppliers' ? <Truck className="text-blue-500"/> : <ShoppingCart className="text-emerald-500"/>}
+                            {tab === 'items' ? 'Controle de Estoque' : tab === 'suppliers' ? 'Fornecedores' : 'Lista de Compras'}
+                        </h2>
+                        <p className="text-slate-400 text-sm">Gerencie insumos, parceiros e reabastecimento.</p>
                     </div>
-
-                    <div className="w-[1px] h-8 bg-slate-800 shrink-0"></div>
-
-                    {/* GRUPO DE AÇÕES (DIREITA) */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    
+                    <div className="flex flex-wrap gap-2 w-full xl:w-auto items-center">
+                        <div className="bg-slate-900 p-1 rounded-xl border border-slate-800 flex overflow-x-auto shrink-0">
+                            <button onClick={() => setTab('items')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${tab==='items' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:text-white'}`}>Insumos</button>
+                            <button onClick={() => setTab('suppliers')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${tab==='suppliers' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:text-white'}`}>Fornecedores</button>
+                            <button onClick={() => setTab('shopping')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${tab==='shopping' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:text-emerald-400'}`}>Compras</button>
+                        </div>
+                        
+                        {/* Botão Calculadora movido para cá para evitar pulo de layout na busca */}
                         {tab === 'items' && (
-                            <button onClick={() => setShowMixModal(true)} className="bg-slate-900 hover:bg-purple-600 hover:border-purple-500 border border-slate-800 text-slate-300 hover:text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors h-[42px] whitespace-nowrap">
-                                <FlaskConical size={16}/> Misturas
+                            <button onClick={() => setShowMixModal(true)} className="bg-purple-900/30 border border-purple-500/30 hover:bg-purple-600 hover:border-purple-500 text-purple-200 hover:text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors shrink-0 h-[42px]">
+                                <FlaskConical size={18}/> <span className="hidden md:inline">Misturas</span>
                             </button>
                         )}
 
                         {tab !== 'shopping' && (
-                            <button onClick={() => openModal()} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 h-[42px] whitespace-nowrap">
-                                <PlusCircle size={16}/> Novo {tab === 'items' ? 'Item' : 'Fornecedor'}
+                            <button onClick={() => openModal()} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 shrink-0 h-[42px]">
+                                <PlusCircle size={18}/> Novo {tab === 'items' ? 'Item' : 'Fornecedor'}
                             </button>
                         )}
                     </div>
@@ -185,7 +181,7 @@ export function InventoryManager(props: InventoryProps) {
 
                 {/* ÁREA DE CONTROLES FIXOS (BUSCA OU INPUTS DE COMPRA) */}
                 {tab === 'shopping' ? (
-                    <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 shadow-xl animate-in fade-in duration-300 mb-2">
+                    <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 shadow-xl animate-in fade-in duration-300">
                         <form onSubmit={handleAddShoppingItem} className="flex gap-2 mb-4">
                             <input 
                                 className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500 transition-colors"
@@ -214,7 +210,7 @@ export function InventoryManager(props: InventoryProps) {
                     </div>
                 ) : (
                     /* Barra de Busca - AGORA FIXA SEM BOTÃO LATERAL PARA EVITAR PULO */
-                    <div className="relative w-full animate-in fade-in duration-300 mb-2">
+                    <div className="relative w-full animate-in fade-in duration-300">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18}/>
                         <input 
                             className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-white outline-none focus:border-amber-500 transition-colors" 

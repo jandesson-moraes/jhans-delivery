@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
     X, Check, Copy, MessageCircle, Flame, Save, Trash2, 
@@ -644,7 +645,7 @@ export function CloseCycleModal({ data, onClose, onConfirm }: any) {
         <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
             <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-emerald-500/30 p-6 shadow-2xl">
                 <h3 className="font-bold text-xl text-white mb-4 text-center">Confirmar Fechamento</h3>
-                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 mb-6 space-y-2">
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 mb-6 space-y-2">
                     <div className="flex justify-between"><span className="text-slate-400">Entregas ({data.deliveriesCount})</span><span className="text-emerald-400 font-bold">{formatCurrency(data.deliveriesTotal)}</span></div>
                     <div className="flex justify-between"><span className="text-slate-400">Vales ({data.valesCount})</span><span className="text-red-400 font-bold">- {formatCurrency(data.valesTotal)}</span></div>
                     <div className="border-t border-slate-800 pt-2 flex justify-between text-lg"><span className="text-white font-bold">A Pagar</span><span className="text-emerald-500 font-black">{formatCurrency(data.finalAmount)}</span></div>
@@ -655,6 +656,8 @@ export function CloseCycleModal({ data, onClose, onConfirm }: any) {
         </div>
     );
 }
+
+// --- UPDATED PRODUCT FORM MODAL ---
 
 export function ProductFormModal({ isOpen, onClose, product, onSave, existingCategories, inventory = [] }: any) {
     const [form, setForm] = useState<Product>(product || { name: '', description: '', price: 0, category: '', ingredients: [], costPrice: 0, operationalCost: 0 });
@@ -771,7 +774,7 @@ export function ProductFormModal({ isOpen, onClose, product, onSave, existingCat
                                 <h4 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2"><Box size={14}/> Composição (Ingredientes)</h4>
                                 <div className="flex gap-2 mb-2">
                                     <select 
-                                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white outline-none focus:border-emerald-500"
+                                        className="flex-1 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white outline-none focus:border-emerald-500"
                                         value={selectedInventoryId}
                                         onChange={e => setSelectedInventoryId(e.target.value)}
                                     >
@@ -862,6 +865,7 @@ export function ProductFormModal({ isOpen, onClose, product, onSave, existingCat
     );
 }
 
+// ... rest of modals (SettingsModal, etc) remains the same
 export function SettingsModal({ config, onSave, onClose }: any) {
     const [form, setForm] = useState<AppConfig>({ 
         storeCountryCode: '+55', 
@@ -912,7 +916,7 @@ export function SettingsModal({ config, onSave, onClose }: any) {
             <div className="bg-slate-900 w-full max-w-2xl rounded-3xl border border-slate-800 shadow-2xl flex flex-col h-[650px] max-h-[90vh] overflow-hidden relative">
                 
                 {/* Header Fixo */}
-                <div className="p-6 pb-4 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10 shrink-0">
+                <div className="p-6 pb-4 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10">
                     <h3 className="font-bold text-2xl text-white flex items-center gap-2">
                         <Settings className="text-slate-500"/> Configurações
                     </h3>
@@ -935,10 +939,9 @@ export function SettingsModal({ config, onSave, onClose }: any) {
                 </div>
 
                 {/* Content Area (Scrollable) */}
-                {/* scrollbarGutter: 'stable' evita que o conteúdo pule quando a barra de rolagem aparece/desaparece */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6 bg-slate-900" style={{ scrollbarGutter: 'stable' }}>
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6 bg-slate-900">
                     {tab === 'general' && (
-                        <div className="space-y-5 animate-in fade-in duration-300">
+                        <div className="space-y-5 animate-in slide-in-from-right-4 duration-300">
                             <div>
                                 <label className="text-xs text-slate-500 font-bold uppercase mb-2 block ml-1">Nome da Loja</label>
                                 <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white focus:border-amber-500 outline-none transition-colors" value={form.appName} onChange={e => setForm({...form, appName: e.target.value})} placeholder="Ex: Jhans Burgers" />
@@ -1003,7 +1006,7 @@ export function SettingsModal({ config, onSave, onClose }: any) {
                     )}
 
                     {tab === 'payment' && (
-                        <div className="space-y-5 animate-in fade-in duration-300">
+                        <div className="space-y-5 animate-in slide-in-from-right-4 duration-300">
                             <div className="bg-emerald-900/10 border border-emerald-900/50 p-4 rounded-xl flex items-center gap-3">
                                 <div className="bg-emerald-500 p-2 rounded-lg text-white"><QrCode size={20}/></div>
                                 <div>
@@ -1018,7 +1021,7 @@ export function SettingsModal({ config, onSave, onClose }: any) {
                     )}
 
                     {tab === 'delivery' && (
-                         <div className="space-y-5 animate-in fade-in duration-300">
+                         <div className="space-y-5 animate-in slide-in-from-right-4 duration-300">
                             <div className="flex items-center justify-between bg-slate-950 p-4 rounded-xl border border-slate-800">
                                 <span className="text-white font-bold text-sm">Cobrar Taxa de Entrega por Bairro</span>
                                 <div className="relative inline-block w-12 h-6 transition duration-200 ease-in-out rounded-full cursor-pointer">
@@ -1058,7 +1061,7 @@ export function SettingsModal({ config, onSave, onClose }: any) {
                     )}
 
                     {tab === 'schedule' && (
-                        <div className="space-y-3 animate-in fade-in duration-300">
+                        <div className="space-y-3 animate-in slide-in-from-right-4 duration-300">
                             {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((day, idx) => {
                                 const dayConfig = form.schedule?.[idx] || { enabled: false, open: '18:00', close: '23:00' };
                                 return (
@@ -1077,7 +1080,7 @@ export function SettingsModal({ config, onSave, onClose }: any) {
                     )}
 
                     {tab === 'system' && (
-                        <div className="space-y-5 animate-in fade-in duration-300">
+                        <div className="space-y-5 animate-in slide-in-from-right-4 duration-300">
                             {/* NOVO: IMPRESSÃO */}
                             <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
                                 <h4 className="font-bold text-white mb-2 text-sm flex items-center gap-2"><Printer size={16}/> Configuração de Impressão</h4>
@@ -1110,7 +1113,7 @@ export function SettingsModal({ config, onSave, onClose }: any) {
                 </div>
 
                 {/* Footer Actions (Fixed) */}
-                <div className="p-6 border-t border-slate-800 bg-slate-900 mt-auto z-10 shrink-0">
+                <div className="p-6 border-t border-slate-800 bg-slate-900 mt-auto z-10">
                     <button onClick={handleSave} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 uppercase tracking-wide">
                         <Save size={20}/> Salvar Alterações
                     </button>
@@ -1120,30 +1123,33 @@ export function SettingsModal({ config, onSave, onClose }: any) {
     );
 }
 
+// ... remaining modals (NewExpenseModal, ImportModal, EditClientModal, GiveawayManagerModal) ...
 export function NewExpenseModal({ onClose, onSave }: any) {
-    const [form, setForm] = useState({ description: '', amount: '', category: 'Mercado' });
+    const [form, setForm] = useState({ description: '', amount: '', category: 'Outros' });
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         onSave({ ...form, amount: parseFloat(form.amount) });
         onClose();
     };
+
     return (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
             <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-800 p-6 shadow-2xl">
-                <h3 className="font-bold text-xl text-white mb-4">Nova Despesa / Saída</h3>
-                <form onSubmit={handleSubmit} className="space-y-3">
-                    <input required placeholder="Descrição" className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
-                    <input required type="number" step="0.01" placeholder="Valor (R$)" className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} />
-                    <select className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
-                        <option value="Mercado">Mercado</option>
-                        <option value="Combustível">Combustível</option>
-                        <option value="Manutenção">Manutenção</option>
-                        <option value="Funcionários">Funcionários</option>
+                <h3 className="font-bold text-xl text-white mb-4">Nova Despesa</h3>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <input required placeholder="Descrição" className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-red-500" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+                    <input required type="number" step="0.01" placeholder="Valor (R$)" className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-red-500" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} />
+                    <select className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-red-500" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
                         <option value="Outros">Outros</option>
+                        <option value="Insumos">Insumos</option>
+                        <option value="Manutenção">Manutenção</option>
+                        <option value="Pessoal">Pessoal</option>
+                        <option value="Marketing">Marketing</option>
                     </select>
-                    <button type="submit" className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl mt-2">Registrar Saída</button>
+                    <button type="submit" className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl mt-2 shadow-lg">Registrar Saída</button>
                 </form>
-                <button onClick={onClose} className="w-full mt-2 text-slate-500 py-2">Cancelar</button>
+                <button onClick={onClose} className="w-full mt-2 text-slate-500 py-2 hover:text-white transition-colors">Cancelar</button>
             </div>
         </div>
     );
@@ -1151,77 +1157,74 @@ export function NewExpenseModal({ onClose, onSave }: any) {
 
 export function ImportModal({ onClose, onImportCSV }: any) {
     const [text, setText] = useState('');
+
     return (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-800 p-6 shadow-2xl">
-                <h3 className="font-bold text-xl text-white mb-2">Importar Dados (CSV)</h3>
-                <p className="text-xs text-slate-400 mb-4">Cole o conteúdo do CSV abaixo.</p>
-                <textarea className="w-full h-48 bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs font-mono text-white mb-4" value={text} onChange={e => setText(e.target.value)} placeholder="Cole aqui..." />
-                <div className="flex gap-3">
-                    <button onClick={onClose} className="flex-1 bg-slate-800 text-white py-3 rounded-xl">Cancelar</button>
-                    <button onClick={() => onImportCSV(text)} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold">Importar</button>
+            <div className="bg-slate-900 w-full max-w-2xl rounded-2xl border border-slate-800 p-6 shadow-2xl flex flex-col h-[80vh]">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-xl text-white">Importar CSV</h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
                 </div>
+                <p className="text-xs text-slate-400 mb-2">Cole o conteúdo do CSV abaixo. Formato esperado: ID, Data, Hora, Descrição, Valor, Tipo...</p>
+                <textarea 
+                    className="flex-1 w-full bg-slate-950 border border-slate-700 rounded-lg p-4 text-xs font-mono text-slate-300 outline-none focus:border-blue-500 resize-none mb-4" 
+                    placeholder="Cole aqui..."
+                    value={text}
+                    onChange={e => setText(e.target.value)}
+                />
+                <button onClick={() => onImportCSV(text)} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg">Processar Importação</button>
             </div>
         </div>
     );
 }
 
 export function EditClientModal({ client, orders, onClose, onSave, onUpdateOrder }: any) {
-    const [form, setForm] = useState(client);
-    
-    // Calcula histórico deste cliente
-    const history = useMemo(() => {
-        if(!orders) return [];
-        return orders.filter((o: Order) => normalizePhone(o.phone) === normalizePhone(client.phone)).sort((a: Order, b: Order) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-    }, [orders, client]);
+    const [form, setForm] = useState(client || { name: '', phone: '', address: '', obs: '' });
+    const clientOrders = orders.filter((o: Order) => normalizePhone(o.phone) === normalizePhone(client.phone));
 
-    const handleSave = () => {
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
         onSave(form);
     };
 
     return (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-slate-900 w-full max-w-2xl rounded-2xl border border-slate-800 p-6 shadow-2xl flex flex-col h-[80vh]">
-                <div className="flex justify-between items-center mb-4 shrink-0">
-                    <h3 className="font-bold text-xl text-white">Editar Cliente</h3>
+            <div className="bg-slate-900 w-full max-w-4xl rounded-2xl border border-slate-800 shadow-2xl flex flex-col h-[90vh] overflow-hidden">
+                <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950">
+                    <h3 className="font-bold text-xl text-white">Detalhes do Cliente</h3>
                     <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6 pr-2">
-                    <div className="space-y-3">
-                        <label className="text-xs font-bold text-slate-500 uppercase">Dados Pessoais</label>
-                        <div className="grid grid-cols-2 gap-3">
-                            <input className="bg-slate-950 border border-slate-700 rounded-lg p-3 text-white" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Nome" />
-                            <input className="bg-slate-950 border border-slate-700 rounded-lg p-3 text-white" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="Telefone" />
-                        </div>
-                        <input className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white" value={form.address} onChange={e => setForm({...form, address: e.target.value})} placeholder="Endereço Completo" />
-                        <input className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white" value={form.mapsLink || ''} onChange={e => setForm({...form, mapsLink: e.target.value})} placeholder="Link Maps" />
-                        <textarea className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white h-20" value={form.obs || ''} onChange={e => setForm({...form, obs: e.target.value})} placeholder="Observações (ex: Cliente VIP, Campainha quebrada)" />
-                    </div>
-
+                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Histórico de Pedidos ({history.length})</label>
-                        {history.length === 0 ? <p className="text-slate-500 text-sm italic">Nenhum pedido encontrado.</p> : (
-                            <div className="space-y-2">
-                                {history.map((order: Order) => (
-                                    <div key={order.id} className="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center">
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`text-[10px] font-bold px-1.5 rounded uppercase ${order.status === 'completed' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-slate-800 text-slate-400'}`}>{order.status}</span>
-                                                <span className="text-slate-300 text-sm font-bold">{formatDate(order.createdAt)}</span>
-                                            </div>
-                                            <p className="text-xs text-slate-500 truncate max-w-[200px]">{order.items.replace(/\n/g, ', ')}</p>
-                                        </div>
-                                        <span className="text-emerald-500 font-bold text-sm">{formatCurrency(order.value)}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                        <h4 className="font-bold text-white mb-4 flex items-center gap-2"><User size={18} className="text-amber-500"/> Dados Pessoais</h4>
+                        <form onSubmit={handleSubmit} className="space-y-4 bg-slate-950 p-4 rounded-xl border border-slate-800">
+                            <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome</label><input required className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
+                            <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input required className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
+                            <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço</label><input className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-amber-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
+                            <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Observações Internas</label><textarea className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-amber-500 h-24 resize-none" value={form.obs || ''} onChange={e => setForm({...form, obs: e.target.value})} /></div>
+                            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Salvar Alterações</button>
+                        </form>
                     </div>
-                </div>
 
-                <div className="pt-4 border-t border-slate-800 shrink-0">
-                    <button onClick={handleSave} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg">Salvar Alterações</button>
+                    <div className="flex flex-col h-full overflow-hidden">
+                        <h4 className="font-bold text-white mb-4 flex items-center gap-2"><ShoppingBag size={18} className="text-blue-500"/> Histórico de Pedidos ({clientOrders.length})</h4>
+                        <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar pr-2">
+                            {clientOrders.length === 0 ? <p className="text-slate-500 text-sm">Nenhum pedido encontrado.</p> : clientOrders.sort((a: any,b: any) => (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0)).map((order: any) => (
+                                <div key={order.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 hover:border-slate-600 transition-colors">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${order.status === 'completed' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-slate-800 text-slate-400'}`}>{order.status}</span>
+                                        <span className="text-xs font-mono text-slate-500">{formatDate(order.createdAt)}</span>
+                                    </div>
+                                    <p className="text-xs text-slate-300 line-clamp-2 mb-2">{order.items}</p>
+                                    <div className="flex justify-between items-center pt-2 border-t border-slate-800">
+                                        <span className="text-emerald-400 font-bold text-sm">{formatCurrency(order.value)}</span>
+                                        <button onClick={() => copyToClipboard(order.id)} className="text-xs text-slate-500 hover:text-white flex items-center gap-1"><Copy size={12}/> ID</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1230,72 +1233,63 @@ export function EditClientModal({ client, orders, onClose, onSave, onUpdateOrder
 
 export function GiveawayManagerModal({ entries, onClose, appConfig }: any) {
     const [winner, setWinner] = useState<GiveawayEntry | null>(null);
-    const [isAnimating, setIsAnimating] = useState(false);
+    const [isRolling, setIsRolling] = useState(false);
 
     const handleDraw = () => {
         if (entries.length === 0) return alert("Nenhum participante!");
-        setIsAnimating(true);
+        setIsRolling(true);
         setWinner(null);
-        
-        let count = 0;
+
+        let counter = 0;
         const interval = setInterval(() => {
+            counter++;
             const random = entries[Math.floor(Math.random() * entries.length)];
-            setWinner(random);
-            count++;
-            if (count > 20) {
+            setWinner(random); // Show random names flashing
+            if (counter > 20) {
                 clearInterval(interval);
-                setIsAnimating(false);
+                setIsRolling(false);
+                // Final winner
+                const finalWinner = entries[Math.floor(Math.random() * entries.length)];
+                setWinner(finalWinner);
             }
         }, 100);
     };
 
     return (
-        <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in zoom-in">
-             <div className="bg-slate-900 w-full max-w-lg rounded-3xl border-2 border-amber-500 p-6 shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
-                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white z-10"><X size={20}/></button>
-                 
-                 <div className="text-center mb-6">
-                     <Trophy size={48} className="text-amber-500 mx-auto mb-2 drop-shadow-lg"/>
-                     <h2 className="text-2xl font-black text-white uppercase tracking-wider">Sorteio {appConfig.appName}</h2>
-                     <p className="text-amber-200 text-sm font-bold">{entries.length} Participantes</p>
-                 </div>
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in zoom-in">
+            <div className="bg-slate-900 w-full max-w-lg rounded-3xl border-2 border-purple-500 shadow-2xl p-6 relative overflow-hidden flex flex-col h-[600px]">
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white z-10"><X size={24}/></button>
+                
+                <div className="text-center mb-6">
+                    <Trophy className="mx-auto text-amber-400 mb-2 drop-shadow-lg" size={48} />
+                    <h3 className="font-black text-3xl text-white uppercase italic tracking-wider">Sorteio</h3>
+                    <p className="text-purple-300 text-sm font-bold">{entries.length} Participantes</p>
+                </div>
 
-                 <div className="flex-1 bg-slate-950 rounded-2xl border border-slate-800 p-6 flex flex-col items-center justify-center mb-6 relative min-h-[200px]">
-                     {winner ? (
-                         <div className={`text-center transition-all duration-300 ${isAnimating ? 'blur-sm scale-90 opacity-50' : 'scale-110 opacity-100'}`}>
-                             <p className="text-slate-500 text-xs font-bold uppercase mb-2">Vencedor(a)</p>
-                             <h3 className="text-3xl font-black text-white mb-1">{winner.name}</h3>
-                             <p className="text-xl text-emerald-400 font-mono">{normalizePhone(winner.phone)}</p>
-                             {!isAnimating && <p className="text-xs text-amber-500 mt-4 animate-bounce font-bold">PARABÉNS!</p>}
-                         </div>
-                     ) : (
-                         <div className="text-slate-600 text-center">
-                             <Gift size={48} className="mx-auto mb-2 opacity-20"/>
-                             <p>Clique em Sortear para descobrir o ganhador.</p>
-                         </div>
-                     )}
-                 </div>
+                <div className="flex-1 bg-slate-950 rounded-2xl border border-slate-800 p-4 mb-6 relative flex items-center justify-center overflow-hidden">
+                    {winner ? (
+                        <div className="text-center z-10">
+                            <p className="text-xs text-slate-500 uppercase font-bold mb-2">{isRolling ? 'Sorteando...' : 'Vencedor(a)'}</p>
+                            <h2 className={`font-black text-2xl md:text-4xl text-white transition-all ${isRolling ? 'blur-sm scale-90' : 'scale-110 drop-shadow-[0_0_15px_rgba(168,85,247,0.5)]'}`}>{winner.name}</h2>
+                            {!isRolling && <p className="text-emerald-400 font-mono mt-2 text-lg">{normalizePhone(winner.phone)}</p>}
+                        </div>
+                    ) : (
+                        <p className="text-slate-600 font-bold text-lg">Pronto para sortear?</p>
+                    )}
+                    
+                    {/* Confetti effect placeholder if needed */}
+                </div>
 
-                 <button 
-                     onClick={handleDraw} 
-                     disabled={isAnimating || entries.length === 0}
-                     className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-black py-4 rounded-xl shadow-lg active:scale-95 transition-all text-lg uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
-                 >
-                     {isAnimating ? 'Sorteando...' : 'Sortear Agora'}
-                 </button>
-
-                 <div className="mt-6 border-t border-slate-800 pt-4">
-                     <p className="text-xs font-bold text-slate-500 uppercase mb-2">Últimos Inscritos</p>
-                     <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar">
-                         {entries.slice().reverse().slice(0, 10).map((e: GiveawayEntry) => (
-                             <div key={e.id} className="flex justify-between text-xs text-slate-400 border-b border-slate-800/50 pb-1">
-                                 <span>{e.name}</span>
-                                 <span className="font-mono">{formatDate(e.createdAt)}</span>
-                             </div>
-                         ))}
+                <button onClick={handleDraw} disabled={isRolling} className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-black py-4 rounded-xl shadow-lg active:scale-95 transition-all text-xl uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed">
+                    {isRolling ? 'Sorteando...' : 'Realizar Sorteio'}
+                </button>
+                
+                {winner && !isRolling && (
+                     <div className="mt-4 flex gap-2">
+                         <button onClick={() => window.open(`https://wa.me/55${normalizePhone(winner.phone)}?text=Parabéns ${winner.name}! Você ganhou o sorteio! 🎉`, '_blank')} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm"><MessageCircle size={18}/> Avisar Vencedor</button>
                      </div>
-                 </div>
-             </div>
+                )}
+            </div>
         </div>
     );
 }
