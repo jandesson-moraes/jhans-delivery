@@ -287,4 +287,56 @@ export default function App() {
             <GlobalStylesPlaceholder />
             <DriverInterface 
                 driver={myDriver} 
-                
+                />
+          </>
+      );
+  } 
+
+  // ADMIN INTERFACE
+  if (viewMode === 'admin') {
+      return (
+          <>
+            <GlobalStylesPlaceholder />
+            <AdminInterface 
+                drivers={drivers} 
+                orders={orders} 
+                vales={vales} 
+                products={products} 
+                clients={clients} 
+                suppliers={suppliers} 
+                expenses={expenses} 
+                settlements={settlements} 
+                inventory={inventory} 
+                shopping={shopping} 
+                appConfig={appConfig}   
+                isMobile={isMobile} 
+                setModal={setModal}                                                                                                                                                                                                                                                                                             
+                setModalData={setModalData} 
+                onLogout={handleLogout} 
+                onDeleteOrder={deleteOrder} 
+                onAssignOrder={assignOrder} 
+                setDriverToEdit={setDriverToEdit} 
+                onDeleteDriver={deleteDriver} 
+                setClientToEdit={setClientToEdit} 
+                onUpdateOrder={updateOrder} 
+                onCreateOrder={createOrder} 
+                onCreateDriver={createDriver} 
+                onUpdateDriver={updateDriver} 
+                onCreateVale={createVale} 
+                onCreateExpense={createExpense} 
+                onCreateProduct={createProduct} 
+                onImportCSV={handleImportCSV} 
+                onExportCSV={handleExportCSV} 
+                onExportPDF={handleExportPDF} 
+                onExportExcel={handleExportExcel} 
+                />
+          </>
+      );
+  }
+
+  return (
+      <div className="p-10 text-center text-white bg-slate-900 h-screen">
+          <button onClick={handleLogout} className="border p-2 rounded">Sair (Modo Desconhecido)</button>
+      </div>                                    
+  ) ;
+}   
