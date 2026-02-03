@@ -16,8 +16,10 @@ export interface DaySchedule {
 export interface AppConfig {
     appName: string;
     appLogoUrl: string;
+    bannerUrl?: string;   // Novo: Imagem do Banner Promocional
     storePhone?: string; 
     storeCountryCode?: string; // Novo: DDI do telefone
+    storeMapsLink?: string; // Novo: Link da localização
     pixKey?: string;      // Chave PIX
     pixName?: string;     // Nome do Titular
     pixCity?: string;     // Cidade do Titular

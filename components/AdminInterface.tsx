@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { LayoutDashboard, Users, ShoppingBag, Utensils, Bike, Map as MapIcon, Settings, LogOut, FileText, BarChart3, ChevronRight, Menu as MenuIcon, X, CalendarCheck, ClipboardList, ChefHat, Bell, Gift, PlusCircle, Search, Trash2, Minus, Plus, Save, CheckCircle2, CreditCard, Banknote, MapPin, DollarSign, ClipboardPaste, Store, Navigation, Battery, MessageCircle, Signal, Clock, ChevronDown, Flame, Minimize2, Edit, Power, UserPlus, TrendingUp, History, LocateFixed, Car, Activity, Wallet, Calendar, ArrowRight, ArrowLeft, User, Link as LinkIcon } from 'lucide-react';
+import { LayoutDashboard, Users, ShoppingBag, Utensils, Bike, Map as MapIcon, Settings, LogOut, FileText, BarChart3, ChevronRight, Menu as MenuIcon, X, CalendarCheck, ClipboardList, ChefHat, Bell, Gift, PlusCircle, Search, Trash2, Minus, Plus, Save, CheckCircle2, CreditCard, Banknote, MapPin, DollarSign, ClipboardPaste, Store, Navigation, Battery, MessageCircle, Signal, Clock, ChevronDown, Flame, Minimize2, Edit, Power, UserPlus, TrendingUp, History, LocateFixed, Car, Activity, Wallet, Calendar, ArrowRight, ArrowLeft, User, Link as LinkIcon, ShoppingCart, Crosshair, MoreHorizontal } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Driver, Order, Vale, Expense, Product, Client, Settlement, AppConfig, Supplier, InventoryItem, ShoppingItem, GiveawayEntry } from '../types';
@@ -243,24 +243,21 @@ const FleetSidebar = ({ drivers, orders, settlements, vales, onClose, onAddDrive
 };
 
 const ManualOrderView = ({ products, clients, onCreateOrder, onClose, appConfig }: any) => {
-    // REMOVIDA LÓGICA DE EDIÇÃO - APENAS NOVO PEDIDO
+    // ... (Mantendo código ManualOrderView inalterado, pois está funcionando bem)
+    const [mobileTab, setMobileTab] = useState<'products'|'checkout'>('products');
     const [cart, setCart] = useState<{product: Product, quantity: number, obs: string}[]>([]);
     const [customerPhone, setCustomerPhone] = useState('');
     const [customerName, setCustomerName] = useState('');
     const [address, setAddress] = useState('');
     const [mapsLink, setMapsLink] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState('Dinheiro');
+    const [paymentMethod, setPaymentMethod] = useState('PIX');
     const [serviceType, setServiceType] = useState<'delivery'|'pickup'>('delivery');
     const [deliveryFee, setDeliveryFee] = useState(0);
     const [obs, setObs] = useState('');
     const [searchProduct, setSearchProduct] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('Todos');
-    
-    // Autocomplete State
     const [nameSuggestions, setNameSuggestions] = useState<Client[]>([]);
-
     const categoriesPriority = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
-
     const categories = useMemo(() => {
         const cats = Array.from(new Set(products.map((p: Product) => p.category))) as string[];
         return ['Todos', ...cats.sort((a, b) => {
@@ -272,8 +269,6 @@ const ManualOrderView = ({ products, clients, onCreateOrder, onClose, appConfig 
             return a.localeCompare(b);
         })];
     }, [products]);
-
-    // Grouping logic for products
     const groupedProducts = useMemo(() => {
         let prods = products;
         if (selectedCategory !== 'Todos') {
@@ -282,14 +277,11 @@ const ManualOrderView = ({ products, clients, onCreateOrder, onClose, appConfig 
         if (searchProduct) {
             prods = prods.filter((p: Product) => p.name.toLowerCase().includes(searchProduct.toLowerCase()));
         }
-
         const groups: {[key: string]: Product[]} = {};
         prods.forEach((p: Product) => {
             if (!groups[p.category]) groups[p.category] = [];
             groups[p.category].push(p);
         });
-
-        // Sort categories
         const sortedKeys = Object.keys(groups).sort((a, b) => {
             const idxA = categoriesPriority.indexOf(a);
             const idxB = categoriesPriority.indexOf(b);
@@ -298,10 +290,8 @@ const ManualOrderView = ({ products, clients, onCreateOrder, onClose, appConfig 
             if (idxB !== -1) return 1;
             return a.localeCompare(b);
         });
-
         return sortedKeys.map(key => ({ category: key, items: groups[key] }));
     }, [products, selectedCategory, searchProduct]);
-
     const handlePhoneBlur = () => {
         const clean = normalizePhone(customerPhone);
         const client = clients.find((c: Client) => normalizePhone(c.phone) === clean);
@@ -311,7 +301,6 @@ const ManualOrderView = ({ products, clients, onCreateOrder, onClose, appConfig 
             if (client.mapsLink) setMapsLink(client.mapsLink);
         }
     };
-
     const handleNameChange = (val: string) => {
         setCustomerName(val);
         if (val.length > 2) {
@@ -321,7 +310,6 @@ const ManualOrderView = ({ products, clients, onCreateOrder, onClose, appConfig 
             setNameSuggestions([]);
         }
     };
-
     const selectClient = (client: Client) => {
         setCustomerName(client.name);
         setCustomerPhone(client.phone);
@@ -329,35 +317,30 @@ const ManualOrderView = ({ products, clients, onCreateOrder, onClose, appConfig 
         if(client.mapsLink) setMapsLink(client.mapsLink);
         setNameSuggestions([]);
     };
-
     const addToCart = (product: Product) => {
         setCart(prev => {
             const existing = prev.find(i => i.product.id === product.id);
             if(existing) return prev.map(i => i.product.id === product.id ? {...i, quantity: i.quantity + 1} : i);
             return [...prev, { product, quantity: 1, obs: '' }];
         });
+        if(navigator.vibrate) navigator.vibrate(50);
     };
-    
     const updateQuantity = (idx: number, delta: number) => {
         const newCart = [...cart];
         newCart[idx].quantity += delta;
         if(newCart[idx].quantity <= 0) newCart.splice(idx, 1);
         setCart(newCart);
     };
-
     const total = cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0) + deliveryFee;
-
     const handleSubmit = () => {
         if (!customerName) return alert("Nome do cliente obrigatório");
         if (cart.length === 0) return alert("Carrinho vazio");
-
         const itemsText = cart.map(i => `${i.quantity}x ${i.product.name}${i.obs ? ` (${i.obs})` : ''}`).join('\n');
-
         const orderData: any = {
             customer: customerName,
             phone: customerPhone,
             address: serviceType === 'delivery' ? address : 'Balcão',
-            mapsLink: mapsLink, // Link do Google Maps
+            mapsLink: mapsLink,
             items: itemsText,
             amount: formatCurrency(total),
             value: total,
@@ -368,175 +351,69 @@ const ManualOrderView = ({ products, clients, onCreateOrder, onClose, appConfig 
             origin: 'manual',
             status: 'pending'
         };
-
         onCreateOrder(orderData);
         onClose();
     };
-
     return (
-        <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-            <div className="bg-slate-900 w-full max-w-6xl h-[90vh] rounded-3xl border border-slate-800 flex flex-col md:flex-row overflow-hidden shadow-2xl relative">
-                
-                {/* Left: Product Selection */}
-                <div className="flex-1 flex flex-col border-r border-slate-800">
-                    <div className="p-4 border-b border-slate-800 bg-slate-900 flex gap-3">
+        <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-0 md:p-4 animate-in fade-in">
+            <div className="bg-slate-900 w-full max-w-6xl h-full md:h-[90vh] rounded-none md:rounded-3xl border border-slate-800 flex flex-col md:flex-row overflow-hidden shadow-2xl relative">
+                <div className={`w-full md:flex-1 flex-col border-r border-slate-800 shrink-0 ${mobileTab === 'checkout' ? 'hidden md:flex' : 'flex'}`}>
+                    <div className="p-4 border-b border-slate-800 bg-slate-900 flex gap-3 sticky top-0 z-10 items-center">
                         <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-white"><ArrowLeft size={20}/></button>
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18}/>
-                            <input className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-white outline-none focus:border-amber-500 transition-colors" placeholder="Buscar produto..." value={searchProduct} onChange={e => setSearchProduct(e.target.value)} autoFocus />
+                            <input className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-white outline-none focus:border-amber-500 transition-colors" placeholder="Buscar produto..." value={searchProduct} onChange={e => setSearchProduct(e.target.value)} />
                         </div>
                     </div>
-                    
-                    {/* Categorias */}
                     <div className="px-4 py-3 bg-slate-950/50 border-b border-slate-800 overflow-x-auto flex gap-2 shrink-0 custom-scrollbar">
                         {categories.map(cat => (
-                            <button 
-                                key={cat} 
-                                onClick={() => setSelectedCategory(cat)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${selectedCategory === cat ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
-                            >
-                                {cat}
-                            </button>
+                            <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${selectedCategory === cat ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>{cat}</button>
                         ))}
                     </div>
-
-                    <div className="flex-1 overflow-y-auto p-4 bg-slate-900/50 custom-scrollbar space-y-6">
+                    <div className="p-4 bg-slate-900/50 space-y-6 flex-1 overflow-y-auto custom-scrollbar pb-24 md:pb-4">
                         {groupedProducts.map(group => (
                             <div key={group.category}>
                                 <h4 className="font-bold text-slate-400 text-xs uppercase mb-3 border-b border-slate-800 pb-1 flex items-center gap-2">
-                                    {group.category === 'Hambúrgueres' && <span className="text-xl">🍔</span>}
-                                    {group.category === 'Bebidas' && <span className="text-xl">🥤</span>}
-                                    {group.category === 'Combos' && <span className="text-xl">🍟</span>}
-                                    {group.category}
+                                    {group.category === 'Hambúrgueres' && <span className="text-xl">🍔</span>}{group.category === 'Bebidas' && <span className="text-xl">🥤</span>}{group.category === 'Combos' && <span className="text-xl">🍟</span>}{group.category}
                                 </h4>
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                     {group.items.map((p: Product) => (
                                         <button key={p.id} onClick={() => addToCart(p)} className="bg-slate-900 p-3 rounded-xl border border-slate-800 hover:border-amber-500 text-left transition-all active:scale-95 flex flex-col justify-between h-full group">
-                                            <div>
-                                                <p className="font-bold text-white text-sm line-clamp-2 leading-tight mb-1">{p.name}</p>
-                                                <p className="text-[10px] text-slate-500 line-clamp-2">{p.description}</p>
-                                            </div>
-                                            <div className="mt-2 flex justify-between items-end">
-                                                <p className="text-amber-500 font-bold text-xs">{formatCurrency(p.price)}</p>
-                                                <div className="bg-slate-800 p-1 rounded group-hover:bg-amber-600 group-hover:text-white transition-colors"><Plus size={14}/></div>
-                                            </div>
+                                            <div><p className="font-bold text-white text-sm line-clamp-2 leading-tight mb-1">{p.name}</p><p className="text-[10px] text-slate-500 line-clamp-2">{p.description}</p></div>
+                                            <div className="mt-2 flex justify-between items-end"><p className="text-amber-500 font-bold text-xs">{formatCurrency(p.price)}</p><div className="bg-slate-800 p-1 rounded group-hover:bg-amber-600 group-hover:text-white transition-colors"><Plus size={14}/></div></div>
                                         </button>
                                     ))}
                                 </div>
                             </div>
                         ))}
-                        {groupedProducts.length === 0 && (
-                            <div className="text-center text-slate-500 py-10">Nenhum produto encontrado.</div>
-                        )}
+                        {groupedProducts.length === 0 && <div className="text-center text-slate-500 py-10">Nenhum produto encontrado.</div>}
+                    </div>
+                    <div className="md:hidden absolute bottom-0 left-0 right-0 p-4 bg-slate-900 border-t border-slate-800 z-50">
+                        <button onClick={() => setMobileTab('checkout')} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-between px-6 active:scale-95 transition-all">
+                            <span className="flex items-center gap-2 text-xs bg-black/20 px-2 py-1 rounded"><ShoppingCart size={14}/> {cart.reduce((acc, i) => acc + i.quantity, 0)}</span><span className="text-sm uppercase tracking-wide">Ir para Cliente / Pagamento</span><span className="text-sm font-black">{formatCurrency(total)}</span>
+                        </button>
                     </div>
                 </div>
-
-                {/* Right: Order Details */}
-                <div className="w-full md:w-96 bg-slate-950 border-l border-slate-800 flex flex-col h-full shadow-2xl">
-                    <div className="p-4 border-b border-slate-800 bg-slate-900">
-                        <h3 className="font-bold text-white text-lg">Novo Pedido</h3>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-4">
-                        {/* Dados do Cliente */}
+                <div className={`w-full md:w-96 bg-slate-950 border-l border-slate-800 flex-col md:h-full shadow-2xl shrink-0 ${mobileTab === 'products' ? 'hidden md:flex' : 'flex h-full'}`}>
+                    <div className="p-4 border-b border-slate-800 bg-slate-900 flex items-center gap-3 md:hidden"><button onClick={() => setMobileTab('products')} className="p-2 bg-slate-800 rounded-full text-white"><ArrowLeft size={20}/></button><h3 className="font-bold text-white text-lg">Finalizar Pedido</h3></div>
+                    <div className="hidden md:block p-4 border-b border-slate-800 bg-slate-900"><h3 className="font-bold text-white text-lg">Novo Pedido</h3></div>
+                    <div className="p-4 space-y-4 pb-4 flex-1 overflow-y-auto custom-scrollbar">
                         <div className="bg-slate-900 rounded-xl p-3 border border-slate-800 space-y-3">
                             <div className="flex justify-between items-center"><span className="text-[10px] uppercase font-bold text-slate-500">Dados do Cliente</span></div>
-                            <div className="flex gap-2">
-                                <input className="w-1/2 bg-slate-950 border border-slate-800 rounded-lg p-2 text-white text-sm outline-none focus:border-amber-500" placeholder="Telefone" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} onBlur={handlePhoneBlur} />
-                                <div className="flex-1 relative">
-                                    <input 
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white text-sm outline-none focus:border-amber-500" 
-                                        placeholder="Nome" 
-                                        value={customerName} 
-                                        onChange={e => handleNameChange(e.target.value)} 
-                                    />
-                                    {nameSuggestions.length > 0 && (
-                                        <div className="absolute top-full left-0 right-0 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-20 mt-1 max-h-40 overflow-y-auto">
-                                            {nameSuggestions.map(client => (
-                                                <div 
-                                                    key={client.id} 
-                                                    className="p-2 hover:bg-slate-700 cursor-pointer text-xs text-white border-b border-slate-700/50 last:border-0"
-                                                    onClick={() => selectClient(client)}
-                                                >
-                                                    <p className="font-bold">{client.name}</p>
-                                                    <p className="text-[10px] text-slate-400">{client.phone}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
-                                <button onClick={() => setServiceType('delivery')} className={`flex-1 py-1.5 rounded text-xs font-bold transition-colors ${serviceType === 'delivery' ? 'bg-amber-600 text-white' : 'text-slate-500 hover:text-white'}`}>Entrega</button>
-                                <button onClick={() => setServiceType('pickup')} className={`flex-1 py-1.5 rounded text-xs font-bold transition-colors ${serviceType === 'pickup' ? 'bg-purple-600 text-white' : 'text-slate-500 hover:text-white'}`}>Retirada</button>
-                            </div>
-                            {serviceType === 'delivery' && (
-                                <>
-                                    <input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white text-sm outline-none focus:border-amber-500" placeholder="Endereço de Entrega" value={address} onChange={e => setAddress(e.target.value)} />
-                                    <div className="flex items-center gap-2">
-                                        <LinkIcon size={16} className="text-slate-500" />
-                                        <input className="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 text-white text-xs outline-none focus:border-amber-500" placeholder="Link do Google Maps (Opcional)" value={mapsLink} onChange={e => setMapsLink(e.target.value)} />
-                                    </div>
-                                </>
-                            )}
+                            <div className="flex gap-2"><input className="w-1/2 bg-slate-950 border border-slate-800 rounded-lg p-2 text-white text-sm outline-none focus:border-amber-500" placeholder="Telefone" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} onBlur={handlePhoneBlur} /><div className="flex-1 relative"><input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white text-sm outline-none focus:border-amber-500" placeholder="Nome" value={customerName} onChange={e => handleNameChange(e.target.value)} />{nameSuggestions.length > 0 && (<div className="absolute top-full left-0 right-0 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-20 mt-1 max-h-40 overflow-y-auto">{nameSuggestions.map(client => (<div key={client.id} className="p-2 hover:bg-slate-700 cursor-pointer text-xs text-white border-b border-slate-700/50 last:border-0" onClick={() => selectClient(client)}><p className="font-bold">{client.name}</p><p className="text-[10px] text-slate-400">{client.phone}</p></div>))}</div>)}</div></div>
+                            <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800"><button onClick={() => setServiceType('delivery')} className={`flex-1 py-1.5 rounded text-xs font-bold transition-colors ${serviceType === 'delivery' ? 'bg-amber-600 text-white' : 'text-slate-500 hover:text-white'}`}>Entrega</button><button onClick={() => setServiceType('pickup')} className={`flex-1 py-1.5 rounded text-xs font-bold transition-colors ${serviceType === 'pickup' ? 'bg-purple-600 text-white' : 'text-slate-500 hover:text-white'}`}>Retirada</button></div>
+                            {serviceType === 'delivery' && (<><input className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white text-sm outline-none focus:border-amber-500" placeholder="Endereço de Entrega" value={address} onChange={e => setAddress(e.target.value)} /><div className="flex items-center gap-2"><LinkIcon size={16} className="text-slate-500" /><input className="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2 text-white text-xs outline-none focus:border-amber-500" placeholder="Link do Google Maps (Opcional)" value={mapsLink} onChange={e => setMapsLink(e.target.value)} /></div></>)}
                         </div>
-
-                        {/* Carrinho */}
                         <div className="space-y-2">
-                            <p className="text-[10px] uppercase font-bold text-slate-500 px-1">Itens ({cart.length})</p>
-                            {cart.length === 0 ? <p className="text-center text-slate-600 text-xs py-4 border border-dashed border-slate-800 rounded-lg">Carrinho vazio</p> : (
-                                cart.map((item, idx) => (
-                                    <div key={idx} className="bg-slate-900 border border-slate-800 rounded-lg p-2">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <span className="text-sm text-white font-medium line-clamp-1">{item.product.name}</span>
-                                            <span className="text-xs text-amber-500 font-bold ml-2">{formatCurrency(item.product.price * item.quantity)}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2 bg-slate-950 rounded p-0.5">
-                                                <button onClick={() => updateQuantity(idx, -1)} className="px-2 text-slate-400 hover:text-white">-</button>
-                                                <span className="text-xs text-white font-bold">{item.quantity}</span>
-                                                <button onClick={() => updateQuantity(idx, 1)} className="px-2 text-slate-400 hover:text-white">+</button>
-                                            </div>
-                                            <input className="flex-1 ml-2 bg-transparent text-[10px] text-slate-400 outline-none border-b border-slate-800 focus:border-amber-500 placeholder:text-slate-600" placeholder="Obs: Sem cebola..." value={item.obs} onChange={e => { const newCart = [...cart]; newCart[idx].obs = e.target.value; setCart(newCart); }} />
-                                        </div>
-                                    </div>
-                                ))
-                            )}
+                            <div className="flex justify-between items-center px-1"><p className="text-[10px] uppercase font-bold text-slate-500">Itens ({cart.length})</p><button onClick={() => setMobileTab('products')} className="md:hidden text-[10px] font-bold text-emerald-500 flex items-center gap-1">+ Adicionar Itens</button></div>
+                            {cart.length === 0 ? <p className="text-center text-slate-600 text-xs py-4 border border-dashed border-slate-800 rounded-lg">Carrinho vazio</p> : (cart.map((item, idx) => (<div key={idx} className="bg-slate-900 border border-slate-800 rounded-lg p-2"><div className="flex justify-between items-start mb-2"><span className="text-sm text-white font-medium line-clamp-1">{item.product.name}</span><span className="text-xs text-amber-500 font-bold ml-2">{formatCurrency(item.product.price * item.quantity)}</span></div><div className="flex items-center justify-between"><div className="flex items-center gap-2 bg-slate-950 rounded p-0.5"><button onClick={() => updateQuantity(idx, -1)} className="px-2 text-slate-400 hover:text-white">-</button><span className="text-xs text-white font-bold">{item.quantity}</span><button onClick={() => updateQuantity(idx, 1)} className="px-2 text-slate-400 hover:text-white">+</button></div><input className="flex-1 ml-2 bg-transparent text-[10px] text-slate-400 outline-none border-b border-slate-800 focus:border-amber-500 placeholder:text-slate-600" placeholder="Obs: Sem cebola..." value={item.obs} onChange={e => { const newCart = [...cart]; newCart[idx].obs = e.target.value; setCart(newCart); }} /></div></div>)))}
                         </div>
                     </div>
-
-                    {/* Footer Actions */}
-                    <div className="p-4 bg-slate-900 border-t border-slate-800 space-y-3 shrink-0">
-                         {/* Payment Method Icons */}
-                         <div className="grid grid-cols-3 gap-2">
-                             <button onClick={() => setPaymentMethod('Dinheiro')} className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all ${paymentMethod === 'Dinheiro' ? 'bg-emerald-900/40 border-emerald-500 text-emerald-400' : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-white'}`}>
-                                 <Banknote size={20} className="mb-1"/>
-                                 <span className="text-[10px] font-bold">Dinheiro</span>
-                             </button>
-                             <button onClick={() => setPaymentMethod('PIX')} className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all ${paymentMethod === 'PIX' ? 'bg-emerald-900/40 border-emerald-500 text-emerald-400' : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-white'}`}>
-                                 <PixIcon size={20} className="mb-1"/>
-                                 <span className="text-[10px] font-bold">PIX</span>
-                             </button>
-                             <button onClick={() => setPaymentMethod('Cartão')} className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all ${paymentMethod === 'Cartão' ? 'bg-emerald-900/40 border-emerald-500 text-emerald-400' : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-white'}`}>
-                                 <CreditCard size={20} className="mb-1"/>
-                                 <span className="text-[10px] font-bold">Cartão</span>
-                             </button>
-                         </div>
-
-                         {serviceType === 'delivery' && (
-                             <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2">
-                                 <span className="text-[10px] text-slate-500 font-bold uppercase flex-1">Taxa de Entrega</span>
-                                 <input type="number" className="w-16 bg-transparent text-white text-sm text-right outline-none font-bold" value={deliveryFee} onChange={e => setDeliveryFee(parseFloat(e.target.value) || 0)} />
-                             </div>
-                         )}
-
-                         <div className="flex justify-between items-center text-lg font-bold text-white pt-2 border-t border-slate-800">
-                             <span>Total</span>
-                             <span className="text-emerald-400">{formatCurrency(total)}</span>
-                         </div>
-                         <button onClick={handleSubmit} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
-                             <CheckCircle2 size={18}/> Confirmar Pedido
-                         </button>
+                    <div className="p-4 bg-slate-900 border-t border-slate-800 space-y-3 shrink-0 pb-safe">
+                         <div className="grid grid-cols-3 gap-2"><button onClick={() => setPaymentMethod('PIX')} className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all active:scale-95 ${paymentMethod === 'PIX' ? 'bg-emerald-900/40 border-emerald-500 text-emerald-400' : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-white'}`}><PixIcon size={22} className="mb-1"/><span className="text-xs font-bold">PIX</span></button><button onClick={() => setPaymentMethod('Dinheiro')} className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all active:scale-95 ${paymentMethod === 'Dinheiro' ? 'bg-emerald-900/40 border-emerald-500 text-emerald-400' : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-white'}`}><Banknote size={22} className="mb-1"/><span className="text-xs font-bold">Dinheiro</span></button><button onClick={() => setPaymentMethod('Cartão')} className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all active:scale-95 ${paymentMethod === 'Cartão' ? 'bg-emerald-900/40 border-emerald-500 text-emerald-400' : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-white'}`}><CreditCard size={22} className="mb-1"/><span className="text-xs font-bold">Cartão</span></button></div>
+                         {serviceType === 'delivery' && (<div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-3 py-3"><span className="text-xs text-slate-500 font-bold uppercase flex-1">Taxa de Entrega</span><input type="number" className="w-20 bg-transparent text-white text-base text-right outline-none font-bold" value={deliveryFee} onChange={e => setDeliveryFee(parseFloat(e.target.value) || 0)} /></div>)}
+                         <div className="flex justify-between items-center text-lg font-bold text-white pt-2 border-t border-slate-800"><span>Total</span><span className="text-emerald-400 text-xl">{formatCurrency(total)}</span></div>
+                         <button onClick={handleSubmit} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 text-base"><CheckCircle2 size={20}/> Confirmar Pedido</button>
                     </div>
                 </div>
             </div>
@@ -544,267 +421,390 @@ const ManualOrderView = ({ products, clients, onCreateOrder, onClose, appConfig 
     );
 }
 
+// --- NEW COMPONENT: BOTTOM NAVIGATION (MOBILE) ---
+const BottomNavigation = ({ view, onChange, onOpenMore, onNewOrder }: { view: string, onChange: (v: string) => void, onOpenMore: () => void, onNewOrder: () => void }) => {
+    // Left items
+    const leftItems = [
+        { id: 'dashboard', icon: <LayoutDashboard size={20}/>, label: 'Painel' },
+        { id: 'orders', icon: <ClipboardList size={20}/>, label: 'Pedidos' },
+    ];
+    // Right items
+    const rightItems = [
+        { id: 'kitchen', icon: <ChefHat size={20}/>, label: 'Cozinha' }, // Changed to Kitchen
+    ];
+
+    return (
+        <div className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 h-16 z-50 md:hidden pb-safe shadow-[0_-5px_20px_rgba(0,0,0,0.3)]">
+            <div className="flex justify-between items-end h-full px-2 relative">
+                
+                {/* Left Side */}
+                <div className="flex-1 flex justify-around h-full">
+                    {leftItems.map(item => (
+                        <button 
+                            key={item.id}
+                            onClick={() => onChange(item.id)}
+                            className={`flex flex-col items-center justify-center gap-1 w-full h-full transition-colors active:scale-95 ${view === item.id ? 'text-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            <div className={view === item.id ? 'bg-amber-500/10 p-1 rounded-lg' : 'p-1'}>
+                                {item.icon}
+                            </div>
+                            <span className="text-[10px] font-bold tracking-tight">{item.label}</span>
+                        </button>
+                    ))}
+                </div>
+
+                {/* Center Floating Button (Novo Pedido) */}
+                <div className="w-16 h-full flex justify-center relative">
+                    <button 
+                        onClick={onNewOrder}
+                        className="absolute -top-6 w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full shadow-lg shadow-orange-500/40 flex items-center justify-center text-white active:scale-90 transition-transform border-4 border-slate-950 z-50"
+                    >
+                        <Plus size={28} strokeWidth={3} />
+                    </button>
+                    <span className="absolute bottom-1.5 text-[10px] font-bold text-slate-400 tracking-tight">Novo</span>
+                </div>
+
+                {/* Right Side */}
+                <div className="flex-1 flex justify-around h-full">
+                    {rightItems.map(item => (
+                        <button 
+                            key={item.id}
+                            onClick={() => onChange(item.id)}
+                            className={`flex flex-col items-center justify-center gap-1 w-full h-full transition-colors active:scale-95 ${view === item.id ? 'text-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            <div className={view === item.id ? 'bg-amber-500/10 p-1 rounded-lg' : 'p-1'}>
+                                {item.icon}
+                            </div>
+                            <span className="text-[10px] font-bold tracking-tight">{item.label}</span>
+                        </button>
+                    ))}
+                    
+                    {/* More Button */}
+                    <button 
+                        onClick={onOpenMore}
+                        className="flex flex-col items-center justify-center gap-1 w-full h-full text-slate-500 hover:text-slate-300 active:scale-95 transition-transform"
+                    >
+                        <div className="p-1"><MoreHorizontal size={20}/></div>
+                        <span className="text-[10px] font-bold tracking-tight">Mais</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export function AdminInterface(props: AdminProps) {
-    const [currentView, setCurrentView] = useState('dashboard');
-    const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [showManualOrder, setShowManualOrder] = useState(false);
-    const [showFleetPanel, setShowFleetPanel] = useState(false);
-    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-    const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-    const [showSimpleEdit, setShowSimpleEdit] = useState(false);
+    const [view, setView] = useState('dashboard'); // Alterado para iniciar no Dashboard por padrão no mobile
+    const [showFleet, setShowFleet] = useState(false);
+    const [showIntro, setShowIntro] = useState(true);
     
-    // NEW: Alert State
-    const [newOrderAlert, setNewOrderAlert] = useState<Order | null>(null);
-    const [receiptOrder, setReceiptOrder] = useState<Order | null>(null);
+    // Sidebar State
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
     
-    // Tracking for new orders
-    const processedOrderIds = useRef<Set<string>>(new Set());
-    const audioRef = useRef<HTMLAudioElement | null>(null);
+    // Estado para controle do Mapa
+    const [targetLocation, setTargetLocation] = useState<[number, number] | null>(null);
 
-    // Auto-center map on shop location if available
-    const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
+    // Initial load logic
+    useEffect(() => {
+        // No desktop, sidebar sempre aberta.
+        if (!props.isMobile) setIsSidebarOpen(true);
+    }, [props.isMobile]);
+
+    const activeDrivers = props.drivers.filter(d => d.status !== 'offline');
+    const pendingOrders = props.orders.filter(o => o.status === 'pending');
     
-    useEffect(() => {
-        if (props.appConfig?.location) {
-            setMapCenter([props.appConfig.location.lat, props.appConfig.location.lng]);
-        }
-    }, [props.appConfig]);
-
-    // Audio Init
-    useEffect(() => {
-        audioRef.current = new Audio(NOTIFICATION_SOUND);
-        props.orders.forEach(o => {
-            if (o.status === 'pending') processedOrderIds.current.add(o.id);
-        });
-    }, []);
-
-    // Monitoring Orders
-    useEffect(() => {
-        // ZOMBIE KILLER & AUDIO LOGIC
-        const pendingOrders = props.orders.filter(o => o.status === 'pending');
-        let hasNew = false;
-        let latestNewOrder: Order | null = null;
-
-        pendingOrders.forEach(order => {
-            // ZOMBIE SILENCER: Force ignore this specific zombie ID from ANY audio/modal triggers
-            if (order.id.includes('w8wSUDWOkyWnrL1UxfXC')) {
-                processedOrderIds.current.add(order.id); // Mark as processed so it never triggers new
-                return;
-            }
-
-            if (!processedOrderIds.current.has(order.id)) {
-                hasNew = true;
-                latestNewOrder = order;
-                processedOrderIds.current.add(order.id);
-            }
-        });
-
-        // PREVENT DOUBLE AUDIO: If Kitchen view is active, Admin suppresses its own sound, letting Kitchen handle it?
-        // Actually, KitchenDisplay sound logic is "pending count increased".
-        // Admin logic is "new order ID detected".
-        // To be safe and fix the "duplicated sound" issue:
-        // We will make AdminInterface the PRIMARY sound source for "New Order".
-        // And we will tell KitchenDisplay to SHUT UP via props.
-        
-        if (hasNew && latestNewOrder) {
-            setNewOrderAlert(latestNewOrder);
-            try {
-                // If we are NOT in kitchen view, play sound.
-                // If we ARE in kitchen view, KitchenDisplay might try to play sound.
-                // But KitchenDisplay logic relies on `count > prevCount`.
-                // Let's just play sound here consistently and disable KitchenDisplay sound.
-                audioRef.current?.play();
-                if ("vibrate" in navigator) navigator.vibrate([500, 200, 500]);
-            } catch (e) {
-                console.error("Audio play failed", e);
-            }
-        }
+    // Stats for Dashboard
+    const stats = useMemo(() => {
+        const today = new Date().toDateString();
+        const todaysOrders = props.orders.filter(o => o.createdAt && new Date(o.createdAt.seconds * 1000).toDateString() === today && o.status !== 'cancelled');
+        const revenue = todaysOrders.reduce((acc, o) => acc + (o.value || 0), 0);
+        return { count: todaysOrders.length, revenue };
     }, [props.orders]);
 
     const handleCenterMap = () => {
-        if (props.appConfig?.location) {
-            setMapCenter(null); 
-            setTimeout(() => setMapCenter([props.appConfig.location!.lat, props.appConfig.location!.lng]), 50);
-        } else {
-            alert("Localização da loja não configurada.");
-        }
+        const lat = props.appConfig.location?.lat || -23.55052;
+        const lng = props.appConfig.location?.lng || -46.633308;
+        setTargetLocation([lat, lng]);
     };
 
-    const handleLogout = () => { setShowLogoutConfirm(true); };
-    const handleAddDriver = () => { props.setDriverToEdit(null); props.setModal('driver'); };
-    const handleEditDriver = (driver: Driver) => { props.setDriverToEdit(driver); props.setModal('driver'); };
-    const handleSettleDriver = (driverId: string, data: any) => { const driver = props.drivers.find(d => d.id === driverId); if(driver) { props.setDriverToEdit(driver); props.setModalData(data); props.setModal('closeCycle'); } }
-
-    const renderContent = () => {
-        switch (currentView) {
-            case 'dashboard':
-                // ... (dashboard code)
-                return (
-                   <div className="relative w-full h-full overflow-hidden flex flex-col">
-                       <div className="flex-1 relative z-0">
-                           <MapContainer center={mapCenter || [-23.55052, -46.633308]} zoom={13} style={{ height: '100%', width: '100%' }} className="bg-slate-900" zoomControl={false} attributionControl={false}>
-                               <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' />
-                               <MapHandler targetLocation={mapCenter} zoomLevel={13} />
-                               {props.appConfig?.location && (<Marker position={[props.appConfig.location.lat, props.appConfig.location.lng]} icon={iconStore}><Popup className="custom-popup"><div className="text-center"><p className="font-bold">{props.appConfig.appName}</p><p className="text-xs">Sua Loja</p></div></Popup></Marker>)}
-                               {props.drivers.map(driver => ((driver.lat && driver.lng) ? (<Marker key={driver.id} position={[driver.lat, driver.lng]} icon={createDriverIcon(driver.avatar, driver.status, driver.lastUpdate)}><Popup><div className="text-center"><p className="font-bold">{driver.name}</p><p className="text-xs uppercase">{driver.status}</p><p className="text-[10px] mt-1">Bateria: {driver.battery}%</p></div></Popup></Marker>) : null))}
-                           </MapContainer>
-                           <div className="absolute top-4 left-4 right-4 z-[400] grid grid-cols-2 md:grid-cols-4 gap-3 pointer-events-none"><div className="pointer-events-auto"><StatBox label="Pedidos Hoje" value={props.orders.filter(o => { const d = new Date(o.createdAt?.seconds*1000); const n = new Date(); return d.getDate()===n.getDate() && d.getMonth()===n.getMonth(); }).length} icon={<ShoppingBag size={18}/>} /></div><div className="pointer-events-auto"><StatBox label="Online" value={props.drivers.filter(d => d.status !== 'offline').length} icon={<Bike size={18}/>} /></div><div className="pointer-events-auto"><StatBox label="Faturamento" value={formatCurrency(props.orders.filter(o => o.status === 'completed' && new Date(o.createdAt.seconds*1000).toDateString() === new Date().toDateString()).reduce((acc, c) => acc + (c.value || 0), 0))} icon={<DollarSign size={18}/>} /></div></div>
-                           <div className="absolute top-24 right-4 z-[400] flex flex-col gap-2"><button onClick={handleCenterMap} className="bg-slate-900 border border-slate-700 text-white p-3 rounded-xl shadow-xl hover:bg-slate-800 transition-colors" title="Centralizar Loja"><LocateFixed size={20} /></button><button onClick={() => setShowFleetPanel(!showFleetPanel)} className={`border p-3 rounded-xl shadow-xl transition-all ${showFleetPanel ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800'}`} title="Painel da Frota"><Bike size={20} /></button></div>
-                           {showFleetPanel && (<FleetSidebar drivers={props.drivers} orders={props.orders} settlements={props.settlements} vales={props.vales} onClose={() => setShowFleetPanel(false)} onAddDriver={handleAddDriver} onEditDriver={handleEditDriver} onSettle={handleSettleDriver} />)}
-                           
-                           {/* Developer Credits Overlay */}
-                           <div className="absolute bottom-6 right-1/2 translate-x-1/2 md:translate-x-0 md:right-4 md:bottom-4 z-[400] pointer-events-none">
-                                <div className="bg-slate-900/90 backdrop-blur border border-slate-800 px-6 py-3 rounded-2xl shadow-xl flex flex-col items-center justify-center">
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1 whitespace-nowrap">
-                                        Desenvolvido por <span className="text-amber-600 font-black">Jhan Houzer</span>
-                                    </p>
-                                    <p className="text-[9px] text-slate-600 font-medium whitespace-nowrap">
-                                        © Todos os direitos reservados 2026
-                                    </p>
-                                </div>
-                           </div>
-                       </div>
-                   </div>
-                );
-            case 'orders': return <DailyOrdersView orders={props.orders} drivers={props.drivers} onDeleteOrder={props.onDeleteOrder} setModal={props.setModal} onUpdateOrder={props.onUpdateOrder} appConfig={props.appConfig} />;
-            case 'menu': return <MenuManager products={props.products} inventory={props.inventory} onCreate={props.onCreateProduct} onUpdate={props.onUpdateProduct} onDelete={props.onDeleteProduct} />;
-            case 'clients': return <ClientsView clients={props.clients} orders={props.orders} giveawayEntries={props.giveawayEntries} setModal={props.setModal} setClientToEdit={props.setClientToEdit} appConfig={props.appConfig} />;
-            case 'kitchen': return (
-                <KitchenDisplay 
-                    orders={props.orders} 
-                    products={props.products} 
-                    drivers={props.drivers} 
-                    onUpdateStatus={props.onUpdateOrder} 
-                    onAssignOrder={props.onAssignOrder} 
-                    onDeleteOrder={props.onDeleteOrder} 
-                    appConfig={props.appConfig}
-                    onEditOrder={(order) => {
-                        setEditingOrder(order);
-                        setShowSimpleEdit(true);
-                    }}
-                    disableSound={true} // VITAL: Prevents double audio since AdminInterface already plays it!
-                />
-            );
-            case 'inventory': return <InventoryManager inventory={props.inventory} suppliers={props.suppliers} shoppingList={props.shoppingList} onCreateSupplier={props.onCreateSupplier} onUpdateSupplier={props.onUpdateSupplier} onDeleteSupplier={props.onDeleteSupplier} onCreateInventory={props.onCreateInventory} onUpdateInventory={props.onUpdateInventory} onDeleteInventory={props.onDeleteInventory} onAddShoppingItem={props.onAddShoppingItem} onToggleShoppingItem={props.onToggleShoppingItem} onDeleteShoppingItem={props.onDeleteShoppingItem} onClearShoppingList={props.onClearShoppingList} appConfig={props.appConfig} />;
-            case 'analytics': return <AnalyticsView orders={props.orders} products={props.products} />;
-            case 'reports': return <ItemReportView orders={props.orders} />;
-            default: return null;
-        }
+    // Função para fechar a sidebar ao clicar em um item (Mobile UX)
+    const handleMenuClick = (viewName: string) => {
+        setView(viewName);
+        if (props.isMobile) setIsSidebarOpen(false);
     };
+
+    if (showIntro) return <IntroAnimation appName={props.appConfig.appName} appLogo={props.appConfig.appLogoUrl} onComplete={() => setShowIntro(false)} />;
 
     return (
-        <div className="fixed inset-0 flex bg-slate-900 text-white overflow-hidden">
-            {/* Sidebar Desktop - WIDENED TO 72 */}
-            <div className="hidden md:flex w-72 flex-col bg-slate-900 border-r border-slate-800 z-50">
-                <div className="p-6 pb-8"><BrandLogo config={props.appConfig} /></div>
-                <div className="flex-1 overflow-y-auto px-6 space-y-3 custom-scrollbar">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider px-2 mt-2 mb-3">Principal</p>
-                    <SidebarBtn icon={<LayoutDashboard size={20}/>} label="Visão Geral" active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
-                    <SidebarBtn icon={<ShoppingBag size={20}/>} label="Pedidos" active={currentView === 'orders'} onClick={() => setCurrentView('orders')} />
-                    <SidebarBtn icon={<Utensils size={20}/>} label="Cardápio" active={currentView === 'menu'} onClick={() => setCurrentView('menu')} />
-                    <button onClick={() => { setEditingOrder(null); setShowManualOrder(true); }} className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-900 py-3 rounded-xl font-black text-sm shadow-lg shadow-amber-500/20 mb-4 mt-2 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] border border-amber-400/50"><PlusCircle size={20} className="text-slate-900"/> NOVO PEDIDO</button>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider px-2 mt-8 mb-3">Operacional</p>
-                    <SidebarBtn icon={<ChefHat size={20}/>} label="Cozinha (KDS)" active={currentView === 'kitchen'} onClick={() => setCurrentView('kitchen')} />
-                    <SidebarBtn icon={<Users size={20}/>} label="Clientes" active={currentView === 'clients'} onClick={() => setCurrentView('clients')} />
-                    <SidebarBtn icon={<Store size={20}/>} label="Estoque & Compras" active={currentView === 'inventory'} onClick={() => setCurrentView('inventory')} />
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider px-2 mt-8 mb-3">Gestão</p>
-                    <SidebarBtn icon={<BarChart3 size={20}/>} label="Analytics" active={currentView === 'analytics'} onClick={() => setCurrentView('analytics')} />
-                    <SidebarBtn icon={<FileText size={20}/>} label="Relatório de Itens" active={currentView === 'reports'} onClick={() => setCurrentView('reports')} />
-                    <SidebarBtn icon={<Settings size={20}/>} label="Configurações" active={false} onClick={() => props.setModal('settings')} />
+        <div className="flex h-screen bg-slate-950 text-white overflow-hidden font-sans">
+            
+            {/* OVERLAY MOBILE BACKGROUND (Fecha menu ao clicar fora) */}
+            {/* CORREÇÃO: Usando classes CSS para controle de visibilidade em vez de renderização condicional JS */}
+            <div 
+                className={`fixed inset-0 bg-black/60 z-40 backdrop-blur-sm transition-opacity duration-300 md:hidden ${isSidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                onClick={() => setIsSidebarOpen(false)}
+            />
+
+            {/* SIDEBAR (DRAWER no Mobile / FIXO no Desktop) */}
+            <div className={`
+                fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 border-r border-slate-800 shadow-2xl transform transition-transform duration-300 ease-in-out
+                ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+                md:relative md:translate-x-0 md:w-64 md:shadow-none
+                flex flex-col
+            `}>
+                <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+                    <BrandLogo config={props.appConfig} size="small" />
+                    {/* Botão X apenas no Mobile */}
+                    <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white bg-slate-800 p-2 rounded-lg"><X size={20}/></button>
                 </div>
-                <div className="p-4 border-t border-slate-800"><button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-colors text-sm font-bold"><LogOut size={18}/> Sair do Sistema</button></div>
-            </div>
+                
+                <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar pb-24">
+                    {/* SEÇÃO PRINCIPAL */}
+                    {/* Desktop: Mostra tudo. Mobile: Mostra o que não está embaixo + Menu (que saiu de baixo) */}
+                    <div className="md:block hidden">
+                        <div className="mb-2 px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Principal</div>
+                        <SidebarBtn icon={<LayoutDashboard size={20}/>} label="Visão Geral" active={view==='dashboard'} onClick={() => handleMenuClick('dashboard')}/>
+                        <SidebarBtn icon={<ClipboardList size={20}/>} label="Pedidos" active={view==='orders'} onClick={() => handleMenuClick('orders')}/>
+                        <SidebarBtn icon={<ChefHat size={20}/>} label="Cozinha (KDS)" active={view==='kitchen'} onClick={() => handleMenuClick('kitchen')}/>
+                        <SidebarBtn icon={<ShoppingBag size={20}/>} label="Cardápio" active={view==='menu'} onClick={() => handleMenuClick('menu')}/>
+                    </div>
 
-            {/* Mobile Header (Global) */}
-            <div className="md:hidden fixed top-0 left-0 right-0 z-[100] bg-slate-900 border-b border-slate-800 h-16 flex items-center px-4 justify-between shadow-lg">
-                <div className="flex items-center gap-3"><button onClick={() => setSidebarOpen(true)} className="text-slate-400 hover:text-white p-1"><MenuIcon size={24}/></button><span className="font-bold text-lg text-white truncate">{currentView === 'dashboard' ? 'Visão Geral' : currentView === 'orders' ? 'Pedidos' : currentView === 'menu' ? 'Cardápio' : currentView === 'kitchen' ? 'Cozinha' : currentView === 'clients' ? 'Clientes' : currentView === 'inventory' ? 'Estoque' : currentView === 'analytics' ? 'Relatórios' : 'Sistema'}</span></div>
-                <button onClick={() => { setEditingOrder(null); setShowManualOrder(true); }} className="bg-amber-500 text-slate-900 p-2 rounded-lg shadow-lg"><PlusCircle size={20}/></button>
-            </div>
+                    {/* MOBILE ONLY: CARDÁPIO (Saiu da barra inferior, veio pra cá) */}
+                    <div className="md:hidden block mb-4">
+                        <div className="mb-2 px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Acesso Rápido</div>
+                        <SidebarBtn icon={<ShoppingBag size={20}/>} label="Gerenciar Cardápio" active={view==='menu'} onClick={() => handleMenuClick('menu')}/>
+                    </div>
 
-            {/* Mobile Menu Overlay */}
-            {sidebarOpen && (<div className="fixed inset-0 z-[1000] bg-black/80 backdrop-blur-sm md:hidden" onClick={() => setSidebarOpen(false)}><div className="w-3/4 h-full bg-slate-900 p-6 flex flex-col border-r border-slate-800" onClick={e => e.stopPropagation()}><div className="flex justify-between items-center mb-8"><BrandLogo size="small" config={props.appConfig} /><button onClick={() => setSidebarOpen(false)} className="text-slate-400"><X size={24}/></button></div><div className="flex-1 overflow-y-auto space-y-2"><SidebarBtn icon={<LayoutDashboard size={20}/>} label="Visão Geral" active={currentView === 'dashboard'} onClick={() => { setCurrentView('dashboard'); setSidebarOpen(false); }} /><SidebarBtn icon={<ShoppingBag size={20}/>} label="Pedidos" active={currentView === 'orders'} onClick={() => { setCurrentView('orders'); setSidebarOpen(false); }} /><SidebarBtn icon={<Utensils size={20}/>} label="Cardápio" active={currentView === 'menu'} onClick={() => { setCurrentView('menu'); setSidebarOpen(false); }} /><button onClick={() => { setEditingOrder(null); setShowManualOrder(true); setSidebarOpen(false); }} className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-900 py-3 rounded-xl font-black text-sm shadow-lg shadow-amber-500/20 mb-2 mt-2 flex items-center justify-center gap-2 border border-amber-400/50"><PlusCircle size={20} className="text-slate-900"/> NOVO PEDIDO</button><SidebarBtn icon={<ChefHat size={20}/>} label="Cozinha (KDS)" active={currentView === 'kitchen'} onClick={() => { setCurrentView('kitchen'); setSidebarOpen(false); }} /><SidebarBtn icon={<Users size={20}/>} label="Clientes" active={currentView === 'clients'} onClick={() => { setCurrentView('clients'); setSidebarOpen(false); }} /><SidebarBtn icon={<Store size={20}/>} label="Estoque" active={currentView === 'inventory'} onClick={() => { setCurrentView('inventory'); setSidebarOpen(false); }} /><SidebarBtn icon={<BarChart3 size={20}/>} label="Relatórios" active={currentView === 'analytics'} onClick={() => { setCurrentView('analytics'); setSidebarOpen(false); }} /><SidebarBtn icon={<Settings size={20}/>} label="Configurações" active={false} onClick={() => { props.setModal('settings'); setSidebarOpen(false); }} /></div><div className="mt-4 pt-4 border-t border-slate-800 space-y-3"><button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 text-slate-400 py-2"><LogOut size={18}/> Sair</button></div></div></div>)}
+                    {/* BOTÃO NOVO PEDIDO - Apenas Desktop, pois Mobile tem botão central */}
+                    <div className="my-4 px-2 hidden md:block">
+                        <button 
+                            onClick={() => { setIsNewOrderOpen(true); }}
+                            className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black py-3 px-4 rounded-xl shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 transition-all active:scale-95 uppercase tracking-wide text-sm"
+                        >
+                            <PlusCircle size={20}/> Novo Pedido
+                        </button>
+                    </div>
+                    
+                    {/* SEÇÃO OPERACIONAL */}
+                    <div className="mb-2 px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-4">Operacional</div>
+                    <SidebarBtn icon={<Users size={20}/>} label="Clientes" active={view==='clients'} onClick={() => handleMenuClick('clients')}/>
+                    <SidebarBtn icon={<Store size={20}/>} label="Estoque & Compras" active={view==='inventory'} onClick={() => handleMenuClick('inventory')}/>
+                    
+                    {/* SEÇÃO GESTÃO */}
+                    <div className="mt-6 mb-2 px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Gestão</div>
+                    <SidebarBtn icon={<BarChart3 size={20}/>} label="Analytics" active={view==='analytics'} onClick={() => handleMenuClick('analytics')}/>
+                    <SidebarBtn icon={<FileText size={20}/>} label="Relatório de Itens" active={view==='reports'} onClick={() => handleMenuClick('reports')}/>
+                    <SidebarBtn icon={<Settings size={20}/>} label="Configurações" onClick={() => { props.setModal('settings'); if(props.isMobile) setIsSidebarOpen(false); }}/>
+                    
+                    <div className="mt-4 pt-4 border-t border-slate-800">
+                        <SidebarBtn icon={<LogOut size={20}/>} label="Sair do Sistema" onClick={props.onLogout}/>
+                    </div>
+                </div>
+                
+                <div className="p-4 border-t border-slate-800 bg-slate-950/50 md:flex hidden">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center font-bold text-xs border border-emerald-500/30">ON</div>
+                        <div>
+                            <p className="text-xs font-bold text-white">Loja Aberta</p>
+                            <p className="text-[10px] text-slate-500">Versão 2.8.0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             {/* Main Content */}
-            <div className="flex-1 relative overflow-hidden flex flex-col pt-16 md:pt-0">
-                {renderContent()}
+            <div className="flex-1 flex flex-col min-w-0 bg-slate-950 relative">
+                
+                {/* Mobile Header (Only visible on Mobile) */}
+                <div className="md:hidden p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center z-30 shadow-md">
+                    <div className="flex items-center gap-3">
+                        <BrandLogo config={props.appConfig} size="small" />
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                        {view === 'dashboard' && (
+                            <button onClick={() => setShowFleet(!showFleet)} className={`p-2 rounded-lg border ${showFleet ? 'bg-amber-500 text-slate-900 border-amber-400' : 'bg-slate-800 text-white border-slate-700'}`}>
+                                <Bike size={20}/>
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Dynamic Views - Added Padding Bottom for Mobile Nav */}
+                <div className="flex-1 overflow-hidden relative md:pb-0 pb-20">
+                    {view === 'dashboard' && (
+                        <div className="absolute inset-0 flex flex-col">
+                            {/* Map Layer */}
+                            <div className="flex-1 relative z-0 bg-slate-900">
+                                <MapContainer center={[-23.55052, -46.633308]} zoom={13} style={{ height: '100%', width: '100%', background: '#020617' }} zoomControl={false}>
+                                    <TileLayer 
+                                        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
+                                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                                    />
+                                    {/* Store Marker */}
+                                    <Marker position={[props.appConfig.location?.lat || -23.55052, props.appConfig.location?.lng || -46.633308]} icon={iconStore}>
+                                        <Popup className="custom-popup">
+                                            <div className="text-center">
+                                                <strong className="text-lg text-slate-900">{props.appConfig.appName}</strong>
+                                                <p className="text-xs text-slate-500">Loja Principal</p>
+                                            </div>
+                                        </Popup>
+                                    </Marker>
+                                    
+                                    {/* Drivers Markers */}
+                                    {activeDrivers.map(d => (
+                                        <Marker key={d.id} position={[d.lat || 0, d.lng || 0]} icon={createDriverIcon(d.avatar, d.status, d.lastUpdate)}>
+                                            <Popup>
+                                                <div className="text-center">
+                                                    <strong>{d.name}</strong>
+                                                    <p>{d.status}</p>
+                                                </div>
+                                            </Popup>
+                                        </Marker>
+                                    ))}
+                                    <MapHandler targetLocation={targetLocation} zoomLevel={15} />
+                                </MapContainer>
+                                
+                                {/* Overlay Stats */}
+                                <div className="absolute top-4 left-4 right-4 z-[400] grid grid-cols-2 md:grid-cols-4 gap-3 pointer-events-none">
+                                    <div className="pointer-events-auto"><StatBox label="Vendas Hoje" value={formatCurrency(stats.revenue)} icon={<DollarSign size={18}/>} color="bg-emerald-500 text-white"/></div>
+                                    <div className="pointer-events-auto"><StatBox label="Pedidos" value={stats.count} icon={<ShoppingBag size={18}/>} color="bg-blue-500 text-white"/></div>
+                                    <div className="hidden md:block pointer-events-auto"><StatBox label="Online" value={activeDrivers.length} icon={<Bike size={18}/>} color="bg-amber-500 text-white"/></div>
+                                    <div className="hidden md:block pointer-events-auto"><StatBox label="Pendentes" value={pendingOrders.length} icon={<Clock size={18}/>} color="bg-red-500 text-white"/></div>
+                                </div>
+
+                                {/* Floating Fleet Button (Desktop) */}
+                                <div className="absolute bottom-6 right-6 z-[400] hidden md:block">
+                                    <button onClick={() => setShowFleet(!showFleet)} className="bg-slate-900 border border-slate-700 text-white p-4 rounded-full shadow-2xl hover:bg-slate-800 transition-transform hover:scale-110 flex items-center justify-center">
+                                        <Bike size={24}/>
+                                    </button>
+                                </div>
+
+                                {/* Floating Center Map Button (Visible on Mobile now too) */}
+                                <div className="absolute bottom-24 md:bottom-6 right-4 md:right-24 z-[400]">
+                                    <button 
+                                        onClick={handleCenterMap} 
+                                        className="bg-slate-900 border border-slate-700 text-white p-4 rounded-full shadow-2xl hover:bg-slate-800 transition-transform hover:scale-110 flex items-center justify-center group relative"
+                                    >
+                                        <Crosshair size={24} className="group-hover:text-emerald-400 transition-colors"/>
+                                        <span className="hidden md:block absolute right-full mr-3 bg-slate-900 text-white text-xs px-2 py-1 rounded border border-slate-700 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                            Centralizar Loja
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {/* Fleet Sidebar Overlay */}
+                            {showFleet && (
+                                <FleetSidebar 
+                                    drivers={props.drivers} 
+                                    orders={props.orders}
+                                    vales={props.vales}
+                                    settlements={props.settlements}
+                                    onClose={() => setShowFleet(false)}
+                                    onAddDriver={() => props.setModal('driver')}
+                                    onEditDriver={props.setDriverToEdit}
+                                    onSettle={(id: string, data: any) => { props.setDriverToEdit(props.drivers.find(d=>d.id===id)||null); props.setModalData(data); props.setModal('closeCycle'); }}
+                                />
+                            )}
+                        </div>
+                    )}
+
+                    {view === 'kitchen' && (
+                        <KitchenDisplay 
+                            orders={props.orders} 
+                            products={props.products}
+                            drivers={props.drivers}
+                            onUpdateStatus={(id, status) => props.onUpdateOrder(id, status)}
+                            onAssignOrder={props.onAssignOrder}
+                            onDeleteOrder={props.onDeleteOrder}
+                            appConfig={props.appConfig}
+                            onEditOrder={(order) => { 
+                                props.setModalData(order); 
+                            }}
+                        />
+                    )}
+
+                    {view === 'menu' && (
+                        <MenuManager 
+                            products={props.products} 
+                            inventory={props.inventory}
+                            onCreate={props.onCreateProduct}
+                            onUpdate={props.onUpdateProduct}
+                            onDelete={props.onDeleteProduct}
+                        />
+                    )}
+
+                    {view === 'orders' && (
+                        <DailyOrdersView 
+                            orders={props.orders} 
+                            drivers={props.drivers}
+                            onDeleteOrder={props.onDeleteOrder}
+                            setModal={props.setModal}
+                            onUpdateOrder={props.onUpdateOrder}
+                            appConfig={props.appConfig}
+                        />
+                    )}
+
+                    {view === 'clients' && (
+                        <ClientsView 
+                            clients={props.clients} 
+                            orders={props.orders}
+                            giveawayEntries={props.giveawayEntries}
+                            setModal={props.setModal}
+                            setClientToEdit={props.setClientToEdit}
+                            appConfig={props.appConfig}
+                        />
+                    )}
+
+                    {view === 'inventory' && (
+                        <InventoryManager 
+                            inventory={props.inventory}
+                            suppliers={props.suppliers}
+                            shoppingList={props.shoppingList}
+                            onCreateSupplier={props.onCreateSupplier}
+                            onUpdateSupplier={props.onUpdateSupplier}
+                            onDeleteSupplier={props.onDeleteSupplier}
+                            onCreateInventory={props.onCreateInventory}
+                            onUpdateInventory={props.onUpdateInventory}
+                            onDeleteInventory={props.onDeleteInventory}
+                            onAddShoppingItem={props.onAddShoppingItem}
+                            onToggleShoppingItem={props.onToggleShoppingItem}
+                            onDeleteShoppingItem={props.onDeleteShoppingItem}
+                            onClearShoppingList={props.onClearShoppingList}
+                            appConfig={props.appConfig}
+                        />
+                    )}
+
+                    {view === 'analytics' && (
+                        <AnalyticsView orders={props.orders} products={props.products} />
+                    )}
+                    
+                    {view === 'reports' && (
+                         <ItemReportView orders={props.orders} />
+                    )}
+                </div>
+                
+                {/* BOTTOM NAVIGATION FOR MOBILE */}
+                <BottomNavigation 
+                    view={view} 
+                    onChange={setView} 
+                    onOpenMore={() => setIsSidebarOpen(true)}
+                    onNewOrder={() => setIsNewOrderOpen(true)}
+                />
             </div>
 
-            {/* Modals */}
-            {showManualOrder && (
+            {/* Modal Novo Pedido */}
+            {isNewOrderOpen && (
                 <ManualOrderView 
                     products={props.products} 
                     clients={props.clients} 
                     onCreateOrder={props.onCreateOrder} 
-                    onClose={() => { setShowManualOrder(false); setEditingOrder(null); }} 
-                    appConfig={props.appConfig} 
+                    onClose={() => setIsNewOrderOpen(false)} 
+                    appConfig={props.appConfig}
                 />
             )}
-            
-            {showSimpleEdit && editingOrder && (
-                <EditOrderModal 
-                    order={editingOrder} 
-                    onClose={() => { setShowSimpleEdit(false); setEditingOrder(null); }} 
-                    onSave={props.onUpdateOrder} 
-                />
-            )}
-            
-            {newOrderAlert && (
-                <NewOrderModal 
-                    order={newOrderAlert} 
-                    onClose={() => setNewOrderAlert(null)}
-                    onAccept={() => {
-                        props.onUpdateOrder(newOrderAlert.id, { status: 'preparing' });
-                        setNewOrderAlert(null);
-                        setCurrentView('kitchen'); // Redireciona para KDS ao aceitar
-                    }}
-                    onPrint={() => {
-                        setReceiptOrder(newOrderAlert);
-                        setNewOrderAlert(null);
-                        setCurrentView('kitchen'); // Redireciona para KDS ao imprimir/aceitar
-                    }}
-                />
-            )}
-
-            {receiptOrder && (
-                <ReceiptModal 
-                    order={receiptOrder} 
-                    onClose={() => setReceiptOrder(null)} 
-                    appConfig={props.appConfig} 
-                />
-            )}
-
-            {props.modal === 'dispatch' && props.modalData && (
-                <DispatchSuccessModal 
-                    data={props.modalData} 
-                    onClose={() => props.setModal(null)} 
-                    appName={props.appConfig.appName}
-                />
-            )}
-            
-            {props.modal === 'productionSuccess' && props.modalData && (
-                <ProductionSuccessModal 
-                    order={props.modalData} 
-                    onClose={() => props.setModal(null)}
-                    appName={props.appConfig.appName}
-                />
-            )}
-
-            {showLogoutConfirm && (
-                <GenericConfirmModal
-                    isOpen={true}
-                    title="Sair do Sistema?"
-                    message="Deseja realmente desconectar da sua conta de administrador?"
-                    onClose={() => setShowLogoutConfirm(false)}
-                    onConfirm={() => {
-                        props.onLogout();
-                        setShowLogoutConfirm(false);
-                    }}
-                    confirmText="Sair Agora"
-                    type="danger"
-                />
-            )}
-
-            <IntroAnimation appName={props.appConfig?.appName} appLogo={props.appConfig?.appLogoUrl} onComplete={() => {}} />
         </div>
     );
 }

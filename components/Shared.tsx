@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Utensils } from 'lucide-react';
 import { AppConfig } from '../types';
@@ -21,7 +22,8 @@ export const BrandLogo = ({ size = 'normal', dark = false, config }: { size?: 's
                 </div>
             )}
             
-            <div className="flex flex-col leading-none items-start gap-1.5">
+            {/* Oculta o texto no mobile se estiver dentro da sidebar compacta (controlado pelo pai ou classes globais se necessário, mas aqui deixamos flexível) */}
+            <div className="flex flex-col leading-none items-start gap-1.5 md:flex hidden">
                 <span>{appName}</span>
                 {size !== 'small' && <span className={`text-[0.4em] uppercase tracking-widest text-left ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Delivery System</span>}
             </div>
@@ -33,16 +35,17 @@ export function SidebarBtn({ icon, label, active, onClick, highlight }: any) {
   return (
     <button 
         onClick={onClick} 
-        className={`w-full flex items-center gap-4 p-3.5 rounded-xl transition-all border-2 
+        className={`w-full flex items-center justify-start gap-4 p-3.5 rounded-xl transition-all border-2 
         ${active 
             ? 'bg-slate-800 border-slate-700 text-white shadow-md' // Active: Dark Gray, firm border
             : highlight 
                 ? 'bg-white/5 text-white border-white/10 hover:bg-white/10' // Highlight: Transparent bg, light border
                 : 'border-transparent text-slate-400 hover:bg-slate-800 hover:text-white' // Default: Transparent border
         }`}
+        title={label} 
     >
-      <div className={active ? 'text-emerald-500' : highlight ? 'text-amber-400' : 'text-current'}>{icon}</div>
-      <span className="font-medium text-sm">{label}</span>
+      <div className={`shrink-0 ${active ? 'text-emerald-500' : highlight ? 'text-amber-400' : 'text-current'}`}>{icon}</div>
+      <span className="font-medium text-sm block">{label}</span>
     </button>
   );
 }

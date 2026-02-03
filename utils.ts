@@ -238,20 +238,22 @@ export const formatOrderId = (id: string) => {
     return '#' + cleanId;
 };
 
-// EMOJIS SEGUROS
+// EMOJIS SEGUROS (Literais)
 export const EMOJI = {
-    GIFT: '\uD83C\uDF81',         // 🎁
-    HEART: '\u2764\uFE0F',        // ❤️
-    BURGER: '\uD83C\uDF54',       // 🍔
-    WAVE: '\uD83D\uDC4B',         // 👋
-    SMILE_HEARTS: '\uD83E\uDD70', // 🥰
-    MONEY_BAG: '\uD83D\uDCB0',    // 💰
-    WARNING: '\u26A0\uFE0F',      // ⚠️
-    SMILE: '\uD83D\uDE00',        // 😀
-    SCOOTER: '\uD83D\uDEF5',      // 🛵
-    DASH: '\uD83D\uDCA8',         // 💨
-    CHEF: '\uD83D\uDC68\u200D\uD83C\uDF73', // 👨‍🍳
-    FIRE: '\uD83D\uDD25'          // 🔥
+    GIFT: '🎁',
+    HEART: '❤️',
+    BURGER: '🍔',
+    WAVE: '👋',
+    SMILE_HEARTS: '🥰',
+    MONEY_BAG: '💰',
+    WARNING: '⚠️',
+    SMILE: '😀',
+    SCOOTER: '🛵',
+    DASH: '💨',
+    CHEF: '👨‍🍳',
+    FIRE: '🔥',
+    STARS: '✨',
+    WRITE: '📝'
 };
 
 export const generateReceiptText = (order: any, appName: string, pixData?: any) => {
@@ -390,19 +392,19 @@ export const getOrderReceivedText = (order: any, appName: string) => {
     const safeName = appName || 'Jhans Burgers';
     const isPix = order.paymentMethod?.toLowerCase().includes('pix');
     const displayId = formatOrderId(order.id);
+    const customerName = order.customer.split(' ')[0]; // Primeiro nome
     
     // Formata a lista de itens removendo separadores visuais (---) para ficar mais limpo no WhatsApp
-    // Assumindo que order.items é uma string.
     const itemsFormatted = order.items
         .split('\n')
         .filter((line: string) => line.trim() !== '' && !line.includes('---'))
         .map((line: string) => {
-            if (line.toLowerCase().startsWith('obs:')) return `   _(${line})_`; // Indenta e italico na Obs
+            if (line.toLowerCase().startsWith('obs:')) return `   _(${line})_`; 
             return `▪️ ${line.trim()}`;
         })
         .join('\n');
 
-    return `Olá *${order.customer}*! ${EMOJI.WAVE}\nRecebemos seu pedido no *${safeName}*!\n\n*PEDIDO ${displayId}*\n\n*📝 O que você pediu:*\n${itemsFormatted}\n\n*💰 Total:* ${formatCurrency(order.value)}\n*💳 Pagamento:* ${order.paymentMethod || 'Dinheiro'}\n\n*Tudo certo!* ${EMOJI.SMILE_HEARTS}\nJá vamos começar a preparar com muito carinho.\n${isPix ? `\n${EMOJI.WARNING} *Aguardando Comprovante PIX*\n` : ''}\n${EMOJI.SCOOTER} Assim que sair para entrega te avisamos aqui!`;
+    return `Olá *${customerName}*! Tudo bem? ${EMOJI.SMILE_HEARTS}\n\nQue alegria ter você por aqui! Recebemos seu pedido no *${safeName}* com muito carinho! ${EMOJI.HEART}\n\n*PEDIDO ${displayId}*\n\n*${EMOJI.WRITE} O que vamos preparar para você:*\n${itemsFormatted}\n\n*${EMOJI.MONEY_BAG} Total:* ${formatCurrency(order.value)}\n*💳 Pagamento:* ${order.paymentMethod || 'Dinheiro'}\n\n*Tudo certinho!* ${EMOJI.STARS}\nJá enviamos para a cozinha. Agora é só aguardar!\n${isPix ? `\n${EMOJI.WARNING} *Se for PIX, envie o comprovante para agilizar!*\n` : ''}\n${EMOJI.SCOOTER} Assim que sair para entrega te avisamos aqui. Obrigado pela preferência!`;
 };
 
 export const sendOrderConfirmation = (order: any, appName: string) => {
