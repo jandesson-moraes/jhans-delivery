@@ -5,7 +5,7 @@ import { formatCurrency, checkShopStatus, normalizePhone, generatePixPayload, co
 import { 
     ShoppingCart, Plus, Minus, X, MessageCircle, ChevronRight, 
     Search, Utensils, Phone, User, Store, Gift, Lock, Bike,
-    MapPin, Navigation, CreditCard, Banknote, ArrowLeft, Clock, Copy, QrCode, AlertTriangle, CalendarClock, CheckCircle2, Home, Check
+    MapPin, Navigation, CreditCard, Banknote, ArrowLeft, Clock, Copy, QrCode, AlertTriangle, CalendarClock, CheckCircle2, Home, Check, Sparkles, Trophy, Flame, Timer, Ticket, Instagram, Edit
 } from 'lucide-react';
 import { Footer, PixIcon } from './Shared';
 
@@ -42,6 +42,7 @@ export default function ClientInterface({
     // UI Feedback States
     const [showCopyFeedback, setShowCopyFeedback] = useState(false);
     const [showPixCodeFeedback, setShowPixCodeFeedback] = useState(false);
+    const [giveawayCopyFeedback, setGiveawayCopyFeedback] = useState(false);
     
     // Confirmation Modal
     const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -53,8 +54,10 @@ export default function ClientInterface({
 
     // Giveaway
     const [showGiveaway, setShowGiveaway] = useState(false);
+    const [showGiveawaySuccess, setShowGiveawaySuccess] = useState(false); // Novo modal de sucesso
     const [giveawayName, setGiveawayName] = useState('');
     const [giveawayPhone, setGiveawayPhone] = useState('');
+    const [giveawayInsta, setGiveawayInsta] = useState('');
 
     // Shop Status
     const shopStatus = checkShopStatus(appConfig.schedule);
@@ -235,9 +238,39 @@ export default function ClientInterface({
     
     const handleGiveawaySubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onEnterGiveaway({ name: giveawayName, phone: giveawayPhone });
+        // Validar se colocou o @ no instagram, se não, adiciona
+        const formattedInsta = giveawayInsta.trim().startsWith('@') ? giveawayInsta.trim() : '@' + giveawayInsta.trim();
+        
+        onEnterGiveaway({ 
+            name: giveawayName, 
+            phone: giveawayPhone,
+            instagram: formattedInsta
+        });
         setShowGiveaway(false);
-        alert("Participação confirmada! Boa sorte.");
+        setShowGiveawaySuccess(true);
+    };
+
+    const getGiveawayText = () => {
+        let waText = `*🎟️ INSCRIÇÃO SORTEIO - ${appConfig.appName}*\n\n`;
+        waText += `*Nome:* ${giveawayName}\n`;
+        waText += `*Telefone:* ${giveawayPhone}\n`;
+        waText += `*Instagram:* ${giveawayInsta}\n\n`;
+        waText += `✅ Confirmo que segui as regras (Seguir + Marcar Amigo).\n`;
+        waText += `Quero confirmar minha participação no sorteio do Combo Casal Clássico! 🍀`;
+        return waText;
+    };
+
+    const handleSendGiveawayToWhatsApp = () => {
+        const waText = getGiveawayText();
+        const waUrl = `https://wa.me/${appConfig.storeCountryCode?.replace('+','')||'55'}${appConfig.storePhone?.replace(/\D/g, '')}?text=${encodeURIComponent(waText)}`;
+        window.open(waUrl, '_blank');
+        setShowGiveawaySuccess(false);
+    };
+
+    const handleCopyGiveawayText = () => {
+        copyToClipboard(getGiveawayText());
+        setGiveawayCopyFeedback(true);
+        setTimeout(() => setGiveawayCopyFeedback(false), 2000);
     };
 
     // FUNÇÕES DE CÓPIA COM FEEDBACK
@@ -522,53 +555,68 @@ export default function ClientInterface({
                         Peça agora mesmo! 🍔
                     </h1>
 
-                    {/* Promo Card with Dynamic Banner */}
-                    <div className="bg-[#7f1d1d]/90 border border-red-500/30 rounded-2xl p-6 relative overflow-hidden shadow-2xl backdrop-blur-sm group min-h-[180px] flex flex-col justify-center">
-                        <div className="absolute right-[-40px] top-[-40px] w-48 h-48 bg-orange-500/20 rounded-full blur-3xl group-hover:bg-orange-500/30 transition-colors"></div>
+                    {/* ✨✨ NOVO BANNER PREMIUM DE SORTEIO (AJUSTADO/COMPACTADO) ✨✨ */}
+                    <div className="relative group cursor-pointer" onClick={() => setShowGiveaway(true)}>
+                        {/* Glow Effect Background */}
+                        <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 via-orange-600 to-red-600 rounded-3xl blur opacity-30 group-hover:opacity-60 transition duration-1000 animate-pulse"></div>
                         
-                        <div className="flex flex-col md:flex-row items-center justify-between relative z-10 gap-6">
-                            <div className="text-center md:text-left flex-1">
-                                <span className="inline-flex items-center gap-1 bg-amber-500 text-slate-900 text-[10px] font-black px-3 py-1 rounded-full mb-3 uppercase tracking-wider shadow-sm">
-                                    🔥 Sorteio Oficial
-                                </span>
-                                <h2 className="text-3xl font-black text-white italic tracking-tight mb-1">
-                                    COMBO CASAL <span className="text-amber-400">CLASSIC</span>
-                                </h2>
-                                <p className="text-red-100 text-xs font-bold mb-5 flex items-center justify-center md:justify-start gap-1.5 opacity-90">
-                                    <Gift size={14} className="text-amber-400"/> Concorra a 2 Burgers + Batata + Refri!
-                                </p>
-                                <button 
-                                    onClick={() => setShowGiveaway(true)}
-                                    className="bg-emerald-500 hover:bg-emerald-400 text-white font-black py-3 px-8 rounded-full text-xs uppercase tracking-wide shadow-lg shadow-emerald-900/30 transition-transform active:scale-95 flex items-center gap-2 mx-auto md:mx-0"
-                                >
-                                    QUERO PARTICIPAR <ChevronRight size={14} strokeWidth={3}/>
-                                </button>
-                            </div>
-                            
-                            {/* IMAGEM DINÂMICA DO BANNER */}
-                            <div className="shrink-0 relative">
-                                {appConfig.bannerUrl ? (
-                                    <div className="relative group-hover:scale-105 transition-transform duration-500">
-                                        <div className="absolute inset-0 bg-black/20 rounded-xl transform rotate-6"></div>
-                                        <img 
-                                            src={appConfig.bannerUrl} 
-                                            alt="Promo Banner" 
-                                            className="w-40 h-40 md:w-48 md:h-48 object-cover rounded-xl shadow-2xl border-2 border-white/20 transform rotate-3 relative z-10"
-                                        />
-                                        <span className="absolute -bottom-2 -left-2 z-20 bg-[#ef4444] text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/20 whitespace-nowrap shadow-lg">Oferta!</span>
+                        <div className="relative bg-[#1a0505] rounded-2xl p-1 overflow-hidden border border-amber-500/30 shadow-2xl">
+                            {/* Inner Content Background with Radial Gradient */}
+                            <div className="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-red-900/40 via-[#1a0505] to-[#0f0202] rounded-xl p-4 relative overflow-hidden flex flex-col justify-center min-h-[140px]">
+                                
+                                {/* Animated Background Particles (CSS only approach using arbitrary positions) */}
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-amber-600/10 blur-[80px] animate-pulse rounded-full pointer-events-none"></div>
+                                <div className="absolute bottom-0 left-0 w-40 h-40 bg-red-600/10 blur-[60px] animate-bounce rounded-full pointer-events-none" style={{animationDuration: '5s'}}></div>
+
+                                {/* Floating Icons */}
+                                <div className="absolute top-2 right-2 text-amber-400 animate-bounce" style={{animationDuration: '3s'}}>
+                                    <Sparkles size={16} fill="currentColor" className="opacity-80"/>
+                                </div>
+
+                                <div className="relative z-10 flex flex-row items-center justify-between gap-4">
+                                    <div className="flex-1 space-y-1">
+                                        <div className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-[#1a0505] px-2 py-0.5 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.4)] animate-pulse mb-1">
+                                            <Flame size={10} fill="currentColor"/>
+                                            <span className="text-[9px] font-black uppercase tracking-widest">Sorteio Oficial</span>
+                                        </div>
+                                        
+                                        <h2 className="text-xl md:text-2xl font-black text-white leading-tight italic drop-shadow-xl">
+                                            COMBO CASAL <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500">CLÁSSICO</span>
+                                        </h2>
+                                        
+                                        <p className="text-slate-300 text-[10px] font-medium max-w-xs leading-relaxed opacity-90 hidden md:block">
+                                            Concorra a 2 Hambúrgueres Artesanais + Batata Grande + Refri! Resultado ao vivo.
+                                        </p>
+
+                                        <div className="pt-2">
+                                            <button className="relative overflow-hidden bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black py-2 px-6 rounded-full shadow-[0_0_30px_rgba(245,158,11,0.3)] hover:shadow-[0_0_50px_rgba(245,158,11,0.6)] transform hover:scale-105 transition-all duration-300 group">
+                                                <span className="relative z-10 flex items-center gap-2 text-[10px] uppercase tracking-widest">
+                                                    PARTICIPAR <ChevronRight size={12} strokeWidth={3}/>
+                                                </span>
+                                            </button>
+                                        </div>
                                     </div>
-                                ) : (
-                                    <div className="animate-bounce-slow transform rotate-12 hover:rotate-0 transition-transform duration-500 relative">
-                                        <Gift size={80} className="text-amber-400 drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)]"/>
-                                        <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-[#ef4444] text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/20 whitespace-nowrap">Grátis!</span>
+
+                                    {/* Dynamic Image/Icon Area - Compact */}
+                                    <div className="shrink-0 relative w-24 h-24 flex items-center justify-center">
+                                        {appConfig.bannerUrl ? (
+                                            <div className="relative group-hover:scale-110 transition-transform duration-500 ease-out">
+                                                <div className="absolute inset-0 bg-amber-500/20 rounded-full blur-xl animate-pulse"></div>
+                                                <img 
+                                                    src={appConfig.bannerUrl} 
+                                                    alt="Promo" 
+                                                    className="w-full h-full object-cover rounded-2xl shadow-2xl border-2 border-amber-500/30 transform rotate-3 hover:rotate-0 transition-all"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="relative group-hover:scale-110 transition-transform duration-500">
+                                                <div className="absolute inset-0 bg-amber-500/20 rounded-full blur-xl animate-pulse"></div>
+                                                <Gift size={60} className="text-amber-400 drop-shadow-[0_10px_20px_rgba(245,158,11,0.5)] relative z-10 animate-bounce" style={{animationDuration: '3s'}}/>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
+                                </div>
                             </div>
-                        </div>
-                        <div className="mt-6 pt-3 border-t border-white/10 text-center md:text-left">
-                            <p className="text-[10px] font-mono text-red-200/70 bg-black/20 inline-block px-3 py-1 rounded-lg">
-                                📸 Sorteio: Quarta-feira 04/02/26 às 19h @jhansburgers
-                            </p>
                         </div>
                     </div>
                 </div>
@@ -680,29 +728,79 @@ export default function ClientInterface({
                 </div>
             )}
 
-            {/* Giveaway Modal */}
+            {/* Giveaway Modal (Form) - Updated to Amber/Orange Theme */}
             {showGiveaway && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in">
-                    <div className="bg-slate-900 w-full max-w-md rounded-3xl border border-purple-500/50 p-8 shadow-2xl relative">
+                    <div className="bg-slate-900 w-full max-w-md rounded-3xl border border-amber-500/50 p-8 shadow-2xl relative">
                         <button onClick={() => setShowGiveaway(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white p-2"><X size={24}/></button>
-                        <div className="text-center mb-6">
-                            <div className="w-20 h-20 bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-4 border border-purple-500/30">
-                                <Gift size={40} className="text-purple-400"/>
+                        <div className="text-center mb-4">
+                            <div className="w-20 h-20 bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-500/30">
+                                <Gift size={40} className="text-amber-400"/>
                             </div>
                             <h3 className="text-2xl font-black text-white uppercase italic">Sorteio da Casa</h3>
-                            <p className="text-slate-400 text-sm mt-2">Cadastre-se para concorrer a prêmios exclusivos!</p>
+                            <p className="text-slate-400 text-sm mt-1">Preencha para participar!</p>
+                        </div>
+
+                        {/* REGRAS OBRIGATÓRIAS */}
+                        <div className="bg-amber-900/20 p-3 rounded-lg mb-4 border border-amber-500/20 text-center">
+                           <p className="text-amber-400 text-xs font-bold uppercase mb-1 flex items-center justify-center gap-1"><AlertTriangle size={12}/> Regras Obrigatórias</p>
+                           <ul className="text-slate-300 text-xs space-y-1">
+                              <li>1. Seguir nosso Instagram</li>
+                              <li>2. Marcar seu par na <b>FOTO OFICIAL</b></li>
+                           </ul>
                         </div>
                         
-                        <form onSubmit={handleGiveawaySubmit} className="space-y-4">
-                             <input required placeholder="Seu Nome" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-purple-500 transition-colors" value={giveawayName} onChange={e => setGiveawayName(e.target.value)} />
-                             <input required placeholder="Seu WhatsApp" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-purple-500 transition-colors" value={giveawayPhone} onChange={e => setGiveawayPhone(e.target.value)} />
-                             <button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 text-white font-black py-4 rounded-xl shadow-lg mt-2 uppercase tracking-wide">Quero Participar</button>
+                        <form onSubmit={handleGiveawaySubmit} className="space-y-3">
+                             <input required placeholder="Seu Nome" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-amber-500 transition-colors" value={giveawayName} onChange={e => setGiveawayName(e.target.value)} />
+                             <input required placeholder="Seu WhatsApp" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-amber-500 transition-colors" value={giveawayPhone} onChange={e => setGiveawayPhone(e.target.value)} />
+                             
+                             <div className="relative">
+                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><Instagram size={18}/></div>
+                                <input required placeholder="@seu.instagram" className="w-full bg-slate-950 border border-slate-800 rounded-xl py-4 pl-12 pr-4 text-white outline-none focus:border-amber-500 transition-colors" value={giveawayInsta} onChange={e => setGiveawayInsta(e.target.value)} />
+                             </div>
+
+                             <button type="submit" className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black py-4 rounded-xl shadow-lg mt-2 uppercase tracking-wide">Quero Participar</button>
                         </form>
                     </div>
                 </div>
             )}
 
-            {/* SUCCESS / SEND MODAL */}
+            {/* Giveaway Success Modal */}
+            {showGiveawaySuccess && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in zoom-in duration-300">
+                    <div className="bg-slate-900 w-full max-w-md rounded-3xl border border-emerald-500/30 shadow-[0_0_50px_rgba(16,185,129,0.2)] p-8 relative overflow-hidden text-center">
+                        <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-emerald-500/10">
+                            <Ticket size={48} className="text-emerald-400 animate-bounce"/>
+                        </div>
+
+                        <h2 className="text-3xl font-black text-white italic uppercase tracking-wide mb-2">
+                            Inscrição Realizada!
+                        </h2>
+                        
+                        <p className="text-slate-400 text-sm mb-8 leading-relaxed">
+                            Boa sorte! Para validar sua participação, envie a confirmação para nosso WhatsApp.
+                        </p>
+
+                        <div className="space-y-3">
+                            <button 
+                                onClick={handleSendGiveawayToWhatsApp}
+                                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl shadow-lg shadow-emerald-900/30 transition-all active:scale-95 flex items-center justify-center gap-3 text-sm uppercase tracking-wider"
+                            >
+                                <MessageCircle size={24}/> Confirmar no WhatsApp
+                            </button>
+                            
+                            <button 
+                                onClick={() => { setShowGiveawaySuccess(false); setShowGiveaway(true); }}
+                                className="w-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white font-bold py-3 rounded-xl border border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-2 text-xs uppercase tracking-wide"
+                            >
+                                <Edit size={14}/> Corrigir Dados
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* SUCCESS / SEND MODAL (ORDER) */}
             {showSuccessModal && lastOrderData && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in zoom-in duration-300">
                     <div className="bg-slate-900 w-full max-w-md rounded-3xl border border-emerald-500/30 shadow-[0_0_50px_rgba(16,185,129,0.2)] p-8 relative overflow-hidden text-center">

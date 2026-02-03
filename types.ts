@@ -185,6 +185,7 @@ export interface GiveawayEntry {
     id: string;
     name: string;
     phone: string;
+    instagram?: string; // Novo campo
     createdAt: any;
     confirmed: boolean; // Se clicou no botão de zap
 }
