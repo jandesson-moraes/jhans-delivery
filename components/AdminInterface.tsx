@@ -99,7 +99,7 @@ interface AdminProps {
     onClearShoppingList: () => void;
     setAppConfig: (config: AppConfig) => void;
     modal: any;
-    modalData: any; // Adicionado para corrigir erro de tipagem
+    modalData: any; 
 }
 
 const GIVEAWAY_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3';
@@ -773,7 +773,6 @@ export function AdminInterface(props: AdminProps) {
                 />
             )}
 
-            {/* FALTAVAM ESTES MODAIS PARA FUNCIONAR CORRETAMENTE */}
             {props.modal === 'dispatch' && props.modalData && (
                 <DispatchSuccessModal 
                     data={props.modalData} 

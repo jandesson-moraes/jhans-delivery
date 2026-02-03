@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, AppConfig } from '../types';
 import { formatCurrency, capitalize, normalizePhone, toSentenceCase, copyToClipboard, formatTime, formatDate, generatePixPayload, EMOJI, checkShopStatus } from '../utils';
@@ -155,9 +156,11 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
     const addToCart = (product: Product) => {
         setCart(prev => {
             const existing = prev.find(i => i.product.id === product.id);
-            if (existing) return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+            if(existing) return prev.map(i => i.product.id === product.id ? {...i, quantity: i.quantity + 1} : i);
             return [...prev, { product, quantity: 1, obs: '' }];
         });
+        // Feedback visual (opcional)
+        if (navigator.vibrate) navigator.vibrate(50);
     };
 
     const updateQuantity = (index: number, delta: number) => {
@@ -409,7 +412,7 @@ export default function ClientInterface({ products, appConfig, onCreateOrder, on
 
             {cart.length > 0 && <div className="fixed bottom-4 left-0 w-full px-4 z-40 pointer-events-none"><div className="max-w-5xl mx-auto w-full pointer-events-auto"><button onClick={() => setView('cart')} className="w-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white p-4 rounded-2xl shadow-xl shadow-red-900/40 flex items-center justify-between border border-red-500/30 animate-in slide-in-from-bottom-4 active:scale-95 transition-transform"><div className="flex items-center gap-3"><div className="bg-black/20 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">{cart.reduce((a,b) => a + b.quantity, 0)}</div><span className="font-bold text-sm uppercase tracking-wide">Ver Carrinho</span></div><div className="flex items-center gap-2"><span className="font-black text-lg">{formatCurrency(cartTotal)}</span><ChevronRight size={20}/></div></button></div></div>}
             <div className="pb-safe bg-slate-950"><Footer /></div>
-
+            
             {showScheduleModal && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in"><div className="bg-slate-900 rounded-2xl p-6 w-full max-w-sm border border-slate-800 relative shadow-2xl"><button onClick={() => setShowScheduleModal(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button><div className="text-center mb-6"><h3 className="font-bold text-xl text-white flex items-center justify-center gap-2"><Clock size={20} className="text-amber-500"/> Horários</h3><p className={`text-sm font-bold mt-1 ${shopStatus.isOpen ? 'text-emerald-400' : 'text-red-400'}`}>{shopStatus.message}</p></div><div className="space-y-2 mb-4">{['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((day, idx) => (<div key={idx} className={`flex justify-between items-center text-sm p-2 rounded ${new Date().getDay() === idx ? 'bg-slate-800 font-bold text-white' : 'text-slate-400'}`}><span>{day}</span><span>{appConfig.schedule?.[idx]?.enabled ? `${appConfig.schedule?.[idx].open} - ${appConfig.schedule?.[idx].close}` : 'Fechado'}</span></div>))}</div><button onClick={() => setShowScheduleModal(false)} className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700">Fechar</button></div></div>}
             
             {showClosedWarning && (
