@@ -13,10 +13,36 @@ export interface DaySchedule {
     close: string; // "23:00"
 }
 
+export interface GiveawayFieldConfig {
+    id: string;
+    label: string;
+    enabled: boolean;
+    required: boolean;
+    type: 'text' | 'phone' | 'date' | 'email';
+    placeholder?: string;
+}
+
 export interface AppConfig {
     appName: string;
     appLogoUrl: string;
-    bannerUrl?: string;   // Banner Promocional
+    
+    // Configuração de Promoção/Banner
+    bannerUrl?: string;   
+    promoTitle?: string;     // Título principal (Ex: COMBO CASAL)
+    promoSubtitle?: string;  // Subtítulo (Ex: 2 Burgers + Refri)
+    promoDate?: string;      // Data do evento/sorteio
+    promoTime?: string;      // Horário
+    promoLocation?: string;  // Local
+    promoMode?: 'card' | 'banner'; // 'card' = Layout atual, 'banner' = Imagem cheia
+    
+    // Configuração do Sorteio (NOVO)
+    giveawaySettings?: {
+        active: boolean;
+        title: string;
+        rules: string;
+        fields: GiveawayFieldConfig[]; // Campos dinâmicos
+    };
+    
     storePhone?: string; 
     storeCountryCode?: string; // DDI do telefone
     storeMapsLink?: string; // Link da localização
@@ -32,12 +58,18 @@ export interface AppConfig {
     estimatedTime?: string; // Ex: "40-60 min"
     printerWidth?: '58mm' | '80mm'; // Largura impressão
     packagingFee?: number; // Taxa de embalagem opcional
+    facebookPixelId?: string; // ID do Pixel para rastreamento
     
     // Configuração de Localização
     location?: {
         lat: number;
         lng: number;
     };
+}
+
+export interface DailyStats {
+    date: string; // YYYY-MM-DD
+    visits: number;
 }
 
 export interface Driver {
@@ -180,7 +212,8 @@ export interface GiveawayEntry {
     id: string;
     name: string;
     phone: string;
-    instagram?: string;
+    instagram?: string; // Mantido para compatibilidade, mas o uso real será no dynamicData
+    dynamicData?: Record<string, string>; // Armazena as respostas dinâmicas (ex: { "email": "abc@...", "custom": "resposta" })
     createdAt: any;
     confirmed: boolean;
 }

@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from './services/firebase';
-import { collection, addDoc, updateDoc, doc, deleteDoc, setDoc, query, where, getDocs, serverTimestamp, writeBatch, onSnapshot } from 'firebase/firestore';
-import { AppConfig, Driver, Order, Vale, Expense, Product, Client, Settlement, Supplier, InventoryItem, ShoppingItem, GiveawayEntry, UserType } from './types';
+import { collection, addDoc, updateDoc, doc, deleteDoc, setDoc, query, where, getDocs, serverTimestamp, writeBatch, onSnapshot, increment } from 'firebase/firestore';
+import { AppConfig, Driver, Order, Vale, Expense, Product, Client, Settlement, Supplier, InventoryItem, ShoppingItem, GiveawayEntry, UserType, DailyStats } from './types';
 import { normalizePhone, formatCurrency } from './utils';
 import { Loader2, Utensils, ShieldCheck, Bike } from 'lucide-react';
 
@@ -35,7 +35,6 @@ const GlobalStyles = () => {
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         * { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
-        .leaflet-container { background: #020617; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.5); border-radius: 10px; }
@@ -75,6 +74,7 @@ export default function App() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [giveawayEntries, setGiveawayEntries] = useState<GiveawayEntry[]>([]);
+  const [siteVisits, setSiteVisits] = useState<DailyStats[]>([]);
   
   const [appConfig, setAppConfigState] = useState<AppConfig>(DEFAULT_CONFIG);
 
@@ -117,10 +117,11 @@ export default function App() {
       const unsubInventory = onSnapshot(collection(db, 'inventory'), (snap) => setInventory(snap.docs.map(d => ({id: d.id, ...d.data()} as InventoryItem))));
       const unsubShopping = onSnapshot(collection(db, 'shoppingList'), (snap) => setShoppingList(snap.docs.map(d => ({id: d.id, ...d.data()} as ShoppingItem))));
       const unsubGiveaway = onSnapshot(collection(db, 'giveaway_entries'), (snap) => setGiveawayEntries(snap.docs.map(d => ({id: d.id, ...d.data()} as GiveawayEntry))));
+      const unsubVisits = onSnapshot(collection(db, 'daily_stats'), (snap) => setSiteVisits(snap.docs.map(d => ({ date: d.id, ...d.data()} as DailyStats))));
 
       return () => {
           unsubConfig(); unsubDrivers(); unsubOrders(); unsubVales(); unsubExpenses(); unsubProducts(); unsubClients();
-          unsubSettlements(); unsubSuppliers(); unsubInventory(); unsubShopping(); unsubGiveaway();
+          unsubSettlements(); unsubSuppliers(); unsubInventory(); unsubShopping(); unsubGiveaway(); unsubVisits();
       };
   }, []);
 
@@ -237,6 +238,7 @@ export default function App() {
                 inventory={inventory}
                 shoppingList={shoppingList}
                 giveawayEntries={giveawayEntries}
+                siteVisits={siteVisits} // Passing visits stats
                 appConfig={appConfig}
                 isMobile={isMobile}
                 setModal={setModal}
@@ -350,6 +352,11 @@ export default function App() {
             }}
             allowSystemAccess={true}
             onSystemAccess={handleLoginRequest}
+            onRecordVisit={() => {
+                const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+                // Usando setDoc com merge para incrementar de forma atômica
+                setDoc(doc(db, 'daily_stats', today), { visits: increment(1) }, { merge: true });
+            }}
         />
         </>
     );

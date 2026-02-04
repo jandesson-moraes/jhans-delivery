@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package, Zap, ZapOff, Edit, Trash2, Send, MinusCircle, AlertCircle, TrendingUp, Radio, LocateFixed, ShieldCheck, Lock, Signal, RefreshCw } from 'lucide-react';
+import { LogOut, Bike, History, MapPin, Navigation, MessageCircle, DollarSign, CheckSquare, CheckCircle2, Calendar, ChevronDown, ClipboardList, Wallet, Package, Zap, ZapOff, Edit, Trash2, Send, MinusCircle, AlertCircle, TrendingUp, Radio, LocateFixed, ShieldCheck, Lock, Signal, RefreshCw, Camera } from 'lucide-react';
 import { Driver, Order, Vale } from '../types';
-import { isToday, formatTime, formatCurrency, formatDate, sendDeliveryNotification, formatOrderId } from '../utils';
+import { isToday, formatTime, formatCurrency, formatDate, sendDeliveryNotification, formatOrderId, compressImage } from '../utils';
 import { Footer } from './Shared';
 import { EditOrderModal, GenericConfirmModal } from './Modals';
 import { serverTimestamp } from 'firebase/firestore';
@@ -59,6 +60,7 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
   const wakeLockRef = useRef<any>(null);
   const watchIdRef = useRef<number | null>(null);
   const lastPositionRef = useRef<{lat: number, lng: number, time: number} | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Controle de áudio com Set para não repetir
   const notifiedAssignedIds = useRef<Set<string>>(new Set());
@@ -171,6 +173,18 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
           wakeLockRef.current.release().then(() => wakeLockRef.current = null);
       }
       setGpsActive(false);
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+          try {
+              const compressed = await compressImage(e.target.files[0]);
+              onUpdateDriver(driver.id, { avatar: compressed });
+          } catch (err) {
+              console.error("Error uploading image", err);
+              alert("Erro ao processar imagem.");
+          }
+      }
   };
 
   // Re-ativar WakeLock se a aba voltar a ser visível
@@ -314,8 +328,18 @@ export default function DriverInterface({ driver, orders, vales = [], onToggleSt
       <div className="bg-slate-900 p-4 md:p-5 pb-6 rounded-b-[2rem] shadow-xl relative z-10 border-b border-slate-800 shrink-0">
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-3">
-            <div className="relative">
-                <img src={driver.avatar} className="w-14 h-14 rounded-full border-2 border-slate-700 bg-slate-800 object-cover" alt="Driver" />
+            <div className="relative cursor-pointer group" onClick={() => fileInputRef.current?.click()}>
+                <img src={driver.avatar} className="w-14 h-14 rounded-full border-2 border-slate-700 bg-slate-800 object-cover group-hover:opacity-80 transition-opacity" alt="Driver" />
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded-full">
+                    <Camera size={20} className="text-white drop-shadow-md"/>
+                </div>
+                <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept="image/*" 
+                    onChange={handleAvatarUpload}
+                />
                 {driver.status !== 'offline' && <div className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-slate-900 rounded-full animate-pulse"></div>}
             </div>
             <div>

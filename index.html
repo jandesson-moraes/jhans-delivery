@@ -7,33 +7,20 @@
     <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/7877/7877890.png" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <style>
-      body { font-family: 'Inter', sans-serif; background-color: #020617; }
-      /* Correção para o mapa ficar atrás dos elementos de UI */
-      .leaflet-container { width: 100%; height: 100%; background: #020617; z-index: 0; }
-      /* Estilo customizado para o Popup do Leaflet para combinar com o tema Dark */
-      .leaflet-popup-content-wrapper, .leaflet-popup-tip {
-          background: #0f172a;
-          color: white;
-          border: 1px solid #334155;
-          border-radius: 12px;
-      }
-      .leaflet-popup-content { margin: 10px; font-size: 12px; }
-      .leaflet-popup-close-button { color: #94a3b8 !important; }
+      body { font-family: 'Inter', sans-serif; background-color: #020617; color: white; margin: 0; padding: 0; }
+      #root { width: 100%; min-height: 100vh; display: flex; flex-direction: column; }
     </style>
-<script type="importmap">
+  <script type="importmap">
 {
   "imports": {
+    "react": "https://esm.sh/react@^19.2.4",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "react/": "https://esm.sh/react@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4",
-    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
     "firebase/": "https://esm.sh/firebase@^12.8.0/",
-    "react-leaflet": "https://esm.sh/react-leaflet@^5.0.0",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.3",
-    "leaflet": "https://esm.sh/leaflet@^1.9.4",
-    "vite": "https://esm.sh/vite@^7.3.1"
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.3"
   }
 }
 </script>
@@ -41,6 +28,7 @@
 </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+    <script type="module" src="./index.tsx"></script>
+  <script type="module" src="/index.tsx"></script>
+</body>
 </html>

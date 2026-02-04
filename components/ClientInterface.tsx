@@ -1,11 +1,11 @@
 
-import React, { useState, useMemo } from 'react';
-import { Product, AppConfig, UserType } from '../types';
-import { formatCurrency, checkShopStatus, normalizePhone, generatePixPayload, copyToClipboard } from '../utils';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Product, AppConfig, UserType, GiveawayFieldConfig } from '../types';
+import { formatCurrency, checkShopStatus, normalizePhone, generatePixPayload, copyToClipboard, formatPhoneNumberDisplay } from '../utils';
 import { 
     ShoppingCart, Plus, Minus, X, MessageCircle, ChevronRight, 
     Search, Utensils, Phone, User, Store, Gift, Lock, Bike,
-    MapPin, Navigation, CreditCard, Banknote, ArrowLeft, Clock, Copy, QrCode, AlertTriangle, CalendarClock, CheckCircle2, Home, Check, Sparkles, Trophy, Flame, Timer, Ticket, Instagram, Edit
+    MapPin, Navigation, CreditCard, Banknote, ArrowLeft, Clock, Copy, QrCode, AlertTriangle, CalendarClock, CheckCircle2, Home, Check, Sparkles, Trophy, Flame, Timer, Ticket, Instagram, Edit, Mail, Calendar, HelpCircle
 } from 'lucide-react';
 import { Footer, PixIcon } from './Shared';
 
@@ -16,6 +16,7 @@ interface ClientInterfaceProps {
     onEnterGiveaway: (data: any) => void;
     allowSystemAccess: boolean;
     onSystemAccess: (type: UserType) => void;
+    onRecordVisit: () => void; // Nova função para registrar visita
 }
 
 export default function ClientInterface({ 
@@ -24,7 +25,8 @@ export default function ClientInterface({
     onCreateOrder, 
     onEnterGiveaway,
     allowSystemAccess,
-    onSystemAccess 
+    onSystemAccess,
+    onRecordVisit
 }: ClientInterfaceProps) {
     // State for Cart & Checkout
     const [cart, setCart] = useState<{product: Product, quantity: number, obs: string}[]>([]);
@@ -55,12 +57,46 @@ export default function ClientInterface({
     // Giveaway
     const [showGiveaway, setShowGiveaway] = useState(false);
     const [showGiveawaySuccess, setShowGiveawaySuccess] = useState(false); // Novo modal de sucesso
-    const [giveawayName, setGiveawayName] = useState('');
-    const [giveawayPhone, setGiveawayPhone] = useState('');
-    const [giveawayInsta, setGiveawayInsta] = useState('');
+    
+    // Giveaway Form State Dynamic
+    const [giveawayForm, setGiveawayForm] = useState<Record<string, string>>({});
 
     // Shop Status
     const shopStatus = checkShopStatus(appConfig.schedule);
+
+    // --- VISIT TRACKING ON MOUNT ---
+    useEffect(() => {
+        // Verifica se já registrou visita nesta sessão para não duplicar F5
+        const hasVisited = sessionStorage.getItem('jhans_visit_logged');
+        if (!hasVisited) {
+            onRecordVisit();
+            sessionStorage.setItem('jhans_visit_logged', 'true');
+        }
+    }, []);
+
+    // --- FACEBOOK PIXEL INJECTION ---
+    useEffect(() => {
+        if (appConfig.facebookPixelId) {
+            const scriptId = 'facebook-pixel-script';
+            if (!document.getElementById(scriptId)) {
+                const script = document.createElement('script');
+                script.id = scriptId;
+                script.innerHTML = `
+                    !function(f,b,e,v,n,t,s)
+                    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+                    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+                    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+                    n.queue=[];t=b.createElement(e);t.async=!0;
+                    t.src=v;s=b.getElementsByTagName(e)[0];
+                    s.parentNode.insertBefore(t,s)}(window, document,'script',
+                    'https://connect.facebook.net/en_US/fbevents.js');
+                    fbq('init', '${appConfig.facebookPixelId}');
+                    fbq('track', 'PageView');
+                `;
+                document.head.appendChild(script);
+            }
+        }
+    }, [appConfig.facebookPixelId]);
 
     // Categories
     const categories = useMemo(() => {
@@ -112,6 +148,15 @@ export default function ClientInterface({
             return [...prev, { product, quantity: 1, obs: '' }];
         });
         if (navigator.vibrate) navigator.vibrate(50);
+        
+        // Track AddToCart Pixel event
+        if ((window as any).fbq) {
+            (window as any).fbq('track', 'AddToCart', {
+                content_name: product.name,
+                value: product.price,
+                currency: 'BRL'
+            });
+        }
     };
 
     const updateQuantity = (index: number, delta: number) => {
@@ -124,68 +169,74 @@ export default function ClientInterface({
     };
 
     const handleGeolocation = () => {
-        setIsLocating(true);
-        if ("geolocation" in navigator) {
-            navigator.geolocation.getCurrentPosition(
-                async (position) => {
-                    const { latitude, longitude } = position.coords;
-                    try {
-                        // Tenta buscar o endereço
-                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`);
-                        
-                        if (!response.ok) throw new Error('Erro API Mapa');
-                        
-                        const data = await response.json();
-                        
-                        if (data && data.address) {
-                            const road = data.address.road || data.address.pedestrian || data.address.street || '';
-                            const number = data.address.house_number || '';
-                            const suburb = data.address.suburb || data.address.neighbourhood || data.address.district || '';
-                            const city = data.address.city || data.address.town || '';
-                            
-                            let fullAddress = '';
-                            if (road) fullAddress += road;
-                            if (number) fullAddress += `, ${number}`;
-                            else if (road) fullAddress += `, S/N`;
-                            if (suburb) fullAddress += ` - ${suburb}`;
-                            if (city) fullAddress += ` - ${city}`;
-
-                            if (fullAddress) {
-                                setAddress(fullAddress);
-                            } else {
-                                // Se não achou rua, usa coordenadas
-                                setAddress(`Localização GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
-                                alert("Não encontramos o nome da rua exato. As coordenadas foram preenchidas. Por favor, adicione referências.");
-                            }
-                        } else {
-                            setAddress(`Localização GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
-                            alert("Endereço não encontrado pelo mapa. Usando coordenadas GPS.");
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        // Fallback em caso de erro na API (ex: sem internet ou bloqueio)
-                        setAddress(`Localização GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
-                        alert("Erro ao buscar endereço no mapa. Preenchemos com suas coordenadas GPS.");
-                    } finally {
-                        setIsLocating(false);
-                    }
-                }, 
-                (error) => {
-                    console.error(error);
-                    let msg = "Erro ao obter localização.";
-                    if (error.code === 1) msg = "Permissão de localização negada. Ative nas configurações do navegador.";
-                    else if (error.code === 2) msg = "Sinal de GPS indisponível.";
-                    else if (error.code === 3) msg = "Tempo limite esgotado.";
-                    
-                    alert(msg + " Por favor, digite seu endereço manualmente.");
-                    setIsLocating(false);
-                },
-                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-            );
-        } else {
-            alert("Geolocalização não suportada neste dispositivo/navegador.");
-            setIsLocating(false);
+        if (!("geolocation" in navigator)) {
+            alert("Seu dispositivo não suporta geolocalização.");
+            return;
         }
+
+        setIsLocating(true);
+        
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const { latitude, longitude } = position.coords;
+                try {
+                    // Tenta buscar o endereço com headers adequados
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`, {
+                        headers: {
+                            'User-Agent': 'JhansBurgersApp/1.0',
+                            'Accept-Language': 'pt-BR'
+                        }
+                    });
+                    
+                    if (!response.ok) throw new Error('Erro API Mapa');
+                    
+                    const data = await response.json();
+                    
+                    if (data && data.address) {
+                        const road = data.address.road || data.address.pedestrian || data.address.street || '';
+                        const number = data.address.house_number || '';
+                        const suburb = data.address.suburb || data.address.neighbourhood || data.address.district || '';
+                        const city = data.address.city || data.address.town || '';
+                        
+                        let fullAddress = '';
+                        if (road) fullAddress += road;
+                        if (number) fullAddress += `, ${number}`;
+                        else if (road) fullAddress += `, S/N`;
+                        if (suburb) fullAddress += ` - ${suburb}`;
+                        if (city) fullAddress += ` - ${city}`;
+
+                        if (fullAddress) {
+                            setAddress(fullAddress);
+                        } else {
+                            // Se não achou rua, usa coordenadas
+                            setAddress(`Localização GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+                            alert("Não encontramos o nome da rua exato. As coordenadas foram preenchidas. Por favor, adicione referências.");
+                        }
+                    } else {
+                        setAddress(`Localização GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+                        alert("Endereço não encontrado pelo mapa. Usando coordenadas GPS.");
+                    }
+                } catch (e) {
+                    console.error(e);
+                    // Fallback em caso de erro na API (ex: sem internet ou bloqueio)
+                    setAddress(`Localização GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+                    alert("Erro ao buscar endereço no mapa. Preenchemos com suas coordenadas GPS.");
+                } finally {
+                    setIsLocating(false);
+                }
+            }, 
+            (error) => {
+                console.error(error);
+                let msg = "Erro ao obter localização.";
+                if (error.code === 1) msg = "Permissão de localização negada. Ative nas configurações do navegador.";
+                else if (error.code === 2) msg = "Sinal de GPS indisponível.";
+                else if (error.code === 3) msg = "Tempo limite esgotado.";
+                
+                alert(msg + " Por favor, digite seu endereço manualmente.");
+                setIsLocating(false);
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        );
     };
 
     const cartTotal = cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
@@ -234,6 +285,14 @@ export default function ClientInterface({
         setCart([]); // Limpa o carrinho
         setIsCheckoutOpen(false); // Fecha a tela de checkout
         setShowSuccessModal(true); // Abre modal de sucesso
+
+        // Track Purchase Pixel event
+        if ((window as any).fbq) {
+            (window as any).fbq('track', 'Purchase', {
+                value: cartTotal,
+                currency: 'BRL'
+            });
+        }
     };
 
     const handleSendToWhatsApp = () => {
@@ -270,28 +329,48 @@ export default function ClientInterface({
         setLastOrderData(null);
     };
     
+    // Manipulação dinâmica do formulário de sorteio
     const handleGiveawaySubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        // Validar se colocou o @ no instagram, se não, adiciona
-        const formattedInsta = giveawayInsta.trim().startsWith('@') ? giveawayInsta.trim() : '@' + giveawayInsta.trim();
+        
+        // Validar campos obrigatórios dinamicamente
+        const fields = appConfig.giveawaySettings?.fields || [];
+        for (const field of fields) {
+            if (field.enabled && field.required && !giveawayForm[field.id]) {
+                alert(`Por favor, preencha o campo: ${field.label}`);
+                return;
+            }
+        }
+
+        // Pega nome e telefone para compatibilidade com sistema antigo, mas salva tudo no dynamicData
+        const name = giveawayForm['name'] || 'Anônimo';
+        const phone = giveawayForm['phone'] || '';
         
         onEnterGiveaway({ 
-            name: giveawayName, 
-            phone: giveawayPhone,
-            instagram: formattedInsta,
+            name: name,
+            phone: phone,
+            dynamicData: giveawayForm, // Salva todas as respostas aqui
             confirmed: false
         });
+        
         setShowGiveaway(false);
         setShowGiveawaySuccess(true);
     };
 
     const getGiveawayText = () => {
-        let waText = `*🎟️ INSCRIÇÃO SORTEIO - ${appConfig.appName}*\n\n`;
-        waText += `*Nome:* ${giveawayName}\n`;
-        waText += `*Telefone:* ${giveawayPhone}\n`;
-        waText += `*Instagram:* ${giveawayInsta}\n\n`;
-        waText += `✅ Confirmo que segui as regras (Seguir + Marcar Amigo).\n`;
-        waText += `Quero confirmar minha participação no sorteio do Combo Casal Clássico! 🍀`;
+        const title = appConfig.giveawaySettings?.title || 'Sorteio';
+        let waText = `*🎟️ INSCRIÇÃO SORTEIO - ${appConfig.appName}*\n*${title.toUpperCase()}*\n\n`;
+        
+        const fields = appConfig.giveawaySettings?.fields || [];
+        
+        fields.forEach(field => {
+            if (field.enabled && giveawayForm[field.id]) {
+                waText += `*${field.label}:* ${giveawayForm[field.id]}\n`;
+            }
+        });
+
+        waText += `\n✅ Confirmo que li e aceito as regras.\n`;
+        waText += `Quero confirmar minha participação! 🍀`;
         return waText;
     };
 
@@ -333,6 +412,38 @@ export default function ClientInterface({
         }
     };
 
+    // Renderizar inputs dinâmicos
+    const renderGiveawayField = (field: GiveawayFieldConfig) => {
+        const value = giveawayForm[field.id] || '';
+        const setValue = (val: string) => setGiveawayForm(prev => ({...prev, [field.id]: val}));
+
+        // Ícone baseado no ID ou tipo
+        let Icon = User;
+        if (field.type === 'phone') Icon = Phone;
+        if (field.type === 'email') Icon = Mail;
+        if (field.type === 'date') Icon = Calendar;
+        if (field.id === 'instagram') Icon = Instagram;
+        if (field.id === 'custom') Icon = HelpCircle;
+
+        return (
+            <div key={field.id} className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><Icon size={16}/></div>
+                <input 
+                    required={field.required}
+                    type={field.type === 'date' ? 'date' : 'text'}
+                    placeholder={field.placeholder || field.label}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-white outline-none focus:border-amber-500 transition-colors text-sm placeholder:text-slate-600"
+                    value={value}
+                    onChange={e => {
+                        let val = e.target.value;
+                        if (field.type === 'phone') val = formatPhoneNumberDisplay(val);
+                        setValue(val);
+                    }}
+                />
+            </div>
+        );
+    };
+
     if (isCheckoutOpen) {
         return (
             <div className="min-h-screen bg-[#020617] text-white flex flex-col font-sans">
@@ -342,7 +453,7 @@ export default function ClientInterface({
                     <h2 className="text-base md:text-lg font-bold flex items-center gap-2">Seu Carrinho <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full">{cart.length}</span></h2>
                 </div>
                 
-                <div className="flex-1 p-4 overflow-y-auto pb-36 custom-scrollbar">
+                <div className="flex-1 p-4 overflow-y-auto pb-4 custom-scrollbar">
                     <div className="max-w-md mx-auto space-y-5">
                         
                         {!shopStatus.isOpen && (
@@ -564,8 +675,11 @@ export default function ClientInterface({
         );
     }
 
+    // ... (Rest of ClientInterface remains identical)
     return (
         <div className="bg-[#020617] min-h-screen font-sans pb-24">
+            {/* ... */}
+            {/* (This part remains unchanged, just wrapping up for XML output limits) */}
             {/* Header Red Gradient - COMPACT FOR MOBILE */}
             <div className="bg-gradient-to-r from-[#ef4444] to-[#f97316] pt-3 pb-8 px-4 rounded-b-[1.5rem] md:rounded-b-[2rem] shadow-2xl relative overflow-hidden">
                 <div className="max-w-5xl mx-auto relative z-10">
@@ -597,42 +711,70 @@ export default function ClientInterface({
                         Peça agora mesmo! 🍔
                     </h1>
 
-                    {/* ✨✨ BANNER DE SORTEIO COMPACTADO ✨✨ */}
-                    <div className="relative group cursor-pointer" onClick={() => setShowGiveaway(true)}>
-                        <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 via-orange-600 to-red-600 rounded-2xl blur opacity-30 group-hover:opacity-60 transition duration-1000 animate-pulse"></div>
-                        <div className="relative bg-[#1a0505] rounded-xl p-1 overflow-hidden border border-amber-500/30 shadow-2xl">
-                            <div className="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-red-900/40 via-[#1a0505] to-[#0f0202] rounded-lg p-3 md:p-4 relative overflow-hidden flex flex-col justify-center min-h-[100px] md:min-h-[140px]">
-                                <div className="relative z-10 flex flex-row items-center justify-between gap-3">
-                                    <div className="flex-1 space-y-0.5 md:space-y-1">
-                                        <div className="inline-flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-[#1a0505] px-1.5 py-0.5 rounded-full shadow-sm animate-pulse mb-0.5">
-                                            <Flame size={8} className="md:w-2.5 md:h-2.5" fill="currentColor"/>
-                                            <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest">Sorteio</span>
-                                        </div>
-                                        <h2 className="text-base md:text-2xl font-black text-white leading-tight italic drop-shadow-xl">
-                                            COMBO CASAL <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500">CLÁSSICO</span>
-                                        </h2>
-                                        <p className="text-slate-300 text-[9px] md:text-[10px] font-medium max-w-xs leading-relaxed opacity-90 hidden sm:block">
-                                            Concorra a 2 Hambúrgueres + Batata! Resultado ao vivo.
-                                        </p>
-                                        <div className="pt-1 md:pt-2">
-                                            <button className="relative overflow-hidden bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black py-1.5 px-4 md:py-2 md:px-6 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300 group">
-                                                <span className="relative z-10 flex items-center gap-1 md:gap-2 text-[9px] md:text-[10px] uppercase tracking-widest">
-                                                    PARTICIPAR <ChevronRight size={10} strokeWidth={3}/>
-                                                </span>
-                                            </button>
+                    {/* ✨✨ BANNER DE PROMOÇÃO DINÂMICO ✨✨ */}
+                    {appConfig.bannerUrl && (
+                        <div className="relative group cursor-pointer" onClick={() => setShowGiveaway(true)}>
+                            {/* Glow Effect */}
+                            <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 via-orange-600 to-red-600 rounded-2xl blur opacity-30 group-hover:opacity-60 transition duration-1000 animate-pulse"></div>
+                            
+                            <div className="relative rounded-xl overflow-hidden shadow-2xl border border-amber-500/30">
+                                {appConfig.promoMode === 'banner' ? (
+                                    // MODO BANNER FULL (SÓ IMAGEM)
+                                    <img 
+                                        src={appConfig.bannerUrl} 
+                                        alt="Promoção" 
+                                        className="w-full h-auto object-cover min-h-[120px]"
+                                    />
+                                ) : (
+                                    // MODO CARD (LAYOUT COMPLETO COM TEXTO)
+                                    <div className="bg-[#1a0505] p-1">
+                                        <div className="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-red-900/40 via-[#1a0505] to-[#0f0202] rounded-lg p-3 md:p-4 relative overflow-hidden flex flex-col justify-center min-h-[100px] md:min-h-[140px]">
+                                            <div className="relative z-10 flex flex-row items-center justify-between gap-3">
+                                                <div className="flex-1 space-y-0.5 md:space-y-1">
+                                                    <div className="inline-flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-[#1a0505] px-1.5 py-0.5 rounded-full shadow-sm animate-pulse mb-0.5">
+                                                        <Flame size={8} className="md:w-2.5 md:h-2.5" fill="currentColor"/>
+                                                        <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest">Promoção</span>
+                                                    </div>
+                                                    <h2 className="text-base md:text-2xl font-black text-white leading-tight italic drop-shadow-xl uppercase">
+                                                        {appConfig.promoTitle || 'COMBO CASAL CLÁSSICO'}
+                                                    </h2>
+                                                    <p className="text-slate-300 text-[9px] md:text-[10px] font-medium max-w-xs leading-relaxed opacity-90 hidden sm:block">
+                                                        {appConfig.promoSubtitle || 'Concorra a 2 Hambúrgueres + Batata! Resultado ao vivo.'}
+                                                    </p>
+                                                    
+                                                    {/* PROMO DETAILS (DATE/TIME/LOCATION) */}
+                                                    {(appConfig.promoDate || appConfig.promoTime || appConfig.promoLocation) && (
+                                                        <div className="flex flex-wrap gap-2 md:gap-3 mt-1.5 md:mt-2 text-[8px] md:text-[9px] font-bold text-amber-100/80">
+                                                            {appConfig.promoDate && (
+                                                                <span className="flex items-center gap-1 bg-black/20 px-1.5 py-0.5 rounded border border-white/5"><Calendar size={8} className="md:w-2.5 md:h-2.5"/> {appConfig.promoDate}</span>
+                                                            )}
+                                                            {appConfig.promoTime && (
+                                                                <span className="flex items-center gap-1 bg-black/20 px-1.5 py-0.5 rounded border border-white/5"><Clock size={8} className="md:w-2.5 md:h-2.5"/> {appConfig.promoTime}</span>
+                                                            )}
+                                                            {appConfig.promoLocation && (
+                                                                <span className="flex items-center gap-1 bg-black/20 px-1.5 py-0.5 rounded border border-white/5"><MapPin size={8} className="md:w-2.5 md:h-2.5"/> {appConfig.promoLocation}</span>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    <div className="pt-1 md:pt-2">
+                                                        <button className="relative overflow-hidden bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black py-1.5 px-4 md:py-2 md:px-6 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300 group">
+                                                            <span className="relative z-10 flex items-center gap-1 md:gap-2 text-[9px] md:text-[10px] uppercase tracking-widest">
+                                                                PARTICIPAR <ChevronRight size={10} strokeWidth={3}/>
+                                                            </span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div className="shrink-0 relative w-16 h-16 md:w-24 md:h-24 flex items-center justify-center">
+                                                    <img src={appConfig.bannerUrl} alt="Promo" className="w-full h-full object-cover rounded-xl shadow-lg border border-amber-500/30"/>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="shrink-0 relative w-16 h-16 md:w-24 md:h-24 flex items-center justify-center">
-                                        {appConfig.bannerUrl ? (
-                                            <img src={appConfig.bannerUrl} alt="Promo" className="w-full h-full object-cover rounded-xl shadow-lg border border-amber-500/30"/>
-                                        ) : (
-                                            <Gift size={40} className="text-amber-400 md:w-14 md:h-14"/>
-                                        )}
-                                    </div>
-                                </div>
+                                )}
                             </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
 
@@ -739,35 +881,34 @@ export default function ClientInterface({
                 </div>
             )}
 
-            {/* Giveaway Modal (Form) */}
+            {/* Giveaway Modal (Form) - DINÂMICO */}
             {showGiveaway && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in">
-                    <div className="bg-slate-900 w-full max-w-md rounded-3xl border border-amber-500/50 p-6 md:p-8 shadow-2xl relative">
+                    <div className="bg-slate-900 w-full max-w-md rounded-3xl border border-amber-500/50 p-6 md:p-8 shadow-2xl relative overflow-y-auto max-h-[90vh]">
                         <button onClick={() => setShowGiveaway(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white p-2"><X size={20}/></button>
                         <div className="text-center mb-4">
                             <div className="w-16 h-16 bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-3 border border-amber-500/30">
                                 <Gift size={32} className="text-amber-400"/>
                             </div>
-                            <h3 className="text-xl font-black text-white uppercase italic">Sorteio Casal Clássico</h3>
+                            <h3 className="text-xl font-black text-white uppercase italic">
+                                {appConfig.giveawaySettings?.title || 'Sorteio Especial'}
+                            </h3>
                             <p className="text-slate-400 text-xs mt-1">Preencha para participar!</p>
                         </div>
 
                         <div className="bg-amber-900/20 p-3 rounded-lg mb-4 border border-amber-500/20 text-center">
                            <p className="text-amber-400 text-[10px] font-bold uppercase mb-1 flex items-center justify-center gap-1"><AlertTriangle size={10}/> Regras Obrigatórias</p>
-                           <ul className="text-slate-300 text-[10px] space-y-0.5">
-                              <li>1. Seguir nosso Instagram</li>
-                              <li>2. Marcar seu par na <b>FOTO OFICIAL</b></li>
-                           </ul>
+                           <div className="text-slate-300 text-[10px] whitespace-pre-line leading-relaxed">
+                               {appConfig.giveawaySettings?.rules || '1. Seguir o Instagram\n2. Marcar um amigo'}
+                           </div>
                         </div>
                         
                         <form onSubmit={handleGiveawaySubmit} className="space-y-3">
-                             <input required placeholder="Seu Nome" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 transition-colors text-sm" value={giveawayName} onChange={e => setGiveawayName(e.target.value)} />
-                             <input required placeholder="Seu WhatsApp" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 transition-colors text-sm" value={giveawayPhone} onChange={e => setGiveawayPhone(e.target.value)} />
-                             
-                             <div className="relative">
-                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><Instagram size={16}/></div>
-                                <input required placeholder="@seu.instagram" className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-white outline-none focus:border-amber-500 transition-colors text-sm" value={giveawayInsta} onChange={e => setGiveawayInsta(e.target.value)} />
-                             </div>
+                             {/* RENDERIZAÇÃO DINÂMICA DOS CAMPOS */}
+                             {(appConfig.giveawaySettings?.fields || [])
+                                .filter(field => field.enabled)
+                                .map(field => renderGiveawayField(field))
+                             }
 
                              <button type="submit" className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black py-3 rounded-xl shadow-lg mt-2 uppercase tracking-wide text-xs">Quero Participar</button>
                         </form>
@@ -788,7 +929,7 @@ export default function ClientInterface({
                         </h2>
                         
                         <p className="text-slate-400 text-xs mb-6 leading-relaxed">
-                            Boa sorte! Para validar sua participação, envie a confirmação para nosso WhatsApp.
+                            Boa sorte! Para confirmar sua participação, envie a confirmação para nosso WhatsApp.
                         </p>
 
                         <div className="space-y-3">

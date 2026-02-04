@@ -1,15 +1,17 @@
+
 import React, { useMemo } from 'react';
-import { Order, Product } from '../types';
-import { formatCurrency, parseOrderItems } from '../utils';
-import { TrendingUp, TrendingDown, Award, BarChart3 } from 'lucide-react';
+import { Order, Product, DailyStats } from '../types';
+import { formatCurrency, parseOrderItems, isToday } from '../utils';
+import { TrendingUp, TrendingDown, Award, BarChart3, Users, ShoppingCart, Percent } from 'lucide-react';
 import { Footer } from './Shared';
 
 interface AnalyticsProps {
     orders: Order[];
     products: Product[];
+    siteVisits?: DailyStats[]; // New prop for traffic stats
 }
 
-export function AnalyticsView({ orders, products }: AnalyticsProps) {
+export function AnalyticsView({ orders, products, siteVisits = [] }: AnalyticsProps) {
     const analytics = useMemo(() => {
         const completedOrders = orders.filter(o => o.status === 'completed');
         const productStats: {[key: string]: { count: number, revenue: number, name: string }} = {};
@@ -18,14 +20,12 @@ export function AnalyticsView({ orders, products }: AnalyticsProps) {
             const items = parseOrderItems(order.items);
             items.forEach(item => {
                 const productName = item.name.toLowerCase().trim();
-                // Tenta encontrar o produto original para pegar o nome correto e preço
-                // Se não achar, usa o nome do pedido
                 const originalProduct = products.find(p => p.name.toLowerCase() === productName) 
                                      || products.find(p => productName.includes(p.name.toLowerCase()));
                 
                 const key = originalProduct ? originalProduct.id : productName;
                 const name = originalProduct ? originalProduct.name : item.name;
-                const price = originalProduct ? originalProduct.price : 0; // Aproximação se não tiver histórico de preço no item
+                const price = originalProduct ? originalProduct.price : 0; 
 
                 if (!productStats[key]) {
                     productStats[key] = { count: 0, revenue: 0, name: name };
@@ -37,18 +37,28 @@ export function AnalyticsView({ orders, products }: AnalyticsProps) {
 
         const statsArray = Object.values(productStats);
         
-        // Ordenar por Qtd
+        // Sorting
         const byCount = [...statsArray].sort((a, b) => b.count - a.count);
-        // Ordenar por Receita
         const byRevenue = [...statsArray].sort((a, b) => b.revenue - a.revenue);
+
+        // Traffic Stats (Today)
+        const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+        const todayVisits = siteVisits.find(v => v.date === todayStr)?.visits || 0;
+        const todayOrdersCount = orders.filter(o => isToday(o.createdAt)).length;
+        const conversionRate = todayVisits > 0 ? (todayOrdersCount / todayVisits) * 100 : 0;
 
         return {
             topSelling: byCount.slice(0, 5),
             leastSelling: byCount.slice(-5).reverse(),
             topRevenue: byRevenue.slice(0, 5),
-            totalItemsSold: statsArray.reduce((acc, curr) => acc + curr.count, 0)
+            totalItemsSold: statsArray.reduce((acc, curr) => acc + curr.count, 0),
+            traffic: {
+                visits: todayVisits,
+                orders: todayOrdersCount,
+                conversion: conversionRate
+            }
         };
-    }, [orders, products]);
+    }, [orders, products, siteVisits]);
 
     return (
         <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-24 custom-scrollbar flex flex-col">
@@ -56,6 +66,38 @@ export function AnalyticsView({ orders, products }: AnalyticsProps) {
                 <div className="mb-8">
                     <h2 className="text-2xl font-bold text-white flex items-center gap-2"><BarChart3 className="text-purple-500"/> Análise de Cardápio</h2>
                     <p className="text-slate-400 text-sm">Entenda o desempenho dos seus produtos.</p>
+                </div>
+
+                {/* FUNIL DE VENDAS (NOVO) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4">
+                        <div className="p-3 bg-blue-900/20 text-blue-400 rounded-xl">
+                            <Users size={24}/>
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold text-slate-500 uppercase">Visitas Hoje</p>
+                            <p className="text-2xl font-black text-white">{analytics.traffic.visits}</p>
+                        </div>
+                    </div>
+                    <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4">
+                        <div className="p-3 bg-emerald-900/20 text-emerald-400 rounded-xl">
+                            <ShoppingCart size={24}/>
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold text-slate-500 uppercase">Pedidos Hoje</p>
+                            <p className="text-2xl font-black text-white">{analytics.traffic.orders}</p>
+                        </div>
+                    </div>
+                    <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4">
+                        <div className="p-3 bg-purple-900/20 text-purple-400 rounded-xl">
+                            <Percent size={24}/>
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold text-slate-500 uppercase">Conversão</p>
+                            <p className="text-2xl font-black text-white">{analytics.traffic.conversion.toFixed(1)}%</p>
+                            <p className="text-[9px] text-slate-500">De visitantes que compraram</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">

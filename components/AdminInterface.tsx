@@ -103,7 +103,11 @@ export function AdminInterface(props: any) {
                             appConfig={props.appConfig}
                         />;
             case 'analytics':
-                return <AnalyticsView orders={props.orders} products={props.products} />;
+                return <AnalyticsView 
+                            orders={props.orders} 
+                            products={props.products} 
+                            siteVisits={props.siteVisits} // Passing visits data
+                        />;
             case 'report':
                 return <ItemReportView orders={props.orders} />;
             default:
