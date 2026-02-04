@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { Order, Driver, AppConfig } from '../types';
 import { formatTime, formatCurrency, sendOrderConfirmation, formatOrderId, formatDate } from '../utils';
@@ -273,7 +274,8 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
     }, [orders, selectedDate]);
 
     return (
-        <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full pb-24 md:pb-8 custom-scrollbar flex flex-col">
+        /* GARANTE QUE O PARENT SEJA FLEX E TENHA SCROLL, COM PADDING EXTRA NO FINAL */
+        <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full pb-40 md:pb-10 custom-scrollbar flex flex-col h-full">
             <div className="flex-1 max-w-7xl mx-auto w-full">
                 {/* CABEÇALHO COM NAVEGAÇÃO DE DATA */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -324,16 +326,8 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
                     />
                 </div>
 
-                {/* GRAPHIC CHART */}
-                <SalesChart 
-                    allOrders={orders} 
-                    selectedDate={selectedDate} 
-                    period={chartPeriod}
-                    setPeriod={setChartPeriod}
-                />
-                
                 {/* LISTA DE PEDIDOS (TABLE) */}
-                <div className="hidden md:block bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl min-h-[300px]">
+                <div className="hidden md:block bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl min-h-[300px] mb-8">
                     <div className="p-4 border-b border-slate-800 bg-slate-950/50">
                         <h3 className="font-bold text-white flex items-center gap-2"><FileText size={18} className="text-slate-400"/> Lista de Pedidos ({selectedDate.toLocaleDateString('pt-BR')})</h3>
                     </div>
@@ -375,7 +369,7 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
                                             <td className="p-4 text-right text-emerald-400 font-bold truncate">{formatCurrency(o.value || 0)}</td>
                                             <td className="p-4 text-center">
                                                 <div className="flex items-center justify-center gap-2">
-                                                    <button onClick={(e) => { e.stopPropagation(); sendOrderConfirmation(o, appConfig.appName); }} className="p-2 text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-md" title="Confirmar Pedido (WhatsApp)"><MessageCircle size={16}/></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); sendOrderConfirmation(o, appConfig.appName, appConfig.estimatedTime); }} className="p-2 text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-md" title="Confirmar Pedido (WhatsApp)"><MessageCircle size={16}/></button>
                                                     <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); setModalType('receipt'); }} className="p-2 text-slate-500 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="Ver Comprovante"><FileText size={16}/></button>
                                                     <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); setModalType('edit'); }} className="p-2 text-slate-500 hover:text-amber-500 hover:bg-slate-700 rounded-lg transition-colors" title="Editar"><Edit size={16}/></button>
                                                     <button onClick={(e) => { e.stopPropagation(); onDeleteOrder(o.id); }} className="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-700 rounded-lg transition-colors" title="Excluir"><Trash2 size={16}/></button>
@@ -390,7 +384,7 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
                 </div>
 
                 {/* VIEW MOBILE (CARDS) */}
-                <div className="md:hidden space-y-3">
+                <div className="md:hidden space-y-3 mb-8">
                     {dailyData.filteredOrders.length === 0 ? (
                         <div className="text-center text-slate-500 py-10 bg-slate-900 rounded-xl border border-slate-800">
                             Nenhum pedido nesta data.
@@ -414,7 +408,7 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
                                         {o.status === 'completed' ? 'Entregue' : o.status === 'pending' ? 'Pendente' : o.status === 'cancelled' ? 'Cancelado' : o.status === 'preparing' ? 'Cozinha' : 'Em Rota'}
                                     </span>
                                     <div className="flex gap-2">
-                                        <button onClick={(e) => { e.stopPropagation(); sendOrderConfirmation(o, appConfig.appName); }} className="bg-emerald-600 text-white p-2 rounded-lg shadow"><MessageCircle size={16}/></button>
+                                        <button onClick={(e) => { e.stopPropagation(); sendOrderConfirmation(o, appConfig.appName, appConfig.estimatedTime); }} className="bg-emerald-600 text-white p-2 rounded-lg shadow"><MessageCircle size={16}/></button>
                                         <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); setModalType('receipt'); }} className="bg-slate-800 text-slate-300 p-2 rounded-lg border border-slate-700"><FileText size={16}/></button>
                                         <button onClick={(e) => { e.stopPropagation(); onDeleteOrder(o.id); }} className="bg-slate-800 text-red-400 p-2 rounded-lg border border-slate-700"><Trash2 size={16}/></button>
                                     </div>
@@ -423,6 +417,14 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
                         ))
                     )}
                 </div>
+
+                {/* GRAPHIC CHART */}
+                <SalesChart 
+                    allOrders={orders} 
+                    selectedDate={selectedDate} 
+                    period={chartPeriod}
+                    setPeriod={setChartPeriod}
+                />
             </div>
 
             {/* MODAIS */}

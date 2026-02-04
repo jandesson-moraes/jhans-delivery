@@ -16,10 +16,10 @@ export interface DaySchedule {
 export interface AppConfig {
     appName: string;
     appLogoUrl: string;
-    bannerUrl?: string;   // Novo: Imagem do Banner Promocional
+    bannerUrl?: string;   // Banner Promocional
     storePhone?: string; 
-    storeCountryCode?: string; // Novo: DDI do telefone
-    storeMapsLink?: string; // Novo: Link da localização
+    storeCountryCode?: string; // DDI do telefone
+    storeMapsLink?: string; // Link da localização
     pixKey?: string;      // Chave PIX
     pixName?: string;     // Nome do Titular
     pixCity?: string;     // Cidade do Titular
@@ -27,13 +27,13 @@ export interface AppConfig {
     enableDeliveryFees?: boolean;   // Ativar/Desativar taxas
     schedule?: { [key: number]: DaySchedule }; // 0 (Domingo) a 6 (Sábado)
     
-    // NOVAS SUGESTÕES IMPLEMENTADAS
+    // Configurações de Sistema
     minOrderValue?: number; // Pedido Mínimo
     estimatedTime?: string; // Ex: "40-60 min"
     printerWidth?: '58mm' | '80mm'; // Largura impressão
     packagingFee?: number; // Taxa de embalagem opcional
     
-    // NOVA CONFIGURAÇÃO DE LOCALIZAÇÃO DA LOJA
+    // Configuração de Localização
     location?: {
         lat: number;
         lng: number;
@@ -58,9 +58,8 @@ export interface Driver {
   totalDeliveries: number;
   lastUpdate?: any; 
   lastSettlementAt?: any;
-  // NOVOS CAMPOS DE PAGAMENTO
   paymentModel?: 'fixed_per_delivery' | 'percentage' | 'salary'; 
-  paymentRate?: number; // Valor da taxa ou porcentagem (0 a 100 ou valor fixo)
+  paymentRate?: number;
 }
 
 export interface Settlement {
@@ -86,7 +85,7 @@ export interface Order {
   customer: string;
   phone: string; 
   address: string;
-  neighborhood?: string; // Novo campo
+  neighborhood?: string;
   mapsLink?: string; 
   items: string; 
   status: 'pending' | 'preparing' | 'ready' | 'assigned' | 'delivering' | 'completed' | 'cancelled';
@@ -123,10 +122,9 @@ export interface Expense {
   createdAt: any;
 }
 
-// --- FICHA TÉCNICA ---
 export interface ProductIngredient {
-    inventoryId: string; // ID do item no estoque
-    qty: number;         // Quantidade usada na receita
+    inventoryId: string;
+    qty: number;
 }
 
 export interface Product {
@@ -135,11 +133,9 @@ export interface Product {
   category: string;
   price: number;
   description?: string;
-  
-  // PRECIFICAÇÃO E CUSTOS
-  ingredients?: ProductIngredient[]; // Ficha técnica
-  costPrice?: number; // Custo calculado dos ingredientes (CMV)
-  operationalCost?: number; // Custo fixo estimado por item (embalagem, gás, etc)
+  ingredients?: ProductIngredient[];
+  costPrice?: number;
+  operationalCost?: number;
 }
 
 export interface Client {
@@ -155,7 +151,6 @@ export interface Client {
     count?: number; 
 }
 
-// --- NOVAS INTERFACES ---
 export interface Supplier {
     id: string;
     name: string;
@@ -167,10 +162,10 @@ export interface Supplier {
 export interface InventoryItem {
     id: string;
     name: string;
-    unit: string; // kg, un, l
+    unit: string;
     quantity: number;
     minQuantity: number;
-    cost: number; // Preço de custo da unidade de compra
+    cost: number;
     supplierId?: string;
 }
 
@@ -185,7 +180,7 @@ export interface GiveawayEntry {
     id: string;
     name: string;
     phone: string;
-    instagram?: string; // Novo campo
+    instagram?: string;
     createdAt: any;
-    confirmed: boolean; // Se clicou no botão de zap
+    confirmed: boolean;
 }

@@ -1,4 +1,5 @@
 
+
 import { AppConfig } from "./types";
 
 export const formatTime = (timestamp: any) => {
@@ -45,17 +46,23 @@ export const formatPhoneNumberDisplay = (value: string) => {
     if (!value) return "";
     
     // Remove tudo que não é número
-    const numbers = value.replace(/\D/g, "");
+    let numbers = value.replace(/\D/g, "");
     
+    // Se colou com +55 ou 55 no início e tem tamanho de número completo (12 ou 13 dígitos), remove o 55
+    if (numbers.startsWith('55') && numbers.length >= 12) {
+        numbers = numbers.substring(2);
+    }
+
     // Aplica a máscara (XX) XXXXX-XXXX para celular BR
     if (numbers.length <= 11) {
         return numbers
             .replace(/^(\d{2})/, "($1) ")
             .replace(/(\d{5})(\d)/, "$1-$2")
-            .substr(0, 15); // Limita tamanho
+            .substr(0, 15); // Limita tamanho visual
     }
     
-    return value; // Retorna original se for muito longo (ex: internacional sem tratativa especifica)
+    // Se ainda for muito grande, retorna o original (internacional ou erro)
+    return value; 
 };
 
 export const capitalize = (str: string) => {
@@ -388,12 +395,17 @@ export const downloadCSV = (content: string, fileName: string) => {
     document.body.removeChild(link);
 };
 
-export const getOrderReceivedText = (order: any, appName: string) => {
+export const getOrderReceivedText = (order: any, appName: string, estimatedTime?: string) => {
     const safeName = appName || 'Jhans Burgers';
     const isPix = order.paymentMethod?.toLowerCase().includes('pix');
     const displayId = formatOrderId(order.id);
     const customerName = order.customer.split(' ')[0]; // Primeiro nome
     
+    // Lógica da Taxa de Entrega
+    const deliveryFeeText = (order.deliveryFee === 0 || !order.deliveryFee)
+        ? `CORTESIA ${EMOJI.GIFT}`
+        : formatCurrency(order.deliveryFee);
+
     // Formata a lista de itens removendo separadores visuais (---) para ficar mais limpo no WhatsApp
     const itemsFormatted = order.items
         .split('\n')
@@ -404,12 +416,20 @@ export const getOrderReceivedText = (order: any, appName: string) => {
         })
         .join('\n');
 
-    return `Olá *${customerName}*! Tudo bem? ${EMOJI.SMILE_HEARTS}\n\nQue alegria ter você por aqui! Recebemos seu pedido no *${safeName}* com muito carinho! ${EMOJI.HEART}\n\n*PEDIDO ${displayId}*\n\n*${EMOJI.WRITE} O que vamos preparar para você:*\n${itemsFormatted}\n\n*${EMOJI.MONEY_BAG} Total:* ${formatCurrency(order.value)}\n*💳 Pagamento:* ${order.paymentMethod || 'Dinheiro'}\n\n*Tudo certinho!* ${EMOJI.STARS}\nJá enviamos para a cozinha. Agora é só aguardar!\n${isPix ? `\n${EMOJI.WARNING} *Se for PIX, envie o comprovante para agilizar!*\n` : ''}\n${EMOJI.SCOOTER} Assim que sair para entrega te avisamos aqui. Obrigado pela preferência!`;
+    let message = `Olá *${customerName}*! Tudo bem? ${EMOJI.SMILE_HEARTS}\n\nQue alegria ter você por aqui! Recebemos seu pedido no *${safeName}* com muito carinho! ${EMOJI.HEART}\n\n*PEDIDO ${displayId}*\n\n*${EMOJI.WRITE} O que vamos preparar para você:*\n${itemsFormatted}\n\n*${EMOJI.SCOOTER} Taxa de Entrega:* ${deliveryFeeText}\n*${EMOJI.MONEY_BAG} Total:* ${formatCurrency(order.value)}\n*💳 Pagamento:* ${order.paymentMethod || 'Dinheiro'}\n\n`;
+
+    if (estimatedTime) {
+        message += `*⏳ Tempo Estimado:* ${estimatedTime}\n\n`;
+    }
+
+    message += `*Tudo certinho!* ${EMOJI.STARS}\nJá enviamos para a cozinha. Agora é só aguardar!\n${isPix ? `\n${EMOJI.WARNING} *Se for PIX, envie o comprovante para agilizar!*\n` : ''}\nAssim que sair para entrega te avisamos aqui. Obrigado pela preferência!`;
+
+    return message;
 };
 
-export const sendOrderConfirmation = (order: any, appName: string) => {
+export const sendOrderConfirmation = (order: any, appName: string, estimatedTime?: string) => {
     const safeName = appName || 'Jhans Burgers';
-    const text = getOrderReceivedText(order, safeName);
+    const text = getOrderReceivedText(order, safeName, estimatedTime);
     const phone = normalizePhone(order.phone);
     if(phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, 'whatsapp-session');
 };

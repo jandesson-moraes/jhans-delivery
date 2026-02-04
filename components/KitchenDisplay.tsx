@@ -139,7 +139,7 @@ export function KitchenDisplay({ orders, products = [], drivers = [], onUpdateSt
     const handleCopyStatus = (e: React.MouseEvent, order: Order) => {
         e.stopPropagation();
         e.preventDefault();
-        const text = getOrderReceivedText(order, effectiveAppName);
+        const text = getOrderReceivedText(order, effectiveAppName, appConfig.estimatedTime);
         copyToClipboard(text);
         setCopiedMessages(prev => new Set(prev).add(order.id));
     };

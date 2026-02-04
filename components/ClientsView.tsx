@@ -1,9 +1,10 @@
+
 import React, { useState, useMemo } from 'react';
 import { Client, Order, GiveawayEntry, AppConfig } from '../types';
 import { normalizePhone, formatCurrency, formatDate, downloadCSV } from '../utils';
-import { Search, UploadCloud, Edit, ChevronDown, Star, Trophy, Crown, Medal, TrendingUp, Calendar, DollarSign, UserCheck, Gift, Download, CheckCircle2 } from 'lucide-react';
+import { Search, UploadCloud, Edit, ChevronDown, Star, Trophy, Crown, Medal, TrendingUp, Calendar, DollarSign, UserCheck, Gift, Download, CheckCircle2, PlusCircle, ShoppingBag } from 'lucide-react';
 import { Footer } from './Shared';
-import { GiveawayManagerModal } from './Modals';
+import { GiveawayManagerModal, ManualOrderModal } from './Modals';
 
 interface ClientsViewProps {
     clients: Client[];
@@ -12,20 +13,22 @@ interface ClientsViewProps {
     setModal: (modal: any) => void;
     setClientToEdit: (client: any) => void;
     appConfig: AppConfig;
+    onCreateOrder: (data: any) => void;
+    onDeleteGiveawayEntry?: (id: string) => void; // New prop definition
 }
 
-export function ClientsView({ clients, orders, giveawayEntries, setModal, setClientToEdit, appConfig }: ClientsViewProps) {
+export function ClientsView({ clients, orders, giveawayEntries, setModal, setClientToEdit, appConfig, onCreateOrder, onDeleteGiveawayEntry }: ClientsViewProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [visibleClientsCount, setVisibleClientsCount] = useState(20);
     const [rankingMode, setRankingMode] = useState<'spent' | 'count'>('spent'); // spent = Gastaram mais, count = Pediram mais
     const [showGiveawayModal, setShowGiveawayModal] = useState(false);
+    const [newOrderClient, setNewOrderClient] = useState<any>(null);
 
     const clientsData = useMemo(() => {
         const ranking = new Map();
         
         // 1. Processar Pedidos
         orders.forEach((order: Order) => {
-           // Ignorar pedidos cancelados para o ranking financeiro (opcional, mas recomendado)
            if (order.status === 'cancelled') return;
 
            const phoneKey = normalizePhone(order.phone);
@@ -41,11 +44,8 @@ export function ClientsView({ clients, orders, giveawayEntries, setModal, setCli
                lastOrderDate: order.createdAt 
            };
 
-           // Atualiza data do último pedido se for mais recente
            const orderDate = order.createdAt?.seconds || 0;
            const currentDate = current.lastOrderDate?.seconds || 0;
-           
-           // Só conta para estatísticas se estiver concluído, mas mantém registro de cliente mesmo se pendente
            const isCompleted = order.status === 'completed';
 
            ranking.set(phoneKey, { 
@@ -53,17 +53,16 @@ export function ClientsView({ clients, orders, giveawayEntries, setModal, setCli
                count: current.count + (isCompleted ? 1 : 0), 
                totalSpent: current.totalSpent + (isCompleted ? (order.value || 0) : 0),
                lastOrderDate: orderDate > currentDate ? order.createdAt : current.lastOrderDate,
-               name: order.customer // Mantém o nome mais recente
+               name: order.customer 
            });
         });
 
-        // 2. Mesclar com cadastro de Clientes (para pegar obs, mapsLink, etc)
+        // 2. Mesclar com cadastro
         clients.forEach((c: Client) => {
             const k = normalizePhone(c.phone);
             if(ranking.has(k)) {
                 ranking.set(k, { ...ranking.get(k), id: c.id, name: c.name, address: c.address, obs: c.obs, mapsLink: c.mapsLink });
             } else {
-                // Cliente cadastrado sem pedidos ainda
                 ranking.set(k, { 
                     id: c.id || k, 
                     name: c.name, 
@@ -80,7 +79,6 @@ export function ClientsView({ clients, orders, giveawayEntries, setModal, setCli
 
         const allClients = Array.from(ranking.values());
 
-        // Ordenação Principal baseada no modo selecionado
         return allClients.sort((a: any, b: any) => {
             if (rankingMode === 'spent') return b.totalSpent - a.totalSpent;
             return b.count - a.count;
@@ -89,189 +87,175 @@ export function ClientsView({ clients, orders, giveawayEntries, setModal, setCli
 
     const filteredClients = clientsData.filter((c: any) => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm));
     const visibleClients = filteredClients.slice(0, visibleClientsCount);
-    
-    // Top 3 Separados para destaque
     const top3 = filteredClients.slice(0, 3);
 
     const getRankIcon = (index: number) => {
-        if (index === 0) return <Crown size={24} className="text-amber-400 fill-amber-400 animate-pulse drop-shadow-lg"/>;
-        if (index === 1) return <Medal size={20} className="text-slate-300 fill-slate-300 drop-shadow-md"/>;
-        if (index === 2) return <Medal size={20} className="text-orange-700 fill-orange-700 drop-shadow-md"/>;
-        return <span className="font-bold text-slate-500 text-lg">#{index + 1}</span>;
+        if (index === 0) return <Crown size={28} className="text-amber-500 fill-amber-500 drop-shadow-lg"/>;
+        if (index === 1) return <Trophy size={24} className="text-slate-300 fill-slate-300 drop-shadow-md"/>;
+        if (index === 2) return <Trophy size={24} className="text-amber-700 fill-amber-700 drop-shadow-md"/>;
+        return null;
     };
 
     return (
-       <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full h-full pb-40 md:pb-8 custom-scrollbar flex flex-col">
-           <div className="flex-1 w-full max-w-6xl mx-auto mt-[5%] md:mt-[2%]">
-               {/* Header & Controls - INCREASED MARGIN BOTTOM TO AVOID CLASH WITH CROWN ICON */}
-               <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-10 gap-4">
-                   <div>
-                       <h2 className="text-2xl font-black text-white flex items-center gap-2">
-                           <Trophy className="text-amber-500" size={24}/> Hall da Fama
+       <div className="flex-1 bg-slate-950 p-6 md:p-10 overflow-y-auto w-full h-full pb-20 custom-scrollbar flex flex-col">
+           <div className="flex-1 w-full max-w-7xl mx-auto">
+               
+               {/* Header & Controls - IDENTICAL LAYOUT TO SCREENSHOT */}
+               <div className="flex flex-col xl:flex-row justify-between items-center mb-8 gap-6">
+                   <div className="text-left w-full xl:w-auto">
+                       <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                           <Trophy className="text-amber-500" size={28}/> Hall da Fama
                        </h2>
-                       <p className="text-slate-400 text-xs mt-0.5 hidden md:block">
+                       <p className="text-slate-400 text-xs mt-1 font-medium">
                            Conheça seus melhores clientes e seu histórico.
                        </p>
                    </div>
                    
-                   <div className="flex flex-col md:flex-row gap-2 w-full xl:w-auto items-center">
+                   <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-end">
                        
-                       {/* Toggle Ranking Mode (SLIDING ANIMATION) - SLIGHTLY SMALLER */}
-                       <div className="relative bg-slate-900 p-1 rounded-xl border border-slate-800 flex w-44 h-10 shrink-0 shadow-inner">
-                           {/* Fundo Deslizante */}
-                           <div 
-                               className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-lg shadow-lg transition-all duration-300 ease-out border border-white/10 ${
-                                   rankingMode === 'spent' 
-                                   ? 'left-1 bg-gradient-to-r from-emerald-600 to-emerald-500' 
-                                   : 'left-[calc(50%+2px)] bg-gradient-to-r from-blue-600 to-blue-500'
-                               }`}
-                           ></div>
-
-                           {/* Botões Transparentes por cima */}
+                       {/* Toggle Ranking Mode - BUTTON GROUP STYLE */}
+                       <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800 h-10">
                            <button 
                                onClick={() => setRankingMode('spent')}
-                               className={`relative z-10 flex-1 flex items-center justify-center gap-2 text-[10px] font-bold transition-colors duration-300 ${rankingMode === 'spent' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                               className={`px-4 flex items-center gap-2 text-xs font-bold rounded-md transition-all ${rankingMode === 'spent' ? 'bg-[#009e60] text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
                            >
-                               <DollarSign size={12}/> Total R$
+                               <DollarSign size={14}/> Total R$
                            </button>
                            <button 
                                onClick={() => setRankingMode('count')}
-                               className={`relative z-10 flex-1 flex items-center justify-center gap-2 text-[10px] font-bold transition-colors duration-300 ${rankingMode === 'count' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                               className={`px-4 flex items-center gap-2 text-xs font-bold rounded-md transition-all ${rankingMode === 'count' ? 'bg-[#009e60] text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
                            >
-                               <UserCheck size={12}/> Qtd
+                               <UserCheck size={14}/> Qtd
                            </button>
                        </div>
 
-                       {/* Search - SMALLER HEIGHT */}
-                       <div className="relative flex-1 w-full md:w-64">
+                       {/* Search - DARK STYLE */}
+                       <div className="relative h-10 w-full sm:w-64">
                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16}/>
                            <input 
-                               className="w-full bg-slate-900 border border-slate-800 text-white rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-amber-500 focus:bg-slate-800 transition-colors shadow-sm" 
+                               className="w-full h-full bg-slate-900 border border-slate-800 text-white rounded-lg pl-10 pr-4 text-sm outline-none focus:border-slate-600 transition-colors placeholder:text-slate-600" 
                                placeholder="Buscar cliente..." 
                                value={searchTerm} 
                                onChange={e => setSearchTerm(e.target.value)} 
                            />
                        </div>
                        
-                       <div className="flex gap-2 w-full md:w-auto">
-                           {/* Botão Sorteio */}
-                           <button onClick={() => setShowGiveawayModal(true)} className="flex-1 md:flex-none bg-purple-600 text-white px-4 py-2.5 rounded-xl hover:bg-purple-700 font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-lg border border-purple-500/50">
-                               <Gift size={16}/> Sorteio ({giveawayEntries.length})
-                           </button>
+                       {/* Sorteio Button - PURPLE */}
+                       <button onClick={() => setShowGiveawayModal(true)} className="h-10 bg-purple-600 hover:bg-purple-700 text-white px-4 rounded-lg font-bold text-xs flex items-center gap-2 transition-colors shadow-lg shadow-purple-900/20 whitespace-nowrap">
+                           <Gift size={16}/> Sorteio ({giveawayEntries.length})
+                       </button>
 
-                           <button onClick={() => setModal('import')} className="bg-slate-800 text-white px-3 py-2.5 rounded-xl hover:bg-slate-700 border border-slate-700 transition-colors shadow-sm" title="Importar CSV">
-                               <UploadCloud size={18}/>
-                           </button>
-                       </div>
+                       {/* Import Button - ICON ONLY */}
+                       <button onClick={() => setModal('import')} className="h-10 w-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg border border-slate-700 transition-colors" title="Importar CSV">
+                           <UploadCloud size={18}/>
+                       </button>
                    </div>
                </div>
 
-               {/* TOP 3 PODIUM - ULTRA COMPACT LAYOUT */}
+               {/* TOP 3 PODIUM - MATCHING CARDS LAYOUT */}
                {!searchTerm && top3.length > 0 && (
-                   <div className="relative mb-6 mt-4">
-                       {/* Efeito de fundo decorativo reduzido */}
-                       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl h-16 bg-amber-500/5 blur-3xl rounded-full -z-10 pointer-events-none"></div>
-                       
-                       <div className="flex flex-col md:flex-row items-end justify-center gap-3 md:gap-4">
-                           {top3.map((client: any, index: number) => {
-                               const isFirst = index === 0;
-                               const isSecond = index === 1;
-                               const isThird = index === 2;
+                   <div className="flex flex-col md:flex-row items-end justify-center gap-4 mb-10 mt-6">
+                       {top3.map((client: any, index: number) => {
+                           const isFirst = index === 0;
+                           const isSecond = index === 1;
+                           const isThird = index === 2;
 
-                               // Layout Order Logic for Desktop Podium (2 - 1 - 3)
-                               let orderClass = "";
-                               if (isFirst) orderClass = "order-1 md:order-2 z-30 w-full md:w-[32%]";
-                               else if (isSecond) orderClass = "order-2 md:order-1 z-20 w-full md:w-[30%]";
-                               else orderClass = "order-3 md:order-3 z-20 w-full md:w-[30%]";
+                           // Layout Order: 2nd - 1st - 3rd
+                           let orderClass = "";
+                           if (isFirst) orderClass = "order-1 md:order-2 z-30 w-full md:w-[32%]";
+                           else if (isSecond) orderClass = "order-2 md:order-1 z-20 w-full md:w-[30%]";
+                           else orderClass = "order-3 md:order-3 z-20 w-full md:w-[30%]";
 
-                               return (
-                                   <div 
-                                       key={client.id} 
-                                       onClick={() => { setClientToEdit(client); setModal('client'); }}
-                                       className={`${orderClass} relative group cursor-pointer flex flex-col items-center text-center p-3 rounded-2xl border transition-all duration-300 shadow-xl overflow-visible ${
-                                           isFirst 
-                                           ? 'bg-gradient-to-b from-amber-900/40 via-slate-900 to-slate-900 border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.15)] h-[200px] md:scale-105 z-40' 
-                                           : 'bg-slate-900 border-slate-800 hover:border-slate-600 h-[170px] hover:-translate-y-1 z-30'
-                                       }`}
-                                   >
-                                       <div className={`absolute -top-4 left-1/2 -translate-x-1/2 rounded-full p-2 border shadow-lg shrink-0 ${isFirst ? 'bg-slate-950 border-amber-500' : 'bg-slate-900 border-slate-700'}`}>
+                           // Card Styling
+                           const cardStyle = isFirst 
+                               ? 'bg-slate-900/80 border-amber-500/50 h-[220px] shadow-[0_0_30px_rgba(245,158,11,0.1)]' 
+                               : 'bg-slate-900 border-slate-800 h-[190px] opacity-90';
+
+                           return (
+                               <div 
+                                   key={client.id} 
+                                   onClick={() => { setClientToEdit(client); setModal('client'); }}
+                                   className={`${orderClass} relative group cursor-pointer flex flex-col rounded-2xl border p-0 overflow-hidden transition-all duration-300 hover:-translate-y-1 ${cardStyle}`}
+                               >
+                                   {/* Icon Container */}
+                                   <div className="flex justify-center pt-6 pb-2">
+                                       <div className={`p-3 rounded-full ${isFirst ? 'bg-amber-500/10' : 'bg-slate-800'}`}>
                                            {getRankIcon(index)}
                                        </div>
-                                       
-                                       <div className="mt-5 mb-1 w-full px-1 flex-1 flex flex-col justify-center">
-                                           <h3 className={`font-black text-white truncate w-full ${isFirst ? 'text-lg text-amber-100' : 'text-sm'}`}>{client.name}</h3>
-                                           <p className="text-[9px] text-slate-500 font-mono mt-0.5">{normalizePhone(client.phone)}</p>
-                                       </div>
-
-                                       <div className="grid grid-cols-2 gap-1 w-full mt-auto bg-black/20 p-1.5 rounded-xl border border-white/5 shrink-0">
-                                           <div className="flex flex-col items-center justify-center">
-                                               <span className="text-[7px] uppercase text-slate-500 font-bold mb-0.5">Total</span>
-                                               <span className={`font-black truncate w-full text-center ${isFirst ? 'text-amber-400 text-sm' : 'text-emerald-400 text-xs'}`}>
-                                                   {formatCurrency(client.totalSpent)}
-                                               </span>
-                                           </div>
-                                           <div className="flex flex-col items-center justify-center border-l border-white/5">
-                                               <span className="text-[7px] uppercase text-slate-500 font-bold mb-0.5">Pedidos</span>
-                                               <span className="font-black text-white text-sm">{client.count}</span>
-                                           </div>
-                                       </div>
-                                       
-                                       {client.obs && (
-                                           <div className="absolute -bottom-2 bg-slate-950 border border-slate-800 text-[8px] text-slate-400 px-2 py-0.5 rounded-full truncate max-w-[90%] shadow-md">
-                                               {client.obs}
-                                           </div>
-                                       )}
                                    </div>
-                               );
-                           })}
-                       </div>
+                                   
+                                   {/* Content */}
+                                   <div className="text-center px-4 flex-1">
+                                       <h3 className={`font-bold text-white truncate ${isFirst ? 'text-lg' : 'text-base'}`}>{client.name}</h3>
+                                       <p className="text-[10px] text-slate-500 font-mono mt-1">{normalizePhone(client.phone)}</p>
+                                   </div>
+
+                                   {/* Footer Stats Row */}
+                                   <div className={`flex border-t ${isFirst ? 'border-amber-500/20 bg-amber-900/10' : 'border-slate-800 bg-slate-950/50'}`}>
+                                       <div className="flex-1 py-3 text-center border-r border-white/5">
+                                           <p className="text-[9px] uppercase text-slate-500 font-bold mb-0.5">Total</p>
+                                           <p className={`font-bold text-sm ${isFirst ? 'text-emerald-400' : 'text-emerald-500'}`}>{formatCurrency(client.totalSpent)}</p>
+                                       </div>
+                                       <div className="flex-1 py-3 text-center">
+                                           <p className="text-[9px] uppercase text-slate-500 font-bold mb-0.5">Pedidos</p>
+                                           <p className="font-bold text-white text-sm">{client.count}</p>
+                                       </div>
+                                   </div>
+                               </div>
+                           );
+                       })}
                    </div>
                )}
 
-               {/* TABLE LIST - FIXED LAYOUT TO PREVENT DANCING */}
+               {/* TABLE LIST - EXACT COLUMNS & STYLING */}
                <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
                   <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm text-slate-400 table-fixed">
-                          <thead className="bg-slate-950 text-slate-200 font-bold uppercase tracking-wider border-b border-slate-800">
+                      <table className="w-full text-left text-sm text-slate-400 table-fixed min-w-[800px]">
+                          <thead className="bg-slate-950 text-slate-300 font-bold uppercase text-[10px] tracking-wider border-b border-slate-800">
                               <tr>
-                                  <th className="p-4 pl-6 w-24"># Rank</th>
+                                  <th className="p-4 pl-6 w-20"># Rank</th>
                                   <th className="p-4 w-auto">Cliente</th>
-                                  <th className="p-4 hidden md:table-cell w-1/3">Endereço</th>
-                                  <th className="p-4 text-right cursor-pointer hover:text-white transition-colors w-32" onClick={()=>setRankingMode('count')}>
-                                      <div className="flex items-center justify-end gap-1">Pedidos {rankingMode==='count' && <ChevronDown size={14}/>}</div>
+                                  <th className="p-4 w-1/3">Endereço</th>
+                                  <th className="p-4 text-center w-24 cursor-pointer hover:text-white" onClick={()=>setRankingMode('count')}>
+                                      Pedidos
                                   </th>
-                                  <th className="p-4 text-right cursor-pointer hover:text-white transition-colors w-36" onClick={()=>setRankingMode('spent')}>
-                                      <div className="flex items-center justify-end gap-1">Total {rankingMode==='spent' && <ChevronDown size={14}/>}</div>
+                                  <th className="p-4 text-center w-36 cursor-pointer hover:text-white" onClick={()=>setRankingMode('spent')}>
+                                      Total {rankingMode==='spent' && <ChevronDown size={12} className="inline"/>}
                                   </th>
                                   <th className="p-4 text-center w-20">Ação</th>
                               </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-800">
                               {visibleClients.map((client, index) => (
-                                  <tr key={client.id} className="hover:bg-slate-800/50 transition-colors group cursor-pointer" onClick={() => { setClientToEdit(client); setModal('client'); }}>
-                                      <td className="p-4 pl-6 font-mono font-bold text-slate-600 group-hover:text-amber-500 transition-colors truncate">
-                                          {index + 1}º
+                                  <tr key={client.id} className="hover:bg-slate-800/50 transition-colors group">
+                                      <td className="p-4 pl-6 font-bold truncate">
+                                          {index === 0 ? <span className="text-amber-500 text-base">1º</span> : 
+                                           index === 1 ? <span className="text-slate-300 text-base">2º</span> : 
+                                           index === 2 ? <span className="text-slate-400 text-base">3º</span> : 
+                                           <span className="text-slate-600">{index + 1}º</span>}
                                       </td>
                                       <td className="p-4">
-                                          <p className="font-bold text-white text-base truncate">{client.name}</p>
-                                          <p className="text-xs text-slate-500 font-mono truncate">{client.phone}</p>
+                                          <p className="font-bold text-white text-sm truncate">{client.name}</p>
+                                          <p className="text-[10px] text-slate-500 font-mono truncate">{client.phone}</p>
                                       </td>
-                                      <td className="p-4 hidden md:table-cell">
-                                          <p className="truncate text-xs">{client.address || 'Sem endereço cadastrado'}</p>
+                                      <td className="p-4">
+                                          <p className="truncate text-xs text-slate-500">{client.address || 'Sem endereço cadastrado'}</p>
                                       </td>
-                                      <td className="p-4 text-right">
-                                          <span className={`font-bold px-2 py-1 rounded inline-block min-w-[3rem] text-center ${rankingMode === 'count' ? 'bg-blue-900/30 text-blue-400 border border-blue-500/30' : 'text-slate-300'}`}>
-                                              {client.count}
-                                          </span>
+                                      <td className="p-4 text-center">
+                                          <span className="font-bold text-white">{client.count}</span>
                                       </td>
-                                      <td className="p-4 text-right">
-                                          <span className={`font-bold px-2 py-1 rounded inline-block min-w-[5rem] text-center ${rankingMode === 'spent' ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-500/30' : 'text-emerald-500/80'}`}>
+                                      <td className="p-4 text-center">
+                                          <span className="font-bold text-xs bg-[#009e60]/20 text-[#009e60] px-3 py-1.5 rounded-lg border border-[#009e60]/20 inline-block min-w-[90px]">
                                               {formatCurrency(client.totalSpent || 0)}
                                           </span>
                                       </td>
                                       <td className="p-4 text-center">
-                                          <button onClick={(e) => { e.stopPropagation(); setClientToEdit(client); setModal('client'); }} className="p-2 bg-slate-800 hover:bg-amber-600 hover:text-white rounded-xl transition-colors text-slate-400 border border-slate-700 shadow-sm">
-                                              <Edit size={16}/>
+                                          <button 
+                                            onClick={(e) => { e.stopPropagation(); setClientToEdit(client); setModal('client'); }} 
+                                            className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors mx-auto"
+                                            title="Editar"
+                                          >
+                                              <Edit size={14}/>
                                           </button>
                                       </td>
                                   </tr>
@@ -283,7 +267,7 @@ export function ClientsView({ clients, orders, giveawayEntries, setModal, setCli
                   {filteredClients.length > visibleClientsCount && (
                       <div className="p-4 text-center border-t border-slate-800 bg-slate-950">
                           <button onClick={() => setVisibleClientsCount(prev => prev + 20)} className="text-xs font-bold text-slate-500 hover:text-white flex items-center justify-center gap-2 mx-auto py-2 px-4 hover:bg-slate-900 rounded-lg transition-colors">
-                              <ChevronDown size={14}/> Carregar mais clientes
+                              <ChevronDown size={14}/> Carregar mais
                           </button>
                       </div>
                   )}
@@ -296,6 +280,23 @@ export function ClientsView({ clients, orders, giveawayEntries, setModal, setCli
                    entries={giveawayEntries}
                    onClose={() => setShowGiveawayModal(false)}
                    appConfig={appConfig}
+                   onDeleteEntry={onDeleteGiveawayEntry} // Passing delete function to Modal
+               />
+           )}
+
+           {/* MODAL NOVO PEDIDO MANUAL */}
+           {newOrderClient && (
+               <ManualOrderModal 
+                   initialData={{
+                       customer: newOrderClient.name || '',
+                       phone: newOrderClient.phone || '',
+                       address: newOrderClient.address || ''
+                   }}
+                   onClose={() => setNewOrderClient(null)}
+                   onSave={(data: any) => {
+                       onCreateOrder(data);
+                       setNewOrderClient(null);
+                   }}
                />
            )}
 

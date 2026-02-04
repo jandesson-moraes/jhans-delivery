@@ -737,7 +737,7 @@ export default function ClientInterface({
                             <div className="w-20 h-20 bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-500/30">
                                 <Gift size={40} className="text-amber-400"/>
                             </div>
-                            <h3 className="text-2xl font-black text-white uppercase italic">Sorteio da Casa</h3>
+                            <h3 className="text-2xl font-black text-white uppercase italic">Sorteio de um Combo Casal Clássico</h3>
                             <p className="text-slate-400 text-sm mt-1">Preencha para participar!</p>
                         </div>
 
