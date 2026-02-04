@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Trophy, Shuffle, Search, Users, Edit, Trash2, Check, MessageCircle, Instagram, AlertTriangle, Copy, Printer, AlertCircle, Info, Flame, Bike, Save, Settings, Lock, Store, Clock, MapPin, CreditCard, Smartphone, Image as ImageIcon, Plus, Truck, CalendarClock, Sliders, UploadCloud, RefreshCw, Signal, QrCode, CheckCircle2, DollarSign, Timer, Ban, PlusCircle, Camera, FileText, ChevronRight, Download, History, PackageCheck, Ticket, DownloadCloud, Gift, Mail, Calendar, HelpCircle, FileSpreadsheet, User, Phone, Megaphone } from 'lucide-react';
+import { X, Trophy, Shuffle, Search, Users, Edit, Trash2, Check, MessageCircle, Instagram, AlertTriangle, Copy, Printer, AlertCircle, Info, Flame, Bike, Save, Settings, Lock, Store, Clock, MapPin, CreditCard, Smartphone, Image as ImageIcon, Plus, Truck, CalendarClock, Sliders, UploadCloud, RefreshCw, Signal, QrCode, CheckCircle2, DollarSign, Timer, Ban, PlusCircle, Camera, FileText, ChevronRight, Download, History, PackageCheck, Ticket, DownloadCloud, Gift, Mail, Calendar, HelpCircle, FileSpreadsheet, User, Phone, Megaphone, Monitor, Banknote, Navigation, FlaskConical, ShoppingCart, Square, CheckSquare, Wand2, Send } from 'lucide-react';
 import { normalizePhone, formatDate, formatCurrency, generateReceiptText, printOrderTicket, getProductionMessage, getDispatchMessage, formatPhoneNumberDisplay, compressImage, COUNTRY_CODES, toSentenceCase, formatOrderId, formatTime, copyToClipboard } from '../utils';
-import { AppConfig, Product, Order, InventoryItem, GiveawayEntry, Driver, Client, DeliveryZone, GiveawayFieldConfig } from '../types';
+import { AppConfig, Product, Order, InventoryItem, GiveawayEntry, Driver, Client, DeliveryZone, GiveawayFieldConfig, ShoppingItem, Supplier } from '../types';
 
 export function AdminLoginModal({ onClose, onLogin }: any) {
     const [pass, setPass] = useState('');
@@ -61,7 +61,6 @@ export function AdminLoginModal({ onClose, onLogin }: any) {
     );
 }
 
-// ... GenericAlertModal and GenericConfirmModal remain unchanged ...
 export function GenericAlertModal({ isOpen, title, message, type = 'info', onClose }: any) {
     if (!isOpen) return null;
     return (
@@ -239,7 +238,6 @@ export function SettingsModal({ config, onClose, onSave }: any) {
     const [newZoneName, setNewZoneName] = useState('');
     const [newZoneFee, setNewZoneFee] = useState('');
 
-    // ... (Existing useEffect for giveawaySettings) ...
     useEffect(() => {
         if (!form.giveawaySettings) {
             setForm(prev => ({
@@ -282,7 +280,7 @@ export function SettingsModal({ config, onClose, onSave }: any) {
         setForm({ ...form, location: { lat: form.location?.lat || 0, lng: form.location?.lng || 0, [field]: parseFloat(value) || 0 } });
     };
 
-    const handleImageUpload = async (field: 'appLogoUrl' | 'bannerUrl', file: File) => {
+    const handleImageUpload = async (field: 'appLogoUrl' | 'bannerUrl' | 'welcomeBannerUrl', file: File) => {
         if (file) {
             try { const compressed = await compressImage(file); setForm(prev => ({...prev, [field]: compressed})); } 
             catch (err) { alert("Erro ao processar imagem."); }
@@ -337,11 +335,14 @@ export function SettingsModal({ config, onClose, onSave }: any) {
                                      <div className="space-y-6">
                                          <div><label className="text-[10px] text-blue-400 font-bold uppercase mb-2 block tracking-wider">NOME DA LOJA</label><input className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-blue-500 transition-colors shadow-inner" value={form.appName || ''} onChange={e => setForm({...form, appName: e.target.value})} placeholder="Ex: Jhans Burgers" /></div>
                                          <div>
-                                             <label className="text-[10px] text-blue-400 font-bold uppercase mb-2 block tracking-wider">WHATSAPP DA LOJA</label>
+                                             <label className="text-[10px] text-emerald-400 font-bold uppercase mb-2 block tracking-wider flex items-center gap-2"><MessageCircle size={12}/> WHATSAPP DA LOJA (DESTINO DOS PEDIDOS)</label>
                                              <div className="flex gap-2">
                                                  <div className="relative w-24 shrink-0"><select className="w-full bg-slate-900 border border-slate-700 rounded-xl py-4 pl-2 pr-6 text-white text-sm outline-none focus:border-blue-500 appearance-none font-bold" value={form.storeCountryCode || '+55'} onChange={e => setForm({...form, storeCountryCode: e.target.value})}>{COUNTRY_CODES.map((c) => (<option key={c.code} value={c.code}>{c.country} ({c.code})</option>))}</select></div>
                                                  <input className="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-4 text-white text-sm outline-none focus:border-blue-500 transition-colors shadow-inner" value={form.storePhone || ''} onChange={e => setForm({...form, storePhone: e.target.value})} placeholder="(99) 99999-9999" />
                                              </div>
+                                             <p className="text-[10px] text-slate-500 mt-2">
+                                                 Insira aqui o número do <b>WhatsApp Business da Loja</b>. Todos os pedidos feitos pelos clientes serão enviados para este número.
+                                             </p>
                                          </div>
                                          
                                          {/* FACEBOOK PIXEL INPUT */}
@@ -391,7 +392,37 @@ export function SettingsModal({ config, onClose, onSave }: any) {
                                              </>
                                          )}
                                      </div>
-                                     <div className="flex flex-col"><label className="text-[10px] text-amber-400 font-bold uppercase mb-2 block tracking-wider">IMAGEM DO BANNER</label><div className="flex-1 bg-slate-900 border-2 border-dashed border-slate-700 rounded-xl flex flex-col items-center justify-center relative group cursor-pointer overflow-hidden hover:border-amber-500 transition-colors min-h-[200px]">{form.bannerUrl ? (<img src={form.bannerUrl} className={`w-full h-full object-cover ${form.promoMode === 'banner' ? 'object-contain bg-black' : ''}`} />) : (<div className="text-center"><ImageIcon className="text-slate-700 mx-auto mb-2" size={32}/><p className="text-[10px] text-slate-500 font-bold uppercase px-2">CARREGAR IMAGEM</p></div>)}<div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><UploadCloud className="text-white"/></div><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={(e) => handleImageUpload('bannerUrl', e.target.files?.[0] as File)} /></div>{form.bannerUrl && (<button onClick={() => setForm({...form, bannerUrl: ''})} className="text-[10px] text-red-500 font-bold mt-2 hover:text-red-400 text-center uppercase tracking-wide">Remover Imagem</button>)}</div>
+                                     <div className="flex flex-col gap-6">
+                                         {/* BANNER PROMOÇÃO */}
+                                         <div className="flex flex-col h-1/2">
+                                             <label className="text-[10px] text-amber-400 font-bold uppercase mb-2 block tracking-wider">IMAGEM DO BANNER (CARDÁPIO)</label>
+                                             <div className="flex-1 bg-slate-900 border-2 border-dashed border-slate-700 rounded-xl flex flex-col items-center justify-center relative group cursor-pointer overflow-hidden hover:border-amber-500 transition-colors min-h-[140px]">
+                                                 {form.bannerUrl ? (
+                                                     <img src={form.bannerUrl} className={`w-full h-full object-cover ${form.promoMode === 'banner' ? 'object-contain bg-black' : ''}`} />
+                                                 ) : (
+                                                     <div className="text-center"><ImageIcon className="text-slate-700 mx-auto mb-2" size={32}/><p className="text-[10px] text-slate-500 font-bold uppercase px-2">CARREGAR IMAGEM</p></div>
+                                                 )}
+                                                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><UploadCloud className="text-white"/></div>
+                                                 <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={(e) => handleImageUpload('bannerUrl', e.target.files?.[0] as File)} />
+                                             </div>
+                                             {form.bannerUrl && (<button onClick={() => setForm({...form, bannerUrl: ''})} className="text-[10px] text-red-500 font-bold mt-2 hover:text-red-400 text-center uppercase tracking-wide">Remover Imagem</button>)}
+                                         </div>
+
+                                         {/* BANNER BOAS VINDAS (POPUP) */}
+                                         <div className="flex flex-col h-1/2">
+                                             <label className="text-[10px] text-amber-400 font-bold uppercase mb-2 block tracking-wider flex items-center gap-2"><Monitor size={12}/> BANNER DE BOAS-VINDAS (POPUP)</label>
+                                             <div className="flex-1 bg-slate-900 border-2 border-dashed border-slate-700 rounded-xl flex flex-col items-center justify-center relative group cursor-pointer overflow-hidden hover:border-amber-500 transition-colors min-h-[140px]">
+                                                 {form.welcomeBannerUrl ? (
+                                                     <img src={form.welcomeBannerUrl} className="w-full h-full object-contain bg-black/50" />
+                                                 ) : (
+                                                     <div className="text-center"><ImageIcon className="text-slate-700 mx-auto mb-2" size={32}/><p className="text-[10px] text-slate-500 font-bold uppercase px-2">POPUP ENTRADA</p></div>
+                                                 )}
+                                                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><UploadCloud className="text-white"/></div>
+                                                 <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={(e) => handleImageUpload('welcomeBannerUrl', e.target.files?.[0] as File)} />
+                                             </div>
+                                             {form.welcomeBannerUrl && (<button onClick={() => setForm({...form, welcomeBannerUrl: ''})} className="text-[10px] text-red-500 font-bold mt-2 hover:text-red-400 text-center uppercase tracking-wide">Remover Popup</button>)}
+                                         </div>
+                                     </div>
                                  </div>
                              </div>
                              <div className="bg-slate-950 p-6 rounded-2xl border border-purple-500/30 relative overflow-hidden">
@@ -411,7 +442,7 @@ export function SettingsModal({ config, onClose, onSave }: any) {
                              <div className="bg-slate-950 p-6 rounded-2xl border border-emerald-900/50 shadow-xl relative overflow-hidden">
                                  <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none"><QrCode size={200} className="text-emerald-500"/></div>
                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
-                                     <div><label className="text-[10px] text-emerald-500 font-bold uppercase mb-1.5 block">CHAVE PIX</label><input className="w-full bg-slate-900 border border-emerald-500/30 rounded-lg p-3 text-white outline-none focus:border-emerald-500 font-mono text-sm shadow-inner" value={form.pixKey || ''} onChange={e => setForm({...form, pixKey: e.target.value})} placeholder="CPF, Email, Telefone..." /></div>
+                                     <div><label className="text-[10px] text-emerald-500 font-bold uppercase mb-1.5 block">CHAVE PIX</label><input className="w-full bg-slate-900 border border-emerald-500/30 rounded-lg p-3 text-white outline-none focus:border-emerald-500 font-mono text-sm shadow-inner" value={form.pixKey || ''} onChange={e => setForm({...form,pixKey: e.target.value})} placeholder="CPF, Email, Telefone..." /></div>
                                      <div><label className="text-[10px] text-emerald-500 font-bold uppercase mb-1.5 block">NOME DO TITULAR</label><input className="w-full bg-slate-900 border border-emerald-500/30 rounded-lg p-3 text-white outline-none focus:border-emerald-500 text-sm shadow-inner" value={form.pixName || ''} onChange={e => setForm({...form, pixName: e.target.value})} /></div>
                                      <div><label className="text-[10px] text-emerald-500 font-bold uppercase mb-1.5 block">CIDADE DO TITULAR</label><input className="w-full bg-slate-900 border border-emerald-500/30 rounded-lg p-3 text-white outline-none focus:border-emerald-500 text-sm shadow-inner" value={form.pixCity || ''} onChange={e => setForm({...form, pixCity: e.target.value})} /></div>
                                  </div>
@@ -448,368 +479,388 @@ export function SettingsModal({ config, onClose, onSave }: any) {
     );
 }
 
-// ... Rest of the file remains unchanged ...
+export function NewDriverModal({ initialData, onClose, onSave }: any) {
+    const [form, setForm] = useState(initialData || { name: '', phone: '', vehicle: '', plate: '', password: '', status: 'offline', avatar: '' });
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave(form);
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-white text-xl">{initialData ? 'Editar' : 'Novo'} Motorista</h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.phone} onChange={e => setForm({...form, phone: formatPhoneNumberDisplay(e.target.value)})} /></div>
+                    <div className="grid grid-cols-2 gap-4">
+                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Veículo</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.vehicle} onChange={e => setForm({...form, vehicle: e.target.value})} placeholder="Ex: Moto Honda" /></div>
+                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Placa (Opcional)</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.plate} onChange={e => setForm({...form, plate: e.target.value})} /></div>
+                    </div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Senha de Acesso (Login)</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.password} onChange={e => setForm({...form, password: e.target.value})} type="password" placeholder="****" /></div>
+                    
+                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-4">Salvar Motorista</button>
+                </form>
+            </div>
+        </div>
+    );
+}
+
 export function ProductFormModal({ isOpen, onClose, product, onSave, existingCategories, inventory }: any) {
-    const [form, setForm] = useState(product || { name: '', description: '', price: 0, category: '', ingredients: [] });
+    const [form, setForm] = useState<Product>({
+        id: '', name: '', category: '', price: 0, description: '', ingredients: []
+    });
     
+    useEffect(() => {
+        if(isOpen) {
+            setForm(product || { id: '', name: '', category: 'Hambúrgueres', price: 0, description: '', ingredients: [] });
+        }
+    }, [isOpen, product]);
+
+    const handleIngredientChange = (idx: number, field: string, value: any) => {
+        const newIngs = [...(form.ingredients || [])];
+        (newIngs[idx] as any)[field] = value;
+        setForm({...form, ingredients: newIngs});
+    };
+
+    const addIngredient = () => {
+        setForm({...form, ingredients: [...(form.ingredients || []), { inventoryId: '', qty: 0 }]});
+    };
+
+    const removeIngredient = (idx: number) => {
+        const newIngs = [...(form.ingredients || [])];
+        newIngs.splice(idx, 1);
+        setForm({...form, ingredients: newIngs});
+    };
+
     if(!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
-             <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
-                <h3 className="font-bold text-xl text-white mb-6">{product ? 'Editar Produto' : 'Novo Produto'}</h3>
-                
-                <form onSubmit={(e) => {e.preventDefault(); onSave(product?.id, form)}} className="space-y-4">
-                    <div>
-                        <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Nome</label>
-                        <input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
-                    </div>
-                    <div>
-                        <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Preço (R$)</label>
-                        <input required type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.price} onChange={e => setForm({...form, price: parseFloat(e.target.value)})} />
-                    </div>
-                    <div>
-                         <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Categoria</label>
-                         <input list="categories" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.category} onChange={e => setForm({...form, category: e.target.value})} />
-                         <datalist id="categories">
-                             {existingCategories.map((c: string) => <option key={c} value={c} />)}
-                         </datalist>
-                    </div>
-                    <div>
-                         <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Descrição</label>
-                         <textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-24 resize-none" value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} />
-                    </div>
-                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Salvar</button>
-                </form>
-             </div>
-        </div>
-    );
-}
-
-export function ManualOrderModal({ initialData, onClose, onSave }: any) {
-    const [form, setForm] = useState(initialData || { customer: '', phone: '', address: '' });
-
-    return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
-             <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
-                <h3 className="font-bold text-xl text-white mb-6">Iniciar Novo Pedido</h3>
-                
-                <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
-                    <div>
-                        <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Cliente</label>
-                        <input autoFocus required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.customer} onChange={e => setForm({...form, customer: e.target.value})} placeholder="Nome do Cliente" />
-                    </div>
-                    <div>
-                        <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Telefone</label>
-                        <input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: formatPhoneNumberDisplay(e.target.value)})} placeholder="(99) 99999-9999" />
-                    </div>
-                    <div>
-                         <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Endereço</label>
-                         <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} placeholder="Rua, Número, Bairro" />
-                    </div>
-                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Continuar</button>
-                </form>
-             </div>
-        </div>
-    );
-}
-
-export function ReceiptModal({ order, onClose, appConfig }: any) {
-    const handlePrint = () => {
-        printOrderTicket(order, appConfig);
-    };
-
-    const handleCopy = () => {
-        const text = generateReceiptText(order, appConfig.appName, appConfig);
-        copyToClipboard(text);
-        alert('Texto copiado!');
-    };
-
-    return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
-             <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-700 p-6 shadow-2xl relative text-center">
-                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
-                 <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-700">
-                     <FileText size={32} className="text-slate-400"/>
-                 </div>
-                 <h3 className="text-xl font-bold text-white mb-2">Comprovante #{formatOrderId(order.id)}</h3>
-                 <p className="text-slate-500 text-sm mb-6">O que deseja fazer?</p>
-                 
-                 <div className="space-y-3">
-                     <button onClick={handlePrint} className="w-full bg-slate-800 hover:bg-white hover:text-slate-900 text-white font-bold py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2">
-                         <Printer size={18}/> Imprimir Ticket
-                     </button>
-                     <button onClick={handleCopy} className="w-full bg-slate-800 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2">
-                         <Copy size={18}/> Copiar Texto
-                     </button>
-                 </div>
-             </div>
-        </div>
-    );
-}
-
-export function NewDriverModal({ initialData, onClose, onSave }: any) {
-    const [form, setForm] = useState(initialData || { name: '', phone: '', vehicle: '', paymentModel: 'fixed_per_delivery', paymentRate: 5.00, status: 'offline', battery: 100, lat: 0, lng: 0, avatar: '', totalDeliveries: 0, rating: 5 });
-    
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            try {
-                const compressed = await compressImage(e.target.files[0]);
-                setForm({...form, avatar: compressed});
-            } catch (err) {
-                alert("Erro ao processar imagem.");
-            }
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
-             <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
-                <h3 className="font-bold text-xl text-white mb-6">{initialData ? 'Editar Motorista' : 'Novo Motorista'}</h3>
-                
-                <form onSubmit={(e) => { e.preventDefault(); onSave(form); onClose(); }} className="space-y-4">
-                    {/* AVATAR UPLOAD */}
-                    <div className="flex justify-center mb-4">
-                        <div className="relative w-24 h-24 rounded-full bg-slate-950 border-2 border-slate-700 flex items-center justify-center overflow-hidden group cursor-pointer shadow-lg">
-                            {form.avatar ? (
-                                <img src={form.avatar} className="w-full h-full object-cover" />
-                            ) : (
-                                <User size={32} className="text-slate-600"/>
-                            )}
-                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                <Camera size={20} className="text-white"/>
-                            </div>
-                            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleImageUpload} />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Nome</label>
-                        <input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
-                    </div>
-                    <div>
-                        <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Telefone</label>
-                        <input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: formatPhoneNumberDisplay(e.target.value)})} />
-                    </div>
-                     <div>
-                        <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Veículo / Placa</label>
-                        <input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.vehicle} onChange={e => setForm({...form, vehicle: e.target.value})} placeholder="Ex: Moto Honda - ABC-1234" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
+            <div className="bg-slate-900 w-full max-w-2xl rounded-2xl border border-slate-700 p-6 shadow-2xl relative overflow-y-auto max-h-[90vh]">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-white text-xl">{product ? 'Editar' : 'Novo'} Produto</h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                </div>
+                <form onSubmit={(e) => { e.preventDefault(); onSave(product?.id, form); }} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
                         <div>
-                             <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Modelo Pagto</label>
-                             <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 text-xs" value={form.paymentModel} onChange={e => setForm({...form, paymentModel: e.target.value})}>
-                                 <option value="fixed_per_delivery">Fixo p/ Entrega</option>
-                                 <option value="percentage">% do Pedido</option>
-                                 <option value="salary">Salário Fixo</option>
-                             </select>
-                        </div>
-                         <div>
-                             <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Valor / Taxa</label>
-                             <input type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.paymentRate} onChange={e => setForm({...form, paymentRate: parseFloat(e.target.value)})} />
+                            <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Categoria</label>
+                            <input list="categories" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.category} onChange={e => setForm({...form, category: e.target.value})} />
+                            <datalist id="categories">{existingCategories.map((c: string) => <option key={c} value={c}/>)}</datalist>
                         </div>
                     </div>
-                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Salvar</button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Preço (R$)</label><input required type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.price} onChange={e => setForm({...form, price: parseFloat(e.target.value)})} /></div>
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Custo Operacional Extra (R$)</label><input type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.operationalCost || 0} onChange={e => setForm({...form, operationalCost: parseFloat(e.target.value)})} placeholder="Embalagem, gás..." /></div>
+                    </div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Descrição</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-20" value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
+                    
+                    {/* Ficha Técnica */}
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="text-xs text-slate-500 font-bold uppercase flex items-center gap-2"><FlaskConical size={14}/> Ficha Técnica (Ingredientes)</label>
+                            <button type="button" onClick={addIngredient} className="text-xs text-emerald-500 font-bold hover:text-white flex items-center gap-1"><PlusCircle size={12}/> Add</button>
+                        </div>
+                        {(!form.ingredients || form.ingredients.length === 0) && <p className="text-xs text-slate-600 italic">Nenhum ingrediente vinculado.</p>}
+                        <div className="space-y-2">
+                            {(form.ingredients || []).map((ing, idx) => (
+                                <div key={idx} className="flex gap-2 items-center">
+                                    <select className="flex-1 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" value={ing.inventoryId} onChange={e => handleIngredientChange(idx, 'inventoryId', e.target.value)}>
+                                        <option value="">Selecione Insumo...</option>
+                                        {(inventory || []).map((inv: any) => <option key={inv.id} value={inv.id}>{inv.name} ({inv.unit})</option>)}
+                                    </select>
+                                    <input type="number" placeholder="Qtd" step="any" className="w-20 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" value={ing.qty} onChange={e => handleIngredientChange(idx, 'qty', parseFloat(e.target.value))} />
+                                    <button type="button" onClick={() => removeIngredient(idx)} className="text-red-500 hover:text-red-400"><Trash2 size={14}/></button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg">Salvar Produto</button>
                 </form>
-             </div>
-        </div>
-    );
-}
-
-export function CloseCycleModal({ data, onClose, onConfirm }: any) {
-    if(!data) return null;
-    return (
-        <GenericConfirmModal 
-            isOpen={true}
-            title={`Fechar Ciclo de ${data.driverName}`}
-            message={`Confirma o pagamento de ${formatCurrency(data.toPay)} referente a ${data.deliveriesCount} entregas realizadas?`}
-            onClose={onClose}
-            onConfirm={() => onConfirm(data)}
-            confirmText="Confirmar Pagamento"
-        />
-    );
-}
-
-export function ImportModal({ onClose, onImportCSV }: any) {
-    const [text, setText] = useState('');
-    return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
-             <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
-                <h3 className="font-bold text-xl text-white mb-4 flex items-center gap-2"><FileSpreadsheet className="text-emerald-500"/> Importar Clientes (CSV)</h3>
-                <p className="text-xs text-slate-400 mb-4">Cole o conteúdo do seu CSV abaixo. Formato esperado: <b>Nome,Telefone,Endereço</b> (um por linha).</p>
-                <textarea className="w-full h-40 bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-amber-500 font-mono mb-4" value={text} onChange={e => setText(e.target.value)} placeholder="João Silva,11999999999,Rua A 123&#10;Maria Souza,11988888888,Av B 456" />
-                <button onClick={() => onImportCSV(text)} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg">Processar Importação</button>
-             </div>
-        </div>
-    );
-}
-
-export function EditClientModal({ client, orders, onClose, onSave }: any) {
-    const [form, setForm] = useState(client || {});
-
-    return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
-             <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
-                <h3 className="font-bold text-xl text-white mb-6">Editar Cliente</h3>
-                
-                <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
-                    <div>
-                        <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Nome</label>
-                        <input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
-                    </div>
-                    <div>
-                        <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Telefone</label>
-                        <input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: formatPhoneNumberDisplay(e.target.value)})} />
-                    </div>
-                     <div>
-                        <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Endereço</label>
-                        <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
-                    </div>
-                    <div>
-                        <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Observações</label>
-                        <textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-20" value={form.obs || ''} onChange={e => setForm({...form, obs: e.target.value})} />
-                    </div>
-                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Salvar</button>
-                </form>
-             </div>
+            </div>
         </div>
     );
 }
 
 export function EditOrderModal({ order, onClose, onSave }: any) {
     const [form, setForm] = useState(order);
+    
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave(order.id, form);
+        onClose();
+    };
 
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
-             <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
-                <h3 className="font-bold text-xl text-white mb-6">Editar Pedido #{formatOrderId(order.id)}</h3>
-                
-                <form onSubmit={(e) => { e.preventDefault(); onSave(order.id, form); onClose(); }} className="space-y-4">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-white text-xl">Editar Pedido {formatOrderId(order.id)}</h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
                      <div className="grid grid-cols-2 gap-4">
-                         <div>
-                            <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Cliente</label>
-                            <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.customer} onChange={e => setForm({...form, customer: e.target.value})} />
-                        </div>
-                        <div>
-                            <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Telefone</label>
-                            <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: formatPhoneNumberDisplay(e.target.value)})} />
-                        </div>
+                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Cliente</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.customer} onChange={e => setForm({...form, customer: e.target.value})} /></div>
+                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
                      </div>
-                     <div>
-                        <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Endereço</label>
-                        <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
-                    </div>
-                    <div>
-                        <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Itens do Pedido</label>
-                        <textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-24 font-mono text-xs" value={form.items} onChange={e => setForm({...form, items: e.target.value})} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                         <div>
-                            <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Valor Total</label>
-                            <input type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.value} onChange={e => setForm({...form, value: parseFloat(e.target.value)})} />
-                        </div>
-                         <div>
-                             <label className="text-xs text-slate-500 font-bold uppercase mb-1 block">Status</label>
-                             <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
-                                 <option value="pending">Pendente</option>
-                                 <option value="preparing">Preparando</option>
-                                 <option value="ready">Pronto</option>
-                                 <option value="assigned">Saiu p/ Entrega</option>
-                                 <option value="completed">Concluído</option>
-                                 <option value="cancelled">Cancelado</option>
-                             </select>
-                        </div>
-                    </div>
-                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Salvar Alterações</button>
+                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
+                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Itens</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-24" value={form.items} onChange={e => setForm({...form, items: e.target.value})} /></div>
+                     <div className="grid grid-cols-2 gap-4">
+                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Valor Total</label><input type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.value} onChange={e => setForm({...form, value: parseFloat(e.target.value)})} /></div>
+                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Pagamento</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.paymentMethod} onChange={e => setForm({...form, paymentMethod: e.target.value})} /></div>
+                     </div>
+                     <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Salvar Alterações</button>
                 </form>
+            </div>
+        </div>
+    );
+}
+
+export function CloseCycleModal({ data, onClose, onConfirm }: any) {
+    return (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+             <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-700 p-6 shadow-2xl relative text-center">
+                 <div className="w-16 h-16 bg-emerald-900/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/20"><Wallet size={32}/></div>
+                 <h3 className="text-xl font-bold text-white mb-2">Fechar Ciclo</h3>
+                 <p className="text-slate-400 text-sm mb-6">Confirma o pagamento de <b className="text-white">{formatCurrency(data.toPay)}</b> para {data.driverName}?</p>
+                 
+                 <div className="bg-slate-950 rounded-xl p-4 mb-6 border border-slate-800 text-left space-y-2">
+                     <div className="flex justify-between text-xs"><span className="text-slate-500">Entregas</span><span className="text-white font-bold">{formatCurrency(data.deliveriesTotal)}</span></div>
+                     <div className="flex justify-between text-xs"><span className="text-slate-500">Vales</span><span className="text-red-400 font-bold">- {formatCurrency(data.valesTotal)}</span></div>
+                     <div className="border-t border-slate-800 pt-2 flex justify-between text-sm"><span className="text-emerald-500 font-bold">Total Pagar</span><span className="text-emerald-400 font-black">{formatCurrency(data.toPay)}</span></div>
+                 </div>
+
+                 <div className="flex gap-3">
+                     <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl transition-colors">Cancelar</button>
+                     <button onClick={() => onConfirm(data)} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors shadow-lg">Confirmar</button>
+                 </div>
+             </div>
+        </div>
+    );
+}
+
+export function ReceiptModal({ order, onClose, appConfig }: any) {
+    const receiptText = generateReceiptText(order, appConfig.appName, { pixKey: appConfig.pixKey, pixName: appConfig.pixName, pixCity: appConfig.pixCity });
+    
+    const handlePrint = () => {
+        printOrderTicket(order, appConfig);
+    };
+
+    return (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 shadow-2xl relative flex flex-col max-h-[90vh]">
+                <div className="flex justify-between items-center mb-4 shrink-0">
+                    <h3 className="font-bold text-white text-xl flex items-center gap-2"><FileText size={20}/> Comprovante</h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                </div>
+                
+                <div className="flex-1 bg-white text-black font-mono text-xs p-4 rounded-xl overflow-y-auto whitespace-pre-wrap shadow-inner border-t-4 border-slate-200 border-b-4 border-slate-200 relative mb-4">
+                    {/* Efeito de rasgo de papel CSS seria legal aqui, mas simplificando */}
+                    {receiptText.replace(/\*/g, '').replace(/`/g, '')}
+                </div>
+
+                <div className="flex gap-3 shrink-0">
+                    <button onClick={() => copyToClipboard(receiptText)} className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"><Copy size={16}/> Copiar</button>
+                    <button onClick={handlePrint} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"><Printer size={16}/> Imprimir</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export function ManualOrderModal({ initialData, onClose, onSave }: any) {
+    const [form, setForm] = useState(initialData || { customer: '', phone: '', address: '' });
+    
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave(form);
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+             <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
+                 <div className="flex justify-between items-center mb-6">
+                     <h3 className="font-bold text-white text-xl">Novo Pedido Manual</h3>
+                     <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                 </div>
+                 <form onSubmit={handleSubmit} className="space-y-4">
+                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Cliente</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.customer} onChange={e => setForm({...form, customer: e.target.value})} /></div>
+                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.phone} onChange={e => setForm({...form, phone: formatPhoneNumberDisplay(e.target.value)})} /></div>
+                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
+                     
+                     <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-500/20 text-xs text-amber-200">
+                         Este é um formulário rápido. Para adicionar itens e calcular totais, use a tela "Novo Pedido" no menu principal.
+                     </div>
+                     
+                     <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Criar Pedido Rápido</button>
+                 </form>
+             </div>
+        </div>
+    );
+}
+
+export function EditClientModal({ client, onClose, onSave, orders }: any) {
+    const [form, setForm] = useState(client);
+
+    return (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-white text-xl">Editar Cliente</h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                </div>
+                <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
+                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
+                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
+                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
+                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Observações</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500 h-24" value={form.obs || ''} onChange={e => setForm({...form, obs: e.target.value})} placeholder="Ex: Cliente prefere sem cebola, ponto de referência..." /></div>
+                     
+                     <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 mt-4">
+                         <div className="flex justify-between mb-2"><span className="text-slate-500 text-xs font-bold uppercase">Total Gasto</span><span className="text-emerald-400 font-bold">{formatCurrency(form.totalSpent || 0)}</span></div>
+                         <div className="flex justify-between"><span className="text-slate-500 text-xs font-bold uppercase">Pedidos</span><span className="text-white font-bold">{form.count || 0}</span></div>
+                     </div>
+
+                     <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Salvar Cliente</button>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+export function ImportModal({ onClose, onImportCSV }: any) {
+    const [text, setText] = useState('');
+    
+    return (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+             <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
+                 <div className="flex justify-between items-center mb-4">
+                     <h3 className="font-bold text-white text-xl flex items-center gap-2"><UploadCloud/> Importar Clientes (CSV)</h3>
+                     <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                 </div>
+                 <p className="text-xs text-slate-400 mb-4">Cole abaixo o conteúdo do seu CSV. Formato: <b>Nome, Telefone, Endereço</b> (um por linha).</p>
+                 <textarea className="w-full h-48 bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-blue-500 font-mono mb-4" placeholder="João Silva, 11999999999, Rua A 123&#10;Maria Souza, 11988888888, Av B 456" value={text} onChange={e => setText(e.target.value)} />
+                 <button onClick={() => onImportCSV(text)} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg">Processar Importação</button>
              </div>
         </div>
     );
 }
 
 export function KitchenHistoryModal({ order, onClose, products, totalClientOrders }: any) {
-    if(!order) return null;
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
-             <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 shadow-2xl relative text-center">
-                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
-                 <h3 className="text-xl font-bold text-white mb-2">Detalhes do Pedido</h3>
-                 <p className="text-slate-500 text-sm mb-4">#{formatOrderId(order.id)}</p>
-                 
-                 <div className="bg-slate-950 p-4 rounded-xl text-left border border-slate-800 mb-4 space-y-2">
-                     <p className="text-white font-bold">{order.customer}</p>
-                     <p className="text-slate-400 text-xs">{order.address}</p>
-                     <p className="text-slate-400 text-xs">{order.phone}</p>
-                     <div className="border-t border-slate-800 pt-2 mt-2">
-                         <p className="text-white text-sm font-mono whitespace-pre-line">{order.items}</p>
-                     </div>
-                     <div className="border-t border-slate-800 pt-2 mt-2 flex justify-between">
-                         <span className="text-slate-500 text-xs uppercase font-bold">Total Pedidos Cliente:</span>
-                         <span className="text-white font-bold text-xs">{totalClientOrders}</span>
-                     </div>
-                 </div>
-                 <button onClick={onClose} className="w-full bg-slate-800 hover:bg-white hover:text-slate-900 text-white font-bold py-3 rounded-xl transition-all">Fechar</button>
-             </div>
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
+            <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 p-6 shadow-2xl relative overflow-y-auto max-h-[90vh]">
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
+                
+                <div className="mb-6 border-b border-slate-800 pb-4">
+                    <h2 className="text-xl font-black text-white mb-1">{order.customer}</h2>
+                    <div className="flex flex-wrap gap-2 text-sm text-slate-400">
+                        <span className="flex items-center gap-1"><Phone size={14}/> {order.phone}</span>
+                        {totalClientOrders && <span className="flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded text-xs text-amber-500 font-bold border border-slate-700"><History size={12}/> {totalClientOrders}º Pedido</span>}
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Itens do Pedido</p>
+                        <div className="text-sm text-white font-medium whitespace-pre-wrap leading-relaxed">{order.items}</div>
+                    </div>
+
+                    <div className="flex gap-4">
+                        <div className="flex-1 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Entrada</p>
+                            <p className="text-white font-mono">{formatTime(order.createdAt)}</p>
+                        </div>
+                        <div className="flex-1 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                             <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Conclusão</p>
+                             <p className="text-emerald-400 font-mono">{order.completedAt ? formatTime(order.completedAt) : order.assignedAt ? formatTime(order.assignedAt) : '-'}</p>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Endereço</p>
+                        <p className="text-sm text-slate-300">{order.address}</p>
+                    </div>
+
+                    {order.obs && (
+                         <div className="bg-amber-900/10 p-4 rounded-xl border border-amber-500/20">
+                            <p className="text-[10px] font-bold text-amber-500 uppercase mb-1 flex items-center gap-1"><AlertTriangle size={12}/> Observações</p>
+                            <p className="text-sm text-amber-100 italic">{order.obs}</p>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }
 
 export function ProductionSuccessModal({ order, onClose, appName }: any) {
+    const message = getProductionMessage(order, appName);
+    
     const handleSend = () => {
-        const text = getProductionMessage(order, appName);
-        const phone = normalizePhone(order.phone);
-        if(phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
+        window.open(`https://wa.me/55${normalizePhone(order.phone)}?text=${encodeURIComponent(message)}`, '_blank');
         onClose();
     };
 
     return (
-        <GenericConfirmModal 
-            isOpen={true}
-            title="Produção Iniciada"
-            message={`O pedido de ${order.customer} foi enviado para a cozinha. Deseja avisar o cliente no WhatsApp?`}
-            onClose={onClose}
-            onConfirm={handleSend}
-            confirmText="Avisar Cliente"
-        />
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
+             <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-orange-500/50 p-6 shadow-[0_0_40px_rgba(249,115,22,0.2)] text-center relative">
+                 <div className="w-16 h-16 bg-orange-500/20 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-orange-500/10"><Flame size={32} className="animate-pulse"/></div>
+                 <h3 className="text-xl font-black text-white uppercase italic mb-2">Enviado para Produção!</h3>
+                 <p className="text-slate-400 text-sm mb-6">O pedido de <b>{order.customer}</b> foi iniciado.</p>
+                 <div className="space-y-3">
+                     <button onClick={handleSend} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"><MessageCircle size={18}/> Avisar Cliente (WhatsApp)</button>
+                     <button onClick={onClose} className="w-full bg-slate-800 hover:bg-slate-700 text-slate-400 font-bold py-3 rounded-xl">Fechar</button>
+                 </div>
+             </div>
+        </div>
+    );
+}
+
+export function DispatchSuccessModal({ data, onClose, appName }: any) {
+    const message = getDispatchMessage(data.order, data.driverName, appName);
+    
+    const handleSend = () => {
+        window.open(`https://wa.me/55${normalizePhone(data.order.phone)}?text=${encodeURIComponent(message)}`, '_blank');
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
+             <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-emerald-500/50 p-6 shadow-[0_0_40px_rgba(16,185,129,0.2)] text-center relative">
+                 <div className="w-16 h-16 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-emerald-500/10"><Bike size={32} className="animate-bounce"/></div>
+                 <h3 className="text-xl font-black text-white uppercase italic mb-2">Saiu para Entrega!</h3>
+                 <p className="text-slate-400 text-sm mb-6">Entregador <b>{data.driverName}</b> atribuído.</p>
+                 <div className="space-y-3">
+                     <button onClick={handleSend} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"><MessageCircle size={18}/> Avisar Cliente (WhatsApp)</button>
+                     <button onClick={onClose} className="w-full bg-slate-800 hover:bg-slate-700 text-slate-400 font-bold py-3 rounded-xl">Fechar</button>
+                 </div>
+             </div>
+        </div>
     );
 }
 
 export function ConfirmCloseOrderModal({ order, onClose, onConfirm }: any) {
     return (
-        <GenericConfirmModal 
-            isOpen={true}
-            title="Finalizar Pedido?"
-            message={`Deseja marcar o pedido de ${order.customer} como CONCLUÍDO (Entregue/Retirado)?`}
-            onClose={onClose}
-            onConfirm={onConfirm}
-            confirmText="Sim, Finalizar"
-            type="info"
-        />
-    );
-}
-
-export function DispatchSuccessModal({ data, onClose, appName }: any) {
-     const handleSend = () => {
-        const text = getDispatchMessage(data.order, data.driverName, appName);
-        const phone = normalizePhone(data.order.phone);
-        if(phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
-        onClose();
-    };
-
-    return (
-        <GenericConfirmModal 
-            isOpen={true}
-            title="Pedido em Rota"
-            message={`O pedido foi entregue ao motoboy ${data.driverName}. Deseja avisar o cliente que saiu para entrega?`}
-            onClose={onClose}
-            onConfirm={handleSend}
-            confirmText="Avisar Cliente"
-        />
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+             <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-700 p-6 shadow-2xl relative text-center">
+                 <div className="w-16 h-16 bg-slate-800 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-700"><CheckCircle2 size={32}/></div>
+                 <h3 className="text-xl font-bold text-white mb-2">Finalizar Pedido?</h3>
+                 <p className="text-slate-400 text-sm mb-6">Deseja marcar o pedido de <b>{order.customer}</b> como concluído/entregue?</p>
+                 
+                 <div className="flex gap-3">
+                     <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl transition-colors">Cancelar</button>
+                     <button onClick={onConfirm} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors shadow-lg">Confirmar</button>
+                 </div>
+             </div>
+        </div>
     );
 }
