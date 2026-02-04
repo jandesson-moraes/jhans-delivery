@@ -126,39 +126,64 @@ export default function ClientInterface({
     const handleGeolocation = () => {
         setIsLocating(true);
         if ("geolocation" in navigator) {
-            navigator.geolocation.getCurrentPosition(async (position) => {
-                const { latitude, longitude } = position.coords;
-                try {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-                    const data = await response.json();
-                    if (data && data.address) {
-                        const road = data.address.road || '';
-                        const number = data.address.house_number || '';
-                        const suburb = data.address.suburb || data.address.neighbourhood || '';
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const { latitude, longitude } = position.coords;
+                    try {
+                        // Tenta buscar o endereço
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`);
                         
-                        // SÓ PREENCHE SE TIVER O NOME DA RUA
-                        if (road) {
-                            setAddress(`${road}, ${number} - ${suburb}`);
+                        if (!response.ok) throw new Error('Erro API Mapa');
+                        
+                        const data = await response.json();
+                        
+                        if (data && data.address) {
+                            const road = data.address.road || data.address.pedestrian || data.address.street || '';
+                            const number = data.address.house_number || '';
+                            const suburb = data.address.suburb || data.address.neighbourhood || data.address.district || '';
+                            const city = data.address.city || data.address.town || '';
+                            
+                            let fullAddress = '';
+                            if (road) fullAddress += road;
+                            if (number) fullAddress += `, ${number}`;
+                            else if (road) fullAddress += `, S/N`;
+                            if (suburb) fullAddress += ` - ${suburb}`;
+                            if (city) fullAddress += ` - ${city}`;
+
+                            if (fullAddress) {
+                                setAddress(fullAddress);
+                            } else {
+                                // Se não achou rua, usa coordenadas
+                                setAddress(`Localização GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+                                alert("Não encontramos o nome da rua exato. As coordenadas foram preenchidas. Por favor, adicione referências.");
+                            }
                         } else {
-                            setAddress(""); // Limpa se não achar rua
-                            alert("Localizamos a região, mas não o nome da rua exato. Por favor, digite seu endereço completo.");
+                            setAddress(`Localização GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+                            alert("Endereço não encontrado pelo mapa. Usando coordenadas GPS.");
                         }
-                    } else {
-                        setAddress("");
-                        alert("Não foi possível identificar o endereço exato. Por favor, escreva manualmente.");
+                    } catch (e) {
+                        console.error(e);
+                        // Fallback em caso de erro na API (ex: sem internet ou bloqueio)
+                        setAddress(`Localização GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+                        alert("Erro ao buscar endereço no mapa. Preenchemos com suas coordenadas GPS.");
+                    } finally {
+                        setIsLocating(false);
                     }
-                } catch (e) {
-                    setAddress("");
-                    alert("Erro ao buscar endereço. Por favor, digite manualmente.");
-                } finally {
+                }, 
+                (error) => {
+                    console.error(error);
+                    let msg = "Erro ao obter localização.";
+                    if (error.code === 1) msg = "Permissão de localização negada. Ative nas configurações do navegador.";
+                    else if (error.code === 2) msg = "Sinal de GPS indisponível.";
+                    else if (error.code === 3) msg = "Tempo limite esgotado.";
+                    
+                    alert(msg + " Por favor, digite seu endereço manualmente.");
                     setIsLocating(false);
-                }
-            }, (error) => {
-                alert("Permissão de localização negada ou erro no GPS. Por favor, digite o endereço.");
-                setIsLocating(false);
-            });
+                },
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+            );
         } else {
-            alert("Geolocalização não suportada neste dispositivo.");
+            alert("Geolocalização não suportada neste dispositivo/navegador.");
             setIsLocating(false);
         }
     };
@@ -226,7 +251,16 @@ export default function ClientInterface({
         waText += `*Total:* ${formatCurrency(lastOrderData.value)}\n`;
         waText += `*Pagamento:* ${lastOrderData.paymentMethod}`;
 
-        const waUrl = `https://wa.me/${appConfig.storeCountryCode?.replace('+','')||'55'}${appConfig.storePhone?.replace(/\D/g, '')}?text=${encodeURIComponent(waText)}`;
+        // SAFE PHONE CHECK
+        const storePhone = appConfig.storePhone ? appConfig.storePhone.replace(/\D/g, '') : '';
+        const countryCode = appConfig.storeCountryCode ? appConfig.storeCountryCode.replace('+','') : '55';
+        
+        if (!storePhone) {
+            alert("Erro: Telefone da loja não configurado no painel Admin.");
+            return;
+        }
+
+        const waUrl = `https://wa.me/${countryCode}${storePhone}?text=${encodeURIComponent(waText)}`;
         
         window.open(waUrl, '_blank');
     };
@@ -244,7 +278,8 @@ export default function ClientInterface({
         onEnterGiveaway({ 
             name: giveawayName, 
             phone: giveawayPhone,
-            instagram: formattedInsta
+            instagram: formattedInsta,
+            confirmed: false
         });
         setShowGiveaway(false);
         setShowGiveawaySuccess(true);
@@ -262,7 +297,17 @@ export default function ClientInterface({
 
     const handleSendGiveawayToWhatsApp = () => {
         const waText = getGiveawayText();
-        const waUrl = `https://wa.me/${appConfig.storeCountryCode?.replace('+','')||'55'}${appConfig.storePhone?.replace(/\D/g, '')}?text=${encodeURIComponent(waText)}`;
+        
+        // SAFE PHONE CHECK
+        const storePhone = appConfig.storePhone ? appConfig.storePhone.replace(/\D/g, '') : '';
+        const countryCode = appConfig.storeCountryCode ? appConfig.storeCountryCode.replace('+','') : '55';
+        
+        if (!storePhone) {
+            alert("Erro: Telefone da loja não configurado.");
+            return;
+        }
+
+        const waUrl = `https://wa.me/${countryCode}${storePhone}?text=${encodeURIComponent(waText)}`;
         window.open(waUrl, '_blank');
         setShowGiveawaySuccess(false);
     };
@@ -292,25 +337,22 @@ export default function ClientInterface({
         return (
             <div className="min-h-screen bg-[#020617] text-white flex flex-col font-sans">
                 {/* Header Carrinho */}
-                <div className="p-4 flex items-center gap-4 border-b border-slate-800 bg-slate-900 sticky top-0 z-50 shadow-md">
-                    <button onClick={() => setIsCheckoutOpen(false)} className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 transition-colors text-slate-300 hover:text-white"><ArrowLeft size={20}/></button>
-                    <h2 className="text-lg font-bold flex items-center gap-2">Seu Carrinho <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full">{cart.length}</span></h2>
+                <div className="p-3 md:p-4 flex items-center gap-4 border-b border-slate-800 bg-slate-900 sticky top-0 z-50 shadow-md">
+                    <button onClick={() => setIsCheckoutOpen(false)} className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 transition-colors text-slate-300 hover:text-white"><ArrowLeft size={18}/></button>
+                    <h2 className="text-base md:text-lg font-bold flex items-center gap-2">Seu Carrinho <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full">{cart.length}</span></h2>
                 </div>
                 
                 <div className="flex-1 p-4 overflow-y-auto pb-36 custom-scrollbar">
-                    <div className="max-w-md mx-auto space-y-6">
+                    <div className="max-w-md mx-auto space-y-5">
                         
                         {!shopStatus.isOpen && (
-                            <div className="bg-red-900/20 border-l-4 border-red-500 rounded-r-xl p-4 flex flex-col gap-3 shadow-lg animate-in fade-in">
-                                <div className="flex items-center gap-3">
-                                    <div className="bg-red-500/20 p-2 rounded-full text-red-500 animate-pulse"><Clock size={20}/></div>
+                            <div className="bg-red-900/20 border-l-4 border-red-500 rounded-r-xl p-3 flex flex-col gap-2 shadow-lg animate-in fade-in">
+                                <div className="flex items-center gap-2">
+                                    <div className="bg-red-500/20 p-1.5 rounded-full text-red-500 animate-pulse"><Clock size={16}/></div>
                                     <div>
-                                        <h3 className="font-black text-red-100 text-sm uppercase tracking-wide">Loja Fechada</h3>
-                                        <p className="text-xs text-red-200/70 mt-1">
+                                        <h3 className="font-black text-red-100 text-xs uppercase tracking-wide">Loja Fechada</h3>
+                                        <p className="text-[10px] text-red-200/70">
                                             Reabrimos: <span className="font-bold text-white">{shopStatus.nextOpen}</span>.
-                                        </p>
-                                        <p className="text-[10px] text-red-300/60 mt-1 italic">
-                                            Você pode confirmar o pedido e prepararemos assim que abrirmos.
                                         </p>
                                     </div>
                                 </div>
@@ -338,7 +380,7 @@ export default function ClientInterface({
                                     
                                     <input 
                                         className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 outline-none focus:border-amber-500/50 placeholder:text-slate-600 transition-colors"
-                                        placeholder="Observação (Ex: Sem cebola, capricha no molho...)"
+                                        placeholder="Observação (Ex: Sem cebola...)"
                                         value={item.obs}
                                         onChange={e => {
                                             const newCart = [...cart];
@@ -383,7 +425,7 @@ export default function ClientInterface({
                                     <div className="space-y-2 animate-in slide-in-from-top-2">
                                         <button 
                                             onClick={handleGeolocation}
-                                            className="w-full bg-emerald-900/20 border border-emerald-500/30 text-emerald-400 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-emerald-900/30 transition-colors"
+                                            className="w-full bg-emerald-900/20 border border-emerald-500/30 text-emerald-400 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-emerald-900/30 transition-colors active:scale-95"
                                         >
                                             {isLocating ? <span className="animate-pulse">Localizando...</span> : <><Navigation size={14}/> Usar minha localização atual</>}
                                         </button>
@@ -392,7 +434,7 @@ export default function ClientInterface({
                                             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><MapPin size={16}/></div>
                                             <input 
                                                 className="w-full bg-slate-900/50 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-white text-sm outline-none focus:border-emerald-500 focus:bg-slate-900 transition-colors" 
-                                                placeholder="Digite seu endereço (Rua, Número, Bairro)" 
+                                                placeholder="Endereço (Rua, Número, Bairro)" 
                                                 value={address} 
                                                 onChange={e => setAddress(e.target.value)} 
                                             />
@@ -524,95 +566,67 @@ export default function ClientInterface({
 
     return (
         <div className="bg-[#020617] min-h-screen font-sans pb-24">
-            {/* Header Red Gradient - Matching Exact Color from Screenshot */}
-            <div className="bg-gradient-to-r from-[#ef4444] to-[#f97316] pt-4 pb-12 px-4 rounded-b-[2rem] shadow-2xl relative overflow-hidden">
+            {/* Header Red Gradient - COMPACT FOR MOBILE */}
+            <div className="bg-gradient-to-r from-[#ef4444] to-[#f97316] pt-3 pb-8 px-4 rounded-b-[1.5rem] md:rounded-b-[2rem] shadow-2xl relative overflow-hidden">
                 <div className="max-w-5xl mx-auto relative z-10">
                     {/* Top Nav */}
-                    <div className="flex justify-between items-center mb-8">
-                        <div className="flex items-center gap-3 text-white font-bold">
+                    <div className="flex justify-between items-center mb-4 md:mb-8">
+                        <div className="flex items-center gap-2 md:gap-3 text-white font-bold">
                             {appConfig.appLogoUrl ? (
-                                <img src={appConfig.appLogoUrl} className="w-10 h-10 rounded-full border-2 border-white/20"/>
+                                <img src={appConfig.appLogoUrl} className="w-8 h-8 md:w-10 md:h-10 rounded-full border-2 border-white/20"/>
                             ) : (
-                                <div className="bg-black/20 p-2 rounded-xl"><Utensils size={20}/></div>
+                                <div className="bg-black/20 p-1.5 md:p-2 rounded-xl"><Utensils size={16} className="md:w-5 md:h-5"/></div>
                             )}
-                            <span className="text-xl tracking-tight drop-shadow-md">{appConfig.appName}</span>
+                            <span className="text-lg md:text-xl tracking-tight drop-shadow-md">{appConfig.appName}</span>
                         </div>
                         {allowSystemAccess && (
                             <div className="flex gap-2">
-                                <button onClick={() => onSystemAccess('admin')} className="text-[10px] font-bold bg-black/20 hover:bg-black/40 text-white px-3 py-1.5 rounded-full flex items-center gap-1 transition-colors backdrop-blur-md border border-white/10 uppercase">
-                                    <Store size={12}/> Gerente
+                                <button onClick={() => onSystemAccess('admin')} className="text-[10px] font-bold bg-black/20 hover:bg-black/40 text-white px-2 py-1 md:px-3 md:py-1.5 rounded-full flex items-center gap-1 transition-colors backdrop-blur-md border border-white/10 uppercase">
+                                    <Store size={10} className="md:w-3 md:h-3"/> Gerente
                                 </button>
-                                <button onClick={() => onSystemAccess('driver')} className="text-[10px] font-bold bg-black/20 hover:bg-black/40 text-white px-3 py-1.5 rounded-full flex items-center gap-1 transition-colors backdrop-blur-md border border-white/10 uppercase">
-                                    <Bike size={12}/> Motoboy
+                                <button onClick={() => onSystemAccess('driver')} className="text-[10px] font-bold bg-black/20 hover:bg-black/40 text-white px-2 py-1 md:px-3 md:py-1.5 rounded-full flex items-center gap-1 transition-colors backdrop-blur-md border border-white/10 uppercase">
+                                    <Bike size={10} className="md:w-3 md:h-3"/> Motoboy
                                 </button>
                             </div>
                         )}
                     </div>
 
-                    {/* Hero Text */}
-                    <h1 className="text-3xl md:text-4xl font-black text-white mb-8 leading-tight drop-shadow-md">
+                    {/* Hero Text - Smaller on Mobile */}
+                    <h1 className="text-xl md:text-4xl font-black text-white mb-4 md:mb-8 leading-tight drop-shadow-md">
                         Bateu a fome?<br/>
                         Peça agora mesmo! 🍔
                     </h1>
 
-                    {/* ✨✨ NOVO BANNER PREMIUM DE SORTEIO (AJUSTADO/COMPACTADO) ✨✨ */}
+                    {/* ✨✨ BANNER DE SORTEIO COMPACTADO ✨✨ */}
                     <div className="relative group cursor-pointer" onClick={() => setShowGiveaway(true)}>
-                        {/* Glow Effect Background */}
-                        <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 via-orange-600 to-red-600 rounded-3xl blur opacity-30 group-hover:opacity-60 transition duration-1000 animate-pulse"></div>
-                        
-                        <div className="relative bg-[#1a0505] rounded-2xl p-1 overflow-hidden border border-amber-500/30 shadow-2xl">
-                            {/* Inner Content Background with Radial Gradient */}
-                            <div className="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-red-900/40 via-[#1a0505] to-[#0f0202] rounded-xl p-4 relative overflow-hidden flex flex-col justify-center min-h-[140px]">
-                                
-                                {/* Animated Background Particles (CSS only approach using arbitrary positions) */}
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-amber-600/10 blur-[80px] animate-pulse rounded-full pointer-events-none"></div>
-                                <div className="absolute bottom-0 left-0 w-40 h-40 bg-red-600/10 blur-[60px] animate-bounce rounded-full pointer-events-none" style={{animationDuration: '5s'}}></div>
-
-                                {/* Floating Icons */}
-                                <div className="absolute top-2 right-2 text-amber-400 animate-bounce" style={{animationDuration: '3s'}}>
-                                    <Sparkles size={16} fill="currentColor" className="opacity-80"/>
-                                </div>
-
-                                <div className="relative z-10 flex flex-row items-center justify-between gap-4">
-                                    <div className="flex-1 space-y-1">
-                                        <div className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-[#1a0505] px-2 py-0.5 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.4)] animate-pulse mb-1">
-                                            <Flame size={10} fill="currentColor"/>
-                                            <span className="text-[9px] font-black uppercase tracking-widest">Sorteio Oficial</span>
+                        <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 via-orange-600 to-red-600 rounded-2xl blur opacity-30 group-hover:opacity-60 transition duration-1000 animate-pulse"></div>
+                        <div className="relative bg-[#1a0505] rounded-xl p-1 overflow-hidden border border-amber-500/30 shadow-2xl">
+                            <div className="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-red-900/40 via-[#1a0505] to-[#0f0202] rounded-lg p-3 md:p-4 relative overflow-hidden flex flex-col justify-center min-h-[100px] md:min-h-[140px]">
+                                <div className="relative z-10 flex flex-row items-center justify-between gap-3">
+                                    <div className="flex-1 space-y-0.5 md:space-y-1">
+                                        <div className="inline-flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-[#1a0505] px-1.5 py-0.5 rounded-full shadow-sm animate-pulse mb-0.5">
+                                            <Flame size={8} className="md:w-2.5 md:h-2.5" fill="currentColor"/>
+                                            <span className="text-[8px] md:text-[9px] font-black uppercase tracking-widest">Sorteio</span>
                                         </div>
-                                        
-                                        <h2 className="text-xl md:text-2xl font-black text-white leading-tight italic drop-shadow-xl">
+                                        <h2 className="text-base md:text-2xl font-black text-white leading-tight italic drop-shadow-xl">
                                             COMBO CASAL <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500">CLÁSSICO</span>
                                         </h2>
-                                        
-                                        <p className="text-slate-300 text-[10px] font-medium max-w-xs leading-relaxed opacity-90 hidden md:block">
-                                            Concorra a 2 Hambúrgueres Artesanais + Batata Grande + Refri! Resultado ao vivo.
+                                        <p className="text-slate-300 text-[9px] md:text-[10px] font-medium max-w-xs leading-relaxed opacity-90 hidden sm:block">
+                                            Concorra a 2 Hambúrgueres + Batata! Resultado ao vivo.
                                         </p>
-
-                                        <div className="pt-2">
-                                            <button className="relative overflow-hidden bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black py-2 px-6 rounded-full shadow-[0_0_30px_rgba(245,158,11,0.3)] hover:shadow-[0_0_50px_rgba(245,158,11,0.6)] transform hover:scale-105 transition-all duration-300 group">
-                                                <span className="relative z-10 flex items-center gap-2 text-[10px] uppercase tracking-widest">
-                                                    PARTICIPAR <ChevronRight size={12} strokeWidth={3}/>
+                                        <div className="pt-1 md:pt-2">
+                                            <button className="relative overflow-hidden bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black py-1.5 px-4 md:py-2 md:px-6 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300 group">
+                                                <span className="relative z-10 flex items-center gap-1 md:gap-2 text-[9px] md:text-[10px] uppercase tracking-widest">
+                                                    PARTICIPAR <ChevronRight size={10} strokeWidth={3}/>
                                                 </span>
                                             </button>
                                         </div>
                                     </div>
-
-                                    {/* Dynamic Image/Icon Area - Compact */}
-                                    <div className="shrink-0 relative w-24 h-24 flex items-center justify-center">
+                                    <div className="shrink-0 relative w-16 h-16 md:w-24 md:h-24 flex items-center justify-center">
                                         {appConfig.bannerUrl ? (
-                                            <div className="relative group-hover:scale-110 transition-transform duration-500 ease-out">
-                                                <div className="absolute inset-0 bg-amber-500/20 rounded-full blur-xl animate-pulse"></div>
-                                                <img 
-                                                    src={appConfig.bannerUrl} 
-                                                    alt="Promo" 
-                                                    className="w-full h-full object-cover rounded-2xl shadow-2xl border-2 border-amber-500/30 transform rotate-3 hover:rotate-0 transition-all"
-                                                />
-                                            </div>
+                                            <img src={appConfig.bannerUrl} alt="Promo" className="w-full h-full object-cover rounded-xl shadow-lg border border-amber-500/30"/>
                                         ) : (
-                                            <div className="relative group-hover:scale-110 transition-transform duration-500">
-                                                <div className="absolute inset-0 bg-amber-500/20 rounded-full blur-xl animate-pulse"></div>
-                                                <Gift size={60} className="text-amber-400 drop-shadow-[0_10px_20px_rgba(245,158,11,0.5)] relative z-10 animate-bounce" style={{animationDuration: '3s'}}/>
-                                            </div>
+                                            <Gift size={40} className="text-amber-400 md:w-14 md:h-14"/>
                                         )}
                                     </div>
                                 </div>
@@ -623,25 +637,25 @@ export default function ClientInterface({
             </div>
 
             {/* Menu Section */}
-            <div className="max-w-5xl mx-auto px-4 -mt-6 relative z-20">
-                {/* Search */}
-                <div className="relative mb-6">
-                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500" size={20}/>
+            <div className="max-w-5xl mx-auto px-3 md:px-4 -mt-4 md:-mt-6 relative z-20">
+                {/* Search Compact */}
+                <div className="relative mb-3 md:mb-6">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16}/>
                     <input 
-                        className="w-full bg-[#0f172a] border border-slate-800 rounded-full py-4 pl-12 pr-6 text-white placeholder:text-slate-600 focus:border-slate-600 outline-none shadow-xl transition-all text-sm font-medium"
-                        placeholder="Buscar lanche, bebida..."
+                        className="w-full bg-[#0f172a] border border-slate-800 rounded-full py-3 pl-10 pr-4 text-white placeholder:text-slate-600 focus:border-slate-600 outline-none shadow-xl transition-all text-xs md:text-sm font-medium"
+                        placeholder="Buscar lanche..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                     />
                 </div>
 
-                {/* Categories */}
-                <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar mb-4">
+                {/* Categories Compact */}
+                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar mb-2 md:mb-4">
                     {['Todos', ...new Set(products.map(p => p.category))].map(cat => (
                         <button 
                             key={cat} 
                             onClick={() => setSelectedCategory(cat)}
-                            className={`px-6 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all shadow-md ${selectedCategory === cat ? 'bg-white text-slate-900 scale-105' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:border-slate-600'}`}
+                            className={`px-4 py-1.5 md:py-2.5 rounded-full text-[10px] md:text-xs font-bold whitespace-nowrap transition-all shadow-md ${selectedCategory === cat ? 'bg-white text-slate-900 scale-105' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:border-slate-600'}`}
                         >
                             {cat}
                         </button>
@@ -650,44 +664,41 @@ export default function ClientInterface({
 
                 {/* Shop Closed Banner */}
                 {!shopStatus.isOpen && (
-                    <div className="bg-red-900/20 border-l-4 border-red-500 rounded-r-xl p-4 mb-6 flex items-start gap-3 shadow-lg">
-                        <div className="bg-red-500/20 p-2 rounded-full text-red-500 animate-pulse"><Clock size={20}/></div>
+                    <div className="bg-red-900/20 border-l-4 border-red-500 rounded-r-xl p-3 mb-4 flex items-start gap-3 shadow-lg">
+                        <div className="bg-red-500/20 p-1.5 rounded-full text-red-500 animate-pulse"><Clock size={16}/></div>
                         <div>
-                            <h3 className="font-black text-red-100 text-sm uppercase tracking-wide">Loja Fechada</h3>
-                            <p className="text-xs text-red-200/70 mt-1">
-                                Seu pedido será agendado como <span className="text-white font-bold bg-red-600 px-1 rounded">PRÉ-VENDA</span>.
-                            </p>
-                            <p className="text-[10px] text-red-300 mt-2 font-bold flex items-center gap-1">
-                                <Clock size={10}/> Reabrimos: {shopStatus.nextOpen}
+                            <h3 className="font-black text-red-100 text-xs uppercase tracking-wide">Loja Fechada</h3>
+                            <p className="text-[10px] text-red-300 mt-1 font-bold flex items-center gap-1">
+                                Reabrimos: {shopStatus.nextOpen}
                             </p>
                         </div>
                     </div>
                 )}
 
-                {/* Products Grouped */}
-                <div className="space-y-8 pb-10">
+                {/* Products Grouped - COMPACT MOBILE GRID */}
+                <div className="space-y-6 md:space-y-8 pb-10">
                     {groupedProducts.map(([category, items]) => (
                         <div key={category} className="animate-in slide-in-from-bottom-4 duration-700">
-                            <h3 className="text-white font-black text-lg mb-4 flex items-center gap-3 uppercase tracking-wider pl-1 border-l-4 border-orange-500">
+                            <h3 className="text-white font-black text-sm md:text-lg mb-3 flex items-center gap-2 uppercase tracking-wider pl-1 border-l-4 border-orange-500">
                                 {category}
                             </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
                                 {items.map(product => (
                                     <div 
                                         key={product.id} 
                                         onClick={() => addToCart(product)}
-                                        className="bg-[#0f172a] border border-slate-800 p-5 rounded-2xl flex flex-col justify-between hover:border-slate-700 transition-all shadow-lg group relative overflow-hidden cursor-pointer h-full"
+                                        className="bg-[#0f172a] border border-slate-800 p-3 md:p-5 rounded-xl flex flex-col justify-between hover:border-slate-700 transition-all shadow-md group relative overflow-hidden cursor-pointer h-full"
                                     >
                                         <div className="relative z-10 flex flex-col h-full">
-                                            <h4 className="font-bold text-white text-lg mb-2 group-hover:text-amber-500 transition-colors line-clamp-1">{product.name}</h4>
-                                            <p className="text-slate-400 text-xs leading-relaxed line-clamp-3 mb-4 flex-1">{product.description}</p>
+                                            <h4 className="font-bold text-white text-xs md:text-lg mb-1 md:mb-2 group-hover:text-amber-500 transition-colors line-clamp-2 leading-tight">{product.name}</h4>
+                                            <p className="text-slate-400 text-[9px] md:text-xs leading-relaxed line-clamp-2 mb-2 md:mb-4 flex-1">{product.description}</p>
                                             
-                                            <div className="flex justify-between items-center mt-auto pt-4 border-t border-slate-800/50">
-                                                <span className="text-amber-500 font-bold text-lg">{formatCurrency(product.price)}</span>
+                                            <div className="flex justify-between items-center mt-auto pt-2 border-t border-slate-800/50">
+                                                <span className="text-amber-500 font-bold text-xs md:text-lg">{formatCurrency(product.price)}</span>
                                                 <button 
-                                                    className="bg-slate-800 text-slate-400 group-hover:bg-slate-700 group-hover:text-white w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-95 shadow-md"
+                                                    className="bg-slate-800 text-slate-400 group-hover:bg-slate-700 group-hover:text-white w-6 h-6 md:w-8 md:h-8 rounded-lg flex items-center justify-center transition-all active:scale-95 shadow-md"
                                                 >
-                                                    <Plus size={16}/>
+                                                    <Plus size={12} className="md:w-4 md:h-4"/>
                                                 </button>
                                             </div>
                                         </div>
@@ -698,8 +709,8 @@ export default function ClientInterface({
                     ))}
                     {groupedProducts.length === 0 && (
                         <div className="text-center py-20 text-slate-600">
-                            <Utensils size={48} className="mx-auto mb-4 opacity-20"/>
-                            <p>Nenhum item encontrado.</p>
+                            <Utensils size={32} className="mx-auto mb-2 opacity-20"/>
+                            <p className="text-xs">Nenhum item encontrado.</p>
                         </div>
                     )}
                 </div>
@@ -709,57 +720,56 @@ export default function ClientInterface({
 
             {/* Floating Cart Bar (Red Style) */}
             {cart.length > 0 && !isCheckoutOpen && (
-                <div className="fixed bottom-6 left-4 right-4 z-50 max-w-5xl mx-auto animate-in slide-in-from-bottom-10">
+                <div className="fixed bottom-4 left-3 right-3 z-50 max-w-5xl mx-auto animate-in slide-in-from-bottom-10">
                     <button 
                         onClick={() => setIsCheckoutOpen(true)}
-                        className="w-full bg-[#ef4444] hover:bg-[#dc2626] text-white px-6 py-4 rounded-xl shadow-[0_10px_30px_rgba(239,68,68,0.4)] flex items-center justify-between transition-transform active:scale-95"
+                        className="w-full bg-[#ef4444] hover:bg-[#dc2626] text-white px-4 py-3 rounded-xl shadow-[0_10px_30px_rgba(239,68,68,0.4)] flex items-center justify-between transition-transform active:scale-95"
                     >
-                        <div className="flex items-center gap-4">
-                            <div className="bg-black/20 w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm shadow-inner">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-black/20 w-6 h-6 rounded-lg flex items-center justify-center font-black text-xs shadow-inner">
                                 {cart.reduce((a,b) => a + b.quantity, 0)}
                             </div>
-                            <span className="font-black text-sm uppercase tracking-wider">VER CARRINHO</span>
+                            <span className="font-black text-xs uppercase tracking-wider">VER CARRINHO</span>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <span className="font-black text-lg">{formatCurrency(cartTotal)}</span>
-                            <ChevronRight size={20} strokeWidth={3}/>
+                        <div className="flex items-center gap-2">
+                            <span className="font-black text-sm">{formatCurrency(cartTotal)}</span>
+                            <ChevronRight size={16} strokeWidth={3}/>
                         </div>
                     </button>
                 </div>
             )}
 
-            {/* Giveaway Modal (Form) - Updated to Amber/Orange Theme */}
+            {/* Giveaway Modal (Form) */}
             {showGiveaway && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in">
-                    <div className="bg-slate-900 w-full max-w-md rounded-3xl border border-amber-500/50 p-8 shadow-2xl relative">
-                        <button onClick={() => setShowGiveaway(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white p-2"><X size={24}/></button>
+                    <div className="bg-slate-900 w-full max-w-md rounded-3xl border border-amber-500/50 p-6 md:p-8 shadow-2xl relative">
+                        <button onClick={() => setShowGiveaway(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white p-2"><X size={20}/></button>
                         <div className="text-center mb-4">
-                            <div className="w-20 h-20 bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-500/30">
-                                <Gift size={40} className="text-amber-400"/>
+                            <div className="w-16 h-16 bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-3 border border-amber-500/30">
+                                <Gift size={32} className="text-amber-400"/>
                             </div>
-                            <h3 className="text-2xl font-black text-white uppercase italic">Sorteio de um Combo Casal Clássico</h3>
-                            <p className="text-slate-400 text-sm mt-1">Preencha para participar!</p>
+                            <h3 className="text-xl font-black text-white uppercase italic">Sorteio Casal Clássico</h3>
+                            <p className="text-slate-400 text-xs mt-1">Preencha para participar!</p>
                         </div>
 
-                        {/* REGRAS OBRIGATÓRIAS */}
                         <div className="bg-amber-900/20 p-3 rounded-lg mb-4 border border-amber-500/20 text-center">
-                           <p className="text-amber-400 text-xs font-bold uppercase mb-1 flex items-center justify-center gap-1"><AlertTriangle size={12}/> Regras Obrigatórias</p>
-                           <ul className="text-slate-300 text-xs space-y-1">
+                           <p className="text-amber-400 text-[10px] font-bold uppercase mb-1 flex items-center justify-center gap-1"><AlertTriangle size={10}/> Regras Obrigatórias</p>
+                           <ul className="text-slate-300 text-[10px] space-y-0.5">
                               <li>1. Seguir nosso Instagram</li>
                               <li>2. Marcar seu par na <b>FOTO OFICIAL</b></li>
                            </ul>
                         </div>
                         
                         <form onSubmit={handleGiveawaySubmit} className="space-y-3">
-                             <input required placeholder="Seu Nome" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-amber-500 transition-colors" value={giveawayName} onChange={e => setGiveawayName(e.target.value)} />
-                             <input required placeholder="Seu WhatsApp" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-amber-500 transition-colors" value={giveawayPhone} onChange={e => setGiveawayPhone(e.target.value)} />
+                             <input required placeholder="Seu Nome" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 transition-colors text-sm" value={giveawayName} onChange={e => setGiveawayName(e.target.value)} />
+                             <input required placeholder="Seu WhatsApp" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 transition-colors text-sm" value={giveawayPhone} onChange={e => setGiveawayPhone(e.target.value)} />
                              
                              <div className="relative">
-                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><Instagram size={18}/></div>
-                                <input required placeholder="@seu.instagram" className="w-full bg-slate-950 border border-slate-800 rounded-xl py-4 pl-12 pr-4 text-white outline-none focus:border-amber-500 transition-colors" value={giveawayInsta} onChange={e => setGiveawayInsta(e.target.value)} />
+                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><Instagram size={16}/></div>
+                                <input required placeholder="@seu.instagram" className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-white outline-none focus:border-amber-500 transition-colors text-sm" value={giveawayInsta} onChange={e => setGiveawayInsta(e.target.value)} />
                              </div>
 
-                             <button type="submit" className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black py-4 rounded-xl shadow-lg mt-2 uppercase tracking-wide">Quero Participar</button>
+                             <button type="submit" className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black py-3 rounded-xl shadow-lg mt-2 uppercase tracking-wide text-xs">Quero Participar</button>
                         </form>
                     </div>
                 </div>
@@ -769,24 +779,24 @@ export default function ClientInterface({
             {showGiveawaySuccess && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in zoom-in duration-300">
                     <div className="bg-slate-900 w-full max-w-md rounded-3xl border border-emerald-500/30 shadow-[0_0_50px_rgba(16,185,129,0.2)] p-8 relative overflow-hidden text-center">
-                        <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-emerald-500/10">
-                            <Ticket size={48} className="text-emerald-400 animate-bounce"/>
+                        <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-emerald-500/10">
+                            <Ticket size={40} className="text-emerald-400 animate-bounce"/>
                         </div>
 
-                        <h2 className="text-3xl font-black text-white italic uppercase tracking-wide mb-2">
+                        <h2 className="text-2xl font-black text-white italic uppercase tracking-wide mb-2">
                             Inscrição Realizada!
                         </h2>
                         
-                        <p className="text-slate-400 text-sm mb-8 leading-relaxed">
+                        <p className="text-slate-400 text-xs mb-6 leading-relaxed">
                             Boa sorte! Para validar sua participação, envie a confirmação para nosso WhatsApp.
                         </p>
 
                         <div className="space-y-3">
                             <button 
                                 onClick={handleSendGiveawayToWhatsApp}
-                                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl shadow-lg shadow-emerald-900/30 transition-all active:scale-95 flex items-center justify-center gap-3 text-sm uppercase tracking-wider"
+                                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 rounded-xl shadow-lg shadow-emerald-900/30 transition-all active:scale-95 flex items-center justify-center gap-2 text-xs uppercase tracking-wider"
                             >
-                                <MessageCircle size={24}/> Confirmar no WhatsApp
+                                <MessageCircle size={18}/> Confirmar no WhatsApp
                             </button>
                             
                             <button 
@@ -806,27 +816,27 @@ export default function ClientInterface({
                     <div className="bg-slate-900 w-full max-w-md rounded-3xl border border-emerald-500/30 shadow-[0_0_50px_rgba(16,185,129,0.2)] p-8 relative overflow-hidden text-center">
                         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-400 animate-pulse"></div>
                         
-                        <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-emerald-500/10">
-                            <CheckCircle2 size={48} className="text-emerald-400 animate-bounce"/>
+                        <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-emerald-500/10">
+                            <CheckCircle2 size={40} className="text-emerald-400 animate-bounce"/>
                         </div>
 
-                        <h2 className="text-3xl font-black text-white italic uppercase tracking-wide mb-2">
+                        <h2 className="text-2xl font-black text-white italic uppercase tracking-wide mb-2">
                             Pedido Recebido!
                         </h2>
                         
-                        <p className="text-slate-400 text-sm mb-8 leading-relaxed">
+                        <p className="text-slate-400 text-xs mb-6 leading-relaxed">
                             Quase lá! Para confirmar e começarmos a preparar, clique no botão abaixo para enviar o pedido no nosso WhatsApp.
                         </p>
 
-                        <div className="bg-slate-950 rounded-xl p-4 mb-6 border border-slate-800 text-left">
-                            <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Resumo</p>
+                        <div className="bg-slate-950 rounded-xl p-3 mb-6 border border-slate-800 text-left">
+                            <p className="text-[9px] text-slate-500 font-bold uppercase mb-1">Resumo</p>
                             <div className="flex justify-between items-center mb-1">
-                                <span className="text-white font-bold">{lastOrderData.customer}</span>
-                                <span className="text-emerald-400 font-bold">{formatCurrency(lastOrderData.value)}</span>
+                                <span className="text-white font-bold text-sm">{lastOrderData.customer}</span>
+                                <span className="text-emerald-400 font-bold text-sm">{formatCurrency(lastOrderData.value)}</span>
                             </div>
                             {!shopStatus.isOpen && (
-                                <p className="text-xs text-amber-500 mt-2 font-bold flex items-center gap-1">
-                                    <Clock size={12}/> Pedido Agendado
+                                <p className="text-[10px] text-amber-500 mt-1 font-bold flex items-center gap-1">
+                                    <Clock size={10}/> Pedido Agendado
                                 </p>
                             )}
                         </div>
@@ -834,16 +844,16 @@ export default function ClientInterface({
                         <div className="space-y-3">
                             <button 
                                 onClick={handleSendToWhatsApp}
-                                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl shadow-lg shadow-emerald-900/30 transition-all active:scale-95 flex items-center justify-center gap-3 text-sm uppercase tracking-wider"
+                                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 rounded-xl shadow-lg shadow-emerald-900/30 transition-all active:scale-95 flex items-center justify-center gap-2 text-xs uppercase tracking-wider"
                             >
-                                <MessageCircle size={24}/> Enviar no WhatsApp
+                                <MessageCircle size={18}/> Enviar no WhatsApp
                             </button>
                             
                             <button 
                                 onClick={handleBackToMenu}
                                 className="w-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white font-bold py-3 rounded-xl border border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-2 text-xs uppercase tracking-wide"
                             >
-                                <Home size={16}/> Voltar ao Cardápio
+                                <Home size={14}/> Voltar ao Cardápio
                             </button>
                         </div>
                     </div>
