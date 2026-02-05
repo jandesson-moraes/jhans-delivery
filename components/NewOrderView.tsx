@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Product, AppConfig, Client } from '../types';
 import { formatCurrency, formatPhoneNumberDisplay, normalizePhone, generatePixPayload, copyToClipboard } from '../utils';
-import { Search, Plus, Minus, Trash2, User, MapPin, Phone, Bike, Store, CheckCircle2, Clipboard, X, ShoppingBag, Utensils, ArrowRight, DollarSign, CreditCard, Banknote, QrCode, Copy, Check } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, User, MapPin, Phone, Bike, Store, CheckCircle2, Clipboard, X, ShoppingBag, Utensils, ArrowRight, DollarSign, CreditCard, Banknote, QrCode, Copy, Check, Image as ImageIcon } from 'lucide-react';
 import { PixIcon } from './Shared';
 
 interface NewOrderViewProps {
@@ -320,16 +320,24 @@ export function NewOrderView({ products, appConfig, onCreateOrder, clients = [] 
                                         onClick={() => addToCart(product)}
                                         className="bg-slate-900 border border-slate-800 p-2 rounded-lg hover:border-amber-500/50 transition-all text-left group flex flex-col justify-between relative overflow-hidden active:scale-95"
                                     >
-                                        <div className="z-10 relative w-full">
-                                            <div className="flex justify-between items-start gap-1">
-                                                <span className="font-bold text-white text-xs leading-tight line-clamp-2 flex-1">{product.name}</span>
-                                                <span className="text-emerald-400 font-bold text-xs whitespace-nowrap">{formatCurrency(product.price)}</span>
+                                        <div className="z-10 relative w-full flex gap-3">
+                                            {/* MINIATURA NOVO PEDIDO */}
+                                            <div className="w-12 h-12 bg-slate-800 rounded-lg shrink-0 overflow-hidden">
+                                                {product.imageUrl ? (
+                                                    <img src={product.imageUrl} className="w-full h-full object-cover"/>
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-slate-600"><Utensils size={16}/></div>
+                                                )}
                                             </div>
-                                            {product.description && (
-                                                <p className="text-[9px] text-slate-500 mt-1 line-clamp-1 leading-tight">{product.description}</p>
-                                            )}
+                                            
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-start gap-1">
+                                                    <span className="font-bold text-white text-xs leading-tight line-clamp-2 flex-1">{product.name}</span>
+                                                </div>
+                                                <span className="text-emerald-400 font-bold text-xs whitespace-nowrap block mt-1">{formatCurrency(product.price)}</span>
+                                            </div>
                                         </div>
-                                        <div className="mt-1 flex justify-end">
+                                        <div className="mt-2 flex justify-end border-t border-slate-800 pt-1">
                                             <div className="bg-slate-800/50 p-1 rounded text-slate-400 group-hover:bg-amber-600 group-hover:text-white transition-colors">
                                                 <Plus size={10}/>
                                             </div>

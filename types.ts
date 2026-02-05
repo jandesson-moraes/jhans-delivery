@@ -34,6 +34,7 @@ export interface AppConfig {
     promoTime?: string;      // Horário
     promoLocation?: string;  // Local
     promoMode?: 'card' | 'banner'; // 'card' = Layout atual, 'banner' = Imagem cheia
+    welcomeBannerUrl?: string; // Banner de boas-vindas (popup)
     
     // Configuração do Sorteio (NOVO)
     giveawaySettings?: {
@@ -162,6 +163,7 @@ export interface ProductIngredient {
 export interface Product {
   id: string;
   name: string;
+  imageUrl?: string; // Nova propriedade para a foto
   category: string;
   price: number;
   description?: string;

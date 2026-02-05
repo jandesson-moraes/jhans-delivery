@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { db } from './services/firebase';
+import { auth, db } from './services/firebase';
+import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { collection, addDoc, updateDoc, doc, deleteDoc, setDoc, query, where, getDocs, serverTimestamp, writeBatch, onSnapshot, increment } from 'firebase/firestore';
 import { AppConfig, Driver, Order, Vale, Expense, Product, Client, Settlement, Supplier, InventoryItem, ShoppingItem, GiveawayEntry, UserType, DailyStats } from './types';
 import { normalizePhone, formatCurrency } from './utils';
@@ -18,12 +19,36 @@ const MemoizedClientInterface = React.memo(ClientInterface);
 const MemoizedAdminInterface = React.memo(AdminInterface);
 const MemoizedDriverInterface = React.memo(DriverInterface);
 
+// CONFIGURAÇÃO PADRÃO COMPLETA (Proteção contra reset)
 const DEFAULT_CONFIG: AppConfig = {
     appName: 'Jhans Burgers',
     appLogoUrl: '',
+    bannerUrl: '',
+    promoTitle: '',
+    promoSubtitle: '',
+    promoMode: 'card',
+    promoDate: '',
+    promoTime: '',
+    promoLocation: '',
+    welcomeBannerUrl: '',
+    giveawaySettings: {
+        active: false,
+        title: 'Sorteio Oficial',
+        rules: '',
+        fields: []
+    },
+    storePhone: '',
+    storeCountryCode: '+55',
+    storeMapsLink: '',
+    pixKey: '',
+    pixName: '',
+    pixCity: '',
     deliveryZones: [],
     enableDeliveryFees: false,
     schedule: {},
+    minOrderValue: 0,
+    estimatedTime: '',
+    printerWidth: '80mm',
     location: { lat: -23.55052, lng: -46.633308 }
 };
 
@@ -48,7 +73,6 @@ const GlobalStyles = () => {
 
 export default function App() {
   // --- LOGIN E PERSISTÊNCIA ---
-  // Inicializa o viewMode lendo o localStorage IMEDIATAMENTE antes do primeiro render.
   const [viewMode, setViewMode] = useState<UserType>(() => {
       const params = new URLSearchParams(window.location.search);
       if (params.get('mode') === 'client') return 'client';
@@ -61,6 +85,8 @@ export default function App() {
   const [currentDriverId, setCurrentDriverId] = useState<string | null>(() => localStorage.getItem('jhans_driverId'));
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [isAuth, setIsAuth] = useState(false);
+  const [permissionError, setPermissionError] = useState(false);
   
   // Data Collections
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -91,49 +117,97 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // --- AUTH & LISTENERS ---
+  useEffect(() => {
+      const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+          if (user) {
+              setIsAuth(true);
+          } else {
+              signInAnonymously(auth).catch((error) => {
+                  console.error("Erro ao autenticar anonimamente:", error);
+                  // Se falhar a autenticação, não marcamos erro de permissão imediatamente, mas o app ficará sem dados
+              });
+          }
+      });
+      return () => unsubscribeAuth();
+  }, []);
+
   // --- FIREBASE LISTENERS ---
   useEffect(() => {
-      const unsubConfig = onSnapshot(doc(db, 'config', 'main'), (doc) => {
-          if (doc.exists()) {
+      if (!isAuth || permissionError) return;
+
+      const handleError = (error: any) => {
+          if (error.code === 'permission-denied') {
+              console.warn("Permissão negada (Firestore Rules). Parando listeners.");
+              setPermissionError(true);
+          } else {
+              console.error("Erro no listener:", error);
+          }
+      };
+
+      // Wrap onSnapshot to catch synchronous errors too
+      const safeSnapshot = (ref: any, callback: (snap: any) => void) => {
+          try {
+              return onSnapshot(ref, callback, handleError);
+          } catch (e: any) {
+              handleError(e);
+              return () => {};
+          }
+      };
+
+      const unsubConfig = safeSnapshot(doc(db, 'config', 'main'), (docSnap) => {
+          if (docSnap.exists()) {
               setAppConfigState(prev => {
-                  const newData = { ...DEFAULT_CONFIG, ...doc.data() } as AppConfig;
-                  // Evita atualizações se não mudou
-                  if (JSON.stringify(prev) !== JSON.stringify(newData)) return newData;
-                  return prev;
+                  const dbData = docSnap.data();
+                  const newData = { ...DEFAULT_CONFIG, ...dbData } as AppConfig;
+                  if (JSON.stringify(prev) === JSON.stringify(newData)) return prev;
+                  return newData;
               });
           } else {
-              setDoc(doc.ref, DEFAULT_CONFIG);
+              // Tenta criar apenas se tivermos permissão (evita loop de erro)
+              setDoc(docSnap.ref, DEFAULT_CONFIG).catch(err => {
+                  if (err.code === 'permission-denied') setPermissionError(true);
+                  else console.error("Erro ao criar config:", err);
+              });
           }
       });
 
-      const unsubDrivers = onSnapshot(collection(db, 'drivers'), (snap) => setDrivers(snap.docs.map(d => ({id: d.id, ...d.data()} as Driver))));
-      const unsubOrders = onSnapshot(collection(db, 'orders'), (snap) => setOrders(snap.docs.map(d => ({id: d.id, ...d.data()} as Order))));
-      const unsubVales = onSnapshot(collection(db, 'vales'), (snap) => setVales(snap.docs.map(d => ({id: d.id, ...d.data()} as Vale))));
-      const unsubExpenses = onSnapshot(collection(db, 'expenses'), (snap) => setExpenses(snap.docs.map(d => ({id: d.id, ...d.data()} as Expense))));
-      const unsubProducts = onSnapshot(collection(db, 'products'), (snap) => setProducts(snap.docs.map(d => ({id: d.id, ...d.data()} as Product))));
-      const unsubClients = onSnapshot(collection(db, 'clients'), (snap) => setClients(snap.docs.map(d => ({id: d.id, ...d.data()} as Client))));
-      const unsubSettlements = onSnapshot(collection(db, 'settlements'), (snap) => setSettlements(snap.docs.map(d => ({id: d.id, ...d.data()} as Settlement))));
-      const unsubSuppliers = onSnapshot(collection(db, 'suppliers'), (snap) => setSuppliers(snap.docs.map(d => ({id: d.id, ...d.data()} as Supplier))));
-      const unsubInventory = onSnapshot(collection(db, 'inventory'), (snap) => setInventory(snap.docs.map(d => ({id: d.id, ...d.data()} as InventoryItem))));
-      const unsubShopping = onSnapshot(collection(db, 'shoppingList'), (snap) => setShoppingList(snap.docs.map(d => ({id: d.id, ...d.data()} as ShoppingItem))));
-      const unsubGiveaway = onSnapshot(collection(db, 'giveaway_entries'), (snap) => setGiveawayEntries(snap.docs.map(d => ({id: d.id, ...d.data()} as GiveawayEntry))));
-      const unsubVisits = onSnapshot(collection(db, 'daily_stats'), (snap) => setSiteVisits(snap.docs.map(d => ({ date: d.id, ...d.data()} as DailyStats))));
+      const unsubDrivers = safeSnapshot(collection(db, 'drivers'), (snap) => setDrivers(snap.docs.map(d => ({id: d.id, ...d.data()} as Driver))));
+      const unsubOrders = safeSnapshot(collection(db, 'orders'), (snap) => setOrders(snap.docs.map(d => ({id: d.id, ...d.data()} as Order))));
+      const unsubVales = safeSnapshot(collection(db, 'vales'), (snap) => setVales(snap.docs.map(d => ({id: d.id, ...d.data()} as Vale))));
+      const unsubExpenses = safeSnapshot(collection(db, 'expenses'), (snap) => setExpenses(snap.docs.map(d => ({id: d.id, ...d.data()} as Expense))));
+      const unsubProducts = safeSnapshot(collection(db, 'products'), (snap) => setProducts(snap.docs.map(d => ({id: d.id, ...d.data()} as Product))));
+      const unsubClients = safeSnapshot(collection(db, 'clients'), (snap) => setClients(snap.docs.map(d => ({id: d.id, ...d.data()} as Client))));
+      const unsubSettlements = safeSnapshot(collection(db, 'settlements'), (snap) => setSettlements(snap.docs.map(d => ({id: d.id, ...d.data()} as Settlement))));
+      const unsubSuppliers = safeSnapshot(collection(db, 'suppliers'), (snap) => setSuppliers(snap.docs.map(d => ({id: d.id, ...d.data()} as Supplier))));
+      const unsubInventory = safeSnapshot(collection(db, 'inventory'), (snap) => setInventory(snap.docs.map(d => ({id: d.id, ...d.data()} as InventoryItem))));
+      const unsubShopping = safeSnapshot(collection(db, 'shoppingList'), (snap) => setShoppingList(snap.docs.map(d => ({id: d.id, ...d.data()} as ShoppingItem))));
+      const unsubGiveaway = safeSnapshot(collection(db, 'giveaway_entries'), (snap) => setGiveawayEntries(snap.docs.map(d => ({id: d.id, ...d.data()} as GiveawayEntry))));
+      const unsubVisits = safeSnapshot(collection(db, 'daily_stats'), (snap) => setSiteVisits(snap.docs.map(d => ({ date: d.id, ...d.data()} as DailyStats))));
 
       return () => {
           unsubConfig(); unsubDrivers(); unsubOrders(); unsubVales(); unsubExpenses(); unsubProducts(); unsubClients();
           unsubSettlements(); unsubSuppliers(); unsubInventory(); unsubShopping(); unsubGiveaway(); unsubVisits();
       };
-  }, []);
+  }, [isAuth, permissionError]);
 
   // --- ACTIONS ---
 
   const handleAction = async (action: () => Promise<any>) => {
+    if (permissionError) {
+        setAlertInfo({ isOpen: true, title: "Sem Permissão", message: "Correção necessária nas regras do Firebase.", type: 'error' });
+        return false;
+    }
     try {
       await action();
       return true;
     } catch (error: any) {
-      console.error("Erro na ação:", error);
-      setAlertInfo({ isOpen: true, title: "Atenção", message: error.message || "Erro no banco de dados.", type: 'error' });
+      if (error.code === 'permission-denied') {
+          setPermissionError(true);
+      } else {
+          console.error("Erro na ação:", error);
+          setAlertInfo({ isOpen: true, title: "Atenção", message: error.message || "Erro no banco de dados.", type: 'error' });
+      }
       return false;
     }
   };
@@ -353,9 +427,11 @@ export default function App() {
             allowSystemAccess={true}
             onSystemAccess={handleLoginRequest}
             onRecordVisit={() => {
+                if(permissionError) return;
                 const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
-                // Usando setDoc com merge para incrementar de forma atômica
-                setDoc(doc(db, 'daily_stats', today), { visits: increment(1) }, { merge: true });
+                setDoc(doc(db, 'daily_stats', today), { visits: increment(1) }, { merge: true }).catch(err => {
+                    if (err.code === 'permission-denied') setPermissionError(true);
+                });
             }}
         />
         </>
@@ -387,6 +463,16 @@ export default function App() {
             message={alertInfo.message}
             type={alertInfo.type || 'info'}
             onClose={() => setAlertInfo(null)}
+        />
+      )}
+
+      {permissionError && (
+        <GenericAlertModal 
+            isOpen={true}
+            title="Acesso Negado (Firebase)"
+            message="O sistema não tem permissão para acessar o banco de dados. Verifique as 'Security Rules' no Console do Firebase e certifique-se de que estão no modo de teste ou permitem acesso."
+            type="error"
+            onClose={() => setPermissionError(false)}
         />
       )}
     </>

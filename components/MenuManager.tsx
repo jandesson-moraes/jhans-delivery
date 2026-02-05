@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, InventoryItem } from '../types';
 import { formatCurrency, copyToClipboard } from '../utils';
-import { PlusCircle, Edit, Utensils, ListPlus, Trash2, Link as LinkIcon, ExternalLink, Copy, Check, Globe, TrendingUp } from 'lucide-react';
+import { PlusCircle, Edit, Utensils, ListPlus, Trash2, Link as LinkIcon, ExternalLink, Copy, Check, Globe, TrendingUp, Image as ImageIcon } from 'lucide-react';
 import { ProductFormModal } from './Modals';
 import { Footer } from './Shared';
 
@@ -176,17 +176,30 @@ export function MenuManager({ products, inventory, onCreate, onUpdate, onDelete 
                                     }
 
                                     return (
-                                        <div key={p.id} className="border border-slate-800 p-5 rounded-2xl shadow-sm bg-slate-900 flex flex-col justify-between hover:border-slate-700 transition-colors group relative overflow-hidden">
-                                            <div>
+                                        <div key={p.id} className="border border-slate-800 p-0 rounded-2xl shadow-sm bg-slate-900 flex flex-col justify-between hover:border-slate-700 transition-colors group relative overflow-hidden">
+                                            {/* Preview da Imagem */}
+                                            <div className="h-40 w-full bg-slate-950 relative overflow-hidden border-b border-slate-800">
+                                                {p.imageUrl ? (
+                                                    <img src={p.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                ) : (
+                                                    <div className="flex items-center justify-center h-full text-slate-700">
+                                                        <ImageIcon size={32} />
+                                                    </div>
+                                                )}
+                                                <div className="absolute top-2 right-2 bg-slate-900/90 text-emerald-400 font-bold px-2 py-1 rounded-lg text-xs shadow border border-slate-800">
+                                                    {formatCurrency(p.price)}
+                                                </div>
+                                            </div>
+
+                                            <div className="p-5 flex-1 flex flex-col">
                                                 <div className="flex justify-between items-start mb-2">
                                                     <h4 className="font-bold text-white text-lg leading-tight line-clamp-2">{p.name}</h4>
-                                                    <p className="font-extrabold text-lg text-emerald-400 whitespace-nowrap ml-2">{formatCurrency(p.price)}</p>
                                                 </div>
-                                                {p.description && <p className="text-xs text-slate-500 leading-relaxed mb-4 line-clamp-3 min-h-[3em]">{p.description}</p>}
+                                                {p.description && <p className="text-xs text-slate-500 leading-relaxed mb-4 line-clamp-2 min-h-[2.5em]">{p.description}</p>}
                                                 
                                                 {/* Mini Indicador de Margem */}
                                                 {totalCost > 0 && (
-                                                    <div className="flex items-center gap-2 text-[10px] bg-slate-950 p-2 rounded-lg border border-slate-800 mb-2">
+                                                    <div className="flex items-center gap-2 text-[10px] bg-slate-950 p-2 rounded-lg border border-slate-800 mb-2 mt-auto">
                                                         <TrendingUp size={12} className={marginColor}/>
                                                         <span className="text-slate-400">Margem:</span>
                                                         <span className={`font-bold ${marginColor}`}>{margin.toFixed(0)}%</span>
@@ -194,8 +207,8 @@ export function MenuManager({ products, inventory, onCreate, onUpdate, onDelete 
                                                     </div>
                                                 )}
                                             </div>
-                                            <div className="flex justify-end pt-3 border-t border-slate-800/50 gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:bg-amber-600 hover:text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold"><Edit size={14}/> Editar / Ficha</button>
+                                            <div className="flex justify-end p-3 pt-0 gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:bg-amber-600 hover:text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold"><Edit size={14}/> Editar</button>
                                                 <button onClick={() => onDelete(p.id)} className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:bg-red-600 hover:text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold"><Trash2 size={14}/> Excluir</button>
                                             </div>
                                         </div>

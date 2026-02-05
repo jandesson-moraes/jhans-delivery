@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Trophy, Shuffle, Search, Users, Edit, Trash2, Check, MessageCircle, Instagram, AlertTriangle, Copy, Printer, AlertCircle, Info, Flame, Bike, Save, Settings, Lock, Store, Clock, MapPin, CreditCard, Smartphone, Image as ImageIcon, Plus, Truck, CalendarClock, Sliders, UploadCloud, RefreshCw, Signal, QrCode, CheckCircle2, DollarSign, Timer, Ban, PlusCircle, Camera, FileText, ChevronRight, Download, History, PackageCheck, Ticket, DownloadCloud, Gift, Mail, Calendar, HelpCircle, FileSpreadsheet, User, Phone, Megaphone, Monitor, Banknote, Navigation, FlaskConical, ShoppingCart, Square, CheckSquare, Wand2, Send } from 'lucide-react';
+import { X, Trophy, Shuffle, Search, Users, Edit, Trash2, Check, MessageCircle, Instagram, AlertTriangle, Copy, Printer, AlertCircle, Info, Flame, Bike, Save, Settings, Lock, Store, Clock, MapPin, CreditCard, Smartphone, Image as ImageIcon, Plus, Truck, CalendarClock, Sliders, UploadCloud, RefreshCw, Signal, QrCode, CheckCircle2, DollarSign, Timer, Ban, PlusCircle, Camera, FileText, ChevronRight, Download, History, PackageCheck, Ticket, DownloadCloud, Gift, Mail, Calendar, HelpCircle, FileSpreadsheet, User, Phone, Megaphone, Monitor, Banknote, Navigation, FlaskConical, ShoppingCart, Square, CheckSquare, Wand2, Send, Wallet } from 'lucide-react';
 import { normalizePhone, formatDate, formatCurrency, generateReceiptText, printOrderTicket, getProductionMessage, getDispatchMessage, formatPhoneNumberDisplay, compressImage, COUNTRY_CODES, toSentenceCase, formatOrderId, formatTime, copyToClipboard } from '../utils';
 import { AppConfig, Product, Order, InventoryItem, GiveawayEntry, Driver, Client, DeliveryZone, GiveawayFieldConfig, ShoppingItem, Supplier } from '../types';
 
@@ -61,6 +61,7 @@ export function AdminLoginModal({ onClose, onLogin }: any) {
     );
 }
 
+// ... (GenericAlertModal, GenericConfirmModal, GiveawayManagerModal, SettingsModal, NewDriverModal unchanged) ...
 export function GenericAlertModal({ isOpen, title, message, type = 'info', onClose }: any) {
     if (!isOpen) return null;
     return (
@@ -513,12 +514,12 @@ export function NewDriverModal({ initialData, onClose, onSave }: any) {
 
 export function ProductFormModal({ isOpen, onClose, product, onSave, existingCategories, inventory }: any) {
     const [form, setForm] = useState<Product>({
-        id: '', name: '', category: '', price: 0, description: '', ingredients: []
+        id: '', name: '', category: '', price: 0, description: '', ingredients: [], imageUrl: ''
     });
     
     useEffect(() => {
         if(isOpen) {
-            setForm(product || { id: '', name: '', category: 'Hambúrgueres', price: 0, description: '', ingredients: [] });
+            setForm(product || { id: '', name: '', category: 'Hambúrgueres', price: 0, description: '', ingredients: [], imageUrl: '' });
         }
     }, [isOpen, product]);
 
@@ -538,6 +539,17 @@ export function ProductFormModal({ isOpen, onClose, product, onSave, existingCat
         setForm({...form, ingredients: newIngs});
     };
 
+    const handleImageUpload = async (file: File) => {
+        if(file) {
+            try {
+                const compressed = await compressImage(file);
+                setForm(prev => ({...prev, imageUrl: compressed}));
+            } catch(e) {
+                alert("Erro ao processar imagem");
+            }
+        }
+    };
+
     if(!isOpen) return null;
 
     return (
@@ -548,6 +560,26 @@ export function ProductFormModal({ isOpen, onClose, product, onSave, existingCat
                     <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
                 </div>
                 <form onSubmit={(e) => { e.preventDefault(); onSave(product?.id, form); }} className="space-y-4">
+                    <div className="flex flex-col items-center mb-4">
+                        <div className="relative w-32 h-32 rounded-xl bg-slate-800 border-2 border-dashed border-slate-600 flex items-center justify-center overflow-hidden group cursor-pointer hover:border-amber-500 transition-colors">
+                            {form.imageUrl ? (
+                                <img src={form.imageUrl} className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="text-center text-slate-500">
+                                    <ImageIcon size={24} className="mx-auto mb-1"/>
+                                    <span className="text-[10px] uppercase font-bold">Foto</span>
+                                </div>
+                            )}
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <UploadCloud className="text-white"/>
+                            </div>
+                            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={(e) => handleImageUpload(e.target.files?.[0] as File)} />
+                        </div>
+                        {form.imageUrl && (
+                            <button type="button" onClick={() => setForm({...form, imageUrl: ''})} className="text-xs text-red-500 mt-2 hover:underline">Remover Foto</button>
+                        )}
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
                         <div>
@@ -590,6 +622,7 @@ export function ProductFormModal({ isOpen, onClose, product, onSave, existingCat
     );
 }
 
+// ... (Rest of modal components unchanged)
 export function EditOrderModal({ order, onClose, onSave }: any) {
     const [form, setForm] = useState(order);
     

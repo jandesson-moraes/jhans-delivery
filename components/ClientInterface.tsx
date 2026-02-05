@@ -5,7 +5,7 @@ import { formatCurrency, checkShopStatus, normalizePhone, generatePixPayload, co
 import { 
     ShoppingCart, Plus, Minus, X, MessageCircle, ChevronRight, 
     Search, Utensils, Phone, User, Store, Gift, Lock, Bike,
-    MapPin, Navigation, CreditCard, Banknote, ArrowLeft, Clock, Copy, QrCode, AlertTriangle, CalendarClock, CheckCircle2, Home, Check, Sparkles, Trophy, Flame, Timer, Ticket, Instagram, Edit, Mail, Calendar, HelpCircle
+    MapPin, Navigation, CreditCard, Banknote, ArrowLeft, Clock, Copy, QrCode, AlertTriangle, CalendarClock, CheckCircle2, Home, Check, Sparkles, Trophy, Flame, Timer, Ticket, Instagram, Edit, Mail, Calendar, HelpCircle, Image as ImageIcon
 } from 'lucide-react';
 import { Footer, PixIcon } from './Shared';
 
@@ -391,12 +391,6 @@ export default function ClientInterface({
         setShowGiveawaySuccess(false);
     };
 
-    const handleCopyGiveawayText = () => {
-        copyToClipboard(getGiveawayText());
-        setGiveawayCopyFeedback(true);
-        setTimeout(() => setGiveawayCopyFeedback(false), 2000);
-    };
-
     // FUNÇÕES DE CÓPIA COM FEEDBACK
     const handleCopyKey = () => {
         copyToClipboard(appConfig.pixKey || '');
@@ -675,11 +669,8 @@ export default function ClientInterface({
         );
     }
 
-    // ... (Rest of ClientInterface remains identical)
     return (
         <div className="bg-[#020617] min-h-screen font-sans pb-24">
-            {/* ... */}
-            {/* (This part remains unchanged, just wrapping up for XML output limits) */}
             {/* Header Red Gradient - COMPACT FOR MOBILE */}
             <div className="bg-gradient-to-r from-[#ef4444] to-[#f97316] pt-3 pb-8 px-4 rounded-b-[1.5rem] md:rounded-b-[2rem] shadow-2xl relative overflow-hidden">
                 <div className="max-w-5xl mx-auto relative z-10">
@@ -817,30 +808,50 @@ export default function ClientInterface({
                     </div>
                 )}
 
-                {/* Products Grouped - COMPACT MOBILE GRID */}
+                {/* Products Grouped - GRID COM FOTO GRANDE (APPETIZING) */}
                 <div className="space-y-6 md:space-y-8 pb-10">
                     {groupedProducts.map(([category, items]) => (
                         <div key={category} className="animate-in slide-in-from-bottom-4 duration-700">
                             <h3 className="text-white font-black text-sm md:text-lg mb-3 flex items-center gap-2 uppercase tracking-wider pl-1 border-l-4 border-orange-500">
                                 {category}
                             </h3>
-                            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                                 {items.map(product => (
                                     <div 
                                         key={product.id} 
                                         onClick={() => addToCart(product)}
-                                        className="bg-[#0f172a] border border-slate-800 p-3 md:p-5 rounded-xl flex flex-col justify-between hover:border-slate-700 transition-all shadow-md group relative overflow-hidden cursor-pointer h-full"
+                                        className="bg-[#0f172a] border border-slate-800 rounded-xl flex flex-col hover:border-slate-600 transition-all shadow-md group relative overflow-hidden cursor-pointer h-full"
                                     >
-                                        <div className="relative z-10 flex flex-col h-full">
-                                            <h4 className="font-bold text-white text-xs md:text-lg mb-1 md:mb-2 group-hover:text-amber-500 transition-colors line-clamp-2 leading-tight">{product.name}</h4>
-                                            <p className="text-slate-400 text-[9px] md:text-xs leading-relaxed line-clamp-2 mb-2 md:mb-4 flex-1">{product.description}</p>
+                                        {/* FOTO GRANDE - CAPA */}
+                                        <div className="aspect-[4/3] w-full relative overflow-hidden bg-slate-900">
+                                            {product.imageUrl ? (
+                                                <img 
+                                                    src={product.imageUrl} 
+                                                    alt={product.name}
+                                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-slate-700">
+                                                    <Utensils size={32} />
+                                                </div>
+                                            )}
+                                            {/* Preço Sobreposto (Tag) */}
+                                            <div className="absolute bottom-2 left-2 bg-black/80 backdrop-blur-sm text-emerald-400 px-2 py-1 rounded-lg text-xs md:text-sm font-black border border-emerald-500/30 shadow-lg">
+                                                {formatCurrency(product.price)}
+                                            </div>
+                                        </div>
+
+                                        <div className="p-3 flex flex-col flex-1">
+                                            <h4 className="font-bold text-white text-xs md:text-base mb-1 group-hover:text-amber-500 transition-colors line-clamp-2 leading-tight">{product.name}</h4>
+                                            {product.description && (
+                                                <p className="text-slate-400 text-[10px] md:text-xs leading-relaxed line-clamp-2 mb-2">{product.description}</p>
+                                            )}
                                             
-                                            <div className="flex justify-between items-center mt-auto pt-2 border-t border-slate-800/50">
-                                                <span className="text-amber-500 font-bold text-xs md:text-lg">{formatCurrency(product.price)}</span>
+                                            <div className="mt-auto pt-2 flex justify-end">
                                                 <button 
-                                                    className="bg-slate-800 text-slate-400 group-hover:bg-slate-700 group-hover:text-white w-6 h-6 md:w-8 md:h-8 rounded-lg flex items-center justify-center transition-all active:scale-95 shadow-md"
+                                                    className="bg-slate-800 text-white w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-md border border-slate-700 group-hover:bg-amber-600 group-hover:border-amber-500"
                                                 >
-                                                    <Plus size={12} className="md:w-4 md:h-4"/>
+                                                    <Plus size={16}/>
                                                 </button>
                                             </div>
                                         </div>
