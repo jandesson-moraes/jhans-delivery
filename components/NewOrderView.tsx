@@ -101,7 +101,7 @@ export function NewOrderView({ products, appConfig, onCreateOrder, clients = [] 
     // --- Computed Data ---
     const categories = useMemo(() => {
         const cats = Array.from(new Set(products.map(p => p.category)));
-        const priority = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
+        const priority = ['Hambúrgueres', 'Combos', 'Combo Familia', 'Porções', 'Bebidas'];
         return ['Todos', ...cats.sort((a, b) => {
             const idxA = priority.indexOf(a);
             const idxB = priority.indexOf(b);
@@ -124,7 +124,7 @@ export function NewOrderView({ products, appConfig, onCreateOrder, clients = [] 
             groups[p.category].push(p);
         });
 
-        const priority = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
+        const priority = ['Hambúrgueres', 'Combos', 'Combo Familia', 'Porções', 'Bebidas'];
         return Object.entries(groups).sort(([catA], [catB]) => {
             const idxA = priority.indexOf(catA);
             const idxB = priority.indexOf(catB);

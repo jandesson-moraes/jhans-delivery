@@ -101,7 +101,7 @@ export default function ClientInterface({
     // Categories
     const categories = useMemo(() => {
         const cats = Array.from(new Set(products.map(p => p.category)));
-        const priority = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
+        const priority = ['Hambúrgueres', 'Combos', 'Combo Familia', 'Porções', 'Bebidas'];
         return ['Todos', ...cats.sort((a, b) => {
             const idxA = priority.indexOf(a);
             const idxB = priority.indexOf(b);
@@ -127,7 +127,7 @@ export default function ClientInterface({
         });
 
         // Sort categories order
-        const priority = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
+        const priority = ['Hambúrgueres', 'Combos', 'Combo Familia', 'Porções', 'Bebidas'];
         return Object.entries(groups).sort(([catA], [catB]) => {
             const idxA = priority.indexOf(catA);
             const idxB = priority.indexOf(catB);

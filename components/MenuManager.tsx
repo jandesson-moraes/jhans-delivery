@@ -31,7 +31,7 @@ export function MenuManager({ products, inventory, onCreate, onUpdate, onDelete 
     }, []);
 
     const availableCategories = useMemo(() => {
-        const fixed = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
+        const fixed = ['Hambúrgueres', 'Combos', 'Combo Familia', 'Porções', 'Bebidas'];
         const existing = Array.from(new Set(products.map(p => p.category)));
         return Array.from(new Set([...fixed, ...existing]));
     }, [products]);
@@ -41,7 +41,7 @@ export function MenuManager({ products, inventory, onCreate, onUpdate, onDelete 
             (acc[product.category] = acc[product.category] || []).push(product);
             return acc;
         }, {});
-        const ORDER = ['Hambúrgueres', 'Combos', 'Porções', 'Bebidas'];
+        const ORDER = ['Hambúrgueres', 'Combos', 'Combo Familia', 'Porções', 'Bebidas'];
         const sortedKeys = Object.keys(grouped).sort((a, b) => {
             const idxA = ORDER.indexOf(a);
             const idxB = ORDER.indexOf(b);
