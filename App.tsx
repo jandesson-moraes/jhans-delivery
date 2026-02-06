@@ -5,7 +5,7 @@ import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { collection, addDoc, updateDoc, doc, deleteDoc, setDoc, query, where, getDocs, serverTimestamp, writeBatch, onSnapshot, increment } from 'firebase/firestore';
 import { AppConfig, Driver, Order, Vale, Expense, Product, Client, Settlement, Supplier, InventoryItem, ShoppingItem, GiveawayEntry, UserType, DailyStats, GiveawayWinner } from './types';
 import { normalizePhone, formatCurrency } from './utils';
-import { Loader2, Utensils, ShieldCheck, Bike } from 'lucide-react';
+import { Loader2, Utensils, ShieldCheck, Bike, Flame } from 'lucide-react';
 
 // Components
 import { AdminInterface } from './components/AdminInterface';
@@ -13,6 +13,7 @@ import ClientInterface from './components/ClientInterface';
 import DriverInterface from './components/DriverInterface';
 import DriverSelection from './components/DriverSelection'; 
 import { GenericAlertModal, NewDriverModal, CloseCycleModal, ImportModal, EditClientModal, SettingsModal, AdminLoginModal, EditOrderModal } from './components/Modals';
+import { BrandLogo } from './components/Shared';
 
 // OTIMIZAÇÃO: Memoizar componentes principais para evitar re-render da árvore inteira
 const MemoizedClientInterface = React.memo(ClientInterface);
@@ -119,7 +120,7 @@ export default function App() {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     // Simula carregamento rápido
-    setTimeout(() => setLoading(false), 500);
+    setTimeout(() => setLoading(false), 2000); // Aumentado levemente para exibir o splash
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
@@ -318,8 +319,88 @@ export default function App() {
 
   if (loading) {
       return (
-          <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center">
-              <Loader2 className="animate-spin text-amber-500 w-12 h-12 mb-4"/>
+          <div className="fixed inset-0 z-[9999] bg-[#020617] flex flex-col items-center justify-center animate-in fade-in duration-700 overflow-hidden">
+              <style>{`
+                @keyframes fire-progress {
+                    0% { width: 0%; }
+                    100% { width: 100%; }
+                }
+                @keyframes ember-flicker {
+                    0% { opacity: 1; transform: translateY(-50%) scale(1); box-shadow: 0 0 10px #f97316; }
+                    100% { opacity: 0.8; transform: translateY(-50%) scale(1.2); box-shadow: 0 0 20px #ef4444; }
+                }
+                @keyframes sparks-fly {
+                    0% { transform: translateY(-50%) translate(0, 0) scale(1); opacity: 1; }
+                    100% { transform: translateY(-50%) translate(-20px, -15px) scale(0); opacity: 0; }
+                }
+                @keyframes text-shimmer {
+                    0% { background-position: -200%; }
+                    100% { background-position: 200%; }
+                }
+                .fire-line {
+                    height: 100%;
+                    background: linear-gradient(90deg, transparent 0%, #f97316 40%, #ef4444 100%);
+                    box-shadow: 0 0 15px rgba(249, 115, 22, 0.3);
+                    border-radius: 9999px;
+                    animation: fire-progress 2.5s ease-in-out infinite;
+                    position: relative;
+                }
+                .fire-line::after {
+                    content: '';
+                    position: absolute;
+                    top: 50%;
+                    right: -2px;
+                    width: 6px;
+                    height: 6px;
+                    background: #fff;
+                    border-radius: 50%;
+                    transform: translateY(-50%);
+                    box-shadow: 0 0 15px #f97316, 0 0 30px #ef4444;
+                    animation: ember-flicker 0.1s infinite alternate;
+                }
+                .fire-line::before {
+                    content: '';
+                    position: absolute;
+                    top: 50%;
+                    right: 0;
+                    width: 2px;
+                    height: 2px;
+                    background: transparent;
+                    box-shadow: 
+                       -4px -8px 0 #fbbf24,
+                       -8px 4px 0 #f97316,
+                       -2px -12px 0 #ef4444;
+                    border-radius: 50%;
+                    animation: sparks-fly 0.4s linear infinite;
+                }
+                .flash-text {
+                    background: linear-gradient(to right, #ffffff 20%, #f97316 50%, #ffffff 80%);
+                    background-size: 200% auto;
+                    background-clip: text;
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    animation: text-shimmer 2.5s linear infinite;
+                }
+              `}</style>
+
+              {/* Background Glow Efeito */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-orange-500/10 rounded-full blur-[80px] pointer-events-none"></div>
+
+              {/* Nome do App com Efeito Flash */}
+              <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-2 relative z-10 uppercase drop-shadow-lg flash-text">
+                  {appConfig.appName || 'Jhans Burgers'}
+              </h2>
+              
+              {/* Texto de Status */}
+              <div className="flex items-center gap-2 text-slate-400 text-sm font-medium relative z-10 mt-4">
+                  <Flame className="animate-pulse text-orange-500" size={24} fill="#f97316" fillOpacity={0.2}/>
+                  <span>Preparando a chapa...</span>
+              </div>
+              
+              {/* Barra de Progresso com Efeito de Fogo */}
+              <div className="w-64 h-1.5 bg-slate-900 rounded-full mt-6 overflow-visible relative z-10">
+                  <div className="fire-line w-full"></div>
+              </div>
           </div>
       );
   }

@@ -34,7 +34,13 @@ export interface AppConfig {
     promoTime?: string;      // Horário
     promoLocation?: string;  // Local
     promoMode?: 'card' | 'banner'; // 'card' = Layout atual, 'banner' = Imagem cheia
-    welcomeBannerUrl?: string; // Banner de boas-vindas (popup)
+    
+    // Configuração Avançada de Boas-Vindas
+    welcomeMode?: 'image' | 'text'; // NOVO: Define se é imagem ou texto
+    welcomeBannerUrl?: string; // Banner de boas-vindas (popup imagem)
+    welcomeTitle?: string;     // Título do popup (modo texto)
+    welcomeMessage?: string;   // Mensagem do popup (modo texto)
+    welcomeButtonText?: string; // Texto do botão (modo texto)
     
     // Configuração de Destaques (Carrossel) - NOVO
     featuredSettings?: {

@@ -1,9 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
     LayoutDashboard, ShoppingBag, Utensils, Users, 
     Bike, BarChart3, Settings, LogOut, Menu, X, 
-    ChefHat, ClipboardList, Box, Package, PlusCircle, MoreHorizontal, Grid, Gift
+    ChefHat, ClipboardList, Box, Package, PlusCircle, MoreHorizontal, Grid, Gift, BellRing, ArrowRight
 } from 'lucide-react';
 import { MonitoringView } from './MonitoringView';
 import { DailyOrdersView } from './DailyOrdersView';
@@ -16,12 +16,53 @@ import { ItemReportView } from './ItemReportView';
 import { NewOrderView } from './NewOrderView';
 import { GiveawayLiveView } from './GiveawayLiveView'; // Import New Component
 import { BrandLogo, SidebarBtn } from './Shared';
-import { Driver } from '../types';
+import { Driver, Order } from '../types';
+
+const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
 export function AdminInterface(props: any) {
     const [view, setView] = useState('dashboard');
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [fleetSidebarOpen, setFleetSidebarOpen] = useState(false); // State for fleet sidebar
+    const [newOrderAlert, setNewOrderAlert] = useState(false);
+
+    // Ref para o áudio
+    const audioRef = useRef<HTMLAudioElement>(new Audio(NOTIFICATION_SOUND));
+
+    // Rastreamento de novos pedidos para disparar o modal
+    // Inicializa com os IDs atuais para não disparar no refresh, apenas em novos
+    const knownOrderIds = useRef<Set<string>>(new Set(props.orders.filter((o: Order) => o.status === 'pending').map((o: Order) => o.id)));
+
+    useEffect(() => {
+        const pendingOrders = props.orders.filter((o: Order) => o.status === 'pending');
+        
+        let hasNew = false;
+        pendingOrders.forEach((o: Order) => {
+            if (!knownOrderIds.current.has(o.id)) {
+                knownOrderIds.current.add(o.id);
+                hasNew = true;
+            }
+        });
+
+        if (hasNew) {
+            setNewOrderAlert(true);
+            
+            // Tocar som (Centralizado aqui para tocar em qualquer tela)
+            try {
+                audioRef.current.currentTime = 0;
+                audioRef.current.play().catch(e => console.warn("Autoplay bloqueado pelo navegador:", e));
+            } catch (error) {
+                console.error("Erro ao tocar som:", error);
+            }
+
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        }
+    }, [props.orders]);
+
+    const handleGoToKitchen = () => {
+        setNewOrderAlert(false);
+        setView('kitchen');
+    };
 
     const renderContent = () => {
         switch(view) {
@@ -57,6 +98,7 @@ export function AdminInterface(props: any) {
                             onDeleteOrder={props.onDeleteOrder}
                             appConfig={props.appConfig}
                             onEditOrder={(o) => { props.setModalData(o); props.setModal('editOrder'); }}
+                            disableSound={true} // Desativa som interno da Cozinha para não duplicar com o modal global
                         />;
             case 'orders':
                 return <DailyOrdersView 
@@ -131,7 +173,35 @@ export function AdminInterface(props: any) {
     }
 
     return (
-        <div className="flex h-screen bg-slate-950 text-white overflow-hidden font-sans">
+        <div className="flex h-screen bg-slate-950 text-white overflow-hidden font-sans relative">
+            
+            {/* GLOBAL NEW ORDER MODAL */}
+            {newOrderAlert && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in duration-300">
+                    <div className="bg-slate-900 w-full max-w-sm rounded-3xl border-2 border-orange-500 shadow-[0_0_50px_rgba(249,115,22,0.3)] p-8 relative text-center">
+                        <div className="w-20 h-20 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+                            <BellRing size={40} className="text-white"/>
+                        </div>
+                        <h2 className="text-2xl font-black text-white mb-2 uppercase">Novo Pedido!</h2>
+                        <p className="text-slate-400 text-sm mb-8">Um novo pedido acabou de chegar. Vá para a cozinha para preparar.</p>
+                        
+                        <button 
+                            onClick={handleGoToKitchen}
+                            className="w-full bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white font-black py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all uppercase tracking-wide text-sm"
+                        >
+                            Ver na Cozinha <ArrowRight size={20}/>
+                        </button>
+                        
+                        <button 
+                            onClick={() => setNewOrderAlert(false)}
+                            className="mt-4 text-xs font-bold text-slate-500 hover:text-white"
+                        >
+                            Fechar e continuar aqui
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Sidebar Mobile Overlay (Acts as "More" Menu) */}
             {sidebarOpen && (
                 <div className="fixed inset-0 bg-black/80 z-[60] md:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)}></div>
@@ -158,14 +228,25 @@ export function AdminInterface(props: any) {
                     {/* 3. Cardápio */}
                     <SidebarBtn icon={<Utensils size={20}/>} label="Cardápio" active={view === 'menu'} onClick={() => { setView('menu'); setSidebarOpen(false); }} />
                     
-                    {/* 4. Cozinha */}
-                    <SidebarBtn icon={<ChefHat size={20}/>} label="Cozinha (KDS)" active={view === 'kitchen'} onClick={() => { setView('kitchen'); setSidebarOpen(false); }} />
+                    {/* 4. Cozinha - COM DESTAQUE VISUAL */}
+                    <button 
+                        onClick={() => { setView('kitchen'); setSidebarOpen(false); }} 
+                        className={`w-full flex items-center justify-start gap-4 p-3.5 rounded-xl transition-all border-2 mb-2 mt-1
+                        ${view === 'kitchen' 
+                            ? 'bg-orange-600 border-orange-500 text-white shadow-lg shadow-orange-900/20 font-bold' 
+                            : 'bg-orange-900/10 border-orange-500/30 text-orange-400 hover:bg-orange-900/30 hover:text-orange-300'
+                        }`}
+                        title="Cozinha (KDS)" 
+                    >
+                      <div className="shrink-0"><ChefHat size={20}/></div>
+                      <span className="font-bold text-sm block tracking-wide uppercase">Cozinha (KDS)</span>
+                    </button>
 
                     {/* 5. Novo Pedido */}
-                    <div className="py-4 px-1">
+                    <div className="py-2 px-1">
                         <button 
                             onClick={() => { setView('new_order'); setSidebarOpen(false); }}
-                            className={`w-full flex items-center justify-center gap-2 p-3.5 rounded-xl transition-all shadow-lg font-bold text-sm uppercase tracking-wide ${view === 'new_order' ? 'bg-orange-500 text-white shadow-orange-500/20' : 'bg-orange-600 hover:bg-orange-500 text-white'}`}
+                            className={`w-full flex items-center justify-center gap-2 p-3.5 rounded-xl transition-all shadow-lg font-bold text-sm uppercase tracking-wide ${view === 'new_order' ? 'bg-emerald-600 text-white shadow-emerald-500/20' : 'bg-slate-800 hover:bg-emerald-600 text-white border border-slate-700'}`}
                         >
                             <PlusCircle size={20}/> NOVO PEDIDO
                         </button>

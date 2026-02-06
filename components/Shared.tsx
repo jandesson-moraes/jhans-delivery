@@ -74,13 +74,34 @@ export const PixIcon = ({ size = 24, className = "" }: { size?: number, classNam
     </svg>
 );
 
+// Adiciona CSS para o efeito de shine se não existir globalmente
+const ShineStyles = () => (
+    <style>{`
+        @keyframes shine {
+            0% { background-position: 200% center; }
+            100% { background-position: -200% center; }
+        }
+        .animate-shine {
+            background: linear-gradient(to right, #4b5563 20%, #f59e0b 40%, #f59e0b 60%, #4b5563 80%);
+            background-size: 200% auto;
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shine 3s linear infinite;
+        }
+    `}</style>
+);
+
 export const Footer = () => (
+    <>
+    <ShineStyles />
     <div className="w-full py-8 mt-auto flex flex-col items-center justify-center border-t border-slate-800/50 bg-transparent shrink-0">
         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1">
-            Desenvolvido por <span className="text-amber-600/90 font-black">Jhan Houzer</span>
+            Desenvolvido por <span className="font-black animate-shine cursor-default">Jhan Houzer</span>
         </p>
         <p className="text-[9px] text-slate-600 font-medium">
             © Todos os direitos reservados 2026
         </p>
     </div>
+    </>
 );

@@ -19,6 +19,21 @@ interface ClientInterfaceProps {
     onRecordVisit: () => void;
 }
 
+// COMPONENTE SKELETON (PLACEHOLDER DE CARREGAMENTO)
+const ProductSkeleton = () => (
+    <div className="bg-[#0f172a] border border-slate-800 rounded-xl flex flex-col overflow-hidden h-full animate-pulse">
+        <div className="aspect-[4/3] w-full bg-slate-800 relative"></div>
+        <div className="p-3 flex flex-col flex-1 space-y-2">
+            <div className="h-4 bg-slate-800 rounded w-3/4"></div>
+            <div className="h-3 bg-slate-800 rounded w-full"></div>
+            <div className="mt-auto pt-2 flex justify-between items-center">
+                <div className="h-5 bg-slate-800 rounded w-16"></div>
+                <div className="h-8 w-8 bg-slate-800 rounded-full"></div>
+            </div>
+        </div>
+    </div>
+);
+
 export default function ClientInterface({ 
     products = [], 
     appConfig, 
@@ -37,9 +52,14 @@ export default function ClientInterface({
     const [viewProductQty, setViewProductQty] = useState(1);
     const [viewProductObs, setViewProductObs] = useState('');
 
-    // Carousel Logic (Slide Index)
+    // Carousel Logic (Slide Index & Swipe)
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
     const [isCarouselPaused, setIsCarouselPaused] = useState(false);
+    const touchStartX = useRef<number | null>(null);
+    const touchEndX = useRef<number | null>(null);
+
+    // Welcome Modal Logic
+    const [showWelcome, setShowWelcome] = useState(false);
 
     // Customer Info
     const [customerName, setCustomerName] = useState('');
@@ -91,6 +111,11 @@ export default function ClientInterface({
             promoDate: base.promoDate || '',
             promoTime: base.promoTime || '',
             promoLocation: base.promoLocation || '',
+            welcomeMode: base.welcomeMode || 'image', // Padrão: Imagem
+            welcomeBannerUrl: base.welcomeBannerUrl || '',
+            welcomeTitle: base.welcomeTitle || 'Bem-vindo!',
+            welcomeMessage: base.welcomeMessage || '',
+            welcomeButtonText: base.welcomeButtonText || 'Ver Cardápio',
             facebookPixelId: base.facebookPixelId || ''
         } as AppConfig;
     }, [appConfig]);
@@ -129,6 +154,19 @@ export default function ClientInterface({
 
     // --- 3. LOGIC HOOKS ---
 
+    // Welcome Modal Trigger
+    useEffect(() => {
+        // Exibe o modal de boas-vindas se:
+        // 1. Estiver no modo Imagem E tiver URL
+        // 2. OU Estiver no modo Texto E tiver Mensagem
+        const hasImageContent = safeConfig.welcomeMode === 'image' && safeConfig.welcomeBannerUrl;
+        const hasTextContent = safeConfig.welcomeMode === 'text' && (safeConfig.welcomeMessage || safeConfig.welcomeTitle);
+
+        if (hasImageContent || hasTextContent) {
+            setShowWelcome(true);
+        }
+    }, [safeConfig.welcomeMode, safeConfig.welcomeBannerUrl, safeConfig.welcomeMessage]);
+
     // AUTO-SLIDE TIMER
     useEffect(() => {
         if (isCarouselPaused || slides.length <= 1) return;
@@ -139,6 +177,38 @@ export default function ClientInterface({
 
         return () => clearInterval(interval);
     }, [isCarouselPaused, slides.length]);
+
+    // SWIPE HANDLERS (CARROUSSEL)
+    const handleTouchStart = (e: React.TouchEvent) => {
+        setIsCarouselPaused(true);
+        touchStartX.current = e.targetTouches[0].clientX;
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        touchEndX.current = e.targetTouches[0].clientX;
+    };
+
+    const handleTouchEnd = () => {
+        if (!touchStartX.current || !touchEndX.current) return;
+        
+        const diff = touchStartX.current - touchEndX.current;
+        const threshold = 50; // Mínimo de pixels para considerar swipe
+
+        if (diff > threshold) {
+            // Swipe Left (Próximo)
+            setCurrentSlideIndex((prev) => (prev + 1) % slides.length);
+        }
+
+        if (diff < -threshold) {
+            // Swipe Right (Anterior)
+            setCurrentSlideIndex((prev) => (prev - 1 + slides.length) % slides.length);
+        }
+
+        // Reset
+        touchStartX.current = null;
+        touchEndX.current = null;
+        setIsCarouselPaused(false);
+    };
 
     const shopStatus = useMemo(() => checkShopStatus(safeConfig.schedule), [safeConfig.schedule]);
 
@@ -378,13 +448,17 @@ export default function ClientInterface({
 
     if (isCheckoutOpen) {
         return (
-            <div className="min-h-screen bg-[#020617] text-white flex flex-col font-sans">
+            <div className="fixed inset-0 z-[3000] bg-[#020617] text-white flex flex-col font-sans">
                 <div className="p-3 md:p-4 flex items-center gap-4 border-b border-slate-800 bg-slate-900 sticky top-0 z-50 shadow-md">
                     <button onClick={() => setIsCheckoutOpen(false)} className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 transition-colors text-slate-300 hover:text-white"><ArrowLeft size={18}/></button>
                     <h2 className="text-base md:text-lg font-bold flex items-center gap-2">Seu Carrinho <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full">{cart.length}</span></h2>
                 </div>
                 
-                <div className="flex-1 p-4 overflow-y-auto pb-4 custom-scrollbar">
+                <div className="flex-1 p-4 overflow-y-auto pb-4 no-scrollbar">
+                    <style>{`
+                        .no-scrollbar::-webkit-scrollbar { display: none; }
+                        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                    `}</style>
                     <div className="max-w-md mx-auto space-y-5">
                         {!shopStatus.isOpen && (<div className="bg-red-900/20 border-l-4 border-red-500 rounded-r-xl p-3 flex flex-col gap-2 shadow-lg animate-in fade-in"><div className="flex items-center gap-2"><div className="bg-red-500/20 p-1.5 rounded-full text-red-500 animate-pulse"><Clock size={16}/></div><div><h3 className="font-black text-red-100 text-xs uppercase tracking-wide">Loja Fechada</h3><p className="text-[10px] text-red-200/70">Reabrimos: <span className="font-bold text-white">{shopStatus.nextOpen}</span>.</p></div></div></div>)}
                         <div className="space-y-3">
@@ -421,206 +495,319 @@ export default function ClientInterface({
     }
 
     return (
-        <div className="bg-[#020617] min-h-screen font-sans pb-24">
-            {/* Header Red Gradient - COMPACT FOR MOBILE */}
-            <div className="bg-gradient-to-r from-[#ef4444] to-[#f97316] pt-3 pb-8 px-4 rounded-b-[1.5rem] md:rounded-b-[2rem] shadow-2xl relative overflow-hidden">
-                <div className="max-w-5xl mx-auto relative z-10">
-                    {/* Top Nav */}
-                    <div className="flex justify-between items-center mb-4 md:mb-8">
-                        <div className="flex items-center gap-2 md:gap-3 text-white font-bold">
-                            {safeConfig.appLogoUrl ? (
-                                <img src={safeConfig.appLogoUrl} className="w-8 h-8 md:w-10 md:h-10 rounded-full border-2 border-white/20"/>
-                            ) : (
-                                <div className="bg-black/20 p-1.5 md:p-2 rounded-xl"><Utensils size={16} className="md:w-5 md:h-5"/></div>
-                            )}
-                            <span className="text-lg md:text-xl tracking-tight drop-shadow-md">{safeConfig.appName}</span>
-                        </div>
-                        {allowSystemAccess && (
-                            <div className="flex gap-2">
-                                <button onClick={() => onSystemAccess('admin')} className="text-[10px] font-bold bg-black/20 hover:bg-black/40 text-white px-2 py-1 md:px-3 md:py-1.5 rounded-full flex items-center gap-1 transition-colors backdrop-blur-md border border-white/10 uppercase">
-                                    <Store size={10} className="md:w-3 md:h-3"/> Gerente
+        <div className="bg-[#020617] h-[100dvh] w-full font-sans relative overflow-hidden flex flex-col">
+            <style>{`
+                .no-scrollbar::-webkit-scrollbar { display: none; }
+                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+            `}</style>
+            
+            {/* WELCOME MODAL OVERLAY (LOADING MASK & MARKETING) */}
+            {showWelcome && (
+                <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-500">
+                    <div className="w-full max-w-md relative flex flex-col items-center animate-in zoom-in-95 slide-in-from-bottom-4 duration-500">
+                        {/* TITULO DE BOAS-VINDAS ADICIONADO AQUI */}
+                        <h2 className="text-white font-black text-3xl mb-6 text-center drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)] animate-in slide-in-from-top-8 duration-700">
+                            Seja bem-vindo(a)!
+                        </h2>
+
+                        {/* CONDITIONAL RENDER BASED ON MODE (IMAGE OR TEXT) */}
+                        {safeConfig.welcomeMode === 'image' && safeConfig.welcomeBannerUrl ? (
+                            // MODE IMAGE
+                            <div className="relative w-full flex flex-col">
+                                <div className="w-full rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(0,0,0,0.6)] border border-white/10 relative group bg-[#020617]">
+                                    <button 
+                                        onClick={() => setShowWelcome(false)}
+                                        className="absolute top-3 right-3 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-sm rounded-full text-white transition-colors z-20"
+                                    >
+                                        <X size={20}/>
+                                    </button>
+                                    <img 
+                                        src={safeConfig.welcomeBannerUrl} 
+                                        className="w-full h-auto max-h-[65vh] object-contain" 
+                                        alt="Bem-vindo"
+                                    />
+                                </div>
+                                
+                                {/* Action Button - Moved below image for clarity - COR ALTERADA */}
+                                <div className="mt-4 w-full">
+                                    <button 
+                                        onClick={() => setShowWelcome(false)}
+                                        className="w-full bg-gradient-to-r from-[#ef4444] to-[#f97316] hover:from-red-600 hover:to-orange-600 text-white font-black text-sm py-4 px-8 rounded-2xl shadow-[0_0_20px_rgba(249,115,22,0.3)] hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest flex items-center justify-center gap-2 animate-in slide-in-from-bottom-2 duration-700"
+                                    >
+                                        Ver Cardápio <ChevronRight size={18} strokeWidth={3}/>
+                                    </button>
+                                </div>
+                            </div>
+                        ) : safeConfig.welcomeMode === 'text' ? (
+                            // MODE TEXT
+                            <div className="bg-[#0f172a]/95 border border-slate-700 rounded-[2rem] p-8 w-full shadow-2xl text-center relative overflow-hidden backdrop-blur-xl">
+                                {/* Decorative elements */}
+                                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500"></div>
+                                <div className="absolute top-[-60px] left-[-60px] w-40 h-40 bg-amber-500/20 rounded-full blur-3xl animate-pulse"></div>
+                                <div className="absolute bottom-[-60px] right-[-60px] w-40 h-40 bg-orange-500/10 rounded-full blur-3xl"></div>
+                                
+                                <button 
+                                    onClick={() => setShowWelcome(false)}
+                                    className="absolute top-4 right-4 p-2 text-slate-500 hover:text-white transition-colors"
+                                >
+                                    <X size={24}/>
                                 </button>
-                                <button onClick={() => onSystemAccess('driver')} className="text-[10px] font-bold bg-black/20 hover:bg-black/40 text-white px-2 py-1 md:px-3 md:py-1.5 rounded-full flex items-center gap-1 transition-colors backdrop-blur-md border border-white/10 uppercase">
-                                    <Bike size={10} className="md:w-3 md:h-3"/> Motoboy
+
+                                <div className="mb-6 inline-flex p-4 bg-slate-800/80 rounded-3xl border border-slate-700 shadow-inner">
+                                    {safeConfig.appLogoUrl ? (
+                                        <img src={safeConfig.appLogoUrl} className="w-16 h-16 rounded-2xl object-cover shadow-lg"/>
+                                    ) : (
+                                        <Utensils size={40} className="text-amber-500"/>
+                                    )}
+                                </div>
+
+                                <h2 className="text-3xl font-black text-white mb-4 uppercase italic tracking-wide drop-shadow-md">
+                                    {safeConfig.welcomeTitle || 'Seja Bem-vindo!'}
+                                </h2>
+                                
+                                <div className="max-h-[30vh] overflow-y-auto custom-scrollbar mb-8">
+                                    <p className="text-slate-300 text-sm md:text-base leading-relaxed whitespace-pre-line font-medium px-2">
+                                        {safeConfig.welcomeMessage || 'Estamos felizes em ter você aqui. Confira nosso cardápio e faça seu pedido!'}
+                                    </p>
+                                </div>
+
+                                <button 
+                                    onClick={() => setShowWelcome(false)}
+                                    className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black py-4 rounded-xl shadow-lg shadow-orange-900/30 active:scale-95 transition-all uppercase tracking-widest text-sm flex items-center justify-center gap-2 relative overflow-hidden group"
+                                >
+                                    <span className="relative z-10 flex items-center gap-2">
+                                        {safeConfig.welcomeButtonText || 'Ver Cardápio'} <ChevronRight size={18} strokeWidth={3}/>
+                                    </span>
+                                    <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
                                 </button>
                             </div>
-                        )}
+                        ) : null}
                     </div>
+                </div>
+            )}
 
-                    {/* Hero Text */}
-                    <h1 className="text-xl md:text-4xl font-black text-white mb-4 leading-tight drop-shadow-md">
-                        Bateu a fome?<br/>
-                        Peça agora mesmo! 🍔
-                    </h1>
+            {/* Scrollable Container with Hidden Scrollbar */}
+            <div className="flex-1 overflow-y-auto no-scrollbar pb-24">
+                {/* Header Red Gradient - COMPACT FOR MOBILE */}
+                <div className="bg-gradient-to-r from-[#ef4444] to-[#f97316] pt-3 pb-8 px-4 rounded-b-[1.5rem] md:rounded-b-[2rem] shadow-2xl relative overflow-hidden shrink-0">
+                    <div className="max-w-5xl mx-auto relative z-10">
+                        {/* Top Nav */}
+                        <div className="flex justify-between items-center mb-4 md:mb-8">
+                            <div className="flex items-center gap-2 md:gap-3 text-white font-bold">
+                                {safeConfig.appLogoUrl ? (
+                                    <img src={safeConfig.appLogoUrl} className="w-8 h-8 md:w-10 md:h-10 rounded-full border-2 border-white/20"/>
+                                ) : (
+                                    <div className="bg-black/20 p-1.5 md:p-2 rounded-xl"><Utensils size={16} className="md:w-5 md:h-5"/></div>
+                                )}
+                                <span className="text-lg md:text-xl tracking-tight drop-shadow-md">{safeConfig.appName}</span>
+                            </div>
+                            {allowSystemAccess && (
+                                <div className="flex gap-2">
+                                    <button onClick={() => onSystemAccess('admin')} className="text-[10px] font-bold bg-black/20 hover:bg-black/40 text-white px-2 py-1 md:px-3 md:py-1.5 rounded-full flex items-center gap-1 transition-colors backdrop-blur-md border border-white/10 uppercase">
+                                        <Store size={10} className="md:w-3 md:h-3"/> Gerente
+                                    </button>
+                                    <button onClick={() => onSystemAccess('driver')} className="text-[10px] font-bold bg-black/20 hover:bg-black/40 text-white px-2 py-1 md:px-3 md:py-1.5 rounded-full flex items-center gap-1 transition-colors backdrop-blur-md border border-white/10 uppercase">
+                                        <Bike size={10} className="md:w-3 md:h-3"/> Motoboy
+                                    </button>
+                                </div>
+                            )}
+                        </div>
 
-                    {/* --- UNIFIED HERO SLIDER (BANNER & FEATURED PRODUCTS) --- */}
-                    {slides.length > 0 && (
-                        <div 
-                            className="relative w-full aspect-[2/1] md:aspect-[21/9] lg:aspect-[2.5/1] rounded-2xl overflow-hidden shadow-2xl border border-white/10 group cursor-pointer"
-                            onMouseEnter={() => setIsCarouselPaused(true)} 
-                            onMouseLeave={() => setIsCarouselPaused(false)}
-                            onTouchStart={() => setIsCarouselPaused(true)}
-                            onTouchEnd={() => setIsCarouselPaused(false)}
-                        >
-                            {/* Slide Track with Translate Transition */}
+                        {/* Hero Text */}
+                        <h1 className="text-xl md:text-4xl font-black text-white mb-4 leading-tight drop-shadow-md">
+                            Bateu a fome?<br/>
+                            Peça agora mesmo! 🍔
+                        </h1>
+
+                        {/* --- UNIFIED HERO SLIDER (BANNER & FEATURED PRODUCTS) --- */}
+                        {/* SKELETON PARA O CARROSSEL SE NÃO HOUVER SLIDES AINDA */}
+                        {slides.length === 0 ? (
+                            <div className="relative w-full aspect-[2/1] md:aspect-[21/9] lg:aspect-[2.5/1] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-slate-900 animate-pulse">
+                                <div className="absolute inset-0 bg-slate-800/50"></div>
+                            </div>
+                        ) : (
                             <div 
-                                className="flex h-full transition-transform duration-700 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
-                                style={{ transform: `translateX(-${currentSlideIndex * 100}%)` }}
+                                className="relative w-full aspect-[2/1] md:aspect-[21/9] lg:aspect-[2.5/1] rounded-2xl overflow-hidden shadow-2xl border border-white/10 group cursor-pointer touch-pan-y"
+                                onMouseEnter={() => setIsCarouselPaused(true)} 
+                                onMouseLeave={() => setIsCarouselPaused(false)}
+                                onTouchStart={handleTouchStart}
+                                onTouchMove={handleTouchMove}
+                                onTouchEnd={handleTouchEnd}
                             >
-                                {slides.map((slide, idx) => {
-                                    if (slide.type === 'banner') {
-                                        return (
-                                            <div key={slide.id} className="min-w-full h-full relative" onClick={() => setShowGiveaway(true)}>
-                                                {slide.data.promoMode === 'banner' ? (
-                                                    <img src={slide.data.bannerUrl} className="w-full h-full object-cover bg-slate-900" />
-                                                ) : (
-                                                    <div className="bg-[#1a0505] h-full w-full">
-                                                        <div className="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-red-900/60 via-[#1a0505] to-[#0f0202] relative h-full flex flex-col justify-center px-6 md:px-12">
-                                                            <div className="relative z-10 flex flex-row items-center justify-between gap-4 max-w-4xl mx-auto w-full">
-                                                                <div className="flex-1 space-y-2">
-                                                                    <div className="inline-flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-[#1a0505] px-2 py-0.5 rounded-full shadow-sm animate-pulse mb-1 self-start">
-                                                                        <Flame size={12} fill="currentColor"/>
-                                                                        <span className="text-[10px] md:text-xs font-black uppercase tracking-widest">Promoção</span>
+                                {/* Slide Track with Translate Transition */}
+                                <div 
+                                    className="flex h-full transition-transform duration-700 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+                                    style={{ transform: `translateX(-${currentSlideIndex * 100}%)` }}
+                                >
+                                    {slides.map((slide, idx) => {
+                                        if (slide.type === 'banner') {
+                                            return (
+                                                <div key={slide.id} className="min-w-full h-full relative" onClick={() => setShowGiveaway(true)}>
+                                                    {slide.data.promoMode === 'banner' ? (
+                                                        <img src={slide.data.bannerUrl} className="w-full h-full object-cover bg-slate-900" />
+                                                    ) : (
+                                                        <div className="bg-[#1a0505] h-full w-full">
+                                                            <div className="bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-red-900/60 via-[#1a0505] to-[#0f0202] relative h-full flex flex-col justify-center px-6 md:px-12">
+                                                                <div className="relative z-10 flex flex-row items-center justify-between gap-4 max-w-4xl mx-auto w-full">
+                                                                    <div className="flex-1 space-y-2">
+                                                                        <div className="inline-flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-[#1a0505] px-2 py-0.5 rounded-full shadow-sm animate-pulse mb-1 self-start">
+                                                                            <Flame size={12} fill="currentColor"/>
+                                                                            <span className="text-[10px] md:text-xs font-black uppercase tracking-widest">Promoção</span>
+                                                                        </div>
+                                                                        <h2 className="text-xl md:text-4xl font-black text-white leading-tight italic drop-shadow-xl uppercase">
+                                                                            {slide.data.promoTitle || 'OFERTA ESPECIAL'}
+                                                                        </h2>
+                                                                        <p className="text-slate-300 text-xs md:text-sm max-w-md hidden sm:block opacity-90">{slide.data.promoSubtitle}</p>
+                                                                        <div className="pt-0"> {/* REMOVIDO PADDING EXTRA */}
+                                                                            <button className="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold py-2 px-4 rounded-full text-xs md:text-sm uppercase flex items-center gap-2 transition-colors backdrop-blur-sm">
+                                                                                Participar Agora <ChevronRight size={14}/>
+                                                                            </button>
+                                                                        </div>
                                                                     </div>
-                                                                    <h2 className="text-xl md:text-4xl font-black text-white leading-tight italic drop-shadow-xl uppercase">
-                                                                        {slide.data.promoTitle || 'OFERTA ESPECIAL'}
-                                                                    </h2>
-                                                                    <p className="text-slate-300 text-xs md:text-sm max-w-md hidden sm:block opacity-90">{slide.data.promoSubtitle}</p>
-                                                                    <div className="pt-2">
-                                                                        <button className="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold py-2 px-4 rounded-full text-xs md:text-sm uppercase flex items-center gap-2 transition-colors backdrop-blur-sm">
-                                                                            Participar Agora <ChevronRight size={14}/>
-                                                                        </button>
+                                                                    <div className="shrink-0 w-24 h-24 md:w-40 md:h-40 rounded-2xl overflow-hidden border-2 border-white/10 shadow-2xl rotate-3 transform hover:rotate-0 transition-all duration-500">
+                                                                        <img src={slide.data.bannerUrl} className="w-full h-full object-cover"/>
                                                                     </div>
-                                                                </div>
-                                                                <div className="shrink-0 w-24 h-24 md:w-40 md:h-40 rounded-2xl overflow-hidden border-2 border-white/10 shadow-2xl rotate-3 transform hover:rotate-0 transition-all duration-500">
-                                                                    <img src={slide.data.bannerUrl} className="w-full h-full object-cover"/>
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    } else {
-                                        // Product Slide (Hero Style)
-                                        const product = slide.data;
-                                        return (
-                                            <div key={slide.id} className="min-w-full h-full relative bg-slate-900" onClick={() => handleOpenProduct(product)}>
-                                                {/* Background Image */}
-                                                <div className="absolute inset-0">
-                                                    {product.imageUrl ? (
-                                                        <img src={product.imageUrl} className="w-full h-full object-cover opacity-60" alt={product.name}/>
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-slate-700 bg-slate-800"><Utensils size={64}/></div>
                                                     )}
-                                                    {/* Gradient Overlay - VERTICAL BOTTOM UP */}
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-[#020617]/60 to-transparent"></div>
                                                 </div>
+                                            );
+                                        } else {
+                                            // Product Slide (Hero Style)
+                                            const product = slide.data;
+                                            return (
+                                                <div key={slide.id} className="min-w-full h-full relative bg-slate-900" onClick={() => handleOpenProduct(product)}>
+                                                    {/* Background Image */}
+                                                    <div className="absolute inset-0">
+                                                        {product.imageUrl ? (
+                                                            <img src={product.imageUrl} className="w-full h-full object-cover opacity-60" alt={product.name}/>
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-slate-700 bg-slate-800"><Utensils size={64}/></div>
+                                                        )}
+                                                        {/* Gradient Overlay - VERTICAL BOTTOM UP */}
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-[#020617]/60 to-transparent"></div>
+                                                    </div>
 
-                                                {/* Badge - Absolute Top Right & Pulsing */}
-                                                <div className="absolute top-3 right-3 z-20">
-                                                    <div className="inline-flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-2 py-1 rounded-full shadow-lg animate-pulse border border-white/20">
-                                                        <Star size={10} fill="currentColor"/>
-                                                        <span className="text-[9px] font-black uppercase tracking-wider">Destaque</span>
+                                                    {/* Badge - Absolute Top Right & Pulsing */}
+                                                    <div className="absolute top-3 right-3 z-20">
+                                                        <div className="inline-flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-2 py-1 rounded-full shadow-lg animate-pulse border border-white/20">
+                                                            <Star size={10} fill="currentColor"/>
+                                                            <span className="text-[9px] font-black uppercase tracking-wider">Destaque</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Content Overlay - MOVED TO BOTTOM (justify-end) */}
+                                                    <div className="relative z-10 h-full flex flex-col justify-end pb-8 px-4 md:px-8 max-w-4xl mx-auto w-full">
+                                                        {/* Title - Reduced Size */}
+                                                        <h2 className="text-base md:text-2xl font-bold text-white leading-tight mb-1 drop-shadow-md line-clamp-1">
+                                                            {product.name}
+                                                        </h2>
+                                                        {product.description && (
+                                                            <p className="text-slate-400 text-[9px] md:text-[10px] line-clamp-2 max-w-md mb-3 leading-relaxed hidden sm:block">
+                                                                {product.description}
+                                                            </p>
+                                                        )}
+                                                        
+                                                        {/* Price & Add Button Row (Justify Between) */}
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-emerald-400 font-bold text-base md:text-xl drop-shadow-md">
+                                                                {formatCurrency(product.price)}
+                                                            </span>
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); addToCart(product); }}
+                                                                className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase shadow-lg flex items-center gap-1.5 active:scale-95 transition-all"
+                                                            >
+                                                                <Plus size={12}/> Adicionar
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
+                                            );
+                                        }
+                                    })}
+                                </div>
 
-                                                {/* Content Overlay - MOVED TO BOTTOM (justify-end) */}
-                                                <div className="relative z-10 h-full flex flex-col justify-end pb-8 px-4 md:px-8 max-w-4xl mx-auto w-full">
-                                                    {/* Title - Reduced Size */}
-                                                    <h2 className="text-base md:text-2xl font-bold text-white leading-tight mb-1 drop-shadow-md line-clamp-1">
-                                                        {product.name}
-                                                    </h2>
-                                                    {product.description && (
-                                                        <p className="text-slate-400 text-[9px] md:text-[10px] line-clamp-2 max-w-md mb-3 leading-relaxed hidden sm:block">
-                                                            {product.description}
-                                                        </p>
-                                                    )}
-                                                    
-                                                    {/* Price & Add Button Row (Justify Between) */}
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-emerald-400 font-bold text-base md:text-xl drop-shadow-md">
-                                                            {formatCurrency(product.price)}
-                                                        </span>
-                                                        <button 
-                                                            onClick={(e) => { e.stopPropagation(); addToCart(product); }}
-                                                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase shadow-lg flex items-center gap-1.5 active:scale-95 transition-all"
-                                                        >
-                                                            <Plus size={12}/> Adicionar
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-                                })}
+                                {/* Dots Indicators */}
+                                <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-20">
+                                    {slides.map((_, idx) => (
+                                        <button 
+                                            key={idx}
+                                            onClick={(e) => { e.stopPropagation(); setCurrentSlideIndex(idx); }}
+                                            className={`w-2 h-2 rounded-full transition-all duration-300 ${currentSlideIndex === idx ? 'bg-white w-6' : 'bg-white/40 hover:bg-white/60'}`}
+                                        />
+                                    ))}
+                                </div>
                             </div>
+                        )}
+                    </div>
+                </div>
 
-                            {/* Dots Indicators */}
-                            <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-20">
-                                {slides.map((_, idx) => (
-                                    <button 
-                                        key={idx}
-                                        onClick={(e) => { e.stopPropagation(); setCurrentSlideIndex(idx); }}
-                                        className={`w-2 h-2 rounded-full transition-all duration-300 ${currentSlideIndex === idx ? 'bg-white w-6' : 'bg-white/40 hover:bg-white/60'}`}
-                                    />
-                                ))}
-                            </div>
+                {/* Menu Section */}
+                <div className="max-w-5xl mx-auto px-3 md:px-4 -mt-4 md:-mt-6 relative z-20">
+                    {/* Search Compact */}
+                    <div className="relative mb-3 md:mb-6">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16}/>
+                        <input className="w-full bg-[#0f172a] border border-slate-800 rounded-full py-3 pl-10 pr-4 text-white placeholder:text-slate-600 focus:border-slate-600 outline-none shadow-xl transition-all text-xs md:text-sm font-medium" placeholder="Buscar lanche..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                    </div>
+
+                    {/* Categories Compact */}
+                    <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar mb-2 md:mb-4">
+                        {['Todos', ...new Set(safeProducts.map(p => p.category))].map(cat => (
+                            <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-4 py-1.5 md:py-2.5 rounded-full text-[10px] md:text-xs font-bold whitespace-nowrap transition-all shadow-md ${selectedCategory === cat ? 'bg-white text-slate-900 scale-105' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:border-slate-600'}`}>{cat}</button>
+                        ))}
+                    </div>
+
+                    {/* Shop Closed Banner */}
+                    {!shopStatus.isOpen && (
+                        <div className="bg-red-900/20 border-l-4 border-red-500 rounded-r-xl p-3 mb-4 flex items-start gap-3 shadow-lg">
+                            <div className="bg-red-500/20 p-1.5 rounded-full text-red-500 animate-pulse"><Clock size={16}/></div>
+                            <div><h3 className="font-black text-red-100 text-xs uppercase tracking-wide">Loja Fechada</h3><p className="text-[10px] text-red-300 mt-1 font-bold flex items-center gap-1">Reabrimos: {shopStatus.nextOpen}</p></div>
                         </div>
                     )}
-                </div>
-            </div>
 
-            {/* Menu Section */}
-            <div className="max-w-5xl mx-auto px-3 md:px-4 -mt-4 md:-mt-6 relative z-20">
-                {/* Search Compact */}
-                <div className="relative mb-3 md:mb-6">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16}/>
-                    <input className="w-full bg-[#0f172a] border border-slate-800 rounded-full py-3 pl-10 pr-4 text-white placeholder:text-slate-600 focus:border-slate-600 outline-none shadow-xl transition-all text-xs md:text-sm font-medium" placeholder="Buscar lanche..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-                </div>
-
-                {/* Categories Compact */}
-                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar mb-2 md:mb-4">
-                    {['Todos', ...new Set(safeProducts.map(p => p.category))].map(cat => (
-                        <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-4 py-1.5 md:py-2.5 rounded-full text-[10px] md:text-xs font-bold whitespace-nowrap transition-all shadow-md ${selectedCategory === cat ? 'bg-white text-slate-900 scale-105' : 'bg-[#0f172a] text-slate-400 border border-slate-800 hover:border-slate-600'}`}>{cat}</button>
-                    ))}
-                </div>
-
-                {/* Shop Closed Banner */}
-                {!shopStatus.isOpen && (
-                    <div className="bg-red-900/20 border-l-4 border-red-500 rounded-r-xl p-3 mb-4 flex items-start gap-3 shadow-lg">
-                        <div className="bg-red-500/20 p-1.5 rounded-full text-red-500 animate-pulse"><Clock size={16}/></div>
-                        <div><h3 className="font-black text-red-100 text-xs uppercase tracking-wide">Loja Fechada</h3><p className="text-[10px] text-red-300 mt-1 font-bold flex items-center gap-1">Reabrimos: {shopStatus.nextOpen}</p></div>
-                    </div>
-                )}
-
-                {/* Products Grouped - GRID COM FOTO GRANDE (APPETIZING) */}
-                <div className="space-y-6 md:space-y-8 pb-10">
-                    {groupedProducts.map(([category, items]) => (
-                        <div key={category} className="animate-in slide-in-from-bottom-4 duration-700">
-                            <h3 className="text-white font-black text-sm md:text-lg mb-3 flex items-center gap-2 uppercase tracking-wider pl-1 border-l-4 border-orange-500">{category}</h3>
-                            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-                                {items.map(product => (
-                                    <div key={product.id} onClick={() => handleOpenProduct(product)} className="bg-[#0f172a] border border-slate-800 rounded-xl flex flex-col hover:border-slate-600 transition-all shadow-md group relative overflow-hidden cursor-pointer h-full active:scale-[0.98]">
-                                        <div className="aspect-[4/3] w-full relative overflow-hidden bg-slate-900">
-                                            {product.imageUrl ? (<img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"/>) : (<div className="w-full h-full flex items-center justify-center text-slate-700"><Utensils size={32} /></div>)}
-                                            <div className="absolute bottom-2 left-2 bg-black/80 backdrop-blur-sm text-emerald-400 px-2 py-1 rounded-lg text-xs md:text-sm font-black border border-emerald-500/30 shadow-lg">{formatCurrency(product.price)}</div>
-                                        </div>
-                                        <div className="p-3 flex flex-col flex-1">
-                                            <h4 className="font-bold text-white text-xs md:text-base mb-1 group-hover:text-amber-500 transition-colors line-clamp-2 leading-tight">{product.name}</h4>
-                                            {product.description && (<p className="text-slate-400 text-[10px] md:text-xs leading-relaxed line-clamp-2 mb-2">{product.description}</p>)}
-                                            <div className="mt-auto pt-2 flex justify-end"><button onClick={(e) => { e.stopPropagation(); addToCart(product); }} className="bg-slate-800 text-white w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-md border border-slate-700 group-hover:bg-amber-600 group-hover:border-amber-500"><Plus size={16}/></button></div>
+                    {/* Products Grouped - GRID COM FOTO GRANDE (APPETIZING) OU SKELETONS */}
+                    <div className="space-y-6 md:space-y-8 pb-10">
+                        {groupedProducts.length === 0 && !searchTerm ? (
+                            /* SKELETON LOADING STATE (Quando não tem produtos ainda) */
+                            <div className="space-y-6">
+                                {[1, 2].map(catIdx => (
+                                    <div key={catIdx}>
+                                        <div className="h-6 w-32 bg-slate-800 rounded mb-3 animate-pulse"></div>
+                                        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                                            {[1, 2, 3, 4].map(i => <ProductSkeleton key={i} />)}
                                         </div>
                                     </div>
                                 ))}
                             </div>
-                        </div>
-                    ))}
-                    {groupedProducts.length === 0 && (<div className="text-center py-20 text-slate-600"><Utensils size={32} className="mx-auto mb-2 opacity-20"/><p className="text-xs">Nenhum item encontrado.</p></div>)}
+                        ) : (
+                            groupedProducts.map(([category, items]) => (
+                                <div key={category} className="animate-in slide-in-from-bottom-4 duration-700">
+                                    <h3 className="text-white font-black text-sm md:text-lg mb-3 flex items-center gap-2 uppercase tracking-wider pl-1 border-l-4 border-orange-500">{category}</h3>
+                                    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                                        {items.map(product => (
+                                            <div key={product.id} onClick={() => handleOpenProduct(product)} className="bg-[#0f172a] border border-slate-800 rounded-xl flex flex-col hover:border-slate-600 transition-all shadow-md group relative overflow-hidden cursor-pointer h-full active:scale-[0.98]">
+                                                <div className="aspect-[4/3] w-full relative overflow-hidden bg-slate-900">
+                                                    {product.imageUrl ? (<img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"/>) : (<div className="w-full h-full flex items-center justify-center text-slate-700"><Utensils size={32} /></div>)}
+                                                    <div className="absolute bottom-2 left-2 bg-black/80 backdrop-blur-sm text-emerald-400 px-2 py-1 rounded-lg text-xs md:text-sm font-black border border-emerald-500/30 shadow-lg">{formatCurrency(product.price)}</div>
+                                                </div>
+                                                <div className="p-3 flex flex-col flex-1">
+                                                    <h4 className="font-bold text-white text-xs md:text-base mb-1 group-hover:text-amber-500 transition-colors line-clamp-2 leading-tight">{product.name}</h4>
+                                                    {product.description && (<p className="text-slate-400 text-[10px] md:text-xs leading-relaxed line-clamp-2 mb-2">{product.description}</p>)}
+                                                    <div className="mt-auto pt-2 flex justify-end"><button onClick={(e) => { e.stopPropagation(); addToCart(product); }} className="bg-slate-800 text-white w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-md border border-slate-700 group-hover:bg-amber-600 group-hover:border-amber-500"><Plus size={16}/></button></div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                        {groupedProducts.length === 0 && searchTerm && (<div className="text-center py-20 text-slate-600"><Utensils size={32} className="mx-auto mb-2 opacity-20"/><p className="text-xs">Nenhum item encontrado para "{searchTerm}".</p></div>)}
+                    </div>
                 </div>
-            </div>
 
-            <Footer />
+                <Footer />
+            </div>
 
             {/* Floating Cart Bar (Red Style) */}
             {cart.length > 0 && !isCheckoutOpen && (
