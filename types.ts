@@ -36,7 +36,14 @@ export interface AppConfig {
     promoMode?: 'card' | 'banner'; // 'card' = Layout atual, 'banner' = Imagem cheia
     welcomeBannerUrl?: string; // Banner de boas-vindas (popup)
     
-    // Configuração do Sorteio (NOVO)
+    // Configuração de Destaques (Carrossel) - NOVO
+    featuredSettings?: {
+        active: boolean;
+        title: string; // Ex: "Os Mais Pedidos 🔥"
+        productIds: string[]; // Lista de IDs dos produtos
+    };
+    
+    // Configuração do Sorteio
     giveawaySettings?: {
         active: boolean;
         title: string;
@@ -218,4 +225,13 @@ export interface GiveawayEntry {
     dynamicData?: Record<string, string>; // Armazena as respostas dinâmicas (ex: { "email": "abc@...", "custom": "resposta" })
     createdAt: any;
     confirmed: boolean;
+}
+
+export interface GiveawayWinner {
+    id: string;
+    entryId: string;
+    name: string;
+    phone: string;
+    prize: string;
+    wonAt: any;
 }

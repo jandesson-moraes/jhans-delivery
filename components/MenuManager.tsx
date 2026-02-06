@@ -54,10 +54,13 @@ export function MenuManager({ products, inventory, onCreate, onUpdate, onDelete 
     }, [products]);
 
     const handleSave = (id: string | null, data: any) => {
+        // Remove ID from payload to avoid saving it as a field in Firestore
+        const { id: _ignored, ...cleanData } = data;
+        
         if (id) {
-            onUpdate(id, data);
+            onUpdate(id, cleanData);
         } else {
-            onCreate(data);
+            onCreate(cleanData);
         }
         setIsModalOpen(false);
     };

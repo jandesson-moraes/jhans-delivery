@@ -275,7 +275,7 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
 
     return (
         /* GARANTE QUE O PARENT SEJA FLEX E TENHA SCROLL, COM PADDING EXTRA NO FINAL */
-        <div className="flex-1 bg-slate-950 p-4 md:p-8 overflow-y-auto w-full pb-40 md:pb-10 custom-scrollbar flex flex-col h-full">
+        <div className="flex-1 bg-slate-950 px-[5%] py-6 md:py-8 overflow-y-auto w-full pb-40 md:pb-10 custom-scrollbar flex flex-col h-full">
             <div className="flex-1 max-w-7xl mx-auto w-full">
                 {/* CABEÇALHO COM NAVEGAÇÃO DE DATA */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">

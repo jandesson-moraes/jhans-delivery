@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Trophy, Shuffle, Search, Users, Edit, Trash2, Check, MessageCircle, Instagram, AlertTriangle, Copy, Printer, AlertCircle, Info, Flame, Bike, Save, Settings, Lock, Store, Clock, MapPin, CreditCard, Smartphone, Image as ImageIcon, Plus, Truck, CalendarClock, Sliders, UploadCloud, RefreshCw, Signal, QrCode, CheckCircle2, DollarSign, Timer, Ban, PlusCircle, Camera, FileText, ChevronRight, Download, History, PackageCheck, Ticket, DownloadCloud, Gift, Mail, Calendar, HelpCircle, FileSpreadsheet, User, Phone, Megaphone, Monitor, Banknote, Navigation, FlaskConical, ShoppingCart, Square, CheckSquare, Wand2, Send, Wallet } from 'lucide-react';
+import { X, Trophy, Shuffle, Search, Users, Edit, Trash2, Check, MessageCircle, Instagram, AlertTriangle, Copy, Printer, AlertCircle, Info, Flame, Bike, Save, Settings, Lock, Store, Clock, MapPin, CreditCard, Smartphone, Image as ImageIcon, Plus, Truck, CalendarClock, Sliders, UploadCloud, RefreshCw, Signal, QrCode, CheckCircle2, DollarSign, Timer, Ban, PlusCircle, Camera, FileText, ChevronRight, Download, History, PackageCheck, Ticket, DownloadCloud, Gift, Mail, Calendar, HelpCircle, FileSpreadsheet, User, Phone, Megaphone, Monitor, Banknote, Navigation, FlaskConical, ShoppingCart, Square, CheckSquare, Wand2, Send, Wallet, Star, Utensils, ChevronDown, Percent, Box, ChevronUp } from 'lucide-react';
 import { normalizePhone, formatDate, formatCurrency, generateReceiptText, printOrderTicket, getProductionMessage, getDispatchMessage, formatPhoneNumberDisplay, compressImage, COUNTRY_CODES, toSentenceCase, formatOrderId, formatTime, copyToClipboard } from '../utils';
 import { AppConfig, Product, Order, InventoryItem, GiveawayEntry, Driver, Client, DeliveryZone, GiveawayFieldConfig, ShoppingItem, Supplier } from '../types';
+import { PixIcon } from './Shared';
 
 export function AdminLoginModal({ onClose, onLogin }: any) {
     const [pass, setPass] = useState('');
@@ -61,7 +62,6 @@ export function AdminLoginModal({ onClose, onLogin }: any) {
     );
 }
 
-// ... (GenericAlertModal, GenericConfirmModal, GiveawayManagerModal, SettingsModal, NewDriverModal unchanged) ...
 export function GenericAlertModal({ isOpen, title, message, type = 'info', onClose }: any) {
     if (!isOpen) return null;
     return (
@@ -100,13 +100,10 @@ export function GiveawayManagerModal({ entries, onClose, appConfig, onUpdateEntr
     const [search, setSearch] = useState('');
     const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
     
-    // Obter campos configurados para saber o que mostrar
     const fields = appConfig.giveawaySettings?.fields || [];
     const instagramField = fields.find((f:any) => f.id === 'instagram');
 
-    // Função auxiliar para pegar valor de campo dinâmico
     const getFieldValue = (entry: any, fieldId: string) => {
-        // Tenta pegar do dynamicData primeiro, depois fallback para raiz (compatibilidade)
         return entry.dynamicData?.[fieldId] || (entry as any)[fieldId] || '';
     };
 
@@ -133,10 +130,16 @@ export function GiveawayManagerModal({ entries, onClose, appConfig, onUpdateEntr
     };
 
     const handleConfirmEntry = (entry: any) => {
+        let details = "";
+        if (appConfig.promoDate) details += `\n📅 *Data:* ${appConfig.promoDate}`;
+        if (appConfig.promoTime) details += ` às ${appConfig.promoTime}`;
+        if (appConfig.promoLocation) details += `\n📍 *Local:* ${appConfig.promoLocation}`;
+
         const responseText = `Olá *${entry.name.split(' ')[0]}*! Tudo bem? 🍔✨\n\n` +
         `🎉 *PARABÉNS! Sua inscrição foi confirmada!* 🎉\n\n` +
-        `Você já está concorrendo ao sorteio *${appConfig.giveawaySettings?.title || 'Oficial'}*! 🍀🤞\n\n` +
-        `*${appConfig.appName}*`;
+        `Você já está concorrendo ao sorteio *${appConfig.giveawaySettings?.title || 'Oficial'}*! 🍀🤞` +
+        (details ? `\n${details}` : '') +
+        `\n\n*${appConfig.appName}*`;
 
         copyToClipboard(responseText);
         setCopyFeedback(entry.id);
@@ -165,7 +168,6 @@ export function GiveawayManagerModal({ entries, onClose, appConfig, onUpdateEntr
                              <h3 className="text-2xl font-black text-white mb-1 line-clamp-1">{winner.name}</h3>
                              <p className="text-slate-400 font-mono text-sm">{normalizePhone(winner.phone)}</p>
                              
-                             {/* Exibe o Instagram se estiver habilitado e preenchido */}
                              {instagramField?.enabled && getFieldValue(winner, 'instagram') && (
                                  <a href={`https://instagram.com/${getFieldValue(winner, 'instagram').replace('@','')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 mt-2 text-xs font-bold text-amber-400 hover:text-amber-300 bg-amber-900/30 px-3 py-1.5 rounded-full border border-amber-500/30 transition-colors">
                                      <Instagram size={12}/> {getFieldValue(winner, 'instagram')}
@@ -194,7 +196,6 @@ export function GiveawayManagerModal({ entries, onClose, appConfig, onUpdateEntr
                          {filteredEntries.map((entry: any, i: number) => {
                                  const isJustCopied = copyFeedback === entry.id;
                                  
-                                 // Campos extras para exibir no card (ex: email, nascimento)
                                  const extraFields = fields.filter((f:any) => f.enabled && f.id !== 'name' && f.id !== 'phone' && f.id !== 'instagram');
                                  const instaValue = getFieldValue(entry, 'instagram');
 
@@ -204,12 +205,10 @@ export function GiveawayManagerModal({ entries, onClose, appConfig, onUpdateEntr
                                              <p className="text-xs font-bold text-white truncate">{entry.name}</p>
                                              <p className="text-[10px] text-slate-500 font-mono">{normalizePhone(entry.phone)}</p>
                                              
-                                             {/* Exibe Instagram se existir */}
                                              {instaValue && instagramField?.enabled && (
                                                  <p className="text-[10px] text-purple-400 font-medium truncate mt-0.5"><Instagram size={10} className="inline mr-1"/>{instaValue}</p>
                                              )}
 
-                                             {/* Exibe outros campos habilitados */}
                                              {extraFields.map((f:any) => {
                                                  const val = getFieldValue(entry, f.id);
                                                  if(!val) return null;
@@ -233,11 +232,12 @@ export function GiveawayManagerModal({ entries, onClose, appConfig, onUpdateEntr
     )
 }
 
-export function SettingsModal({ config, onClose, onSave }: any) {
+export function SettingsModal({ config, onClose, onSave, products = [] }: any) {
     const [form, setForm] = useState<AppConfig>(config || {});
     const [activeTab, setActiveTab] = useState('geral');
     const [newZoneName, setNewZoneName] = useState('');
     const [newZoneFee, setNewZoneFee] = useState('');
+    const [searchProduct, setSearchProduct] = useState('');
 
     useEffect(() => {
         if (!form.giveawaySettings) {
@@ -258,11 +258,23 @@ export function SettingsModal({ config, onClose, onSave }: any) {
                 }
             }));
         }
+        
+        if (!form.featuredSettings) {
+            setForm(prev => ({
+                ...prev,
+                featuredSettings: {
+                    active: false,
+                    title: 'Destaques 🔥',
+                    productIds: []
+                }
+            }));
+        }
     }, []);
 
     const tabs = [
         { id: 'geral', label: 'GERAL', icon: <Store size={18}/> },
         { id: 'promocao', label: 'PROMOÇÃO', icon: <Ticket size={18}/> },
+        { id: 'destaques', label: 'DESTAQUES', icon: <Star size={18}/> },
         { id: 'pagamento', label: 'PAGAMENTO', icon: <CreditCard size={18}/> },
         { id: 'entrega', label: 'ENTREGA', icon: <Truck size={18}/> },
         { id: 'horarios', label: 'HORÁRIOS', icon: <CalendarClock size={18}/> },
@@ -310,6 +322,16 @@ export function SettingsModal({ config, onClose, onSave }: any) {
         setForm({ ...form, giveawaySettings: { ...form.giveawaySettings, fields: newFields } });
     };
 
+    const toggleFeaturedProduct = (productId: string) => {
+        if (!form.featuredSettings) return;
+        const currentIds = form.featuredSettings.productIds || [];
+        const newIds = currentIds.includes(productId) 
+            ? currentIds.filter(id => id !== productId)
+            : [...currentIds, productId];
+        
+        setForm({ ...form, featuredSettings: { ...form.featuredSettings, productIds: newIds } });
+    };
+
     const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
     return (
@@ -346,7 +368,6 @@ export function SettingsModal({ config, onClose, onSave }: any) {
                                              </p>
                                          </div>
                                          
-                                         {/* FACEBOOK PIXEL INPUT */}
                                          <div>
                                              <label className="text-[10px] text-blue-400 font-bold uppercase mb-2 block tracking-wider flex items-center gap-2">
                                                  <Megaphone size={12}/> Facebook Pixel ID
@@ -394,7 +415,6 @@ export function SettingsModal({ config, onClose, onSave }: any) {
                                          )}
                                      </div>
                                      <div className="flex flex-col gap-6">
-                                         {/* BANNER PROMOÇÃO */}
                                          <div className="flex flex-col h-1/2">
                                              <label className="text-[10px] text-amber-400 font-bold uppercase mb-2 block tracking-wider">IMAGEM DO BANNER (CARDÁPIO)</label>
                                              <div className="flex-1 bg-slate-900 border-2 border-dashed border-slate-700 rounded-xl flex flex-col items-center justify-center relative group cursor-pointer overflow-hidden hover:border-amber-500 transition-colors min-h-[140px]">
@@ -409,7 +429,6 @@ export function SettingsModal({ config, onClose, onSave }: any) {
                                              {form.bannerUrl && (<button onClick={() => setForm({...form, bannerUrl: ''})} className="text-[10px] text-red-500 font-bold mt-2 hover:text-red-400 text-center uppercase tracking-wide">Remover Imagem</button>)}
                                          </div>
 
-                                         {/* BANNER BOAS VINDAS (POPUP) */}
                                          <div className="flex flex-col h-1/2">
                                              <label className="text-[10px] text-amber-400 font-bold uppercase mb-2 block tracking-wider flex items-center gap-2"><Monitor size={12}/> BANNER DE BOAS-VINDAS (POPUP)</label>
                                              <div className="flex-1 bg-slate-900 border-2 border-dashed border-slate-700 rounded-xl flex flex-col items-center justify-center relative group cursor-pointer overflow-hidden hover:border-amber-500 transition-colors min-h-[140px]">
@@ -434,6 +453,78 @@ export function SettingsModal({ config, onClose, onSave }: any) {
                                          <div><label className="text-[10px] text-purple-400 font-bold uppercase mb-2 block tracking-wider">REGRAS (EXIBIDAS NO MODAL)</label><textarea className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-purple-500 h-24 resize-none" value={form.giveawaySettings?.rules || ''} onChange={e => setForm({...form, giveawaySettings: {...form.giveawaySettings, rules: e.target.value} as any})} placeholder="1. Seguir Instagram..." /></div>
                                      </div>
                                      <div><label className="text-[10px] text-purple-400 font-bold uppercase mb-2 block tracking-wider">CAMPOS DO FORMULÁRIO</label><div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">{form.giveawaySettings?.fields.map((field: any, index: number) => (<div key={field.id} className="flex items-center justify-between p-3 border-b border-slate-800 last:border-0 hover:bg-slate-800/50 transition-colors"><div className="flex items-center gap-3"><input type="checkbox" className="w-4 h-4 rounded border-slate-600 text-purple-500 bg-slate-800" checked={field.enabled} onChange={(e) => updateGiveawayField(index, 'enabled', e.target.checked)} disabled={field.id === 'name' || field.id === 'phone'} /><div><input className="bg-transparent text-sm font-bold text-white outline-none border-b border-transparent focus:border-purple-500" value={field.label} onChange={(e) => updateGiveawayField(index, 'label', e.target.value)} /><p className="text-[9px] text-slate-500 uppercase">{field.required ? 'Obrigatório' : 'Opcional'}</p></div></div>{field.id !== 'name' && field.id !== 'phone' && (<button onClick={() => updateGiveawayField(index, 'required', !field.required)} className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${field.required ? 'text-red-400 bg-red-900/20' : 'text-slate-500 bg-slate-800'}`}>{field.required ? 'Req' : 'Opc'}</button>)}</div>))}</div></div>
+                                 </div>
+                             </div>
+                         </div>
+                     )}
+                     {activeTab === 'destaques' && (
+                         <div className="space-y-6 animate-in fade-in">
+                             <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 shadow-xl">
+                                 <div className="flex justify-between items-start mb-6 border-b border-slate-800 pb-4">
+                                     <div>
+                                         <h3 className="font-bold text-white text-lg flex items-center gap-2"><Star className="text-amber-500"/> Carrossel de Destaques</h3>
+                                         <p className="text-slate-400 text-sm">Selecione os produtos que aparecerão em destaque no topo do cardápio.</p>
+                                     </div>
+                                     <label className="relative inline-flex items-center cursor-pointer">
+                                         <input type="checkbox" className="sr-only peer" checked={form.featuredSettings?.active} onChange={e => setForm({...form, featuredSettings: {...form.featuredSettings, active: e.target.checked} as any})} />
+                                         <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                                         <span className="ml-3 text-sm font-medium text-slate-300">Ativar</span>
+                                     </label>
+                                 </div>
+
+                                 <div className="mb-6">
+                                     <label className="text-[10px] text-amber-400 font-bold uppercase mb-2 block tracking-wider">TÍTULO DA SEÇÃO</label>
+                                     <input 
+                                         className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-amber-500" 
+                                         value={form.featuredSettings?.title || ''} 
+                                         onChange={e => setForm({...form, featuredSettings: {...form.featuredSettings, title: e.target.value} as any})} 
+                                         placeholder="Ex: Os Mais Pedidos 🔥" 
+                                     />
+                                 </div>
+
+                                 <div>
+                                     <label className="text-[10px] text-amber-400 font-bold uppercase mb-2 block tracking-wider">SELECIONAR PRODUTOS ({form.featuredSettings?.productIds?.length || 0})</label>
+                                     <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col h-[400px]">
+                                         <div className="p-3 border-b border-slate-800 flex items-center gap-2">
+                                             <Search size={16} className="text-slate-500"/>
+                                             <input 
+                                                 className="bg-transparent text-sm text-white outline-none w-full placeholder:text-slate-600" 
+                                                 placeholder="Buscar produto..."
+                                                 value={searchProduct}
+                                                 onChange={e => setSearchProduct(e.target.value)}
+                                             />
+                                         </div>
+                                         <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                                             {products
+                                                 .filter((p: any) => p.name.toLowerCase().includes(searchProduct.toLowerCase()))
+                                                 .map((p: any) => {
+                                                     const isSelected = form.featuredSettings?.productIds?.includes(p.id);
+                                                     return (
+                                                         <div 
+                                                             key={p.id} 
+                                                             onClick={() => toggleFeaturedProduct(p.id)}
+                                                             className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors border ${isSelected ? 'bg-amber-900/20 border-amber-500/50' : 'hover:bg-slate-800 border-transparent'}`}
+                                                         >
+                                                             <div className="flex items-center gap-3">
+                                                                 <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isSelected ? 'bg-amber-500 border-amber-500 text-white' : 'bg-slate-950 border-slate-600 text-transparent'}`}>
+                                                                     <Check size={14} strokeWidth={3}/>
+                                                                 </div>
+                                                                 {p.imageUrl ? (
+                                                                     <img src={p.imageUrl} className="w-8 h-8 rounded object-cover bg-slate-800"/>
+                                                                 ) : (
+                                                                     <div className="w-8 h-8 rounded bg-slate-800 flex items-center justify-center text-slate-500"><Utensils size={14}/></div>
+                                                                 )}
+                                                                 <div>
+                                                                     <p className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-slate-300'}`}>{p.name}</p>
+                                                                     <p className="text-[10px] text-slate-500">{formatCurrency(p.price)}</p>
+                                                                 </div>
+                                                             </div>
+                                                         </div>
+                                                     )
+                                                 })
+                                             }
+                                         </div>
+                                     </div>
                                  </div>
                              </div>
                          </div>
@@ -480,308 +571,395 @@ export function SettingsModal({ config, onClose, onSave }: any) {
     );
 }
 
-export function NewDriverModal({ initialData, onClose, onSave }: any) {
-    const [form, setForm] = useState(initialData || { name: '', phone: '', vehicle: '', plate: '', password: '', status: 'offline', avatar: '' });
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSave(form);
-        onClose();
-    };
-
-    return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-white text-xl">{initialData ? 'Editar' : 'Novo'} Motorista</h3>
-                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
-                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.phone} onChange={e => setForm({...form, phone: formatPhoneNumberDisplay(e.target.value)})} /></div>
-                    <div className="grid grid-cols-2 gap-4">
-                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Veículo</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.vehicle} onChange={e => setForm({...form, vehicle: e.target.value})} placeholder="Ex: Moto Honda" /></div>
-                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Placa (Opcional)</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.plate} onChange={e => setForm({...form, plate: e.target.value})} /></div>
-                    </div>
-                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Senha de Acesso (Login)</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.password} onChange={e => setForm({...form, password: e.target.value})} type="password" placeholder="****" /></div>
-                    
-                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-4">Salvar Motorista</button>
-                </form>
-            </div>
-        </div>
-    );
-}
-
-export function ProductFormModal({ isOpen, onClose, product, onSave, existingCategories, inventory }: any) {
-    const [form, setForm] = useState<Product>({
-        id: '', name: '', category: '', price: 0, description: '', ingredients: [], imageUrl: ''
-    });
+export function ProductFormModal({ isOpen, onClose, product, onSave, existingCategories, inventory = [] }: any) {
+    const [form, setForm] = useState<any>({});
     
     useEffect(() => {
-        if(isOpen) {
-            setForm(product || { id: '', name: '', category: 'Hambúrgueres', price: 0, description: '', ingredients: [], imageUrl: '' });
+        if (product) setForm({...product, ingredients: product.ingredients || []});
+        else setForm({ 
+            name: '', price: '', category: '', description: '', 
+            costPrice: '', operationalCost: '', 
+            imageUrl: '', ingredients: [] 
+        });
+    }, [product, isOpen]);
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            try { const compressed = await compressImage(e.target.files[0]); setForm((prev: any) => ({...prev, imageUrl: compressed})); } 
+            catch (err) { alert("Erro ao processar imagem."); }
         }
-    }, [isOpen, product]);
-
-    const handleIngredientChange = (idx: number, field: string, value: any) => {
-        const newIngs = [...(form.ingredients || [])];
-        (newIngs[idx] as any)[field] = value;
-        setForm({...form, ingredients: newIngs});
     };
 
-    const addIngredient = () => {
-        setForm({...form, ingredients: [...(form.ingredients || []), { inventoryId: '', qty: 0 }]});
+    const addIngredient = () => setForm((prev: any) => ({ ...prev, ingredients: [...prev.ingredients, { inventoryId: '', qty: 0 }] }));
+    const updateIngredient = (idx: number, field: string, val: any) => {
+        const newIng = [...form.ingredients];
+        newIng[idx] = { ...newIng[idx], [field]: val };
+        setForm((prev: any) => ({ ...prev, ingredients: newIng }));
     };
-
     const removeIngredient = (idx: number) => {
-        const newIngs = [...(form.ingredients || [])];
-        newIngs.splice(idx, 1);
-        setForm({...form, ingredients: newIngs});
+        const newIng = [...form.ingredients];
+        newIng.splice(idx, 1);
+        setForm((prev: any) => ({ ...prev, ingredients: newIng }));
     };
 
-    const handleImageUpload = async (file: File) => {
-        if(file) {
-            try {
-                const compressed = await compressImage(file);
-                setForm(prev => ({...prev, imageUrl: compressed}));
-            } catch(e) {
-                alert("Erro ao processar imagem");
-            }
-        }
+    // Calculate dynamic cost
+    const calculatedCost = (form.ingredients || []).reduce((acc: number, ing: any) => {
+        const item = inventory.find((i: any) => i.id === ing.inventoryId);
+        return acc + (item ? item.cost * ing.qty : 0);
+    }, 0);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave(product?.id || null, {
+            ...form,
+            price: parseFloat(form.price),
+            costPrice: calculatedCost > 0 ? calculatedCost : parseFloat(form.costPrice || 0),
+            operationalCost: parseFloat(form.operationalCost || 0)
+        });
     };
 
-    if(!isOpen) return null;
+    if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
-            <div className="bg-slate-900 w-full max-w-2xl rounded-2xl border border-slate-700 p-6 shadow-2xl relative overflow-y-auto max-h-[90vh]">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-white text-xl">{product ? 'Editar' : 'Novo'} Produto</h3>
-                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
+            <div className="bg-slate-900 w-full max-w-2xl h-[90vh] rounded-2xl border border-slate-700 shadow-2xl flex flex-col relative overflow-hidden">
+                <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950 shrink-0">
+                    <h3 className="font-bold text-white text-xl">{product ? 'Editar Produto' : 'Novo Produto'}</h3>
+                    <button onClick={onClose}><X size={24} className="text-slate-500 hover:text-white"/></button>
                 </div>
-                <form onSubmit={(e) => { e.preventDefault(); onSave(product?.id, form); }} className="space-y-4">
-                    <div className="flex flex-col items-center mb-4">
-                        <div className="relative w-32 h-32 rounded-xl bg-slate-800 border-2 border-dashed border-slate-600 flex items-center justify-center overflow-hidden group cursor-pointer hover:border-amber-500 transition-colors">
-                            {form.imageUrl ? (
-                                <img src={form.imageUrl} className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="text-center text-slate-500">
-                                    <ImageIcon size={24} className="mx-auto mb-1"/>
-                                    <span className="text-[10px] uppercase font-bold">Foto</span>
-                                </div>
-                            )}
-                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                <UploadCloud className="text-white"/>
+                
+                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-slate-900">
+                    <div className="flex gap-6 flex-col md:flex-row">
+                        <div className="w-full md:w-1/3">
+                            <div className="aspect-square bg-slate-950 border-2 border-dashed border-slate-700 rounded-xl flex flex-col items-center justify-center relative group cursor-pointer overflow-hidden hover:border-amber-500 transition-colors">
+                                {form.imageUrl ? <img src={form.imageUrl} className="w-full h-full object-cover" /> : <div className="text-center"><ImageIcon className="text-slate-700 mx-auto mb-2" size={32}/><p className="text-[10px] text-slate-500 font-bold uppercase">FOTO</p></div>}
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><UploadCloud className="text-white"/></div>
+                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleImageUpload} />
                             </div>
-                            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={(e) => handleImageUpload(e.target.files?.[0] as File)} />
+                            {form.imageUrl && <button type="button" onClick={() => setForm({...form, imageUrl: ''})} className="text-red-500 text-xs font-bold mt-2 w-full text-center hover:text-red-400">Remover Foto</button>}
                         </div>
-                        {form.imageUrl && (
-                            <button type="button" onClick={() => setForm({...form, imageUrl: ''})} className="text-xs text-red-500 mt-2 hover:underline">Remover Foto</button>
-                        )}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
-                        <div>
-                            <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Categoria</label>
-                            <input list="categories" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.category} onChange={e => setForm({...form, category: e.target.value})} />
-                            <datalist id="categories">{existingCategories.map((c: string) => <option key={c} value={c}/>)}</datalist>
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Preço (R$)</label><input required type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.price} onChange={e => setForm({...form, price: parseFloat(e.target.value)})} /></div>
-                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Custo Operacional Extra (R$)</label><input type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.operationalCost || 0} onChange={e => setForm({...form, operationalCost: parseFloat(e.target.value)})} placeholder="Embalagem, gás..." /></div>
-                    </div>
-                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Descrição</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-20" value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
-                    
-                    {/* Ficha Técnica */}
-                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                        <div className="flex justify-between items-center mb-2">
-                            <label className="text-xs text-slate-500 font-bold uppercase flex items-center gap-2"><FlaskConical size={14}/> Ficha Técnica (Ingredientes)</label>
-                            <button type="button" onClick={addIngredient} className="text-xs text-emerald-500 font-bold hover:text-white flex items-center gap-1"><PlusCircle size={12}/> Add</button>
-                        </div>
-                        {(!form.ingredients || form.ingredients.length === 0) && <p className="text-xs text-slate-600 italic">Nenhum ingrediente vinculado.</p>}
-                        <div className="space-y-2">
-                            {(form.ingredients || []).map((ing, idx) => (
-                                <div key={idx} className="flex gap-2 items-center">
-                                    <select className="flex-1 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" value={ing.inventoryId} onChange={e => handleIngredientChange(idx, 'inventoryId', e.target.value)}>
-                                        <option value="">Selecione Insumo...</option>
-                                        {(inventory || []).map((inv: any) => <option key={inv.id} value={inv.id}>{inv.name} ({inv.unit})</option>)}
-                                    </select>
-                                    <input type="number" placeholder="Qtd" step="any" className="w-20 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" value={ing.qty} onChange={e => handleIngredientChange(idx, 'qty', parseFloat(e.target.value))} />
-                                    <button type="button" onClick={() => removeIngredient(idx)} className="text-red-500 hover:text-red-400"><Trash2 size={14}/></button>
+                        <div className="flex-1 space-y-4">
+                            <div><label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Nome do Produto</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Ex: X-Bacon" /></div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Preço Venda (R$)</label><input required type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none focus:border-amber-500" value={form.price} onChange={e => setForm({...form, price: e.target.value})} placeholder="0.00" /></div>
+                                <div>
+                                    <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Categoria</label>
+                                    <input list="categories" className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none focus:border-amber-500" value={form.category} onChange={e => setForm({...form, category: e.target.value})} placeholder="Selecione ou digite" />
+                                    <datalist id="categories">{existingCategories.map((c: string) => <option key={c} value={c} />)}</datalist>
                                 </div>
-                            ))}
+                            </div>
+                            <div><label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Descrição</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white outline-none focus:border-amber-500 h-20 resize-none" value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="Ingredientes, detalhes..." /></div>
                         </div>
                     </div>
 
-                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg">Salvar Produto</button>
+                    {/* Ficha Técnica */}
+                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
+                         <h4 className="font-bold text-white mb-4 flex items-center gap-2 text-sm uppercase"><FlaskConical size={16} className="text-purple-500"/> Ficha Técnica (Custos)</h4>
+                         
+                         <div className="space-y-2 mb-4">
+                             {form.ingredients.map((ing: any, idx: number) => {
+                                 const item = inventory.find((i:any) => i.id === ing.inventoryId);
+                                 return (
+                                     <div key={idx} className="flex gap-2 items-center">
+                                         <select className="flex-1 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" value={ing.inventoryId} onChange={e => updateIngredient(idx, 'inventoryId', e.target.value)}>
+                                             <option value="">Selecione Insumo...</option>
+                                             {inventory.map((i:any) => <option key={i.id} value={i.id}>{i.name} ({formatCurrency(i.cost)}/{i.unit})</option>)}
+                                         </select>
+                                         <input type="number" placeholder="Qtd" className="w-20 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white" value={ing.qty} onChange={e => updateIngredient(idx, 'qty', parseFloat(e.target.value))} />
+                                         <span className="text-xs text-slate-500 w-8">{item?.unit || '-'}</span>
+                                         <button type="button" onClick={() => removeIngredient(idx)} className="text-red-500 hover:text-red-400"><Trash2 size={16}/></button>
+                                     </div>
+                                 )
+                             })}
+                             <button type="button" onClick={addIngredient} className="text-xs font-bold text-blue-400 hover:text-white flex items-center gap-1"><PlusCircle size={14}/> Adicionar Ingrediente</button>
+                         </div>
+
+                         <div className="grid grid-cols-2 gap-4 border-t border-slate-800 pt-4">
+                             <div>
+                                 <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Custo Insumos (Auto)</label>
+                                 <div className="text-white font-mono font-bold">{formatCurrency(calculatedCost)}</div>
+                             </div>
+                             <div>
+                                 <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Custo Operacional (Fixo)</label>
+                                 <input type="number" step="0.01" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white text-sm" value={form.operationalCost} onChange={e => setForm({...form, operationalCost: e.target.value})} placeholder="0.00" />
+                             </div>
+                         </div>
+                    </div>
+
                 </form>
+                <div className="p-5 border-t border-slate-800 bg-slate-950 shrink-0">
+                    <button onClick={handleSubmit} className="w-full bg-[#009e60] hover:bg-[#00804d] text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-all uppercase tracking-wide text-sm flex items-center justify-center gap-2"><Save size={18}/> Salvar Produto</button>
+                </div>
             </div>
         </div>
     );
 }
 
-// ... (Rest of modal components unchanged)
-export function EditOrderModal({ order, onClose, onSave }: any) {
-    const [form, setForm] = useState(order);
-    
+export function NewDriverModal({ initialData, onClose, onSave }: any) {
+    const [form, setForm] = useState(initialData || {
+        name: '', phone: '', vehicle: '', plate: '', password: '', 
+        paymentModel: 'fixed_per_delivery', paymentRate: 5.00
+    });
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave(order.id, form);
+        onSave({ 
+            ...form, 
+            status: form.status || 'offline', 
+            rating: form.rating || 5, 
+            totalDeliveries: form.totalDeliveries || 0,
+            avatar: form.avatar || 'https://cdn-icons-png.flaticon.com/512/1995/1995493.png'
+        });
         onClose();
     };
 
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
+             <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-white text-xl">Editar Pedido {formatOrderId(order.id)}</h3>
-                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                    <h3 className="font-bold text-xl text-white">{initialData ? 'Editar' : 'Novo'} Motorista</h3>
+                    <button onClick={onClose}><X size={20} className="text-slate-500 hover:text-white"/></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                     <div className="grid grid-cols-2 gap-4">
-                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Cliente</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.customer} onChange={e => setForm({...form, customer: e.target.value})} /></div>
-                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
-                     </div>
-                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
-                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Itens</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-24" value={form.items} onChange={e => setForm({...form, items: e.target.value})} /></div>
-                     <div className="grid grid-cols-2 gap-4">
-                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Valor Total</label><input type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.value} onChange={e => setForm({...form, value: parseFloat(e.target.value)})} /></div>
-                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Pagamento</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.paymentMethod} onChange={e => setForm({...form, paymentMethod: e.target.value})} /></div>
-                     </div>
-                     <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Salvar Alterações</button>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Veículo</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.vehicle} onChange={e => setForm({...form, vehicle: e.target.value})} placeholder="Ex: Moto Honda" /></div>
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Placa</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 uppercase" value={form.plate} onChange={e => setForm({...form, plate: e.target.value})} /></div>
+                    </div>
+                    <div>
+                        <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Senha de Acesso (4 dígitos)</label>
+                        <input type="password" maxLength={4} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 text-center tracking-widest" value={form.password} onChange={e => setForm({...form, password: e.target.value})} placeholder="****" />
+                    </div>
+                    
+                    <div className="border-t border-slate-800 pt-4">
+                        <label className="text-xs text-emerald-500 font-bold uppercase block mb-2">Modelo de Pagamento</label>
+                        <div className="flex gap-2 mb-3">
+                            {['fixed_per_delivery', 'percentage', 'salary'].map(model => (
+                                <button type="button" key={model} onClick={() => setForm({...form, paymentModel: model})} className={`flex-1 py-2 text-[10px] font-bold uppercase rounded border ${form.paymentModel === model ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-950 text-slate-500 border-slate-800'}`}>
+                                    {model === 'fixed_per_delivery' ? 'Fixo/Entrega' : model === 'percentage' ? 'Porcentagem' : 'Salário Fixo'}
+                                </button>
+                            ))}
+                        </div>
+                        <label className="text-xs text-slate-500 font-bold uppercase block mb-1">{form.paymentModel === 'percentage' ? 'Porcentagem (%)' : form.paymentModel === 'salary' ? 'Salário Mensal (R$)' : 'Valor por Entrega (R$)'}</label>
+                        <input type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.paymentRate} onChange={e => setForm({...form, paymentRate: parseFloat(e.target.value)})} />
+                    </div>
+
+                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Salvar Motorista</button>
                 </form>
-            </div>
+             </div>
         </div>
     );
 }
 
 export function CloseCycleModal({ data, onClose, onConfirm }: any) {
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-             <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-700 p-6 shadow-2xl relative text-center">
-                 <div className="w-16 h-16 bg-emerald-900/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/20"><Wallet size={32}/></div>
-                 <h3 className="text-xl font-bold text-white mb-2">Fechar Ciclo</h3>
-                 <p className="text-slate-400 text-sm mb-6">Confirma o pagamento de <b className="text-white">{formatCurrency(data.toPay)}</b> para {data.driverName}?</p>
-                 
-                 <div className="bg-slate-950 rounded-xl p-4 mb-6 border border-slate-800 text-left space-y-2">
-                     <div className="flex justify-between text-xs"><span className="text-slate-500">Entregas</span><span className="text-white font-bold">{formatCurrency(data.deliveriesTotal)}</span></div>
-                     <div className="flex justify-between text-xs"><span className="text-slate-500">Vales</span><span className="text-red-400 font-bold">- {formatCurrency(data.valesTotal)}</span></div>
-                     <div className="border-t border-slate-800 pt-2 flex justify-between text-sm"><span className="text-emerald-500 font-bold">Total Pagar</span><span className="text-emerald-400 font-black">{formatCurrency(data.toPay)}</span></div>
-                 </div>
-
-                 <div className="flex gap-3">
-                     <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl transition-colors">Cancelar</button>
-                     <button onClick={() => onConfirm(data)} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors shadow-lg">Confirmar</button>
-                 </div>
-             </div>
-        </div>
-    );
-}
-
-export function ReceiptModal({ order, onClose, appConfig }: any) {
-    const receiptText = generateReceiptText(order, appConfig.appName, { pixKey: appConfig.pixKey, pixName: appConfig.pixName, pixCity: appConfig.pixCity });
-    
-    const handlePrint = () => {
-        printOrderTicket(order, appConfig);
-    };
-
-    return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 shadow-2xl relative flex flex-col max-h-[90vh]">
-                <div className="flex justify-between items-center mb-4 shrink-0">
-                    <h3 className="font-bold text-white text-xl flex items-center gap-2"><FileText size={20}/> Comprovante</h3>
-                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
-                </div>
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
+             <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
+                <h3 className="font-bold text-xl text-white mb-4">Fechar Ciclo: {data.driverName}</h3>
                 
-                <div className="flex-1 bg-white text-black font-mono text-xs p-4 rounded-xl overflow-y-auto whitespace-pre-wrap shadow-inner border-t-4 border-slate-200 border-b-4 border-slate-200 relative mb-4">
-                    {/* Efeito de rasgo de papel CSS seria legal aqui, mas simplificando */}
-                    {receiptText.replace(/\*/g, '').replace(/`/g, '')}
+                <div className="space-y-3 bg-slate-950 p-4 rounded-xl border border-slate-800 mb-6">
+                    <div className="flex justify-between text-sm"><span className="text-slate-400">Ganhos Entregas</span><span className="text-white font-bold">{formatCurrency(data.deliveriesTotal)}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-slate-400">Descontos (Vales)</span><span className="text-red-400 font-bold">- {formatCurrency(data.valesTotal)}</span></div>
+                    <div className="border-t border-slate-800 pt-2 flex justify-between text-base"><span className="text-white font-bold">Total a Pagar</span><span className="text-emerald-400 font-black">{formatCurrency(data.toPay)}</span></div>
                 </div>
 
-                <div className="flex gap-3 shrink-0">
-                    <button onClick={() => copyToClipboard(receiptText)} className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"><Copy size={16}/> Copiar</button>
-                    <button onClick={handlePrint} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"><Printer size={16}/> Imprimir</button>
+                <div className="flex gap-3">
+                    <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl">Cancelar</button>
+                    <button onClick={() => onConfirm(data)} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl">Confirmar Pagamento</button>
                 </div>
-            </div>
-        </div>
-    );
-}
-
-export function ManualOrderModal({ initialData, onClose, onSave }: any) {
-    const [form, setForm] = useState(initialData || { customer: '', phone: '', address: '' });
-    
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSave(form);
-        onClose();
-    };
-
-    return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-             <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
-                 <div className="flex justify-between items-center mb-6">
-                     <h3 className="font-bold text-white text-xl">Novo Pedido Manual</h3>
-                     <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
-                 </div>
-                 <form onSubmit={handleSubmit} className="space-y-4">
-                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Cliente</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.customer} onChange={e => setForm({...form, customer: e.target.value})} /></div>
-                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.phone} onChange={e => setForm({...form, phone: formatPhoneNumberDisplay(e.target.value)})} /></div>
-                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
-                     
-                     <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-500/20 text-xs text-amber-200">
-                         Este é um formulário rápido. Para adicionar itens e calcular totais, use a tela "Novo Pedido" no menu principal.
-                     </div>
-                     
-                     <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Criar Pedido Rápido</button>
-                 </form>
              </div>
-        </div>
-    );
-}
-
-export function EditClientModal({ client, onClose, onSave, orders }: any) {
-    const [form, setForm] = useState(client);
-
-    return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-white text-xl">Editar Cliente</h3>
-                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
-                </div>
-                <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
-                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
-                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
-                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
-                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Observações</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-emerald-500 h-24" value={form.obs || ''} onChange={e => setForm({...form, obs: e.target.value})} placeholder="Ex: Cliente prefere sem cebola, ponto de referência..." /></div>
-                     
-                     <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 mt-4">
-                         <div className="flex justify-between mb-2"><span className="text-slate-500 text-xs font-bold uppercase">Total Gasto</span><span className="text-emerald-400 font-bold">{formatCurrency(form.totalSpent || 0)}</span></div>
-                         <div className="flex justify-between"><span className="text-slate-500 text-xs font-bold uppercase">Pedidos</span><span className="text-white font-bold">{form.count || 0}</span></div>
-                     </div>
-
-                     <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Salvar Cliente</button>
-                </form>
-            </div>
         </div>
     );
 }
 
 export function ImportModal({ onClose, onImportCSV }: any) {
     const [text, setText] = useState('');
+    return (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
+             <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-xl text-white">Importar Clientes (CSV)</h3>
+                    <button onClick={onClose}><X size={20} className="text-slate-500 hover:text-white"/></button>
+                </div>
+                <p className="text-xs text-slate-400 mb-2">Cole os dados no formato: <b>Nome,Telefone,Endereço</b> (um por linha)</p>
+                <textarea className="w-full h-40 bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-amber-500 font-mono mb-4" placeholder="João Silva,11999999999,Rua A 123&#10;Maria,11888888888,Av B 456" value={text} onChange={e => setText(e.target.value)} />
+                <button onClick={() => onImportCSV(text)} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg">Processar Importação</button>
+             </div>
+        </div>
+    );
+}
+
+export function EditClientModal({ client, orders, onClose, onSave }: any) {
+    const [form, setForm] = useState(client);
+    const clientOrders = orders.filter((o: Order) => normalizePhone(o.phone) === normalizePhone(client.phone)).sort((a:Order, b:Order) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
+    return (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
+             <div className="bg-slate-900 w-full max-w-2xl h-[80vh] rounded-2xl border border-slate-700 p-6 shadow-2xl relative flex flex-col">
+                <div className="flex justify-between items-center mb-6 shrink-0">
+                    <h3 className="font-bold text-xl text-white">Editar Cliente</h3>
+                    <button onClick={onClose}><X size={20} className="text-slate-500 hover:text-white"/></button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
+                    </div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Observações Internas</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-20" value={form.obs || ''} onChange={e => setForm({...form, obs: e.target.value})} /></div>
+
+                    <div className="border-t border-slate-800 pt-4">
+                        <h4 className="font-bold text-white mb-2 text-sm flex items-center gap-2"><History size={16}/> Histórico de Pedidos ({clientOrders.length})</h4>
+                        <div className="space-y-2">
+                            {clientOrders.map((o: Order) => (
+                                <div key={o.id} className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs flex justify-between items-center">
+                                    <div>
+                                        <span className="text-slate-300 font-bold">{formatDate(o.createdAt)}</span>
+                                        <p className="text-slate-500 truncate w-48">{o.items}</p>
+                                    </div>
+                                    <span className="text-emerald-400 font-bold">{formatCurrency(o.value)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-slate-800 shrink-0">
+                    <button onClick={() => onSave(form)} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg">Salvar Alterações</button>
+                </div>
+             </div>
+        </div>
+    );
+}
+
+export function EditOrderModal({ order, onClose, onSave }: any) {
+    const [form, setForm] = useState(order);
     
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
+             <div className="bg-slate-900 w-full max-w-2xl h-[85vh] rounded-2xl border border-slate-700 p-6 shadow-2xl relative flex flex-col">
+                <div className="flex justify-between items-center mb-6 shrink-0">
+                    <h3 className="font-bold text-xl text-white">Editar Pedido {formatOrderId(order.id)}</h3>
+                    <button onClick={onClose}><X size={20} className="text-slate-500 hover:text-white"/></button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Cliente</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.customer} onChange={e => setForm({...form, customer: e.target.value})} /></div>
+                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
+                    </div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Itens (Texto)</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-32 font-mono text-xs" value={form.items} onChange={e => setForm({...form, items: e.target.value})} /></div>
+                    
+                    <div className="grid grid-cols-3 gap-4">
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Valor Total (R$)</label><input type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.value} onChange={e => setForm({...form, value: parseFloat(e.target.value)})} /></div>
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Taxa Entrega (R$)</label><input type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.deliveryFee || 0} onChange={e => setForm({...form, deliveryFee: parseFloat(e.target.value)})} /></div>
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Status</label><select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.status} onChange={e => setForm({...form, status: e.target.value})}><option value="pending">Pendente</option><option value="preparing">Preparando</option><option value="ready">Pronto</option><option value="assigned">Em Rota</option><option value="completed">Concluído</option><option value="cancelled">Cancelado</option></select></div>
+                    </div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Pagamento</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.paymentMethod || ''} onChange={e => setForm({...form, paymentMethod: e.target.value})} /></div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-slate-800 shrink-0">
+                    <button onClick={() => { onSave(order.id, form); onClose(); }} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg">Salvar Pedido</button>
+                </div>
+             </div>
+        </div>
+    );
+}
+
+export function ManualOrderModal({ initialData, onClose, onSave }: any) {
+    const [form, setForm] = useState(initialData || { customer: '', phone: '', address: '' });
+    const [itemsText, setItemsText] = useState('');
+    const [value, setValue] = useState('');
+    const [payMethod, setPayMethod] = useState('Dinheiro');
+
+    const handleSubmit = () => {
+        if(!form.customer || !itemsText || !value) return alert("Preencha os campos obrigatórios");
+        
+        onSave({
+            ...form,
+            items: itemsText,
+            value: parseFloat(value),
+            paymentMethod: payMethod,
+            status: 'pending',
+            origin: 'manual',
+            serviceType: 'delivery',
+            createdAt: new Date() // Will be replaced by serverTimestamp in action
+        });
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
              <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
-                 <div className="flex justify-between items-center mb-4">
-                     <h3 className="font-bold text-white text-xl flex items-center gap-2"><UploadCloud/> Importar Clientes (CSV)</h3>
-                     <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
-                 </div>
-                 <p className="text-xs text-slate-400 mb-4">Cole abaixo o conteúdo do seu CSV. Formato: <b>Nome, Telefone, Endereço</b> (um por linha).</p>
-                 <textarea className="w-full h-48 bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-blue-500 font-mono mb-4" placeholder="João Silva, 11999999999, Rua A 123&#10;Maria Souza, 11988888888, Av B 456" value={text} onChange={e => setText(e.target.value)} />
-                 <button onClick={() => onImportCSV(text)} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg">Processar Importação</button>
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-xl text-white">Novo Pedido Manual</h3>
+                    <button onClick={onClose}><X size={20} className="text-slate-500 hover:text-white"/></button>
+                </div>
+                
+                <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Cliente</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.customer} onChange={e => setForm({...form, customer: e.target.value})} /></div>
+                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
+                    </div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
+                    
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Itens do Pedido</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-24 font-mono" placeholder="1x X-Burger&#10;1x Coca-Cola" value={itemsText} onChange={e => setItemsText(e.target.value)} /></div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Valor Total (R$)</label><input type="number" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={value} onChange={e => setValue(e.target.value)} /></div>
+                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Pagamento</label><select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={payMethod} onChange={e => setPayMethod(e.target.value)}><option>Dinheiro</option><option>PIX</option><option>Cartão</option></select></div>
+                    </div>
+
+                    <button onClick={handleSubmit} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Criar Pedido</button>
+                </div>
+             </div>
+        </div>
+    );
+}
+
+export function ReceiptModal({ order, onClose, appConfig }: any) {
+    useEffect(() => {
+        // Auto print logic can be added here if needed, but we provide a button
+    }, []);
+
+    return (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
+             <div className="bg-white text-black w-full max-w-sm rounded-xl p-6 shadow-2xl relative overflow-hidden font-mono text-sm leading-tight">
+                <button onClick={onClose} className="absolute top-2 right-2 text-black hover:text-red-500"><X size={20}/></button>
+                
+                <div className="text-center mb-4 border-b border-black/10 pb-4">
+                    <h3 className="font-bold text-xl uppercase">{appConfig.appName}</h3>
+                    <p>Pedido {formatOrderId(order.id)}</p>
+                    <p>{formatDate(order.createdAt)} - {formatTime(order.createdAt)}</p>
+                </div>
+                
+                <div className="mb-4">
+                    <p><b>Cliente:</b> {order.customer}</p>
+                    <p><b>Tel:</b> {order.phone}</p>
+                    <p><b>End:</b> {order.address}</p>
+                </div>
+
+                <div className="border-t border-b border-black/10 py-2 mb-4">
+                    <pre className="whitespace-pre-wrap font-inherit">{order.items}</pre>
+                </div>
+
+                <div className="flex justify-between font-bold text-lg mb-4">
+                    <span>TOTAL:</span>
+                    <span>{formatCurrency(order.value)}</span>
+                </div>
+                
+                <p className="text-xs mb-1">Pagamento: {order.paymentMethod}</p>
+                {order.obs && <p className="text-xs italic">Obs: {order.obs}</p>}
+
+                <div className="mt-6 flex gap-2 no-print">
+                    <button onClick={() => printOrderTicket(order, appConfig)} className="flex-1 bg-black text-white py-3 rounded font-bold flex items-center justify-center gap-2"><Printer size={16}/> Imprimir</button>
+                    <button onClick={onClose} className="flex-1 border border-black text-black py-3 rounded font-bold">Fechar</button>
+                </div>
              </div>
         </div>
     );
@@ -789,69 +967,48 @@ export function ImportModal({ onClose, onImportCSV }: any) {
 
 export function KitchenHistoryModal({ order, onClose, products, totalClientOrders }: any) {
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
-            <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 p-6 shadow-2xl relative overflow-y-auto max-h-[90vh]">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
+             <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
+                <div className="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 className="font-bold text-xl text-white">{order.customer}</h3>
+                        <p className="text-slate-400 text-sm">{totalClientOrders}º pedido deste cliente</p>
+                    </div>
+                    <button onClick={onClose}><X size={20} className="text-slate-500 hover:text-white"/></button>
+                </div>
+
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 mb-4 max-h-60 overflow-y-auto custom-scrollbar">
+                    <pre className="text-white font-mono text-sm whitespace-pre-wrap">{order.items}</pre>
+                </div>
+
+                <div className="flex justify-between text-sm text-slate-400 mb-4">
+                     <span>Entrada: {formatTime(order.createdAt)}</span>
+                     <span>Conclusão: {formatTime(order.completedAt || order.assignedAt)}</span>
+                </div>
                 
-                <div className="mb-6 border-b border-slate-800 pb-4">
-                    <h2 className="text-xl font-black text-white mb-1">{order.customer}</h2>
-                    <div className="flex flex-wrap gap-2 text-sm text-slate-400">
-                        <span className="flex items-center gap-1"><Phone size={14}/> {order.phone}</span>
-                        {totalClientOrders && <span className="flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded text-xs text-amber-500 font-bold border border-slate-700"><History size={12}/> {totalClientOrders}º Pedido</span>}
-                    </div>
-                </div>
-
-                <div className="space-y-4">
-                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Itens do Pedido</p>
-                        <div className="text-sm text-white font-medium whitespace-pre-wrap leading-relaxed">{order.items}</div>
-                    </div>
-
-                    <div className="flex gap-4">
-                        <div className="flex-1 bg-slate-950 p-3 rounded-xl border border-slate-800">
-                            <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Entrada</p>
-                            <p className="text-white font-mono">{formatTime(order.createdAt)}</p>
-                        </div>
-                        <div className="flex-1 bg-slate-950 p-3 rounded-xl border border-slate-800">
-                             <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Conclusão</p>
-                             <p className="text-emerald-400 font-mono">{order.completedAt ? formatTime(order.completedAt) : order.assignedAt ? formatTime(order.assignedAt) : '-'}</p>
-                        </div>
-                    </div>
-                    
-                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Endereço</p>
-                        <p className="text-sm text-slate-300">{order.address}</p>
-                    </div>
-
-                    {order.obs && (
-                         <div className="bg-amber-900/10 p-4 rounded-xl border border-amber-500/20">
-                            <p className="text-[10px] font-bold text-amber-500 uppercase mb-1 flex items-center gap-1"><AlertTriangle size={12}/> Observações</p>
-                            <p className="text-sm text-amber-100 italic">{order.obs}</p>
-                        </div>
-                    )}
-                </div>
-            </div>
+                <button onClick={onClose} className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl">Fechar Detalhes</button>
+             </div>
         </div>
     );
 }
 
 export function ProductionSuccessModal({ order, onClose, appName }: any) {
-    const message = getProductionMessage(order, appName);
-    
     const handleSend = () => {
-        window.open(`https://wa.me/55${normalizePhone(order.phone)}?text=${encodeURIComponent(message)}`, '_blank');
+        const text = getProductionMessage(order, appName);
+        const phone = normalizePhone(order.phone);
+        window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, 'whatsapp-session');
         onClose();
     };
 
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
-             <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-orange-500/50 p-6 shadow-[0_0_40px_rgba(249,115,22,0.2)] text-center relative">
-                 <div className="w-16 h-16 bg-orange-500/20 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-orange-500/10"><Flame size={32} className="animate-pulse"/></div>
-                 <h3 className="text-xl font-black text-white uppercase italic mb-2">Enviado para Produção!</h3>
-                 <p className="text-slate-400 text-sm mb-6">O pedido de <b>{order.customer}</b> foi iniciado.</p>
-                 <div className="space-y-3">
-                     <button onClick={handleSend} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"><MessageCircle size={18}/> Avisar Cliente (WhatsApp)</button>
-                     <button onClick={onClose} className="w-full bg-slate-800 hover:bg-slate-700 text-slate-400 font-bold py-3 rounded-xl">Fechar</button>
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
+             <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-orange-500/30 p-6 shadow-2xl text-center">
+                 <div className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-orange-500"><Flame size={32}/></div>
+                 <h3 className="font-bold text-xl text-white mb-2">Produção Iniciada!</h3>
+                 <p className="text-slate-400 text-sm mb-6">Deseja avisar o cliente no WhatsApp que o pedido começou a ser preparado?</p>
+                 <div className="flex gap-3">
+                     <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl">Não avisar</button>
+                     <button onClick={handleSend} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"><MessageCircle size={18}/> Avisar</button>
                  </div>
              </div>
         </div>
@@ -859,22 +1016,22 @@ export function ProductionSuccessModal({ order, onClose, appName }: any) {
 }
 
 export function DispatchSuccessModal({ data, onClose, appName }: any) {
-    const message = getDispatchMessage(data.order, data.driverName, appName);
-    
     const handleSend = () => {
-        window.open(`https://wa.me/55${normalizePhone(data.order.phone)}?text=${encodeURIComponent(message)}`, '_blank');
+        const text = getDispatchMessage(data.order, data.driverName, appName);
+        const phone = normalizePhone(data.order.phone);
+        window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, 'whatsapp-session');
         onClose();
     };
 
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
-             <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-emerald-500/50 p-6 shadow-[0_0_40px_rgba(16,185,129,0.2)] text-center relative">
-                 <div className="w-16 h-16 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-emerald-500/10"><Bike size={32} className="animate-bounce"/></div>
-                 <h3 className="text-xl font-black text-white uppercase italic mb-2">Saiu para Entrega!</h3>
-                 <p className="text-slate-400 text-sm mb-6">Entregador <b>{data.driverName}</b> atribuído.</p>
-                 <div className="space-y-3">
-                     <button onClick={handleSend} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"><MessageCircle size={18}/> Avisar Cliente (WhatsApp)</button>
-                     <button onClick={onClose} className="w-full bg-slate-800 hover:bg-slate-700 text-slate-400 font-bold py-3 rounded-xl">Fechar</button>
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
+             <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-emerald-500/30 p-6 shadow-2xl text-center">
+                 <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-500"><Bike size={32}/></div>
+                 <h3 className="font-bold text-xl text-white mb-2">Saiu para Entrega!</h3>
+                 <p className="text-slate-400 text-sm mb-6">Pedido atribuído a <b>{data.driverName}</b>. Deseja avisar o cliente?</p>
+                 <div className="flex gap-3">
+                     <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl">Não avisar</button>
+                     <button onClick={handleSend} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"><MessageCircle size={18}/> Avisar</button>
                  </div>
              </div>
         </div>
@@ -883,15 +1040,14 @@ export function DispatchSuccessModal({ data, onClose, appName }: any) {
 
 export function ConfirmCloseOrderModal({ order, onClose, onConfirm }: any) {
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-             <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-700 p-6 shadow-2xl relative text-center">
-                 <div className="w-16 h-16 bg-slate-800 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-700"><CheckCircle2 size={32}/></div>
-                 <h3 className="text-xl font-bold text-white mb-2">Finalizar Pedido?</h3>
-                 <p className="text-slate-400 text-sm mb-6">Deseja marcar o pedido de <b>{order.customer}</b> como concluído/entregue?</p>
-                 
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
+             <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-700 p-6 shadow-2xl text-center">
+                 <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400"><CheckSquare size={32}/></div>
+                 <h3 className="font-bold text-xl text-white mb-2">Finalizar Pedido?</h3>
+                 <p className="text-slate-400 text-sm mb-6">Isso marcará o pedido <b>{formatOrderId(order.id)}</b> como CONCLUÍDO/ENTREGUE e sairá da tela de produção.</p>
                  <div className="flex gap-3">
-                     <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl transition-colors">Cancelar</button>
-                     <button onClick={onConfirm} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors shadow-lg">Confirmar</button>
+                     <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl">Cancelar</button>
+                     <button onClick={onConfirm} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl">Confirmar</button>
                  </div>
              </div>
         </div>

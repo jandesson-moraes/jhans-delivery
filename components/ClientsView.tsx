@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Client, Order, GiveawayEntry, AppConfig } from '../types';
 import { normalizePhone, formatCurrency, formatDate, downloadCSV } from '../utils';
-import { Search, UploadCloud, Edit, ChevronDown, Star, Trophy, Crown, Medal, TrendingUp, Calendar, DollarSign, UserCheck, Gift, Download, CheckCircle2, PlusCircle, ShoppingBag } from 'lucide-react';
+import { Search, UploadCloud, Edit, ChevronDown, Star, Trophy, Crown, Medal, TrendingUp, Calendar, DollarSign, UserCheck, Gift, Download, CheckCircle2, PlusCircle, ShoppingBag, Settings, MonitorPlay } from 'lucide-react';
 import { Footer } from './Shared';
 import { GiveawayManagerModal, ManualOrderModal } from './Modals';
 
@@ -15,9 +15,10 @@ interface ClientsViewProps {
     appConfig: AppConfig;
     onCreateOrder: (data: any) => void;
     onDeleteGiveawayEntry?: (id: string) => void; // New prop definition
+    onNavigateToLive?: () => void; // New prop for Live View
 }
 
-export function ClientsView({ clients, orders, giveawayEntries, setModal, setClientToEdit, appConfig, onCreateOrder, onDeleteGiveawayEntry }: ClientsViewProps) {
+export function ClientsView({ clients, orders, giveawayEntries, setModal, setClientToEdit, appConfig, onCreateOrder, onDeleteGiveawayEntry, onNavigateToLive }: ClientsViewProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [visibleClientsCount, setVisibleClientsCount] = useState(20);
     const [rankingMode, setRankingMode] = useState<'spent' | 'count'>('spent'); // spent = Gastaram mais, count = Pediram mais
@@ -140,10 +141,16 @@ export function ClientsView({ clients, orders, giveawayEntries, setModal, setCli
                            />
                        </div>
                        
-                       {/* Sorteio Button - PURPLE */}
-                       <button onClick={() => setShowGiveawayModal(true)} className="h-10 bg-purple-600 hover:bg-purple-700 text-white px-4 rounded-lg font-bold text-xs flex items-center gap-2 transition-colors shadow-lg shadow-purple-900/20 whitespace-nowrap">
-                           <Gift size={16}/> Sorteio ({giveawayEntries.length})
-                       </button>
+                       {/* Sorteio Buttons Group */}
+                       <div className="flex items-center gap-1 bg-purple-900/20 p-1 rounded-lg border border-purple-500/30">
+                           <button onClick={() => setShowGiveawayModal(true)} className="h-8 px-3 rounded hover:bg-purple-500/20 text-purple-300 text-xs font-bold flex items-center gap-2 transition-colors">
+                               <Settings size={14}/> Gerenciar
+                           </button>
+                           <div className="w-px h-6 bg-purple-500/30"></div>
+                           <button onClick={onNavigateToLive} className="h-8 px-3 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs font-bold flex items-center gap-2 transition-colors shadow-lg shadow-purple-900/20">
+                               <MonitorPlay size={14}/> TELA AO VIVO
+                           </button>
+                       </div>
 
                        {/* Import Button - ICON ONLY */}
                        <button onClick={() => setModal('import')} className="h-10 w-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg border border-slate-700 transition-colors" title="Importar CSV">

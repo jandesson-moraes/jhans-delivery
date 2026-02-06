@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { auth, db } from './services/firebase';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { collection, addDoc, updateDoc, doc, deleteDoc, setDoc, query, where, getDocs, serverTimestamp, writeBatch, onSnapshot, increment } from 'firebase/firestore';
-import { AppConfig, Driver, Order, Vale, Expense, Product, Client, Settlement, Supplier, InventoryItem, ShoppingItem, GiveawayEntry, UserType, DailyStats } from './types';
+import { AppConfig, Driver, Order, Vale, Expense, Product, Client, Settlement, Supplier, InventoryItem, ShoppingItem, GiveawayEntry, UserType, DailyStats, GiveawayWinner } from './types';
 import { normalizePhone, formatCurrency } from './utils';
 import { Loader2, Utensils, ShieldCheck, Bike } from 'lucide-react';
 
@@ -31,6 +31,11 @@ const DEFAULT_CONFIG: AppConfig = {
     promoTime: '',
     promoLocation: '',
     welcomeBannerUrl: '',
+    featuredSettings: {
+        active: false,
+        title: 'Destaques da Casa 🔥',
+        productIds: []
+    },
     giveawaySettings: {
         active: false,
         title: 'Sorteio Oficial',
@@ -100,6 +105,7 @@ export default function App() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [giveawayEntries, setGiveawayEntries] = useState<GiveawayEntry[]>([]);
+  const [giveawayWinners, setGiveawayWinners] = useState<GiveawayWinner[]>([]); // New state
   const [siteVisits, setSiteVisits] = useState<DailyStats[]>([]);
   
   const [appConfig, setAppConfigState] = useState<AppConfig>(DEFAULT_CONFIG);
@@ -172,22 +178,24 @@ export default function App() {
           }
       });
 
-      const unsubDrivers = safeSnapshot(collection(db, 'drivers'), (snap) => setDrivers(snap.docs.map(d => ({id: d.id, ...d.data()} as Driver))));
-      const unsubOrders = safeSnapshot(collection(db, 'orders'), (snap) => setOrders(snap.docs.map(d => ({id: d.id, ...d.data()} as Order))));
-      const unsubVales = safeSnapshot(collection(db, 'vales'), (snap) => setVales(snap.docs.map(d => ({id: d.id, ...d.data()} as Vale))));
-      const unsubExpenses = safeSnapshot(collection(db, 'expenses'), (snap) => setExpenses(snap.docs.map(d => ({id: d.id, ...d.data()} as Expense))));
-      const unsubProducts = safeSnapshot(collection(db, 'products'), (snap) => setProducts(snap.docs.map(d => ({id: d.id, ...d.data()} as Product))));
-      const unsubClients = safeSnapshot(collection(db, 'clients'), (snap) => setClients(snap.docs.map(d => ({id: d.id, ...d.data()} as Client))));
-      const unsubSettlements = safeSnapshot(collection(db, 'settlements'), (snap) => setSettlements(snap.docs.map(d => ({id: d.id, ...d.data()} as Settlement))));
-      const unsubSuppliers = safeSnapshot(collection(db, 'suppliers'), (snap) => setSuppliers(snap.docs.map(d => ({id: d.id, ...d.data()} as Supplier))));
-      const unsubInventory = safeSnapshot(collection(db, 'inventory'), (snap) => setInventory(snap.docs.map(d => ({id: d.id, ...d.data()} as InventoryItem))));
-      const unsubShopping = safeSnapshot(collection(db, 'shoppingList'), (snap) => setShoppingList(snap.docs.map(d => ({id: d.id, ...d.data()} as ShoppingItem))));
-      const unsubGiveaway = safeSnapshot(collection(db, 'giveaway_entries'), (snap) => setGiveawayEntries(snap.docs.map(d => ({id: d.id, ...d.data()} as GiveawayEntry))));
-      const unsubVisits = safeSnapshot(collection(db, 'daily_stats'), (snap) => setSiteVisits(snap.docs.map(d => ({ date: d.id, ...d.data()} as DailyStats))));
+      // FIX: Mapping order changed to ensure doc.id overwrites any 'id' field in data
+      const unsubDrivers = safeSnapshot(collection(db, 'drivers'), (snap) => setDrivers(snap.docs.map(d => ({...d.data(), id: d.id} as Driver))));
+      const unsubOrders = safeSnapshot(collection(db, 'orders'), (snap) => setOrders(snap.docs.map(d => ({...d.data(), id: d.id} as Order))));
+      const unsubVales = safeSnapshot(collection(db, 'vales'), (snap) => setVales(snap.docs.map(d => ({...d.data(), id: d.id} as Vale))));
+      const unsubExpenses = safeSnapshot(collection(db, 'expenses'), (snap) => setExpenses(snap.docs.map(d => ({...d.data(), id: d.id} as Expense))));
+      const unsubProducts = safeSnapshot(collection(db, 'products'), (snap) => setProducts(snap.docs.map(d => ({...d.data(), id: d.id} as Product))));
+      const unsubClients = safeSnapshot(collection(db, 'clients'), (snap) => setClients(snap.docs.map(d => ({...d.data(), id: d.id} as Client))));
+      const unsubSettlements = safeSnapshot(collection(db, 'settlements'), (snap) => setSettlements(snap.docs.map(d => ({...d.data(), id: d.id} as Settlement))));
+      const unsubSuppliers = safeSnapshot(collection(db, 'suppliers'), (snap) => setSuppliers(snap.docs.map(d => ({...d.data(), id: d.id} as Supplier))));
+      const unsubInventory = safeSnapshot(collection(db, 'inventory'), (snap) => setInventory(snap.docs.map(d => ({...d.data(), id: d.id} as InventoryItem))));
+      const unsubShopping = safeSnapshot(collection(db, 'shoppingList'), (snap) => setShoppingList(snap.docs.map(d => ({...d.data(), id: d.id} as ShoppingItem))));
+      const unsubGiveaway = safeSnapshot(collection(db, 'giveaway_entries'), (snap) => setGiveawayEntries(snap.docs.map(d => ({...d.data(), id: d.id} as GiveawayEntry))));
+      const unsubWinners = safeSnapshot(collection(db, 'giveaway_winners'), (snap) => setGiveawayWinners(snap.docs.map(d => ({...d.data(), id: d.id} as GiveawayWinner)))); // New listener
+      const unsubVisits = safeSnapshot(collection(db, 'daily_stats'), (snap) => setSiteVisits(snap.docs.map(d => ({...d.data(), date: d.id} as DailyStats))));
 
       return () => {
           unsubConfig(); unsubDrivers(); unsubOrders(); unsubVales(); unsubExpenses(); unsubProducts(); unsubClients();
-          unsubSettlements(); unsubSuppliers(); unsubInventory(); unsubShopping(); unsubGiveaway(); unsubVisits();
+          unsubSettlements(); unsubSuppliers(); unsubInventory(); unsubShopping(); unsubGiveaway(); unsubWinners(); unsubVisits();
       };
   }, [isAuth, permissionError]);
 
@@ -257,10 +265,31 @@ export default function App() {
   };
 
   // CRUD Wrappers
-  const updateDocWrapper = (col: string, id: string, data: any) => handleAction(() => updateDoc(doc(db, col, id), data));
+  const updateDocWrapper = (col: string, id: string, data: any) => {
+      if (!id) {
+          console.error(`Tentativa de atualizar documento sem ID na coleção ${col}`);
+          return Promise.resolve(false);
+      }
+      return handleAction(() => updateDoc(doc(db, col, id), data));
+  };
+
   const createDocWrapper = (col: string, data: any) => handleAction(() => addDoc(collection(db, col), { ...data, createdAt: serverTimestamp() }));
-  const deleteDocWrapper = (col: string, id: string) => handleAction(() => deleteDoc(doc(db, col, id)));
-  const setDocWrapper = (col: string, id: string, data: any) => handleAction(() => setDoc(doc(db, col, id), data, { merge: true }));
+  
+  const deleteDocWrapper = (col: string, id: string) => {
+      if (!id) {
+          console.error(`Tentativa de excluir documento sem ID na coleção ${col}`);
+          return Promise.resolve(false);
+      }
+      return handleAction(() => deleteDoc(doc(db, col, id)));
+  };
+
+  const setDocWrapper = (col: string, id: string, data: any) => {
+      if (!id) {
+          console.error(`Tentativa de definir documento sem ID na coleção ${col}`);
+          return Promise.resolve(false);
+      }
+      return handleAction(() => setDoc(doc(db, col, id), data, { merge: true }));
+  };
 
   const handleCSVImport = async (csvText: string) => {
       const lines = csvText.split('\n');
@@ -312,7 +341,8 @@ export default function App() {
                 inventory={inventory}
                 shoppingList={shoppingList}
                 giveawayEntries={giveawayEntries}
-                siteVisits={siteVisits} // Passing visits stats
+                giveawayWinners={giveawayWinners} // Passing history
+                siteVisits={siteVisits}
                 appConfig={appConfig}
                 isMobile={isMobile}
                 setModal={setModal}
@@ -353,6 +383,7 @@ export default function App() {
                 setAppConfig={(cfg: any) => setDocWrapper('config', 'main', cfg)}
                 onUpdateGiveawayEntry={(id: string, data: any) => updateDocWrapper('giveaway_entries', id, data)}
                 onDeleteGiveawayEntry={(id: string) => deleteDocWrapper('giveaway_entries', id)}
+                onRegisterWinner={(data: any) => createDocWrapper('giveaway_winners', { ...data, wonAt: serverTimestamp() })} // Persistent Save
                 modal={modal}
                 modalData={modalData}
             />
@@ -446,7 +477,8 @@ export default function App() {
       {modal === 'closeCycle' && <CloseCycleModal data={modalData} onClose={() => setModal(null)} onConfirm={(d: any) => { createDocWrapper('settlements', d); updateDocWrapper('drivers', d.driverId, { lastSettlementAt: serverTimestamp() }); setModal(null); setAlertInfo({isOpen: true, title: "Ciclo Fechado", message: "Pagamento registrado com sucesso."}); }} />}
       {modal === 'import' && <ImportModal onClose={() => setModal(null)} onImportCSV={handleCSVImport} />}
       {modal === 'client' && <EditClientModal client={modalData} orders={orders} onClose={() => setModal(null)} onSave={(data: any) => { updateDocWrapper('clients', data.id, data); setModal(null); }} />}
-      {modal === 'settings' && <SettingsModal config={appConfig} onClose={() => setModal(null)} onSave={(data: any) => setDocWrapper('config', 'main', data)} />}
+      {/* UPDATE: Passando 'products' para o SettingsModal para a seleção de destaques */}
+      {modal === 'settings' && <SettingsModal config={appConfig} products={products} onClose={() => setModal(null)} onSave={(data: any) => setDocWrapper('config', 'main', data)} />}
       {modal === 'editOrder' && <EditOrderModal order={modalData} onClose={() => setModal(null)} onSave={(id, data) => updateDocWrapper('orders', id, data)} />}
       
       {showAdminLogin && (

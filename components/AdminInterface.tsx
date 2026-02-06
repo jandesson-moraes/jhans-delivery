@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { 
     LayoutDashboard, ShoppingBag, Utensils, Users, 
     Bike, BarChart3, Settings, LogOut, Menu, X, 
-    ChefHat, ClipboardList, Box, Package, PlusCircle, MoreHorizontal, Grid
+    ChefHat, ClipboardList, Box, Package, PlusCircle, MoreHorizontal, Grid, Gift
 } from 'lucide-react';
 import { MonitoringView } from './MonitoringView';
 import { DailyOrdersView } from './DailyOrdersView';
@@ -14,6 +14,7 @@ import { InventoryManager } from './InventoryManager';
 import { AnalyticsView } from './AnalyticsView';
 import { ItemReportView } from './ItemReportView';
 import { NewOrderView } from './NewOrderView';
+import { GiveawayLiveView } from './GiveawayLiveView'; // Import New Component
 import { BrandLogo, SidebarBtn } from './Shared';
 import { Driver } from '../types';
 
@@ -84,6 +85,15 @@ export function AdminInterface(props: any) {
                             appConfig={props.appConfig}
                             onCreateOrder={props.onCreateOrder}
                             onDeleteGiveawayEntry={props.onDeleteGiveawayEntry} // Passing delete function
+                            onNavigateToLive={() => setView('giveaway_live')} // New prop
+                        />;
+            case 'giveaway_live':
+                return <GiveawayLiveView 
+                            entries={props.giveawayEntries}
+                            pastWinners={props.giveawayWinners} // Pass persistent history
+                            onSaveWinner={props.onRegisterWinner} // Pass save function
+                            appConfig={props.appConfig}
+                            onBack={() => setView('clients')}
                         />;
             case 'inventory':
                 return <InventoryManager 
@@ -115,6 +125,11 @@ export function AdminInterface(props: any) {
         }
     };
 
+    // If viewing Live Giveaway, hide sidebar completely for immersion
+    if (view === 'giveaway_live') {
+        return renderContent();
+    }
+
     return (
         <div className="flex h-screen bg-slate-950 text-white overflow-hidden font-sans">
             {/* Sidebar Mobile Overlay (Acts as "More" Menu) */}
@@ -123,7 +138,7 @@ export function AdminInterface(props: any) {
             )}
 
             {/* Sidebar - Hidden on Mobile unless "More" is clicked, Visible on Desktop */}
-            <aside className={`fixed md:relative z-[70] w-64 h-full bg-slate-900 border-r border-slate-800 flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+            <aside className={`fixed md:relative z-[70] w-64 md:w-[270px] h-full bg-slate-900 border-r border-slate-800 flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
                 <div className="p-6 border-b border-slate-800 flex justify-between items-center">
                     <BrandLogo config={props.appConfig} />
                     <button onClick={() => setSidebarOpen(false)} className="md:hidden text-slate-400"><X size={24}/></button>
