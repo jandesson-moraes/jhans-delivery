@@ -526,20 +526,20 @@ export default function ClientInterface({
                                                 </div>
 
                                                 {/* Content Overlay - MOVED TO BOTTOM (justify-end) */}
-                                                <div className="relative z-10 h-full flex flex-col justify-end pb-4 px-4 md:px-8 max-w-4xl mx-auto w-full">
+                                                <div className="relative z-10 h-full flex flex-col justify-end pb-8 px-4 md:px-8 max-w-4xl mx-auto w-full">
                                                     {/* Title - Reduced Size */}
-                                                    <h2 className="text-base md:text-2xl font-bold text-white leading-tight mb-0.5 drop-shadow-md line-clamp-1">
+                                                    <h2 className="text-base md:text-2xl font-bold text-white leading-tight mb-1 drop-shadow-md line-clamp-1">
                                                         {product.name}
                                                     </h2>
                                                     {product.description && (
-                                                        <p className="text-slate-400 text-[9px] md:text-[10px] line-clamp-2 max-w-md mb-2 leading-relaxed hidden sm:block">
+                                                        <p className="text-slate-400 text-[9px] md:text-[10px] line-clamp-2 max-w-md mb-3 leading-relaxed hidden sm:block">
                                                             {product.description}
                                                         </p>
                                                     )}
                                                     
                                                     {/* Price & Add Button Row (Justify Between) */}
-                                                    <div className="flex items-center justify-between mt-1">
-                                                        <span className="text-emerald-400 font-bold text-lg md:text-xl drop-shadow-md">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-emerald-400 font-bold text-base md:text-xl drop-shadow-md">
                                                             {formatCurrency(product.price)}
                                                         </span>
                                                         <button 
