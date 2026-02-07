@@ -14,7 +14,6 @@ import DriverInterface from './components/DriverInterface';
 import DriverSelection from './components/DriverSelection'; 
 import { GenericAlertModal, NewDriverModal, CloseCycleModal, ImportModal, EditClientModal, SettingsModal, AdminLoginModal, EditOrderModal } from './components/Modals';
 import { BrandLogo } from './components/Shared';
-import PixPaymentView from './components/PixPaymentView'; // NOVO COMPONENTE
 
 // OTIMIZAÇÃO: Memoizar componentes principais para evitar re-render da árvore inteira
 const MemoizedClientInterface = React.memo(ClientInterface);
@@ -80,20 +79,12 @@ const GlobalStyles = () => {
 
 export default function App() {
   // --- LOGIN E PERSISTÊNCIA ---
-  const [viewMode, setViewMode] = useState<UserType | 'pix'>(() => {
+  const [viewMode, setViewMode] = useState<UserType>(() => {
       const params = new URLSearchParams(window.location.search);
-      // DETECÇÃO DE MODO PIX VIA URL
-      if (params.get('mode') === 'pix' && params.get('oid')) return 'pix';
       if (params.get('mode') === 'client') return 'client';
       
       const saved = localStorage.getItem('jhans_viewMode');
       return (saved as UserType) || 'client';
-  });
-
-  // Novo State para Pix ID
-  const [pixOrderId, setPixOrderId] = useState<string | null>(() => {
-      const params = new URLSearchParams(window.location.search);
-      return params.get('oid');
   });
 
   const [loading, setLoading] = useState(true);
@@ -115,7 +106,7 @@ export default function App() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [giveawayEntries, setGiveawayEntries] = useState<GiveawayEntry[]>([]);
-  const [giveawayWinners, setGiveawayWinners] = useState<GiveawayWinner[]>([]); 
+  const [giveawayWinners, setGiveawayWinners] = useState<GiveawayWinner[]>([]); // New state
   const [siteVisits, setSiteVisits] = useState<DailyStats[]>([]);
   
   const [appConfig, setAppConfigState] = useState<AppConfig>(DEFAULT_CONFIG);
@@ -128,7 +119,8 @@ export default function App() {
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
-    setTimeout(() => setLoading(false), 2000); 
+    // Simula carregamento rápido
+    setTimeout(() => setLoading(false), 2000); // Aumentado levemente para exibir o splash
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
@@ -140,6 +132,7 @@ export default function App() {
           } else {
               signInAnonymously(auth).catch((error) => {
                   console.error("Erro ao autenticar anonimamente:", error);
+                  // Se falhar a autenticação, não marcamos erro de permissão imediatamente, mas o app ficará sem dados
               });
           }
       });
@@ -159,6 +152,7 @@ export default function App() {
           }
       };
 
+      // Wrap onSnapshot to catch synchronous errors too
       const safeSnapshot = (ref: any, callback: (snap: any) => void) => {
           try {
               return onSnapshot(ref, callback, handleError);
@@ -177,6 +171,7 @@ export default function App() {
                   return newData;
               });
           } else {
+              // Tenta criar apenas se tivermos permissão (evita loop de erro)
               setDoc(docSnap.ref, DEFAULT_CONFIG).catch(err => {
                   if (err.code === 'permission-denied') setPermissionError(true);
                   else console.error("Erro ao criar config:", err);
@@ -184,12 +179,7 @@ export default function App() {
           }
       });
 
-      // Se estiver no modo PIX, não precisamos ouvir TODAS as coleções, apenas Config e Auth para carregar rápido.
-      // O PixPaymentView carrega o pedido individualmente.
-      if (viewMode === 'pix') {
-          return () => { unsubConfig(); };
-      }
-
+      // FIX: Mapping order changed to ensure doc.id overwrites any 'id' field in data
       const unsubDrivers = safeSnapshot(collection(db, 'drivers'), (snap) => setDrivers(snap.docs.map(d => ({...d.data(), id: d.id} as Driver))));
       const unsubOrders = safeSnapshot(collection(db, 'orders'), (snap) => setOrders(snap.docs.map(d => ({...d.data(), id: d.id} as Order))));
       const unsubVales = safeSnapshot(collection(db, 'vales'), (snap) => setVales(snap.docs.map(d => ({...d.data(), id: d.id} as Vale))));
@@ -201,16 +191,17 @@ export default function App() {
       const unsubInventory = safeSnapshot(collection(db, 'inventory'), (snap) => setInventory(snap.docs.map(d => ({...d.data(), id: d.id} as InventoryItem))));
       const unsubShopping = safeSnapshot(collection(db, 'shoppingList'), (snap) => setShoppingList(snap.docs.map(d => ({...d.data(), id: d.id} as ShoppingItem))));
       const unsubGiveaway = safeSnapshot(collection(db, 'giveaway_entries'), (snap) => setGiveawayEntries(snap.docs.map(d => ({...d.data(), id: d.id} as GiveawayEntry))));
-      const unsubWinners = safeSnapshot(collection(db, 'giveaway_winners'), (snap) => setGiveawayWinners(snap.docs.map(d => ({...d.data(), id: d.id} as GiveawayWinner)))); 
+      const unsubWinners = safeSnapshot(collection(db, 'giveaway_winners'), (snap) => setGiveawayWinners(snap.docs.map(d => ({...d.data(), id: d.id} as GiveawayWinner)))); // New listener
       const unsubVisits = safeSnapshot(collection(db, 'daily_stats'), (snap) => setSiteVisits(snap.docs.map(d => ({...d.data(), date: d.id} as DailyStats))));
 
       return () => {
           unsubConfig(); unsubDrivers(); unsubOrders(); unsubVales(); unsubExpenses(); unsubProducts(); unsubClients();
           unsubSettlements(); unsubSuppliers(); unsubInventory(); unsubShopping(); unsubGiveaway(); unsubWinners(); unsubVisits();
       };
-  }, [isAuth, permissionError, viewMode]);
+  }, [isAuth, permissionError]);
 
-  // ... (Restante do código igual) ...
+  // --- ACTIONS ---
+
   const handleAction = async (action: () => Promise<any>) => {
     if (permissionError) {
         setAlertInfo({ isOpen: true, title: "Sem Permissão", message: "Correção necessária nas regras do Firebase.", type: 'error' });
@@ -231,20 +222,16 @@ export default function App() {
   };
 
   const handleLogout = () => {
+      // Apenas remove o modo de visualização ATUAL, mas mantém a chave de confiança se existir
       localStorage.removeItem('jhans_viewMode');
       localStorage.removeItem('jhans_driverId');
       setViewMode('client'); 
       setCurrentDriverId(null);
-      // Limpa URL para evitar loop do pix mode
-      if (window.history.pushState) {
-          const url = new URL(window.location.href);
-          url.search = '';
-          window.history.pushState({}, '', url);
-      }
   };
 
   const handleLoginRequest = (type: UserType) => {
       if (type === 'admin') {
+          // Verifica se já está logado na sessão ou se tem chave de confiança
           const isTrusted = localStorage.getItem('jhans_admin_trusted') === 'true';
           const isActive = localStorage.getItem('jhans_viewMode') === 'admin';
 
@@ -265,8 +252,13 @@ export default function App() {
   const processAdminLogin = (password: string, remember: boolean) => {
       if (password === '1234' || password === 'admin') {
           localStorage.setItem('jhans_viewMode', 'admin');
-          if (remember) localStorage.setItem('jhans_admin_trusted', 'true');
-          else localStorage.removeItem('jhans_admin_trusted');
+          
+          if (remember) {
+              localStorage.setItem('jhans_admin_trusted', 'true');
+          } else {
+              localStorage.removeItem('jhans_admin_trusted');
+          }
+          
           setViewMode('admin');
           return true;
       }
@@ -275,19 +267,28 @@ export default function App() {
 
   // CRUD Wrappers
   const updateDocWrapper = (col: string, id: string, data: any) => {
-      if (!id) return Promise.resolve(false);
+      if (!id) {
+          console.error(`Tentativa de atualizar documento sem ID na coleção ${col}`);
+          return Promise.resolve(false);
+      }
       return handleAction(() => updateDoc(doc(db, col, id), data));
   };
 
   const createDocWrapper = (col: string, data: any) => handleAction(() => addDoc(collection(db, col), { ...data, createdAt: serverTimestamp() }));
   
   const deleteDocWrapper = (col: string, id: string) => {
-      if (!id) return Promise.resolve(false);
+      if (!id) {
+          console.error(`Tentativa de excluir documento sem ID na coleção ${col}`);
+          return Promise.resolve(false);
+      }
       return handleAction(() => deleteDoc(doc(db, col, id)));
   };
 
   const setDocWrapper = (col: string, id: string, data: any) => {
-      if (!id) return Promise.resolve(false);
+      if (!id) {
+          console.error(`Tentativa de definir documento sem ID na coleção ${col}`);
+          return Promise.resolve(false);
+      }
       return handleAction(() => setDoc(doc(db, col, id), data, { merge: true }));
   };
 
@@ -295,14 +296,22 @@ export default function App() {
       const lines = csvText.split('\n');
       let count = 0;
       const batch = writeBatch(db);
+      
       lines.forEach((line) => {
           const [name, phone, address] = line.split(',');
           if (name && phone) {
+              const cleanPhone = normalizePhone(phone);
               const ref = doc(collection(db, 'clients'));
-              batch.set(ref, { name: name.trim(), phone: normalizePhone(phone), address: address ? address.trim() : '', createdAt: serverTimestamp() });
+              batch.set(ref, { 
+                  name: name.trim(), 
+                  phone: cleanPhone, 
+                  address: address ? address.trim() : '', 
+                  createdAt: serverTimestamp() 
+              });
               count++;
           }
       });
+      
       await handleAction(() => batch.commit());
       setAlertInfo({ isOpen: true, title: "Importação Concluída", message: `${count} registros processados.` });
       setModal(null);
@@ -312,41 +321,91 @@ export default function App() {
       return (
           <div className="fixed inset-0 z-[9999] bg-[#020617] flex flex-col items-center justify-center animate-in fade-in duration-700 overflow-hidden">
               <style>{`
-                @keyframes fire-progress { 0% { width: 0%; } 100% { width: 100%; } }
-                @keyframes ember-flicker { 0% { opacity: 1; transform: translateY(-50%) scale(1); box-shadow: 0 0 10px #f97316; } 100% { opacity: 0.8; transform: translateY(-50%) scale(1.2); box-shadow: 0 0 20px #ef4444; } }
-                @keyframes sparks-fly { 0% { transform: translateY(-50%) translate(0, 0) scale(1); opacity: 1; } 100% { transform: translateY(-50%) translate(-20px, -15px) scale(0); opacity: 0; } }
-                @keyframes text-shimmer { 0% { background-position: -200%; } 100% { background-position: 200%; } }
-                .fire-line { height: 100%; background: linear-gradient(90deg, transparent 0%, #f97316 40%, #ef4444 100%); box-shadow: 0 0 15px rgba(249, 115, 22, 0.3); border-radius: 9999px; animation: fire-progress 2.5s ease-in-out infinite; position: relative; }
-                .fire-line::after { content: ''; position: absolute; top: 50%; right: -2px; width: 6px; height: 6px; background: #fff; border-radius: 50%; transform: translateY(-50%); box-shadow: 0 0 15px #f97316, 0 0 30px #ef4444; animation: ember-flicker 0.1s infinite alternate; }
-                .fire-line::before { content: ''; position: absolute; top: 50%; right: 0; width: 2px; height: 2px; background: transparent; box-shadow: -4px -8px 0 #fbbf24, -8px 4px 0 #f97316, -2px -12px 0 #ef4444; border-radius: 50%; animation: sparks-fly 0.4s linear infinite; }
-                .flash-text { background: linear-gradient(to right, #ffffff 20%, #f97316 50%, #ffffff 80%); background-size: 200% auto; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: text-shimmer 2.5s linear infinite; }
+                @keyframes fire-progress {
+                    0% { width: 0%; }
+                    100% { width: 100%; }
+                }
+                @keyframes ember-flicker {
+                    0% { opacity: 1; transform: translateY(-50%) scale(1); box-shadow: 0 0 10px #f97316; }
+                    100% { opacity: 0.8; transform: translateY(-50%) scale(1.2); box-shadow: 0 0 20px #ef4444; }
+                }
+                @keyframes sparks-fly {
+                    0% { transform: translateY(-50%) translate(0, 0) scale(1); opacity: 1; }
+                    100% { transform: translateY(-50%) translate(-20px, -15px) scale(0); opacity: 0; }
+                }
+                @keyframes text-shimmer {
+                    0% { background-position: -200%; }
+                    100% { background-position: 200%; }
+                }
+                .fire-line {
+                    height: 100%;
+                    background: linear-gradient(90deg, transparent 0%, #f97316 40%, #ef4444 100%);
+                    box-shadow: 0 0 15px rgba(249, 115, 22, 0.3);
+                    border-radius: 9999px;
+                    animation: fire-progress 2.5s ease-in-out infinite;
+                    position: relative;
+                }
+                .fire-line::after {
+                    content: '';
+                    position: absolute;
+                    top: 50%;
+                    right: -2px;
+                    width: 6px;
+                    height: 6px;
+                    background: #fff;
+                    border-radius: 50%;
+                    transform: translateY(-50%);
+                    box-shadow: 0 0 15px #f97316, 0 0 30px #ef4444;
+                    animation: ember-flicker 0.1s infinite alternate;
+                }
+                .fire-line::before {
+                    content: '';
+                    position: absolute;
+                    top: 50%;
+                    right: 0;
+                    width: 2px;
+                    height: 2px;
+                    background: transparent;
+                    box-shadow: 
+                       -4px -8px 0 #fbbf24,
+                       -8px 4px 0 #f97316,
+                       -2px -12px 0 #ef4444;
+                    border-radius: 50%;
+                    animation: sparks-fly 0.4s linear infinite;
+                }
+                .flash-text {
+                    background: linear-gradient(to right, #ffffff 20%, #f97316 50%, #ffffff 80%);
+                    background-size: 200% auto;
+                    background-clip: text;
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    animation: text-shimmer 2.5s linear infinite;
+                }
               `}</style>
+
+              {/* Background Glow Efeito */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-orange-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-              <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-2 relative z-10 uppercase drop-shadow-lg flash-text">{appConfig.appName || 'Jhans Burgers'}</h2>
-              <div className="flex items-center gap-2 text-slate-400 text-sm font-medium relative z-10 mt-4"><Flame className="animate-pulse text-orange-500" size={24} fill="#f97316" fillOpacity={0.2}/><span>Preparando a chapa...</span></div>
-              <div className="w-64 h-1.5 bg-slate-900 rounded-full mt-6 overflow-visible relative z-10"><div className="fire-line w-full"></div></div>
+
+              {/* Nome do App com Efeito Flash */}
+              <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-2 relative z-10 uppercase drop-shadow-lg flash-text">
+                  {appConfig.appName || 'Jhans Burgers'}
+              </h2>
+              
+              {/* Texto de Status */}
+              <div className="flex items-center gap-2 text-slate-400 text-sm font-medium relative z-10 mt-4">
+                  <Flame className="animate-pulse text-orange-500" size={24} fill="#f97316" fillOpacity={0.2}/>
+                  <span>Preparando a chapa...</span>
+              </div>
+              
+              {/* Barra de Progresso com Efeito de Fogo */}
+              <div className="w-64 h-1.5 bg-slate-900 rounded-full mt-6 overflow-visible relative z-10">
+                  <div className="fire-line w-full"></div>
+              </div>
           </div>
       );
   }
 
   const renderContent = () => {
-    // --- NOVA ROTA: TELA DE PAGAMENTO PIX ---
-    if (viewMode === 'pix' && pixOrderId) {
-        return (
-            <PixPaymentView 
-                orderId={pixOrderId}
-                appConfig={appConfig}
-                onBack={() => {
-                    // Remove parametros da URL e volta para o cliente
-                    const url = new URL(window.location.href);
-                    url.search = '';
-                    window.history.pushState({}, '', url);
-                    setViewMode('client');
-                }}
-            />
-        );
-    }
-
     if (viewMode === 'admin') {
         return (
             <>
@@ -363,7 +422,7 @@ export default function App() {
                 inventory={inventory}
                 shoppingList={shoppingList}
                 giveawayEntries={giveawayEntries}
-                giveawayWinners={giveawayWinners} 
+                giveawayWinners={giveawayWinners} // Passing history
                 siteVisits={siteVisits}
                 appConfig={appConfig}
                 isMobile={isMobile}
@@ -405,7 +464,7 @@ export default function App() {
                 setAppConfig={(cfg: any) => setDocWrapper('config', 'main', cfg)}
                 onUpdateGiveawayEntry={(id: string, data: any) => updateDocWrapper('giveaway_entries', id, data)}
                 onDeleteGiveawayEntry={(id: string) => deleteDocWrapper('giveaway_entries', id)}
-                onRegisterWinner={(data: any) => createDocWrapper('giveaway_winners', { ...data, wonAt: serverTimestamp() })}
+                onRegisterWinner={(data: any) => createDocWrapper('giveaway_winners', { ...data, wonAt: serverTimestamp() })} // Persistent Save
                 modal={modal}
                 modalData={modalData}
             />
@@ -415,53 +474,120 @@ export default function App() {
   
     if (viewMode === 'driver') {
         if (currentDriverId === 'select' || !currentDriverId) {
-            return <><GlobalStyles /><DriverSelection drivers={drivers} onSelect={(id) => { setCurrentDriverId(id); localStorage.setItem('jhans_driverId', id); localStorage.setItem('jhans_viewMode', 'driver'); }} onBack={handleLogout} /></>;
+            return (
+                <>
+                    <GlobalStyles />
+                    <DriverSelection 
+                        drivers={drivers} 
+                        onSelect={(id) => { 
+                            setCurrentDriverId(id); 
+                            localStorage.setItem('jhans_driverId', id); 
+                            localStorage.setItem('jhans_viewMode', 'driver');
+                        }} 
+                        onBack={handleLogout} 
+                    />
+                </>
+            );
         }
+        
         const currentDriver = drivers.find(d => d.id === currentDriverId);
-        if (!currentDriver) { setCurrentDriverId('select'); return null; }
+        
+        if (!currentDriver) {
+             setCurrentDriverId('select');
+             return null;
+        }
+
         return (
-            <><GlobalStyles />
+            <>
+            <GlobalStyles />
             <MemoizedDriverInterface 
                 driver={currentDriver}
                 orders={orders}
                 vales={vales}
                 onToggleStatus={() => updateDocWrapper('drivers', currentDriver.id, { status: currentDriver.status === 'offline' ? 'available' : 'offline' })}
                 onAcceptOrder={(id: string) => { updateDocWrapper('orders', id, { driverId: currentDriver.id, status: 'delivering', assignedAt: serverTimestamp() }); updateDocWrapper('drivers', currentDriver.id, { status: 'delivering', currentOrderId: id }); }}
-                onCompleteOrder={(oid: string, did: string) => { updateDocWrapper('orders', oid, { status: 'completed', completedAt: serverTimestamp() }); updateDocWrapper('drivers', did, { status: 'available', currentOrderId: null, totalDeliveries: (currentDriver.totalDeliveries || 0) + 1 }); }}
+                onCompleteOrder={(oid: string, did: string) => {
+                    updateDocWrapper('orders', oid, { status: 'completed', completedAt: serverTimestamp() });
+                    updateDocWrapper('drivers', did, { status: 'available', currentOrderId: null, totalDeliveries: (currentDriver.totalDeliveries || 0) + 1 });
+                }}
                 onUpdateOrder={(id: string, data: any) => updateDocWrapper('orders', id, data)}
                 onDeleteOrder={(id: string) => deleteDocWrapper('orders', id)}
                 onLogout={handleLogout}
                 onUpdateDriver={(id: string, data: any) => updateDocWrapper('drivers', id, data)}
-            /></>
+            />
+            </>
         );
     }
   
+    // Client (Default)
     return (
-        <><GlobalStyles />
+        <>
+        <GlobalStyles />
         <MemoizedClientInterface 
             products={products}
             appConfig={appConfig}
             onCreateOrder={(data: any) => createDocWrapper('orders', data)}
-            onEnterGiveaway={async (data: any) => { const cleanPhone = normalizePhone(data.phone); const exists = giveawayEntries.some(e => normalizePhone(e.phone) === cleanPhone); if (exists) { setAlertInfo({ isOpen: true, title: "Erro", message: "Este número já está participando!", type: 'error' }); } else { await createDocWrapper('giveaway_entries', data); }}}
+            onEnterGiveaway={async (data: any) => {
+               const cleanPhone = normalizePhone(data.phone);
+               const exists = giveawayEntries.some(e => normalizePhone(e.phone) === cleanPhone);
+               if (exists) {
+                   setAlertInfo({ isOpen: true, title: "Erro", message: "Este número já está participando!", type: 'error' });
+               } else {
+                   await createDocWrapper('giveaway_entries', data);
+               }
+            }}
             allowSystemAccess={true}
             onSystemAccess={handleLoginRequest}
-            onRecordVisit={() => { if(permissionError) return; const today = new Date().toLocaleDateString('en-CA'); setDoc(doc(db, 'daily_stats', today), { visits: increment(1) }, { merge: true }).catch(err => { if (err.code === 'permission-denied') setPermissionError(true); }); }}
-        /></>
+            onRecordVisit={() => {
+                if(permissionError) return;
+                const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+                setDoc(doc(db, 'daily_stats', today), { visits: increment(1) }, { merge: true }).catch(err => {
+                    if (err.code === 'permission-denied') setPermissionError(true);
+                });
+            }}
+        />
+        </>
     );
   };
 
   return (
     <>
       {renderContent()}
+      
       {modal === 'driver' && <NewDriverModal initialData={modalData} onClose={() => setModal(null)} onSave={(data: any) => modalData ? updateDocWrapper('drivers', modalData.id, data) : createDocWrapper('drivers', data)} />}
       {modal === 'closeCycle' && <CloseCycleModal data={modalData} onClose={() => setModal(null)} onConfirm={(d: any) => { createDocWrapper('settlements', d); updateDocWrapper('drivers', d.driverId, { lastSettlementAt: serverTimestamp() }); setModal(null); setAlertInfo({isOpen: true, title: "Ciclo Fechado", message: "Pagamento registrado com sucesso."}); }} />}
       {modal === 'import' && <ImportModal onClose={() => setModal(null)} onImportCSV={handleCSVImport} />}
       {modal === 'client' && <EditClientModal client={modalData} orders={orders} onClose={() => setModal(null)} onSave={(data: any) => { updateDocWrapper('clients', data.id, data); setModal(null); }} />}
+      {/* UPDATE: Passando 'products' para o SettingsModal para a seleção de destaques */}
       {modal === 'settings' && <SettingsModal config={appConfig} products={products} onClose={() => setModal(null)} onSave={(data: any) => setDocWrapper('config', 'main', data)} />}
       {modal === 'editOrder' && <EditOrderModal order={modalData} onClose={() => setModal(null)} onSave={(id, data) => updateDocWrapper('orders', id, data)} />}
-      {showAdminLogin && <AdminLoginModal onClose={() => setShowAdminLogin(false)} onLogin={processAdminLogin} />}
-      {alertInfo && <GenericAlertModal isOpen={alertInfo.isOpen} title={alertInfo.title} message={alertInfo.message} type={alertInfo.type || 'info'} onClose={() => setAlertInfo(null)} />}
-      {permissionError && <GenericAlertModal isOpen={true} title="Acesso Negado (Firebase)" message="O sistema não tem permissão para acessar o banco de dados." type="error" onClose={() => setPermissionError(false)} />}
+      
+      {showAdminLogin && (
+        <AdminLoginModal 
+            onClose={() => setShowAdminLogin(false)}
+            onLogin={processAdminLogin}
+        />
+      )}
+
+      {alertInfo && (
+        <GenericAlertModal 
+            isOpen={alertInfo.isOpen}
+            title={alertInfo.title}
+            message={alertInfo.message}
+            type={alertInfo.type || 'info'}
+            onClose={() => setAlertInfo(null)}
+        />
+      )}
+
+      {permissionError && (
+        <GenericAlertModal 
+            isOpen={true}
+            title="Acesso Negado (Firebase)"
+            message="O sistema não tem permissão para acessar o banco de dados. Verifique as 'Security Rules' no Console do Firebase e certifique-se de que estão no modo de teste ou permitem acesso."
+            type="error"
+            onClose={() => setPermissionError(false)}
+        />
+      )}
     </>
   );
 }

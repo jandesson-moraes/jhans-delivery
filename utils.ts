@@ -1,4 +1,5 @@
 
+
 import { AppConfig } from "./types";
 
 export const formatTime = (timestamp: any) => {
@@ -244,12 +245,6 @@ export const formatOrderId = (id: string) => {
     return '#' + cleanId;
 };
 
-// --- HELPER LINK PIX ---
-export const getPixPaymentLink = (orderId: string) => {
-    const baseUrl = window.location.origin + window.location.pathname;
-    return `${baseUrl}?mode=pix&oid=${orderId}`;
-};
-
 // EMOJIS SEGUROS (Literais)
 export const EMOJI = {
     GIFT: '🎁',
@@ -285,12 +280,12 @@ export const generateReceiptText = (order: any, appName: string, pixData?: any) 
     text += `\n\n*Status:* Fique tranquilo! Seu pedido será preparado com muito carinho. ${EMOJI.HEART}${EMOJI.BURGER}`;
 
     if (pixData && order.paymentMethod && order.paymentMethod.toUpperCase().includes('PIX') && pixData.pixKey) {
-         const link = getPixPaymentLink(order.id);
+         const payload = generatePixPayload(pixData.pixKey, pixData.pixName, pixData.pixCity, order.value, order.id);
          
          text += `\n\n*--------------------------------*\n`;
-         text += `*PAGAMENTO PIX RÁPIDO:*\n`;
-         text += `Clique no link abaixo para copiar o código:\n`;
-         text += `${link}\n`; 
+         text += `*PAGAMENTO PIX (COPIA E COLA):*\n`;
+         text += `Copie o código abaixo:\n\n`;
+         text += `\`\`\`${payload}\`\`\`\n\n`; 
          text += `--------------------------------\n\n`;
     }
     
@@ -416,15 +411,8 @@ export const getOrderReceivedText = (order: any, appName: string, estimatedTime?
         .split('\n')
         .filter((line: string) => line.trim() !== '' && !line.includes('---'))
         .map((line: string) => {
-            const cleanLine = line.trim();
-            if (cleanLine.toLowerCase().startsWith('obs:')) return `   _(${cleanLine})_`; 
-            
-            // Tenta detectar padrão "1x Item" para deixar "Item" em negrito
-            const match = cleanLine.match(/^(\d+)[xX\s]+(.+)/);
-            if (match) {
-                return `▪️ ${match[1]}x *${match[2].trim()}*`;
-            }
-            return `▪️ ${cleanLine}`;
+            if (line.toLowerCase().startsWith('obs:')) return `   _(${line})_`; 
+            return `▪️ ${line.trim()}`;
         })
         .join('\n');
 
@@ -434,15 +422,7 @@ export const getOrderReceivedText = (order: any, appName: string, estimatedTime?
         message += `*⏳ Tempo Estimado:* ${estimatedTime}\n\n`;
     }
 
-    message += `Seu pedido já foi enviado para a cozinha. Agora é só aguardar!\n`;
-    message += `Assim que sair para entrega, eu te aviso por aqui. Obrigado pela preferência! ${EMOJI.BURGER}${EMOJI.HEART}\n\n`;
-
-    if (isPix) {
-        const link = getPixPaymentLink(order.id);
-        message += `*⚠️ Pagamento via PIX:*\n`;
-        message += `Para facilitar, clique no botão abaixo para copiar o código:\n`;
-        message += `${link}`; // O link gera um preview clicável no WhatsApp
-    }
+    message += `*Tudo certinho!* ${EMOJI.STARS}\nJá enviamos para a cozinha. Agora é só aguardar!\n${isPix ? `\n${EMOJI.WARNING} *Se for PIX, envie o comprovante para agilizar!*\n` : ''}\nAssim que sair para entrega te avisamos aqui. Obrigado pela preferência!`;
 
     return message;
 };
