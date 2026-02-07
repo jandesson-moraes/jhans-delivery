@@ -1,9 +1,9 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { Order, Driver, AppConfig } from '../types';
-import { formatTime, formatCurrency, sendOrderConfirmation, formatOrderId, formatDate } from '../utils';
+import { formatTime, formatCurrency, sendOrderConfirmation, formatOrderId, formatDate, copyToClipboard, getPixCodeOnly, getOrderReceivedText } from '../utils';
 import { StatBox, Footer } from './Shared';
-import { ClipboardList, DollarSign, Trash2, Edit, FileText, MessageCircle, MapPin, ChevronLeft, ChevronRight, Calendar as CalendarIcon, X, BarChart2, TrendingUp, CalendarDays, CalendarRange } from 'lucide-react';
+import { ClipboardList, DollarSign, Trash2, Edit, FileText, MessageCircle, MapPin, ChevronLeft, ChevronRight, Calendar as CalendarIcon, X, BarChart2, TrendingUp, CalendarDays, CalendarRange, CheckCircle2, QrCode, ChevronDown, Clock, MessageSquare } from 'lucide-react';
 import { EditOrderModal, ReceiptModal } from './Modals';
 
 interface DailyProps {
@@ -221,13 +221,13 @@ const CalendarModal = ({ isOpen, onClose, selectedDate, onSelectDate }: any) => 
 export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUpdateOrder, appConfig }: DailyProps) {
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [modalType, setModalType] = useState<'edit'|'receipt'|null>(null);
-    
-    // Estado para controlar a data selecionada (Padrão: Hoje)
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-    
-    // Estado do período do gráfico (Dia, Semana, Mês)
     const [chartPeriod, setChartPeriod] = useState<'day'|'week'|'month'>('day');
+    
+    // Estados locais para feedback de cópia
+    const [copiedIds, setCopiedIds] = useState<Set<string>>(new Set());
+    const [copiedPixIds, setCopiedPixIds] = useState<Set<string>>(new Set());
 
     // Manipuladores de Data
     const handlePrevDay = () => {
@@ -250,39 +250,45 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
     }, [selectedDate]);
 
     const dailyData = useMemo(() => {
-        // Filtra a lista SOMENTE para o dia selecionado (tabela)
         const targetDateStr = selectedDate.toLocaleDateString('pt-BR');
-
         const filteredOrders = orders.filter((o: Order) => {
             if (!o.createdAt) return false;
             const orderDate = new Date(o.createdAt.seconds * 1000);
             return orderDate.toLocaleDateString('pt-BR') === targetDateStr;
-        });
-
-        // Ordenar: Mais recentes primeiro
-        filteredOrders.sort((a: Order, b: Order) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        }).sort((a: Order, b: Order) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         
-        // Calcular totais considerando apenas pedidos não cancelados para faturamento real
         const validOrders = filteredOrders.filter(o => o.status !== 'cancelled');
         const totalValue = validOrders.reduce((acc, o) => acc + (o.value || 0), 0);
 
-        return { 
-            filteredOrders, 
-            totalOrders: validOrders.length, 
-            totalValue 
-        };
+        return { filteredOrders, totalOrders: validOrders.length, totalValue };
     }, [orders, selectedDate]);
 
+    const handleCopyMsg = (e: React.MouseEvent, order: Order) => {
+        e.stopPropagation();
+        const text = getOrderReceivedText(order, appConfig.appName, appConfig.estimatedTime);
+        copyToClipboard(text);
+        setCopiedIds(prev => new Set(prev).add(order.id));
+        setTimeout(() => setCopiedIds(prev => { const n = new Set(prev); n.delete(order.id); return n; }), 2000);
+    };
+
+    const handleCopyPix = (e: React.MouseEvent, order: Order) => {
+        e.stopPropagation();
+        if(appConfig.pixKey) {
+            const code = getPixCodeOnly(appConfig.pixKey, appConfig.pixName || '', appConfig.pixCity || '', order.value, order.id);
+            copyToClipboard(code);
+            setCopiedPixIds(prev => new Set(prev).add(order.id));
+            setTimeout(() => setCopiedPixIds(prev => { const n = new Set(prev); n.delete(order.id); return n; }), 2000);
+        }
+    };
+
     return (
-        /* GARANTE QUE O PARENT SEJA FLEX E TENHA SCROLL, COM PADDING EXTRA NO FINAL */
         <div className="flex-1 bg-slate-950 px-[5%] py-6 md:py-8 overflow-y-auto w-full pb-40 md:pb-10 custom-scrollbar flex flex-col h-full">
             <div className="flex-1 max-w-7xl mx-auto w-full">
-                {/* CABEÇALHO COM NAVEGAÇÃO DE DATA */}
+                {/* CABEÇALHO */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <div>
                         <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
-                            <ClipboardList className="text-amber-500"/> 
-                            Histórico e Análise
+                            <ClipboardList className="text-amber-500"/> Histórico e Análise
                         </h2>
                         <p className="text-xs md:text-sm text-slate-500">
                             {isSelectedDateToday ? 'Movimentação de Hoje' : `Visualizando: ${selectedDate.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}`}
@@ -290,43 +296,22 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
                     </div>
 
                     <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded-xl border border-slate-800 shadow-lg w-full md:w-auto">
-                        <button onClick={handlePrevDay} className="p-2 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors">
-                            <ChevronLeft size={20}/>
-                        </button>
-                        
-                        <button 
-                            onClick={() => setIsCalendarOpen(true)}
-                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-slate-950 border border-slate-800 rounded-lg cursor-pointer hover:border-amber-500/50 transition-colors group"
-                        >
+                        <button onClick={handlePrevDay} className="p-2 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors"><ChevronLeft size={20}/></button>
+                        <button onClick={() => setIsCalendarOpen(true)} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-slate-950 border border-slate-800 rounded-lg cursor-pointer hover:border-amber-500/50 transition-colors group">
                             <CalendarIcon size={16} className="text-amber-500 group-hover:scale-110 transition-transform"/>
-                            <span className="text-sm font-bold text-white whitespace-nowrap">
-                                {selectedDate.toLocaleDateString('pt-BR')}
-                            </span>
+                            <span className="text-sm font-bold text-white whitespace-nowrap">{selectedDate.toLocaleDateString('pt-BR')}</span>
                         </button>
-
-                        <button onClick={handleNextDay} disabled={isSelectedDateToday} className={`p-2 rounded-lg transition-colors ${isSelectedDateToday ? 'text-slate-700 cursor-not-allowed' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}`}>
-                            <ChevronRight size={20}/>
-                        </button>
+                        <button onClick={handleNextDay} disabled={isSelectedDateToday} className={`p-2 rounded-lg transition-colors ${isSelectedDateToday ? 'text-slate-700 cursor-not-allowed' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}`}><ChevronRight size={20}/></button>
                     </div>
                 </div>
 
-                {/* STATS BOXES */}
+                {/* STATS */}
                 <div className="grid grid-cols-2 gap-3 mb-6 md:mb-8">
-                    <StatBox 
-                        label="Pedidos no Dia" 
-                        value={dailyData.totalOrders} 
-                        icon={<ClipboardList/>} 
-                        color="bg-blue-900/20 text-blue-400 border-blue-900/50"
-                    />
-                    <StatBox 
-                        label="Faturamento do Dia" 
-                        value={formatCurrency(dailyData.totalValue)} 
-                        icon={<DollarSign/>} 
-                        color="bg-emerald-900/20 text-emerald-400 border-emerald-900/50"
-                    />
+                    <StatBox label="Pedidos no Dia" value={dailyData.totalOrders} icon={<ClipboardList/>} color="bg-blue-900/20 text-blue-400 border-blue-900/50"/>
+                    <StatBox label="Faturamento do Dia" value={formatCurrency(dailyData.totalValue)} icon={<DollarSign/>} color="bg-emerald-900/20 text-emerald-400 border-emerald-900/50"/>
                 </div>
 
-                {/* LISTA DE PEDIDOS (TABLE) */}
+                {/* TABELA DE PEDIDOS */}
                 <div className="hidden md:block bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl min-h-[300px] mb-8">
                     <div className="p-4 border-b border-slate-800 bg-slate-950/50">
                         <h3 className="font-bold text-white flex items-center gap-2"><FileText size={18} className="text-slate-400"/> Lista de Pedidos ({selectedDate.toLocaleDateString('pt-BR')})</h3>
@@ -338,60 +323,71 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
                                     <th className="p-4 w-24">Hora</th>
                                     <th className="p-4 w-28">ID</th>
                                     <th className="p-4 w-32">Status</th>
-                                    <th className="p-4 w-48">Cliente</th>
-                                    <th className="p-4">Endereço</th>
+                                    <th className="p-4 w-40">Cliente</th>
+                                    <th className="p-4">Pagamento/Ações</th>
                                     <th className="p-4 w-32 text-right">Valor</th>
-                                    <th className="p-4 w-40 text-center">Ações</th>
+                                    <th className="p-4 w-32 text-center">Editar</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
                                 {dailyData.filteredOrders.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={7} className="p-12 text-center text-slate-500">
-                                            <div className="flex flex-col items-center gap-2">
-                                                <CalendarIcon size={32} className="opacity-20"/>
-                                                <p>Nenhum pedido registrado nesta data.</p>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                    <tr><td colSpan={7} className="p-12 text-center text-slate-500">Nenhum pedido registrado.</td></tr>
                                 ) : (
-                                    dailyData.filteredOrders.map((o: Order) => (
-                                        <tr key={o.id} className="hover:bg-slate-800/50 transition-colors cursor-pointer group" onClick={() => { setSelectedOrder(o); setModalType('edit'); }}>
-                                            <td className="p-4 font-bold text-white truncate">{formatTime(o.createdAt)}</td>
-                                            <td className="p-4 font-mono text-xs truncate">{formatOrderId(o.id)}</td>
-                                            <td className="p-4">
-                                                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase whitespace-nowrap ${o.status === 'completed' ? 'bg-emerald-900/30 text-emerald-400' : o.status === 'pending' ? 'bg-red-900/30 text-red-400' : o.status === 'cancelled' ? 'bg-slate-800 text-slate-500 line-through' : o.status === 'preparing' ? 'bg-blue-900/30 text-blue-400' : 'bg-amber-900/30 text-amber-400'}`}>
-                                                    {o.status === 'completed' ? 'Entregue' : o.status === 'pending' ? 'Pendente' : o.status === 'cancelled' ? 'Cancelado' : o.status === 'preparing' ? 'Cozinha' : 'Em Rota'}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 font-medium text-slate-300 truncate">{o.customer}</td>
-                                            <td className="p-4 hidden md:table-cell truncate">{o.address}</td>
-                                            <td className="p-4 text-right text-emerald-400 font-bold truncate">{formatCurrency(o.value || 0)}</td>
-                                            <td className="p-4 text-center">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <button onClick={(e) => { e.stopPropagation(); sendOrderConfirmation(o, appConfig.appName, appConfig.estimatedTime); }} className="p-2 text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-md" title="Confirmar Pedido (WhatsApp)"><MessageCircle size={16}/></button>
-                                                    <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); setModalType('receipt'); }} className="p-2 text-slate-500 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="Ver Comprovante"><FileText size={16}/></button>
-                                                    <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); setModalType('edit'); }} className="p-2 text-slate-500 hover:text-amber-500 hover:bg-slate-700 rounded-lg transition-colors" title="Editar"><Edit size={16}/></button>
-                                                    <button onClick={(e) => { e.stopPropagation(); onDeleteOrder(o.id); }} className="p-2 text-slate-500 hover:text-red-500 hover:bg-slate-700 rounded-lg transition-colors" title="Excluir"><Trash2 size={16}/></button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
+                                    dailyData.filteredOrders.map((o: Order) => {
+                                        const isPix = o.paymentMethod?.toLowerCase().includes('pix');
+                                        const copied = copiedIds.has(o.id);
+                                        const copiedPix = copiedPixIds.has(o.id);
+
+                                        return (
+                                            <tr key={o.id} className="hover:bg-slate-800/50 transition-colors cursor-pointer group" onClick={() => { setSelectedOrder(o); setModalType('edit'); }}>
+                                                <td className="p-4 font-bold text-white truncate">{formatTime(o.createdAt)}</td>
+                                                <td className="p-4 font-mono text-xs truncate">{formatOrderId(o.id)}</td>
+                                                <td className="p-4">
+                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase whitespace-nowrap ${o.status === 'completed' ? 'bg-emerald-900/30 text-emerald-400' : o.status === 'pending' ? 'bg-red-900/30 text-red-400' : o.status === 'cancelled' ? 'bg-slate-800 text-slate-500 line-through' : 'bg-amber-900/30 text-amber-400'}`}>
+                                                        {o.status === 'completed' ? 'Entregue' : o.status === 'pending' ? 'Pendente' : o.status === 'cancelled' ? 'Cancelado' : 'Em Andamento'}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 font-medium text-slate-300 truncate">{o.customer}</td>
+                                                <td className="p-4">
+                                                    <div className="flex gap-2 items-center">
+                                                        <span className="text-[10px] font-bold uppercase bg-slate-800 px-2 py-1 rounded text-slate-400 min-w-[60px] text-center">{o.paymentMethod?.split(' ')[0]}</span>
+                                                        <div className="flex gap-1">
+                                                            <button onClick={(e) => handleCopyMsg(e, o)} className={`p-1.5 rounded transition-all ${copied ? 'bg-emerald-500 text-white' : 'bg-emerald-900/30 text-emerald-400 hover:bg-emerald-600 hover:text-white'}`} title="Copiar Mensagem">
+                                                                {copied ? <CheckCircle2 size={14}/> : <MessageSquare size={14}/>}
+                                                            </button>
+                                                            {isPix && (
+                                                                <button onClick={(e) => handleCopyPix(e, o)} className={`p-1.5 rounded transition-all ${copiedPix ? 'bg-purple-500 text-white' : 'bg-purple-900/30 text-purple-400 hover:bg-purple-600 hover:text-white'}`} title="Copiar Código PIX">
+                                                                    {copiedPix ? <CheckCircle2 size={14}/> : <QrCode size={14}/>}
+                                                                </button>
+                                                            )}
+                                                            <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); setModalType('receipt'); }} className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded hover:bg-slate-700" title="Ver Comprovante"><FileText size={14}/></button>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 text-right text-emerald-400 font-bold truncate">{formatCurrency(o.value || 0)}</td>
+                                                <td className="p-4 text-center">
+                                                    <div className="flex justify-center gap-2">
+                                                        <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); setModalType('edit'); }} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white"><Edit size={14}/></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); if(window.confirm('Excluir?')) onDeleteOrder(o.id); }} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-red-500"><Trash2 size={14}/></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>
                     </div>
                 </div>
 
-                {/* VIEW MOBILE (CARDS) */}
+                {/* CARDS MOBILE */}
                 <div className="md:hidden space-y-3 mb-8">
-                    {dailyData.filteredOrders.length === 0 ? (
-                        <div className="text-center text-slate-500 py-10 bg-slate-900 rounded-xl border border-slate-800">
-                            Nenhum pedido nesta data.
-                        </div>
-                    ) : (
-                        dailyData.filteredOrders.map((o: Order) => (
-                            <div key={o.id} className={`bg-slate-900 rounded-xl border p-4 shadow-md relative overflow-hidden ${o.status === 'cancelled' ? 'border-slate-800 opacity-60' : 'border-slate-800'}`} onClick={() => { setSelectedOrder(o); setModalType('edit'); }}>
+                    {dailyData.filteredOrders.map((o: Order) => {
+                        const isPix = o.paymentMethod?.toLowerCase().includes('pix');
+                        const copied = copiedIds.has(o.id);
+                        const copiedPix = copiedPixIds.has(o.id);
+                        return (
+                            <div key={o.id} className={`bg-slate-900 rounded-xl border p-4 shadow-md ${o.status === 'cancelled' ? 'border-slate-800 opacity-60' : 'border-slate-800'}`} onClick={() => { setSelectedOrder(o); setModalType('edit'); }}>
                                 <div className="flex justify-between items-start mb-2">
                                     <div className="min-w-0 flex-1 mr-2">
                                         <span className={`font-bold text-base truncate block ${o.status === 'cancelled' ? 'text-slate-400 line-through' : 'text-white'}`}>{o.customer}</span>
@@ -402,47 +398,25 @@ export function DailyOrdersView({ orders, drivers, onDeleteOrder, setModal, onUp
                                         <span className="text-[10px] text-slate-500">{formatTime(o.createdAt)}</span>
                                     </div>
                                 </div>
-                                
                                 <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-800">
-                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${o.status === 'completed' ? 'bg-emerald-900/30 text-emerald-400' : o.status === 'pending' ? 'bg-red-900/30 text-red-400' : o.status === 'cancelled' ? 'bg-slate-800 text-slate-500' : o.status === 'preparing' ? 'bg-blue-900/30 text-blue-400' : 'bg-amber-900/30 text-amber-400'}`}>
-                                        {o.status === 'completed' ? 'Entregue' : o.status === 'pending' ? 'Pendente' : o.status === 'cancelled' ? 'Cancelado' : o.status === 'preparing' ? 'Cozinha' : 'Em Rota'}
-                                    </span>
+                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${o.status === 'completed' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-slate-800 text-slate-500'}`}>{o.status}</span>
                                     <div className="flex gap-2">
-                                        <button onClick={(e) => { e.stopPropagation(); sendOrderConfirmation(o, appConfig.appName, appConfig.estimatedTime); }} className="bg-emerald-600 text-white p-2 rounded-lg shadow"><MessageCircle size={16}/></button>
-                                        <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); setModalType('receipt'); }} className="bg-slate-800 text-slate-300 p-2 rounded-lg border border-slate-700"><FileText size={16}/></button>
+                                        <button onClick={(e) => handleCopyMsg(e, o)} className={`p-2 rounded-lg ${copied ? 'bg-emerald-500 text-white' : 'bg-emerald-900/30 text-emerald-400'}`}>{copied ? <CheckCircle2 size={16}/> : <MessageSquare size={16}/>}</button>
+                                        {isPix && <button onClick={(e) => handleCopyPix(e, o)} className={`p-2 rounded-lg ${copiedPix ? 'bg-purple-500 text-white' : 'bg-purple-900/30 text-purple-400'}`}>{copiedPix ? <CheckCircle2 size={16}/> : <QrCode size={16}/>}</button>}
                                         <button onClick={(e) => { e.stopPropagation(); onDeleteOrder(o.id); }} className="bg-slate-800 text-red-400 p-2 rounded-lg border border-slate-700"><Trash2 size={16}/></button>
                                     </div>
                                 </div>
                             </div>
-                        ))
-                    )}
+                        )
+                    })}
                 </div>
 
-                {/* GRAPHIC CHART */}
-                <SalesChart 
-                    allOrders={orders} 
-                    selectedDate={selectedDate} 
-                    period={chartPeriod}
-                    setPeriod={setChartPeriod}
-                />
+                <SalesChart allOrders={orders} selectedDate={selectedDate} period={chartPeriod} setPeriod={setChartPeriod} />
             </div>
 
-            {/* MODAIS */}
-            <CalendarModal 
-                isOpen={isCalendarOpen} 
-                onClose={() => setIsCalendarOpen(false)} 
-                selectedDate={selectedDate} 
-                onSelectDate={setSelectedDate} 
-            />
-
-            {modalType === 'edit' && selectedOrder && (
-                <EditOrderModal order={selectedOrder} onClose={() => { setModalType(null); setSelectedOrder(null); }} onSave={onUpdateOrder} />
-            )}
-
-            {modalType === 'receipt' && selectedOrder && (
-                <ReceiptModal order={selectedOrder} onClose={() => { setModalType(null); setSelectedOrder(null); }} appConfig={appConfig} />
-            )}
-            
+            <CalendarModal isOpen={isCalendarOpen} onClose={() => setIsCalendarOpen(false)} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+            {modalType === 'edit' && selectedOrder && <EditOrderModal order={selectedOrder} onClose={() => { setModalType(null); setSelectedOrder(null); }} onSave={(id: string, data: any) => onUpdateOrder(id, data)} />}
+            {modalType === 'receipt' && selectedOrder && <ReceiptModal order={selectedOrder} onClose={() => { setModalType(null); setSelectedOrder(null); }} appConfig={appConfig} />}
             <Footer />
         </div>
     );

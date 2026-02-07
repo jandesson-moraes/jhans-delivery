@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Product, AppConfig, Client } from '../types';
-import { formatCurrency, formatPhoneNumberDisplay, normalizePhone, generatePixPayload, copyToClipboard } from '../utils';
+import { formatCurrency, formatPhoneNumberDisplay, normalizePhone, generatePixPayload, copyToClipboard, normalizeForSearch } from '../utils';
 import { Search, Plus, Minus, Trash2, User, MapPin, Phone, Bike, Store, CheckCircle2, Clipboard, X, ShoppingBag, Utensils, ArrowRight, DollarSign, CreditCard, Banknote, QrCode, Copy, Check, Image as ImageIcon } from 'lucide-react';
 import { PixIcon } from './Shared';
 
@@ -64,8 +64,9 @@ export function NewOrderView({ products, appConfig, onCreateOrder, clients = [] 
         setClientName(val);
 
         if (val.length > 1) {
+            const searchNormalized = normalizeForSearch(val);
             const matches = clients.filter(c => 
-                c.name.toLowerCase().includes(val.toLowerCase())
+                normalizeForSearch(c.name).includes(searchNormalized)
             );
             setNameSuggestions(matches.slice(0, 5)); // Limita a 5 sugestões
             setShowNameSuggestions(true);
@@ -421,7 +422,7 @@ export function NewOrderView({ products, appConfig, onCreateOrder, clients = [] 
                         </div>
                         
                         <input 
-                            className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-amber-500 placeholder:text-slate-600" 
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-amber-500 placeholder:text-slate-600" 
                             placeholder="Link do Google Maps (Opcional)"
                             value={mapsLink}
                             onChange={e => setMapsLink(e.target.value)}

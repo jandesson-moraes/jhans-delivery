@@ -189,7 +189,7 @@ export function GiveawayManagerModal({ entries, onClose, appConfig, onUpdateEntr
                          <h4 className="font-bold text-white text-sm flex items-center gap-2"><Users size={16}/> Lista ({entries.length})</h4>
                          <div className="relative">
                              <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500"/>
-                             <input className="bg-slate-950 border border-slate-700 rounded-lg pl-7 pr-2 py-1.5 text-xs text-white outline-none focus:border-purple-500 w-32" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} />
+                             <input className="bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-2 py-1.5 text-xs text-white outline-none focus:border-purple-500 w-32" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} />
                          </div>
                      </div>
                      <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-950 rounded-xl border border-slate-800 p-2 space-y-1">
@@ -612,7 +612,6 @@ export function ProductFormModal({ isOpen, onClose, product, onSave, existingCat
             const file = e.target.files[0];
             setImageFile(file);
             setPreview(URL.createObjectURL(file));
-            // Compress and set to form immediately to be ready for save
             try {
                 const compressed = await compressImage(file);
                 setForm(prev => ({ ...prev, imageUrl: compressed }));
@@ -641,7 +640,6 @@ export function ProductFormModal({ isOpen, onClose, product, onSave, existingCat
         setForm(prev => ({ ...prev, ingredients: newIngredients }));
     };
 
-    // Auto-calculate cost price based on ingredients
     useEffect(() => {
         if (inventory && form.ingredients) {
             const calculatedCost = form.ingredients.reduce((acc: number, ing: any) => {
@@ -721,7 +719,7 @@ export function ProductFormModal({ isOpen, onClose, product, onSave, existingCat
                                         <option value="">Selecione Insumo...</option>
                                         {inventory?.map((i: any) => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
                                     </select>
-                                    <input type="number" placeholder="Qtd" className="w-20 bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white" value={ing.qty} onChange={e => updateIngredient(idx, 'qty', parseFloat(e.target.value))} />
+                                    <input type="number" placeholder="Qtd" className="w-20 bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" value={ing.qty} onChange={e => updateIngredient(idx, 'qty', parseFloat(e.target.value))} />
                                     <button onClick={() => removeIngredient(idx)} className="text-red-500 hover:text-red-400"><Trash2 size={16}/></button>
                                 </div>
                             ))}
@@ -731,11 +729,11 @@ export function ProductFormModal({ isOpen, onClose, product, onSave, existingCat
                         <div className="grid grid-cols-2 gap-4 border-t border-slate-800 pt-3">
                             <div>
                                 <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Custo Insumos (Auto)</label>
-                                <input disabled className="w-full bg-slate-900 border border-slate-800 rounded p-2 text-slate-400 text-xs font-mono" value={formatCurrency(form.costPrice || 0)} />
+                                <input disabled className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-400 text-xs font-mono" value={formatCurrency(form.costPrice || 0)} />
                             </div>
                             <div>
                                 <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Custo Operacional Extra</label>
-                                <input type="number" step="0.01" className="w-full bg-slate-900 border border-slate-800 rounded p-2 text-white text-xs" value={form.operationalCost} onChange={e => setForm({...form, operationalCost: parseFloat(e.target.value)})} placeholder="Embalagem, Gás..." />
+                                <input type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white text-xs" value={form.operationalCost} onChange={e => setForm({...form, operationalCost: parseFloat(e.target.value)})} placeholder="Embalagem, Gás..." />
                             </div>
                         </div>
                     </div>
@@ -881,6 +879,10 @@ export function EditClientModal({ client, onClose, onSave, orders }: any) {
                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: formatPhoneNumberDisplay(e.target.value)})} /></div>
                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço Principal</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
+                    
+                    {/* CAMPO LOCALIZAÇÃO (CLIENTE) */}
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Link do Maps / Localização</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 text-xs placeholder:text-slate-600" value={form.mapsLink || ''} onChange={e => setForm({...form, mapsLink: e.target.value})} placeholder="https://maps.google..." /></div>
+
                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Observações (Interno)</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-20 resize-none" value={form.obs || ''} onChange={e => setForm({...form, obs: e.target.value})} placeholder="Ex: Cliente prefere campainha..." /></div>
                 </div>
 
@@ -912,10 +914,38 @@ export function EditClientModal({ client, onClose, onSave, orders }: any) {
 
 export function EditOrderModal({ order, onClose, onSave }: any) {
     const [form, setForm] = useState(order);
+    
+    // Converte timestamp do Firebase para string 'YYYY-MM-DDTHH:mm' para o input datetime-local
+    const initialDateString = useMemo(() => {
+        if (!order.createdAt || !order.createdAt.seconds) return '';
+        // Ajuste de fuso horário simples (considerando local)
+        const date = new Date(order.createdAt.seconds * 1000);
+        // Formato para input datetime-local: YYYY-MM-DDTHH:mm
+        const offset = date.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(date.getTime() - offset)).toISOString().slice(0, 16);
+        return localISOTime;
+    }, [order.createdAt]);
+
+    const [dateString, setDateString] = useState(initialDateString);
 
     const handleSave = () => {
         const val = typeof form.value === 'string' ? parseFloat(form.value) : form.value;
-        onSave(order.id, { ...form, value: val, amount: formatCurrency(val) });
+        
+        // Converter data de volta para objeto Date
+        const newDate = dateString ? new Date(dateString) : null;
+        
+        const updatedData = { 
+            ...form, 
+            value: val, 
+            amount: formatCurrency(val)
+        };
+
+        // Se a data mudou, atualiza createdAt
+        if (newDate) {
+            updatedData.createdAt = newDate;
+        }
+
+        onSave(order.id, updatedData);
         onClose();
     };
 
@@ -932,11 +962,26 @@ export function EditOrderModal({ order, onClose, onSave }: any) {
                 </div>
                 
                 <div className="space-y-4 mb-6">
+                    {/* EDIÇÃO DE DATA */}
+                    <div>
+                        <label className="text-xs text-amber-500 font-bold uppercase block mb-1">Data e Hora do Pedido</label>
+                        <input 
+                            type="datetime-local"
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 text-sm"
+                            value={dateString}
+                            onChange={(e) => setDateString(e.target.value)}
+                        />
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Cliente</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.customer} onChange={e => setForm({...form, customer: e.target.value})} /></div>
                         <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: formatPhoneNumberDisplay(e.target.value)})} /></div>
                     </div>
                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
+                    
+                    {/* CAMPO LOCALIZAÇÃO (PEDIDO) */}
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Link do Maps / Localização</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 text-xs placeholder:text-slate-600" value={form.mapsLink || ''} onChange={e => setForm({...form, mapsLink: e.target.value})} placeholder="https://maps.google..." /></div>
+
                     <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Itens do Pedido</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-32 resize-none font-mono text-sm" value={form.items} onChange={e => setForm({...form, items: e.target.value})} /></div>
                     
                     <div className="grid grid-cols-2 gap-4">

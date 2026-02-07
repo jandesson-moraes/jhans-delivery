@@ -620,12 +620,7 @@ export default function ClientInterface({
                         </h1>
 
                         {/* --- UNIFIED HERO SLIDER (BANNER & FEATURED PRODUCTS) --- */}
-                        {/* SKELETON PARA O CARROSSEL SE NÃO HOUVER SLIDES AINDA */}
-                        {slides.length === 0 ? (
-                            <div className="relative w-full aspect-[2/1] md:aspect-[21/9] lg:aspect-[2.5/1] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-slate-900 animate-pulse">
-                                <div className="absolute inset-0 bg-slate-800/50"></div>
-                            </div>
-                        ) : (
+                        {slides.length > 0 && (
                             <div 
                                 className="relative w-full aspect-[2/1] md:aspect-[21/9] lg:aspect-[2.5/1] rounded-2xl overflow-hidden shadow-2xl border border-white/10 group cursor-pointer touch-pan-y"
                                 onMouseEnter={() => setIsCarouselPaused(true)} 
@@ -636,13 +631,13 @@ export default function ClientInterface({
                             >
                                 {/* Slide Track with Translate Transition */}
                                 <div 
-                                    className="flex h-full transition-transform duration-700 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+                                    className="flex w-full h-full transition-transform duration-700 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
                                     style={{ transform: `translateX(-${currentSlideIndex * 100}%)` }}
                                 >
                                     {slides.map((slide, idx) => {
                                         if (slide.type === 'banner') {
                                             return (
-                                                <div key={slide.id} className="min-w-full h-full relative" onClick={() => setShowGiveaway(true)}>
+                                                <div key={slide.id} className="w-full h-full flex-shrink-0 relative" onClick={() => setShowGiveaway(true)}>
                                                     {slide.data.promoMode === 'banner' ? (
                                                         <img src={slide.data.bannerUrl} className="w-full h-full object-cover bg-slate-900" />
                                                     ) : (
@@ -677,7 +672,7 @@ export default function ClientInterface({
                                             // Product Slide (Hero Style)
                                             const product = slide.data;
                                             return (
-                                                <div key={slide.id} className="min-w-full h-full relative bg-slate-900" onClick={() => handleOpenProduct(product)}>
+                                                <div key={slide.id} className="w-full h-full flex-shrink-0 relative bg-slate-900" onClick={() => handleOpenProduct(product)}>
                                                     {/* Background Image */}
                                                     <div className="absolute inset-0">
                                                         {product.imageUrl ? (
