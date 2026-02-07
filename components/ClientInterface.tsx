@@ -683,7 +683,7 @@ export default function ClientInterface({
                                                         {product.imageUrl ? (
                                                             <img src={product.imageUrl} className="w-full h-full object-cover opacity-60" alt={product.name}/>
                                                         ) : (
-                                                            <div className="w-full h-full flex items-center justify-center text-slate-700 bg-slate-800"><Utensils size={64}/></div>
+                                                            <div className="w-full h-full flex items-center justify-center text-slate-700 bg-slate-900"><Utensils size={64}/></div>
                                                         )}
                                                         {/* Gradient Overlay - VERTICAL BOTTOM UP */}
                                                         <div className="absolute inset-0 bg-gradient-to-t from-[#020617] via-[#020617]/60 to-transparent"></div>
