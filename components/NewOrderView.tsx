@@ -274,7 +274,8 @@ export function NewOrderView({ products, appConfig, onCreateOrder, clients = [] 
         setGeneralObs('');
         setDeliveryFee('');
         setMobileTab('menu');
-        alert('Pedido criado com sucesso!');
+        // Alerta nativo removido para evitar interrupção
+        // alert('Pedido criado com sucesso!'); 
     };
 
     return (
