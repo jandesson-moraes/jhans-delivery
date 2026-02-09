@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, InventoryItem } from '../types';
 import { formatCurrency, copyToClipboard } from '../utils';
-import { PlusCircle, Edit, Utensils, ListPlus, Trash2, Link as LinkIcon, ExternalLink, Copy, Check, Globe, TrendingUp, Image as ImageIcon } from 'lucide-react';
+import { PlusCircle, Edit, Utensils, ListPlus, Trash2, Link as LinkIcon, ExternalLink, Copy, Check, Globe, TrendingUp, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
 import { ProductFormModal } from './Modals';
 import { Footer } from './Shared';
 
@@ -63,6 +63,11 @@ export function MenuManager({ products, inventory, onCreate, onUpdate, onDelete 
             onCreate(cleanData);
         }
         setIsModalOpen(false);
+    };
+
+    const toggleAvailability = (product: Product) => {
+        const newStatus = product.available === false ? true : false;
+        onUpdate(product.id, { available: newStatus });
     };
 
     // Constrói o link completo com base no input do usuário
@@ -169,6 +174,7 @@ export function MenuManager({ products, inventory, onCreate, onUpdate, onDelete 
                                     const totalCost = cost + opCost;
                                     const profit = p.price - totalCost;
                                     const margin = p.price > 0 ? (profit / p.price) * 100 : 0;
+                                    const isAvailable = p.available !== false;
                                     
                                     // Cor do indicador de margem
                                     let marginColor = 'text-slate-500';
@@ -179,24 +185,24 @@ export function MenuManager({ products, inventory, onCreate, onUpdate, onDelete 
                                     }
 
                                     return (
-                                        <div key={p.id} className="border border-slate-800 p-0 rounded-2xl shadow-sm bg-slate-900 flex flex-col justify-between hover:border-slate-700 transition-colors group relative overflow-hidden">
+                                        <div key={p.id} className={`border p-0 rounded-2xl shadow-sm flex flex-col justify-between transition-all group relative overflow-hidden ${isAvailable ? 'bg-slate-900 border-slate-800 hover:border-slate-700' : 'bg-slate-950 border-slate-800 opacity-60'}`}>
                                             {/* Preview da Imagem */}
                                             <div className="h-40 w-full bg-slate-950 relative overflow-hidden border-b border-slate-800">
                                                 {p.imageUrl ? (
-                                                    <img src={p.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                    <img src={p.imageUrl} className={`w-full h-full object-cover transition-transform duration-500 ${isAvailable ? 'group-hover:scale-105' : 'grayscale'}`} />
                                                 ) : (
                                                     <div className="flex items-center justify-center h-full text-slate-700">
                                                         <ImageIcon size={32} />
                                                     </div>
                                                 )}
-                                                <div className="absolute top-2 right-2 bg-slate-900/90 text-emerald-400 font-bold px-2 py-1 rounded-lg text-xs shadow border border-slate-800">
-                                                    {formatCurrency(p.price)}
+                                                <div className={`absolute top-2 right-2 font-bold px-2 py-1 rounded-lg text-xs shadow border border-slate-800 ${isAvailable ? 'bg-slate-900/90 text-emerald-400' : 'bg-red-900 text-white'}`}>
+                                                    {isAvailable ? formatCurrency(p.price) : 'ESGOTADO'}
                                                 </div>
                                             </div>
 
                                             <div className="p-5 flex-1 flex flex-col">
                                                 <div className="flex justify-between items-start mb-2">
-                                                    <h4 className="font-bold text-white text-lg leading-tight line-clamp-2">{p.name}</h4>
+                                                    <h4 className={`font-bold text-lg leading-tight line-clamp-2 ${isAvailable ? 'text-white' : 'text-slate-500 line-through'}`}>{p.name}</h4>
                                                 </div>
                                                 {p.description && <p className="text-xs text-slate-500 leading-relaxed mb-4 line-clamp-2 min-h-[2.5em]">{p.description}</p>}
                                                 
@@ -211,8 +217,18 @@ export function MenuManager({ products, inventory, onCreate, onUpdate, onDelete 
                                                 )}
                                             </div>
                                             <div className="flex justify-end p-3 pt-0 gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                {/* BOTÃO TOGGLE DISPONIBILIDADE */}
+                                                <button 
+                                                    onClick={() => toggleAvailability(p)}
+                                                    className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold ${isAvailable ? 'bg-slate-800 text-slate-300 hover:bg-red-900/30 hover:text-red-400' : 'bg-emerald-900/30 text-emerald-400 border border-emerald-500/30'}`}
+                                                    title={isAvailable ? "Marcar como Esgotado" : "Marcar como Disponível"}
+                                                >
+                                                    {isAvailable ? <Eye size={14}/> : <EyeOff size={14}/>}
+                                                    {isAvailable ? 'Ativo' : 'Indisp.'}
+                                                </button>
+
                                                 <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:bg-amber-600 hover:text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold"><Edit size={14}/> Editar</button>
-                                                <button onClick={() => onDelete(p.id)} className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:bg-red-600 hover:text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold"><Trash2 size={14}/> Excluir</button>
+                                                <button onClick={() => onDelete(p.id)} className="px-3 py-1.5 bg-slate-800 text-slate-300 hover:bg-red-600 hover:text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold"><Trash2 size={14}/></button>
                                             </div>
                                         </div>
                                     )

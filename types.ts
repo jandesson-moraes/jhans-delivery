@@ -176,13 +176,14 @@ export interface ProductIngredient {
 export interface Product {
   id: string;
   name: string;
-  imageUrl?: string; // Nova propriedade para a foto
+  imageUrl?: string; 
   category: string;
   price: number;
   description?: string;
   ingredients?: ProductIngredient[];
   costPrice?: number;
   operationalCost?: number;
+  available?: boolean; // NOVO: Controle de disponibilidade
 }
 
 export interface Client {
@@ -227,8 +228,8 @@ export interface GiveawayEntry {
     id: string;
     name: string;
     phone: string;
-    instagram?: string; // Mantido para compatibilidade, mas o uso real será no dynamicData
-    dynamicData?: Record<string, string>; // Armazena as respostas dinâmicas (ex: { "email": "abc@...", "custom": "resposta" })
+    instagram?: string; 
+    dynamicData?: Record<string, string>; 
     createdAt: any;
     confirmed: boolean;
 }

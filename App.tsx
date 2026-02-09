@@ -118,7 +118,8 @@ export default function App() {
   const [giveawayWinners, setGiveawayWinners] = useState<GiveawayWinner[]>([]); 
   const [siteVisits, setSiteVisits] = useState<DailyStats[]>([]);
   
-  const [appConfig, setAppConfigState] = useState<AppConfig>(DEFAULT_CONFIG);
+  // Inicializa vazio, não com DEFAULT_CONFIG para evitar piscar dados padrão
+  const [appConfig, setAppConfigState] = useState<AppConfig | null>(null);
 
   // UI State
   const [modal, setModal] = useState<string | null>(null);
@@ -168,19 +169,21 @@ export default function App() {
           }
       };
 
+      // Listener Configuração (CRÍTICO: Garantir que não sobrescreva se já existir)
       const unsubConfig = safeSnapshot(doc(db, 'config', 'main'), (docSnap) => {
           if (docSnap.exists()) {
-              setAppConfigState(prev => {
-                  const dbData = docSnap.data();
-                  const newData = { ...DEFAULT_CONFIG, ...dbData } as AppConfig;
-                  if (JSON.stringify(prev) === JSON.stringify(newData)) return prev;
-                  return newData;
-              });
+              const dbData = docSnap.data();
+              // Mescla os dados do banco com o default, dando prioridade ao BANCO
+              const mergedData = { ...DEFAULT_CONFIG, ...dbData } as AppConfig;
+              setAppConfigState(mergedData);
           } else {
+              // Só cria o padrão se o documento NÃO existir (primeira vez)
+              console.log("Configuração não encontrada. Criando padrão...");
               setDoc(docSnap.ref, DEFAULT_CONFIG).catch(err => {
                   if (err.code === 'permission-denied') setPermissionError(true);
                   else console.error("Erro ao criar config:", err);
               });
+              setAppConfigState(DEFAULT_CONFIG);
           }
       });
 
@@ -322,12 +325,15 @@ export default function App() {
                 .flash-text { background: linear-gradient(to right, #ffffff 20%, #f97316 50%, #ffffff 80%); background-size: 200% auto; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: text-shimmer 2.5s linear infinite; }
               `}</style>
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-orange-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-              <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-2 relative z-10 uppercase drop-shadow-lg flash-text">{appConfig.appName || 'Jhans Burgers'}</h2>
+              <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-2 relative z-10 uppercase drop-shadow-lg flash-text">JHANS BURGERS</h2>
               <div className="flex items-center gap-2 text-slate-400 text-sm font-medium relative z-10 mt-4"><Flame className="animate-pulse text-orange-500" size={24} fill="#f97316" fillOpacity={0.2}/><span>Preparando a chapa...</span></div>
               <div className="w-64 h-1.5 bg-slate-900 rounded-full mt-6 overflow-visible relative z-10"><div className="fire-line w-full"></div></div>
           </div>
       );
   }
+
+  // Se o config ainda não carregou, usa o padrão para evitar crash, mas com uma flag visual se quiser
+  const currentConfig = appConfig || DEFAULT_CONFIG;
 
   const renderContent = () => {
     // --- NOVA ROTA: TELA DE PAGAMENTO PIX ---
@@ -335,7 +341,7 @@ export default function App() {
         return (
             <PixPaymentView 
                 orderId={pixOrderId}
-                appConfig={appConfig}
+                appConfig={currentConfig}
                 onBack={() => {
                     // Remove parametros da URL e volta para o cliente
                     const url = new URL(window.location.href);
@@ -365,7 +371,7 @@ export default function App() {
                 giveawayEntries={giveawayEntries}
                 giveawayWinners={giveawayWinners} 
                 siteVisits={siteVisits}
-                appConfig={appConfig}
+                appConfig={currentConfig}
                 isMobile={isMobile}
                 setModal={setModal}
                 setModalData={setModalData}
@@ -440,7 +446,7 @@ export default function App() {
         <><GlobalStyles />
         <MemoizedClientInterface 
             products={products}
-            appConfig={appConfig}
+            appConfig={currentConfig}
             onCreateOrder={(data: any) => createDocWrapper('orders', data)}
             onEnterGiveaway={async (data: any) => { const cleanPhone = normalizePhone(data.phone); const exists = giveawayEntries.some(e => normalizePhone(e.phone) === cleanPhone); if (exists) { setAlertInfo({ isOpen: true, title: "Erro", message: "Este número já está participando!", type: 'error' }); } else { await createDocWrapper('giveaway_entries', data); }}}
             allowSystemAccess={true}

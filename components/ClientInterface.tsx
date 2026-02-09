@@ -5,7 +5,7 @@ import { formatCurrency, checkShopStatus, generatePixPayload, copyToClipboard, f
 import { 
     ShoppingCart, Plus, Minus, X, MessageCircle, ChevronRight, 
     Search, Utensils, Phone, User, Store, Gift, Lock, Bike,
-    MapPin, Navigation, CreditCard, Banknote, ArrowLeft, Clock, Copy, QrCode, AlertTriangle, CalendarClock, CheckCircle2, Home, Check, Sparkles, Trophy, Flame, Timer, Ticket, Instagram, Edit, Mail, Calendar, HelpCircle, Image as ImageIcon, Star, Zap, Info, ShoppingBag
+    MapPin, Navigation, CreditCard, Banknote, ArrowLeft, Clock, Copy, QrCode, AlertTriangle, CalendarClock, CheckCircle2, Home, Check, Sparkles, Trophy, Flame, Timer, Ticket, Instagram, Edit, Mail, Calendar, HelpCircle, Image as ImageIcon, Star, Zap, Info, ShoppingBag, Ban
 } from 'lucide-react';
 import { Footer, PixIcon } from './Shared';
 
@@ -132,7 +132,8 @@ export default function ClientInterface({
     const featuredProducts = useMemo(() => {
         if (!safeConfig.featuredSettings?.active) return [];
         const ids = safeConfig.featuredSettings?.productIds || [];
-        return safeProducts.filter(p => ids.includes(p.id));
+        // Filtra para exibir apenas produtos disponveis nos destaques
+        return safeProducts.filter(p => ids.includes(p.id) && p.available !== false);
     }, [safeProducts, safeConfig.featuredSettings]);
 
     // --- COMBINED SLIDES (BANNER + PRODUCTS) ---
@@ -288,6 +289,8 @@ export default function ClientInterface({
 
     // Cart Logic
     const addToCart = (product: Product, quantity = 1, obs = '') => {
+        if (product.available === false) return; // Prevent adding if unavailable
+
         setCart(prev => {
             const existing = prev.find(i => i.product.id === product.id && i.obs === obs);
             if(existing) return prev.map(i => (i.product.id === product.id && i.obs === obs) ? {...i, quantity: i.quantity + quantity} : i);
@@ -298,6 +301,7 @@ export default function ClientInterface({
     };
 
     const handleOpenProduct = (product: Product) => {
+        if (product.available === false) return; // Prevent opening detail modal if unavailable
         setViewProduct(product);
         setViewProductQty(1);
         setViewProductObs('');
@@ -780,19 +784,51 @@ export default function ClientInterface({
                                 <div key={category} className="animate-in slide-in-from-bottom-4 duration-700">
                                     <h3 className="text-white font-black text-sm md:text-lg mb-3 flex items-center gap-2 uppercase tracking-wider pl-1 border-l-4 border-orange-500">{category}</h3>
                                     <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-                                        {items.map(product => (
-                                            <div key={product.id} onClick={() => handleOpenProduct(product)} className="bg-[#0f172a] border border-slate-800 rounded-xl flex flex-col hover:border-slate-600 transition-all shadow-md group relative overflow-hidden cursor-pointer h-full active:scale-[0.98]">
-                                                <div className="aspect-[4/3] w-full relative overflow-hidden bg-slate-900">
-                                                    {product.imageUrl ? (<img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"/>) : (<div className="w-full h-full flex items-center justify-center text-slate-700"><Utensils size={32} /></div>)}
-                                                    <div className="absolute bottom-2 left-2 bg-black/80 backdrop-blur-sm text-emerald-400 px-2 py-1 rounded-lg text-xs md:text-sm font-black border border-emerald-500/30 shadow-lg">{formatCurrency(product.price)}</div>
+                                        {items.map(product => {
+                                            const isAvailable = product.available !== false;
+                                            
+                                            return (
+                                                <div 
+                                                    key={product.id} 
+                                                    onClick={() => handleOpenProduct(product)} 
+                                                    className={`bg-[#0f172a] border rounded-xl flex flex-col transition-all shadow-md group relative overflow-hidden cursor-pointer h-full ${isAvailable ? 'active:scale-[0.98] border-slate-800 hover:border-slate-600' : 'border-slate-800 opacity-60'}`}
+                                                >
+                                                    <div className="aspect-[4/3] w-full relative overflow-hidden bg-slate-900">
+                                                        {product.imageUrl ? (
+                                                            <img src={product.imageUrl} alt={product.name} className={`w-full h-full object-cover transition-transform duration-700 ${isAvailable ? 'group-hover:scale-110' : 'grayscale'}`}/>
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-slate-700"><Utensils size={32} /></div>
+                                                        )}
+                                                        
+                                                        <div className={`absolute bottom-2 left-2 px-2 py-1 rounded-lg text-xs md:text-sm font-black border shadow-lg ${isAvailable ? 'bg-black/80 backdrop-blur-sm text-emerald-400 border-emerald-500/30' : 'bg-red-900 text-white border-red-700'}`}>
+                                                            {isAvailable ? formatCurrency(product.price) : 'ESGOTADO'}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="p-3 flex flex-col flex-1">
+                                                        <h4 className={`font-bold text-xs md:text-base mb-1 transition-colors line-clamp-2 leading-tight ${isAvailable ? 'text-white group-hover:text-amber-500' : 'text-slate-500 line-through'}`}>
+                                                            {product.name}
+                                                        </h4>
+                                                        {product.description && (<p className="text-slate-400 text-[10px] md:text-xs leading-relaxed line-clamp-2 mb-2">{product.description}</p>)}
+                                                        
+                                                        <div className="mt-auto pt-2 flex justify-end">
+                                                            {isAvailable ? (
+                                                                <button 
+                                                                    onClick={(e) => { e.stopPropagation(); addToCart(product); }} 
+                                                                    className="bg-slate-800 text-white w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-md border border-slate-700 group-hover:bg-amber-600 group-hover:border-amber-500"
+                                                                >
+                                                                    <Plus size={16}/>
+                                                                </button>
+                                                            ) : (
+                                                                <div className="w-8 h-8 flex items-center justify-center text-slate-600 cursor-not-allowed">
+                                                                    <Ban size={16}/>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className="p-3 flex flex-col flex-1">
-                                                    <h4 className="font-bold text-white text-xs md:text-base mb-1 group-hover:text-amber-500 transition-colors line-clamp-2 leading-tight">{product.name}</h4>
-                                                    {product.description && (<p className="text-slate-400 text-[10px] md:text-xs leading-relaxed line-clamp-2 mb-2">{product.description}</p>)}
-                                                    <div className="mt-auto pt-2 flex justify-end"><button onClick={(e) => { e.stopPropagation(); addToCart(product); }} className="bg-slate-800 text-white w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-md border border-slate-700 group-hover:bg-amber-600 group-hover:border-amber-500"><Plus size={16}/></button></div>
-                                                </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             ))

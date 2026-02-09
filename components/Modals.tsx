@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Trophy, Shuffle, Search, Users, Edit, Trash2, Check, MessageCircle, Instagram, AlertTriangle, Copy, Printer, AlertCircle, Info, Flame, Bike, Save, Settings, Lock, Store, Clock, MapPin, CreditCard, Smartphone, Image as ImageIcon, Plus, Truck, CalendarClock, Sliders, UploadCloud, RefreshCw, Signal, QrCode, CheckCircle2, DollarSign, Timer, Ban, PlusCircle, Camera, FileText, ChevronRight, Download, History, PackageCheck, Ticket, DownloadCloud, Gift, Mail, Calendar, HelpCircle, FileSpreadsheet, User, Phone, Megaphone, Monitor, Banknote, Navigation, FlaskConical, ShoppingCart, Square, CheckSquare, Wand2, Send, Wallet, Star, Utensils, ChevronDown, Percent, Box, ChevronUp, Type, FileImage } from 'lucide-react';
+import { X, Trophy, Shuffle, Search, Users, Edit, Trash2, Check, MessageCircle, Instagram, AlertTriangle, Copy, Printer, AlertCircle, Info, Flame, Bike, Save, Settings, Lock, Store, Clock, MapPin, CreditCard, Smartphone, Image as ImageIcon, Plus, Truck, CalendarClock, Sliders, UploadCloud, RefreshCw, Signal, QrCode, CheckCircle2, DollarSign, Timer, Ban, PlusCircle, Camera, FileText, ChevronRight, Download, History, PackageCheck, Ticket, DownloadCloud, Gift, Mail, Calendar, HelpCircle, FileSpreadsheet, User, Phone, Megaphone, Monitor, Banknote, Navigation, FlaskConical, ShoppingCart, Square, CheckSquare, Wand2, Send, Wallet, Star, Utensils, ChevronDown, Percent, Box, ChevronUp, Type, FileImage, ShieldCheck } from 'lucide-react';
 import { normalizePhone, formatDate, formatCurrency, generateReceiptText, printOrderTicket, getProductionMessage, getDispatchMessage, formatPhoneNumberDisplay, compressImage, COUNTRY_CODES, toSentenceCase, formatOrderId, formatTime, copyToClipboard } from '../utils';
 import { AppConfig, Product, Order, InventoryItem, GiveawayEntry, Driver, Client, DeliveryZone, GiveawayFieldConfig, ShoppingItem, Supplier } from '../types';
 import { PixIcon } from './Shared';
@@ -332,6 +332,36 @@ export function SettingsModal({ config, onClose, onSave, products = [] }: any) {
         setForm({ ...form, featuredSettings: { ...form.featuredSettings, productIds: newIds } });
     };
 
+    // --- FUNÇÃO DE BACKUP MANUAL ---
+    const downloadBackup = () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(form, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", `backup_config_${new Date().toISOString().slice(0,10)}.json`);
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    };
+
+    const handleRestoreBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const json = JSON.parse(event.target?.result as string);
+                if (window.confirm("Isso irá substituir todas as configurações atuais pelas do arquivo. Tem certeza?")) {
+                    setForm(json);
+                    alert("Backup carregado! Clique em 'Salvar Alterações' para confirmar.");
+                }
+            } catch (err) {
+                alert("Erro ao ler arquivo de backup. Formato inválido.");
+            }
+        };
+        reader.readAsText(file);
+    };
+
     const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
     return (
@@ -450,15 +480,15 @@ export function SettingsModal({ config, onClose, onSave, products = [] }: any) {
                                              <div className="space-y-3 bg-slate-900 p-4 rounded-xl border border-slate-800">
                                                  <div>
                                                      <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Título</label>
-                                                     <input className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-amber-500 text-sm" value={form.welcomeTitle || ''} onChange={e => setForm({...form, welcomeTitle: e.target.value})} placeholder="Bem-vindo ao Jhans!" />
+                                                     <input className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-amber-500 text-sm" value={form.welcomeTitle || ''} onChange={e => setForm({...form, welcomeTitle: e.target.value})} placeholder="Bem-vindo ao Jhans!" />
                                                  </div>
                                                  <div>
                                                      <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Mensagem</label>
-                                                     <textarea className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-amber-500 text-sm h-24 resize-none" value={form.welcomeMessage || ''} onChange={e => setForm({...form, welcomeMessage: e.target.value})} placeholder="Ex: Aproveite nossas promoções de hoje. Entregamos em toda a cidade!" />
+                                                     <textarea className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-amber-500 text-sm h-24 resize-none" value={form.welcomeMessage || ''} onChange={e => setForm({...form, welcomeMessage: e.target.value})} placeholder="Ex: Aproveite nossas promoções de hoje. Entregamos em toda a cidade!" />
                                                  </div>
                                                  <div>
                                                      <label className="text-[10px] text-slate-500 font-bold uppercase mb-1 block">Texto do Botão</label>
-                                                     <input className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-amber-500 text-sm" value={form.welcomeButtonText || ''} onChange={e => setForm({...form, welcomeButtonText: e.target.value})} placeholder="Ver Cardápio" />
+                                                     <input className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-amber-500 text-sm" value={form.welcomeButtonText || ''} onChange={e => setForm({...form, welcomeButtonText: e.target.value})} placeholder="Ver Cardápio" />
                                                  </div>
                                              </div>
                                          )}
@@ -580,7 +610,27 @@ export function SettingsModal({ config, onClose, onSave, products = [] }: any) {
                          </div>
                      )}
                      {activeTab === 'localizacao' && (<div className="space-y-6 animate-in fade-in"><div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 relative overflow-hidden"><div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none"><MapPin size={200} className="text-blue-500"/></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10"><div><label className="text-[10px] text-blue-400 font-bold uppercase mb-2 block tracking-wider">LATITUDE</label><input type="number" step="any" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-blue-500 font-mono text-sm transition-all shadow-inner" value={form.location?.lat || ''} onChange={e => handleLocationChange('lat', e.target.value)} placeholder="-23.000000"/></div><div><label className="text-[10px] text-blue-400 font-bold uppercase mb-2 block tracking-wider">LONGITUDE</label><input type="number" step="any" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-blue-500 font-mono text-sm transition-all shadow-inner" value={form.location?.lng || ''} onChange={e => handleLocationChange('lng', e.target.value)} placeholder="-46.000000"/></div></div></div></div>)}
-                     {activeTab === 'sistema' && (<div className="space-y-6 animate-in fade-in"><div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 relative overflow-hidden"><div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none"><Sliders size={200} className="text-purple-500"/></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10"><div><label className="text-[10px] text-purple-400 font-bold uppercase mb-2 block tracking-wider flex items-center gap-2"><DollarSign size={12}/> Pedido Mínimo (R$)</label><input type="number" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-purple-500 text-sm shadow-inner" placeholder="0.00" value={form.minOrderValue || ''} onChange={e => setForm({...form, minOrderValue: parseFloat(e.target.value)})}/></div><div><label className="text-[10px] text-purple-400 font-bold uppercase mb-2 block tracking-wider flex items-center gap-2"><Timer size={12}/> Tempo Estimado (Texto)</label><input type="text" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-purple-500 text-sm shadow-inner" placeholder="Ex: 40-50 min" value={form.estimatedTime || ''} onChange={e => setForm({...form, estimatedTime: e.target.value})}/></div></div><div className="mt-8 pt-6 border-t border-slate-800 relative z-10"><h4 className="text-white font-bold mb-4 flex items-center gap-2"><Printer size={18}/> Impressora Térmica</h4><div className="max-w-xs"><label className="text-[10px] text-purple-400 font-bold uppercase mb-2 block tracking-wider">LARGURA DO PAPEL</label><select className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-purple-500 text-sm shadow-inner" value={form.printerWidth || '80mm'} onChange={e => setForm({...form, printerWidth: e.target.value as '58mm'|'80mm'})}><option value="80mm">80mm (Padrão)</option><option value="58mm">58mm (Mini)</option></select></div></div></div></div>)}
+                     {activeTab === 'sistema' && (<div className="space-y-6 animate-in fade-in"><div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 relative overflow-hidden"><div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none"><Sliders size={200} className="text-purple-500"/></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10"><div><label className="text-[10px] text-purple-400 font-bold uppercase mb-2 block tracking-wider flex items-center gap-2"><DollarSign size={12}/> Pedido Mínimo (R$)</label><input type="number" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-purple-500 text-sm shadow-inner" placeholder="0.00" value={form.minOrderValue || ''} onChange={e => setForm({...form, minOrderValue: parseFloat(e.target.value)})}/></div><div><label className="text-[10px] text-purple-400 font-bold uppercase mb-2 block tracking-wider flex items-center gap-2"><Timer size={12}/> Tempo Estimado (Texto)</label><input type="text" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-purple-500 text-sm shadow-inner" placeholder="Ex: 40-50 min" value={form.estimatedTime || ''} onChange={e => setForm({...form, estimatedTime: e.target.value})}/></div></div><div className="mt-8 pt-6 border-t border-slate-800 relative z-10"><h4 className="text-white font-bold mb-4 flex items-center gap-2"><Printer size={18}/> Impressora Térmica</h4><div className="max-w-xs"><label className="text-[10px] text-purple-400 font-bold uppercase mb-2 block tracking-wider">LARGURA DO PAPEL</label><select className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-purple-500 text-sm shadow-inner" value={form.printerWidth || '80mm'} onChange={e => setForm({...form, printerWidth: e.target.value as '58mm'|'80mm'})}><option value="80mm">80mm (Padrão)</option><option value="58mm">58mm (Mini)</option></select></div></div></div>
+                     
+                     <div className="mt-8 pt-6 border-t border-slate-800 relative z-10">
+                         <h4 className="text-white font-bold mb-4 flex items-center gap-2"><ShieldCheck size={18} className="text-blue-500"/> Segurança & Backup</h4>
+                         <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col md:flex-row gap-4 items-center justify-between">
+                             <div>
+                                 <p className="text-xs text-slate-400 mb-1">Baixe um backup de todas as configurações para segurança.</p>
+                                 <p className="text-[10px] text-slate-500">Útil caso os dados precisem ser restaurados manualmente.</p>
+                             </div>
+                             <div className="flex gap-2">
+                                <button onClick={downloadBackup} className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-700 transition-colors">
+                                    <Download size={14}/> Baixar Config
+                                </button>
+                                <label className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-700 transition-colors cursor-pointer">
+                                    <UploadCloud size={14}/> Restaurar
+                                    <input type="file" accept=".json" className="hidden" onChange={handleRestoreBackup} />
+                                </label>
+                             </div>
+                         </div>
+                     </div>
+                     </div>)}
                      {activeTab === 'horarios' && (<div className="animate-in fade-in h-full flex flex-col"><div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 relative overflow-hidden mb-6 flex-1 flex flex-col"><div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none"><Clock size={200} className="text-emerald-500"/></div><div className="flex flex-col gap-2 overflow-y-auto custom-scrollbar relative z-10">{days.map((day, idx) => { const dayConfig = form.schedule?.[idx] || { enabled: false, open: '19:00', close: '23:00' }; const isEnabled = dayConfig.enabled; return (<div key={idx} className={`flex flex-col sm:flex-row items-center justify-between p-3 rounded-xl border transition-all duration-200 group gap-3 ${isEnabled ? 'bg-slate-900/80 border-slate-700 hover:border-slate-600' : 'bg-slate-950/50 border-slate-800 opacity-60'}`}><div className="flex items-center gap-3 w-full sm:w-32 shrink-0 justify-between sm:justify-start"><div className="flex items-center gap-3"><label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" className="sr-only peer" checked={isEnabled} onChange={e => handleScheduleChange(idx, 'enabled', e.target.checked)} /><div className="w-8 h-4 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-600 peer-checked:after:bg-white peer-checked:after:border-white"></div></label><span className={`font-bold text-xs ${isEnabled ? 'text-white' : 'text-slate-500'}`}>{day}</span></div></div><div className="w-full sm:flex-1 flex items-center justify-end min-w-0">{isEnabled ? (<div className="flex items-center justify-center gap-1 bg-slate-950 px-3 py-2 rounded-lg border border-slate-800 shadow-inner w-full sm:w-auto"><input type="time" className="bg-transparent text-white font-bold text-xs outline-none text-center p-0 w-full sm:w-20" value={dayConfig.open} onChange={e => handleScheduleChange(idx, 'open', e.target.value)} /><span className="text-slate-600 font-bold text-[10px] mx-1">ATÉ</span><input type="time" className="bg-transparent text-white font-bold text-xs outline-none text-center p-0 w-full sm:w-20" value={dayConfig.close} onChange={e => handleScheduleChange(idx, 'close', e.target.value)} /></div>) : (<span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest flex items-center justify-center sm:justify-end gap-1 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800/50 w-full sm:w-auto"><Ban size={10}/> Fechado</span>)}</div></div>); })}</div></div></div>)}
                  </div>
                  <div className="p-5 border-t border-slate-800 bg-slate-950 shrink-0">
@@ -591,593 +641,283 @@ export function SettingsModal({ config, onClose, onSave, products = [] }: any) {
     );
 }
 
-export function ProductFormModal({ isOpen, onClose, product, onSave, existingCategories, inventory }: any) {
-    const [form, setForm] = useState<Partial<Product>>({ name: '', price: 0, category: '', description: '', ingredients: [], operationalCost: 0, costPrice: 0 });
-    const [imageFile, setImageFile] = useState<File | null>(null);
-    const [preview, setPreview] = useState<string | null>(null);
-
-    useEffect(() => {
-        if (product) {
-            setForm(product);
-            setPreview(product.imageUrl);
-        } else {
-            setForm({ name: '', price: 0, category: existingCategories[0] || 'Geral', description: '', ingredients: [], operationalCost: 0, costPrice: 0 });
-            setPreview(null);
-        }
-        setImageFile(null);
-    }, [product, isOpen]);
-
-    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            setImageFile(file);
-            setPreview(URL.createObjectURL(file));
-            try {
-                const compressed = await compressImage(file);
-                setForm(prev => ({ ...prev, imageUrl: compressed }));
-            } catch (err) {
-                console.error("Error compressing image", err);
-            }
-        }
-    };
-
-    const addIngredient = () => {
-        setForm(prev => ({
-            ...prev,
-            ingredients: [...(prev.ingredients || []), { inventoryId: '', qty: 0 }]
-        }));
-    };
-
-    const updateIngredient = (index: number, field: string, value: any) => {
-        const newIngredients = [...(form.ingredients || [])];
-        (newIngredients[index] as any)[field] = value;
-        setForm(prev => ({ ...prev, ingredients: newIngredients }));
-    };
-
-    const removeIngredient = (index: number) => {
-        const newIngredients = [...(form.ingredients || [])];
-        newIngredients.splice(index, 1);
-        setForm(prev => ({ ...prev, ingredients: newIngredients }));
-    };
-
-    useEffect(() => {
-        if (inventory && form.ingredients) {
-            const calculatedCost = form.ingredients.reduce((acc: number, ing: any) => {
-                const item = inventory.find((i: any) => i.id === ing.inventoryId);
-                return acc + ((item?.cost || 0) * (ing.qty || 0));
-            }, 0);
-            setForm(prev => ({ ...prev, costPrice: parseFloat(calculatedCost.toFixed(2)) }));
-        }
-    }, [form.ingredients, inventory]);
-
-    if (!isOpen) return null;
-
+export function EditOrderModal({ order, onClose, onSave }: any) {
+    const [form, setForm] = useState({...order});
+    
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
-            <div className="bg-slate-900 w-full max-w-2xl rounded-2xl border border-slate-700 shadow-2xl flex flex-col max-h-[90vh]">
-                <div className="p-5 border-b border-slate-800 flex justify-between items-center">
-                    <h3 className="font-bold text-white text-lg">{product ? 'Editar Produto' : 'Novo Produto'}</h3>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
+            <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 p-6 shadow-2xl relative overflow-y-auto max-h-[90vh]">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-xl text-white">Editar Pedido {formatOrderId(order.id)}</h3>
                     <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
                 </div>
-                
-                <div className="p-6 overflow-y-auto custom-scrollbar space-y-4">
-                    <div className="flex gap-4 items-start">
-                        <div className="w-24 h-24 bg-slate-950 border-2 border-dashed border-slate-700 rounded-xl relative overflow-hidden group cursor-pointer hover:border-amber-500 transition-colors shrink-0">
-                            {preview ? (
-                                <img src={preview} className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="flex items-center justify-center h-full text-slate-600"><Camera size={24}/></div>
-                            )}
-                            <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleImageChange} />
-                        </div>
-                        <div className="flex-1 space-y-4">
-                            <div>
-                                <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome do Produto</label>
-                                <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Ex: X-Bacon" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Preço Venda (R$)</label>
-                                    <input type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.price} onChange={e => setForm({...form, price: parseFloat(e.target.value)})} />
-                                </div>
-                                <div>
-                                    <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Categoria</label>
-                                    <div className="relative">
-                                        <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 appearance-none" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
-                                            {existingCategories.map((c: string) => <option key={c} value={c}>{c}</option>)}
-                                            <option value="new">+ Nova Categoria</option>
-                                        </select>
-                                        {form.category === 'new' && (
-                                            <input 
-                                                className="absolute inset-0 w-full bg-slate-950 border border-amber-500 rounded-xl p-3 text-white outline-none" 
-                                                placeholder="Digite nova categoria..." 
-                                                autoFocus
-                                                onBlur={(e) => { if(e.target.value) setForm({...form, category: e.target.value}); else setForm({...form, category: existingCategories[0]}); }}
-                                            />
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                <div className="space-y-4">
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Cliente</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.customer} onChange={e => setForm({...form, customer: e.target.value})} /></div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Itens</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-32" value={form.items} onChange={e => setForm({...form, items: e.target.value})} /></div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Valor</label><input type="number" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.value} onChange={e => setForm({...form, value: parseFloat(e.target.value)})} /></div>
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Pagamento</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.paymentMethod} onChange={e => setForm({...form, paymentMethod: e.target.value})} /></div>
                     </div>
-
-                    <div>
-                        <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Descrição</label>
-                        <textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-20 resize-none" value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="Ingredientes, detalhes..." />
-                    </div>
-
-                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                        <div className="flex justify-between items-center mb-3">
-                            <h4 className="font-bold text-white text-sm flex items-center gap-2"><FlaskConical size={16} className="text-purple-500"/> Ficha Técnica (Ingredientes)</h4>
-                            <button onClick={addIngredient} type="button" className="text-xs bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded transition-colors flex items-center gap-1"><Plus size={12}/> Add</button>
-                        </div>
-                        
-                        <div className="space-y-2 mb-4">
-                            {form.ingredients?.map((ing, idx) => (
-                                <div key={idx} className="flex gap-2 items-center">
-                                    <select className="flex-1 bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white" value={ing.inventoryId} onChange={e => updateIngredient(idx, 'inventoryId', e.target.value)}>
-                                        <option value="">Selecione Insumo...</option>
-                                        {inventory?.map((i: any) => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
-                                    </select>
-                                    <input type="number" placeholder="Qtd" className="w-20 bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white" value={ing.qty} onChange={e => updateIngredient(idx, 'qty', parseFloat(e.target.value))} />
-                                    <button onClick={() => removeIngredient(idx)} className="text-red-500 hover:text-red-400"><Trash2 size={16}/></button>
-                                </div>
-                            ))}
-                            {(!form.ingredients || form.ingredients.length === 0) && <p className="text-slate-600 text-xs italic">Nenhum ingrediente vinculado.</p>}
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 border-t border-slate-800 pt-3">
-                            <div>
-                                <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Custo Insumos (Auto)</label>
-                                <input disabled className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-400 text-xs font-mono" value={formatCurrency(form.costPrice || 0)} />
-                            </div>
-                            <div>
-                                <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Custo Operacional Extra</label>
-                                <input type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-white text-xs" value={form.operationalCost} onChange={e => setForm({...form, operationalCost: parseFloat(e.target.value)})} placeholder="Embalagem, Gás..." />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="p-5 border-t border-slate-800 flex justify-end gap-3">
-                    <button onClick={onClose} className="px-4 py-2 text-slate-400 hover:text-white text-sm font-bold">Cancelar</button>
-                    <button onClick={() => onSave(product?.id, form)} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-xl text-sm font-bold shadow-lg">Salvar Produto</button>
+                    <button onClick={() => { onSave(order.id, form); onClose(); }} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-4">Salvar Alterações</button>
                 </div>
             </div>
         </div>
     );
+}
+
+export function ProductFormModal({ isOpen, onClose, product, onSave, existingCategories, inventory = [] }: any) {
+    if(!isOpen) return null;
+    const [form, setForm] = useState(product || { name: '', description: '', price: '', category: 'Hambúrgueres', ingredients: [], available: true });
+    
+    const handleImageUpload = async (file: File) => {
+        try { const compressed = await compressImage(file); setForm({...form, imageUrl: compressed}); } catch(e) { alert('Erro na imagem'); }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
+            <div className="bg-slate-900 w-full max-w-2xl rounded-2xl border border-slate-700 p-6 shadow-2xl relative overflow-y-auto max-h-[90vh]">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-xl text-white">{product ? 'Editar Produto' : 'Novo Produto'}</h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                </div>
+                <div className="space-y-4">
+                    <div className="flex gap-4">
+                        <div className="w-32 h-32 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-center relative group overflow-hidden shrink-0">
+                            {form.imageUrl ? <img src={form.imageUrl} className="w-full h-full object-cover"/> : <ImageIcon className="text-slate-700"/>}
+                            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={e => e.target.files && handleImageUpload(e.target.files[0])} />
+                        </div>
+                        <div className="flex-1 space-y-4">
+                            <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Preço</label><input type="number" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.price} onChange={e => setForm({...form, price: e.target.value})} /></div>
+                                <div>
+                                    <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Categoria</label>
+                                    <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
+                                        {existingCategories.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                                        <option value="Nova">+ Nova Categoria</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Descrição</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-24" value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
+                    <button onClick={() => { onSave(product?.id, form); }} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-4">Salvar Produto</button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+export function ManualOrderModal({ initialData, onClose, onSave }: any) {
+    const [form, setForm] = useState(initialData || { customer: '', phone: '', address: '' });
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
+            <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-xl text-white">Novo Pedido Manual</h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                </div>
+                <div className="space-y-4">
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Cliente</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.customer} onChange={e => setForm({...form, customer: e.target.value})} /></div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
+                    <button onClick={() => { 
+                        onSave({ ...form, items: 'Pedido Manual', value: 0, status: 'pending', origin: 'manual', createdAt: new Date() });
+                        onClose();
+                    }} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-4">Criar Pedido</button>
+                </div>
+            </div>
+        </div>
+    )
 }
 
 export function NewDriverModal({ initialData, onClose, onSave }: any) {
-    const [form, setForm] = useState(initialData || { name: '', phone: '', plate: '', vehicle: 'Moto', status: 'available', battery: 100, paymentModel: 'fixed_per_delivery', paymentRate: 5.00 });
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSave(form);
-        onClose();
-    };
-
+    const [form, setForm] = useState(initialData || { name: '', phone: '', vehicle: '', plate: '', paymentModel: 'fixed_per_delivery', paymentRate: 5 });
+    
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
-            <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl p-6 relative">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
-                <h3 className="font-bold text-white text-xl mb-6">{initialData ? 'Editar' : 'Novo'} Motorista</h3>
-                
-                <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
+            <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-xl text-white">{initialData ? 'Editar' : 'Novo'} Motorista</h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                </div>
+                <div className="space-y-4">
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Veículo</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.vehicle} onChange={e => setForm({...form, vehicle: e.target.value})} /></div>
+                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Placa</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.plate} onChange={e => setForm({...form, plate: e.target.value})} /></div>
+                    </div>
                     <div>
-                        <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome Completo</label>
-                        <input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+                        <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Modelo de Pagamento</label>
+                        <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.paymentModel} onChange={e => setForm({...form, paymentModel: e.target.value})}>
+                            <option value="fixed_per_delivery">Fixo por Entrega</option>
+                            <option value="percentage">% do Pedido</option>
+                            <option value="salary">Salário Fixo</option>
+                        </select>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label>
-                            <input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: formatPhoneNumberDisplay(e.target.value)})} />
-                        </div>
-                        <div>
-                            <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Senha Acesso</label>
-                            <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.password || ''} onChange={e => setForm({...form, password: e.target.value})} placeholder="Opcional" />
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Veículo</label>
-                            <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.vehicle} onChange={e => setForm({...form, vehicle: e.target.value})}>
-                                <option value="Moto">Moto</option>
-                                <option value="Carro">Carro</option>
-                                <option value="Bike">Bike</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Placa</label>
-                            <input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 uppercase" value={form.plate || ''} onChange={e => setForm({...form, plate: e.target.value})} />
-                        </div>
-                    </div>
-
-                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                        <label className="text-xs text-emerald-500 font-bold uppercase block mb-3">Modelo de Pagamento</label>
-                        <div className="grid grid-cols-2 gap-3 mb-3">
-                            <button type="button" onClick={() => setForm({...form, paymentModel: 'fixed_per_delivery'})} className={`p-2 rounded text-xs font-bold border transition-colors ${form.paymentModel === 'fixed_per_delivery' ? 'bg-emerald-900/30 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-700 text-slate-400'}`}>Por Entrega (Fixo)</button>
-                            <button type="button" onClick={() => setForm({...form, paymentModel: 'percentage'})} className={`p-2 rounded text-xs font-bold border transition-colors ${form.paymentModel === 'percentage' ? 'bg-emerald-900/30 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-700 text-slate-400'}`}>Porcentagem (%)</button>
-                        </div>
-                        <div>
-                            <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Valor / Taxa</label>
-                            <input type="number" step="0.01" className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white outline-none focus:border-emerald-500" value={form.paymentRate} onChange={e => setForm({...form, paymentRate: parseFloat(e.target.value)})} />
-                        </div>
-                    </div>
-
-                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Salvar Motorista</button>
-                </form>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Valor / Taxa</label><input type="number" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.paymentRate} onChange={e => setForm({...form, paymentRate: parseFloat(e.target.value)})} /></div>
+                    <button onClick={() => { onSave(form); onClose(); }} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-4">Salvar</button>
+                </div>
             </div>
         </div>
-    );
+    )
 }
 
 export function CloseCycleModal({ data, onClose, onConfirm }: any) {
-    if (!data) return null;
+    if(!data) return null;
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
-            <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-700 shadow-2xl p-6 relative text-center">
-                <div className="w-16 h-16 bg-emerald-900/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
-                    <DollarSign size={32} className="text-emerald-400"/>
-                </div>
-                <h3 className="text-xl font-bold text-white mb-1">Fechar Ciclo</h3>
-                <p className="text-slate-400 text-sm mb-6">Confirme o pagamento para <b>{data.driverName}</b></p>
-                
-                <div className="bg-slate-950 rounded-xl p-4 mb-6 text-left space-y-2 border border-slate-800">
-                    <div className="flex justify-between text-sm"><span className="text-slate-400">Ganhos ({data.deliveriesCount} un)</span> <span className="text-white font-bold">{formatCurrency(data.deliveriesTotal)}</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-slate-400">Adiantamentos</span> <span className="text-red-400 font-bold">- {formatCurrency(data.valesTotal)}</span></div>
-                    <div className="border-t border-slate-800 pt-2 mt-2 flex justify-between text-base"><span className="text-emerald-500 font-bold uppercase">Total a Pagar</span> <span className="text-white font-black">{formatCurrency(data.finalAmount)}</span></div>
-                </div>
-
-                <div className="flex gap-3">
-                    <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl transition-colors">Cancelar</button>
-                    <button onClick={() => onConfirm(data)} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors">Confirmar</button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
+            <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-700 p-6 shadow-2xl text-center">
+                <h3 className="font-bold text-xl text-white mb-4">Fechar Ciclo</h3>
+                <p className="text-slate-400 mb-6">Confirma o pagamento de <b>{formatCurrency(data.finalAmount)}</b> para <b>{data.driverName}</b>?</p>
+                <div className="flex gap-4">
+                    <button onClick={onClose} className="flex-1 bg-slate-800 text-white font-bold py-3 rounded-xl">Cancelar</button>
+                    <button onClick={() => onConfirm(data)} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl">Confirmar</button>
                 </div>
             </div>
         </div>
-    );
+    )
 }
 
 export function ImportModal({ onClose, onImportCSV }: any) {
     const [text, setText] = useState('');
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
-            <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 shadow-2xl p-6 relative">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
-                <h3 className="font-bold text-white text-xl mb-2">Importar Clientes (CSV)</h3>
-                <p className="text-slate-400 text-sm mb-4">Cole abaixo no formato: <code>Nome, Telefone, Endereço</code></p>
-                <textarea 
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 font-mono text-xs h-64 resize-none mb-4" 
-                    placeholder={"João Silva, 11999999999, Rua A, 123\nMaria Oliveira, 11988888888, Av B, 456"}
-                    value={text}
-                    onChange={e => setText(e.target.value)}
-                />
-                <button onClick={() => onImportCSV(text)} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg">Processar Importação</button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
+            <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 p-6 shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-xl text-white">Importar Clientes (CSV)</h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
+                </div>
+                <p className="text-xs text-slate-400 mb-2">Formato: Nome,Telefone,Endereço (um por linha)</p>
+                <textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-60 font-mono text-xs" value={text} onChange={e => setText(e.target.value)} placeholder="João,11999999999,Rua A 123&#10;Maria,11988888888,Av B 456" />
+                <button onClick={() => onImportCSV(text)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg mt-4">Importar</button>
             </div>
         </div>
-    );
+    )
 }
 
-export function EditClientModal({ client, onClose, onSave, orders }: any) {
-    const [form, setForm] = useState(client);
-    
-    // Histórico de pedidos desse cliente
-    const clientOrders = useMemo(() => {
-        if (!orders || !client) return [];
-        return orders.filter((o: Order) => normalizePhone(o.phone) === normalizePhone(client.phone))
-                     .sort((a: Order, b: Order) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
-                     .slice(0, 5); // Últimos 5
-    }, [orders, client]);
-
+export function EditClientModal({ client, onClose, onSave }: any) {
+    const [form, setForm] = useState({...client});
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
-            <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 shadow-2xl p-6 relative overflow-y-auto max-h-[90vh]">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
-                <h3 className="font-bold text-white text-xl mb-6">Editar Cliente</h3>
-                
-                <div className="space-y-4 mb-6">
-                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
-                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: formatPhoneNumberDisplay(e.target.value)})} /></div>
-                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço Principal</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
-                    
-                    {/* CAMPO LOCALIZAÇÃO (CLIENTE) */}
-                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Link do Maps / Localização</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 text-xs placeholder:text-slate-600" value={form.mapsLink || ''} onChange={e => setForm({...form, mapsLink: e.target.value})} placeholder="https://maps.google..." /></div>
-
-                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Observações (Interno)</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-20 resize-none" value={form.obs || ''} onChange={e => setForm({...form, obs: e.target.value})} placeholder="Ex: Cliente prefere campainha..." /></div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
+            <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-xl text-white">Editar Cliente</h3>
+                    <button onClick={onClose}><X className="text-slate-500 hover:text-white"/></button>
                 </div>
-
-                {clientOrders.length > 0 && (
-                    <div className="bg-slate-950 rounded-xl border border-slate-800 p-4 mb-6">
-                        <h4 className="text-xs text-slate-400 font-bold uppercase mb-3 flex items-center gap-2"><History size={12}/> Últimos Pedidos</h4>
-                        <div className="space-y-2">
-                            {clientOrders.map((o: Order) => (
-                                <div key={o.id} className="flex justify-between items-center text-xs border-b border-slate-800 pb-2 last:border-0 last:pb-0">
-                                    <div>
-                                        <span className="text-white font-bold block">{formatDate(o.createdAt)}</span>
-                                        <span className="text-slate-500 truncate block max-w-[200px]">{o.items.replace(/\n/g, ', ')}</span>
-                                    </div>
-                                    <span className="text-emerald-400 font-bold">{formatCurrency(o.value)}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                <div className="flex gap-3">
-                    <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl transition-colors">Cancelar</button>
-                    <button onClick={() => onSave(form)} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors">Salvar Alterações</button>
+                <div className="space-y-4">
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Nome</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} /></div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
+                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Observações</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white h-24" value={form.obs} onChange={e => setForm({...form, obs: e.target.value})} /></div>
+                    <button onClick={() => onSave(form)} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg mt-4">Salvar</button>
                 </div>
             </div>
         </div>
-    );
-}
-
-export function EditOrderModal({ order, onClose, onSave }: any) {
-    const [form, setForm] = useState(order);
-    
-    // Converte timestamp do Firebase para string 'YYYY-MM-DDTHH:mm' para o input datetime-local
-    const initialDateString = useMemo(() => {
-        if (!order.createdAt || !order.createdAt.seconds) return '';
-        // Ajuste de fuso horário simples (considerando local)
-        const date = new Date(order.createdAt.seconds * 1000);
-        // Formato para input datetime-local: YYYY-MM-DDTHH:mm
-        const offset = date.getTimezoneOffset() * 60000;
-        const localISOTime = (new Date(date.getTime() - offset)).toISOString().slice(0, 16);
-        return localISOTime;
-    }, [order.createdAt]);
-
-    const [dateString, setDateString] = useState(initialDateString);
-
-    const handleSave = () => {
-        const val = typeof form.value === 'string' ? parseFloat(form.value) : form.value;
-        
-        // Converter data de volta para objeto Date
-        const newDate = dateString ? new Date(dateString) : null;
-        
-        const updatedData = { 
-            ...form, 
-            value: val, 
-            amount: formatCurrency(val)
-        };
-
-        // Se a data mudou, atualiza createdAt
-        if (newDate) {
-            updatedData.createdAt = newDate;
-        }
-
-        onSave(order.id, updatedData);
-        onClose();
-    };
-
-    return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
-            <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 shadow-2xl p-6 relative overflow-y-auto max-h-[90vh]">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
-                <div className="flex items-center gap-2 mb-6">
-                    <div className="w-10 h-10 bg-amber-900/30 rounded-lg flex items-center justify-center border border-amber-500/30 text-amber-500 font-bold text-sm">#{formatOrderId(order.id).replace('#','')}</div>
-                    <div>
-                        <h3 className="font-bold text-white text-lg">Editar Pedido</h3>
-                        <p className="text-slate-500 text-xs">{formatDate(order.createdAt)} • {formatTime(order.createdAt)}</p>
-                    </div>
-                </div>
-                
-                <div className="space-y-4 mb-6">
-                    {/* EDIÇÃO DE DATA */}
-                    <div>
-                        <label className="text-xs text-amber-500 font-bold uppercase block mb-1">Data e Hora do Pedido</label>
-                        <input 
-                            type="datetime-local"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 text-sm"
-                            value={dateString}
-                            onChange={(e) => setDateString(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Cliente</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.customer} onChange={e => setForm({...form, customer: e.target.value})} /></div>
-                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: formatPhoneNumberDisplay(e.target.value)})} /></div>
-                    </div>
-                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
-                    
-                    {/* CAMPO LOCALIZAÇÃO (PEDIDO) */}
-                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Link do Maps / Localização</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 text-xs placeholder:text-slate-600" value={form.mapsLink || ''} onChange={e => setForm({...form, mapsLink: e.target.value})} placeholder="https://maps.google..." /></div>
-
-                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Itens do Pedido</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-32 resize-none font-mono text-sm" value={form.items} onChange={e => setForm({...form, items: e.target.value})} /></div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Valor Total (R$)</label><input type="number" step="0.01" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 font-mono" value={form.value} onChange={e => setForm({...form, value: parseFloat(e.target.value)})} /></div>
-                        <div>
-                            <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Pagamento</label>
-                            <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.paymentMethod?.split(' ')[0]} onChange={e => setForm({...form, paymentMethod: e.target.value})}>
-                                <option value="PIX">PIX</option>
-                                <option value="Dinheiro">Dinheiro</option>
-                                <option value="Cartão">Cartão</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Status</label>
-                        <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 overflow-x-auto">
-                            {['pending', 'preparing', 'ready', 'delivering', 'completed', 'cancelled'].map(st => (
-                                <button key={st} onClick={() => setForm({...form, status: st})} className={`px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${form.status === st ? 'bg-amber-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}>
-                                    {st === 'pending' ? 'Pendente' : st === 'preparing' ? 'Preparo' : st === 'ready' ? 'Pronto' : st === 'delivering' ? 'Em Rota' : st === 'completed' ? 'Entregue' : 'Cancelado'}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex gap-3">
-                    <button onClick={onClose} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl transition-colors">Cancelar</button>
-                    <button onClick={handleSave} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors">Salvar Alterações</button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-export function ManualOrderModal({ initialData, onClose, onSave }: any) {
-    const [form, setForm] = useState(initialData || { customer: '', phone: '', address: '', items: '', value: 0, paymentMethod: 'Dinheiro', status: 'pending', origin: 'manual' });
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSave({ ...form, amount: formatCurrency(parseFloat(form.value)) });
-        onClose();
-    };
-
-    return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in zoom-in">
-            <div className="bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-700 shadow-2xl p-6 relative overflow-y-auto max-h-[90vh]">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
-                <h3 className="font-bold text-white text-xl mb-6">Novo Pedido Manual</h3>
-                
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Cliente</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.customer} onChange={e => setForm({...form, customer: e.target.value})} /></div>
-                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Telefone</label><input required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.phone} onChange={e => setForm({...form, phone: formatPhoneNumberDisplay(e.target.value)})} /></div>
-                    </div>
-                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Endereço</label><input className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.address} onChange={e => setForm({...form, address: e.target.value})} /></div>
-                    <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Itens (1 por linha)</label><textarea required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 h-24 resize-none font-mono text-sm" value={form.items} onChange={e => setForm({...form, items: e.target.value})} placeholder="1x X-Burger&#10;1x Coca Cola" /></div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-xs text-slate-500 font-bold uppercase block mb-1">Valor Total (R$)</label><input type="number" step="0.01" required className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500 font-mono" value={form.value} onChange={e => setForm({...form, value: parseFloat(e.target.value)})} /></div>
-                        <div>
-                            <label className="text-xs text-slate-500 font-bold uppercase block mb-1">Pagamento</label>
-                            <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500" value={form.paymentMethod} onChange={e => setForm({...form, paymentMethod: e.target.value})}>
-                                <option value="Dinheiro">Dinheiro</option>
-                                <option value="PIX">PIX</option>
-                                <option value="Cartão">Cartão</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg mt-2">Criar Pedido</button>
-                </form>
-            </div>
-        </div>
-    );
+    )
 }
 
 export function ReceiptModal({ order, onClose, appConfig }: any) {
-    const text = generateReceiptText(order, appConfig.appName, appConfig);
-    const [copied, setCopied] = useState(false);
-
-    const handleCopy = () => {
-        copyToClipboard(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+    const handlePrint = () => {
+        printOrderTicket(order, appConfig);
     };
 
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
-            <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-700 shadow-2xl p-6 relative">
-                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
-                <h3 className="font-bold text-white text-xl mb-4 flex items-center gap-2"><FileText size={20} className="text-amber-500"/> Comprovante</h3>
-                
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 mb-4 font-mono text-[10px] text-slate-300 whitespace-pre-wrap max-h-[60vh] overflow-y-auto custom-scrollbar shadow-inner">
-                    {text}
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
+            <div className="bg-white text-black w-full max-w-xs rounded-xl p-6 shadow-2xl relative overflow-y-auto max-h-[90vh]">
+                <button onClick={onClose} className="absolute top-2 right-2 text-gray-500"><X size={20}/></button>
+                <div className="text-center mb-4">
+                    <h3 className="font-bold uppercase text-lg">{appConfig.appName}</h3>
+                    <p className="text-xs">Pedido {formatOrderId(order.id)}</p>
+                    <p className="text-xs">{formatDate(order.createdAt)} - {formatTime(order.createdAt)}</p>
                 </div>
-
-                <div className="flex flex-col gap-2">
-                    <button onClick={handleCopy} className={`w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${copied ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-300 hover:text-white'}`}>
-                        {copied ? <Check size={16}/> : <Copy size={16}/>} {copied ? 'Copiado!' : 'Copiar Texto'}
-                    </button>
-                    <button onClick={() => printOrderTicket(order, appConfig)} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
-                        <Printer size={16}/> Imprimir Ticket
-                    </button>
+                <div className="border-t border-b border-dashed border-gray-400 py-2 mb-4 text-sm space-y-1">
+                    <p><b>Cliente:</b> {order.customer}</p>
+                    <p><b>Tel:</b> {order.phone}</p>
+                    <p><b>End:</b> {order.address}</p>
                 </div>
+                <div className="text-sm mb-4 whitespace-pre-wrap font-mono leading-tight">
+                    {order.items}
+                </div>
+                <div className="border-t border-dashed border-gray-400 pt-2 text-right">
+                    <p className="text-lg font-bold">TOTAL: {formatCurrency(order.value)}</p>
+                    <p className="text-xs mt-1">{order.paymentMethod}</p>
+                </div>
+                <button onClick={handlePrint} className="w-full bg-black text-white font-bold py-2 rounded mt-6 flex items-center justify-center gap-2"><Printer size={16}/> Imprimir</button>
             </div>
         </div>
-    );
+    )
 }
 
 export function KitchenHistoryModal({ order, onClose, products, totalClientOrders }: any) {
-    // Mock history logic or pass actual history. Using order list logic inside modal would be complex, 
-    // better if history is passed or calculated.
-    // For now, simpler display.
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
-            <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 shadow-2xl p-6 relative">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
+            <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-700 p-6 shadow-2xl relative">
                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20}/></button>
-                <h3 className="font-bold text-white text-lg mb-1">{order.customer}</h3>
-                <p className="text-slate-500 text-sm mb-4">Total de Pedidos: {totalClientOrders}</p>
-                
-                <div className="bg-slate-950 rounded-xl p-4 border border-slate-800">
-                    <p className="text-xs text-slate-500 font-bold uppercase mb-2">Pedido Atual</p>
-                    <div className="text-white text-sm whitespace-pre-wrap">{order.items}</div>
-                    {order.obs && <div className="mt-2 p-2 bg-amber-900/20 border border-amber-500/30 rounded text-amber-300 text-xs">{order.obs}</div>}
+                <h3 className="font-bold text-xl text-white mb-1">Detalhes do Pedido</h3>
+                {totalClientOrders > 1 && <p className="text-xs text-amber-500 font-bold mb-2">Este cliente já fez {totalClientOrders} pedidos hoje!</p>}
+                <p className="text-slate-400 text-sm mb-4">ID: {formatOrderId(order.id)}</p>
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 mb-4">
+                    <p className="text-white font-medium mb-1">{order.customer}</p>
+                    <p className="text-slate-500 text-xs mb-3">{order.address}</p>
+                    <div className="text-slate-300 text-sm whitespace-pre-wrap border-t border-slate-800 pt-2">{order.items}</div>
                 </div>
-                
-                <div className="mt-4 flex justify-end">
-                    <button onClick={onClose} className="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-700">Fechar</button>
-                </div>
+                <div className="text-right text-emerald-400 font-bold text-lg">{formatCurrency(order.value)}</div>
             </div>
         </div>
-    );
+    )
 }
 
 export function ProductionSuccessModal({ order, onClose, appName }: any) {
-    const message = getProductionMessage(order, appName);
-    const handleSend = () => {
-        const phone = normalizePhone(order.phone);
-        if(phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
-        onClose();
-    };
-
+    useEffect(() => {
+        const timer = setTimeout(onClose, 2000);
+        return () => clearTimeout(timer);
+    }, []);
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
-            <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-emerald-500/50 shadow-2xl p-6 relative text-center">
-                <div className="w-16 h-16 bg-emerald-900/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
-                    <Flame size={32} className="text-orange-500 animate-pulse"/>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in zoom-in">
+            <div className="bg-slate-900 p-8 rounded-3xl border border-emerald-500/50 shadow-2xl text-center">
+                <div className="w-20 h-20 bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-400 animate-bounce">
+                    <Flame size={40}/>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Pedido em Preparo!</h3>
-                <p className="text-slate-400 text-sm mb-6">O cliente será notificado que a cozinha começou.</p>
-                <div className="flex gap-3">
-                    <button onClick={onClose} className="flex-1 bg-slate-800 text-slate-300 font-bold py-3 rounded-xl">Pular</button>
-                    <button onClick={handleSend} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"><MessageCircle size={18}/> Avisar</button>
-                </div>
+                <h3 className="text-2xl font-black text-white uppercase">Iniciando Preparo!</h3>
+                <p className="text-slate-400 mt-2">Pedido {formatOrderId(order.id)} enviado para a chapa.</p>
             </div>
         </div>
-    );
+    )
 }
 
 export function DispatchSuccessModal({ data, onClose, appName }: any) {
-    const message = getDispatchMessage(data.order, data.driverName, appName);
-    const handleSend = () => {
-        const phone = normalizePhone(data.order.phone);
-        if(phone) window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
-        onClose();
-    };
-
+    useEffect(() => {
+        const timer = setTimeout(onClose, 3000);
+        return () => clearTimeout(timer);
+    }, []);
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
-            <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-blue-500/50 shadow-2xl p-6 relative text-center">
-                <div className="w-16 h-16 bg-blue-900/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-500/30">
-                    <Bike size={32} className="text-blue-400"/>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in zoom-in">
+            <div className="bg-slate-900 p-8 rounded-3xl border border-blue-500/50 shadow-2xl text-center">
+                <div className="w-20 h-20 bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-400 animate-pulse">
+                    <Bike size={40}/>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Saiu para Entrega!</h3>
-                <p className="text-slate-400 text-sm mb-6">Motoboy: <b>{data.driverName}</b><br/>Avise o cliente que o pedido está a caminho.</p>
-                <div className="flex gap-3">
-                    <button onClick={onClose} className="flex-1 bg-slate-800 text-slate-300 font-bold py-3 rounded-xl">Pular</button>
-                    <button onClick={handleSend} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"><MessageCircle size={18}/> Avisar</button>
-                </div>
+                <h3 className="text-2xl font-black text-white uppercase">Saiu para Entrega!</h3>
+                <p className="text-slate-400 mt-2">Motorista: <b>{data.driverName}</b></p>
             </div>
         </div>
-    );
+    )
 }
 
 export function ConfirmCloseOrderModal({ order, onClose, onConfirm }: any) {
     return (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
-            <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-700 shadow-2xl p-6 relative text-center">
-                <h3 className="text-xl font-bold text-white mb-2">Finalizar Pedido?</h3>
-                <p className="text-slate-400 text-sm mb-6">Isso marcará o pedido <b>{formatOrderId(order.id)}</b> como concluído/entregue.</p>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in zoom-in">
+            <div className="bg-slate-900 p-6 rounded-2xl border border-slate-700 shadow-2xl text-center max-w-sm w-full">
+                <h3 className="text-xl font-bold text-white mb-2">Concluir Pedido?</h3>
+                <p className="text-slate-400 text-sm mb-6">Isso marcará o pedido como <b>Entregue/Finalizado</b> e sairá da tela de produção.</p>
                 <div className="flex gap-3">
-                    <button onClick={onClose} className="flex-1 bg-slate-800 text-slate-300 font-bold py-3 rounded-xl">Cancelar</button>
+                    <button onClick={onClose} className="flex-1 bg-slate-800 text-white font-bold py-3 rounded-xl">Cancelar</button>
                     <button onClick={onConfirm} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl">Confirmar</button>
                 </div>
             </div>
         </div>
-    );
+    )
 }
